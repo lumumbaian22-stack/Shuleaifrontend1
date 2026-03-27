@@ -1,6 +1,5 @@
 // dashboard-core.js - Core dashboard state and navigation
 
-// ============ GLOBAL VARIABLES ============
 let currentRole = null;
 let currentSection = 'dashboard';
 let dashboardData = {};
@@ -9,7 +8,6 @@ let customSubjects = [];
 let schoolUpdateCallbacks = [];
 let clickCount = 0;
 
-// ============ SCHOOL SETTINGS ============
 async function loadSchoolSettings() {
     try {
         const cached = localStorage.getItem('schoolSettings');
@@ -30,7 +28,7 @@ async function loadSchoolSettings() {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.customSubjects || [];
             localStorage.setItem('schoolSettings', JSON.stringify(response.data));
-            console.log('✅ School settings loaded from API:', { curriculum: window.schoolSettings.curriculum, schoolLevel: window.schoolSettings.schoolLevel, schoolName: window.schoolSettings.schoolName });
+            console.log('✅ School settings loaded from API:', { curriculum: window.schoolSettings.curriculum, schoolLevel: window.schoolSettings.schoolLevel });
 
             const school = JSON.parse(localStorage.getItem('school') || '{}');
             if (school) {
@@ -51,38 +49,19 @@ async function loadSchoolSettings() {
     }
 }
 
-async function saveSchoolSettings(settings) {
-    try {
-        const response = await api.admin.updateSchoolSettings(settings);
-        if (response.success) {
-            schoolSettings = response.data;
-            customSubjects = response.data.customSubjects || [];
-            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
-            showToast('Settings saved successfully!', 'success');
-            await showDashboardSection(currentSection);
-        }
-    } catch (error) {
-        showToast('Failed to save settings', 'error');
-    }
-}
-
-// ============ DASHBOARD RENDERING ============
 async function showDashboard(role) {
     console.log('🔵 showDashboard called with role:', role);
 
     if (!role) {
         if (typeof getCurrentRole === 'function') {
             role = getCurrentRole();
-            console.log('Role from getCurrentRole():', role);
         }
         if (!role) {
             role = localStorage.getItem('userRole');
-            console.log('Role from localStorage:', role);
         }
         if (!role) {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             role = user.role;
-            console.log('Role from user object:', role);
         }
         if (!role) {
             try {
@@ -91,14 +70,13 @@ async function showDashboard(role) {
                     role = response.data.user.role;
                     localStorage.setItem('userRole', role);
                     localStorage.setItem('user', JSON.stringify(response.data.user));
-                    console.log('Role from API:', role);
                 }
             } catch (error) {
                 console.error('Failed to fetch user from API:', error);
             }
         }
         if (!role) {
-            console.error('❌ No role found after all attempts, redirecting to login');
+            console.error('❌ No role found, redirecting to login');
             showToast('Session expired. Please log in again.', 'error');
             setTimeout(() => {
                 window.location.href = '/';
@@ -132,12 +110,13 @@ async function showDashboard(role) {
             ]);
             dashboardData = { ...overview.data, schools: schools.data, pendingSchools: pending.data };
         } else if (role === 'admin') {
-            const [teachers, students, pendingTeachers] = await Promise.all([
+            const [teachers, students, pendingTeachers, classes] = await Promise.all([
                 api.admin.getTeachers().catch(err => ({ data: [] })),
                 api.admin.getStudents().catch(err => ({ data: [] })),
-                api.admin.getPendingApprovals().catch(err => ({ data: { teachers: [] } }))
+                api.admin.getPendingApprovals().catch(err => ({ data: { teachers: [] } })),
+                api.admin.getClasses().catch(err => ({ data: [] }))
             ]);
-            dashboardData = { teachers: teachers.data, students: students.data, pendingTeachers: pendingTeachers.data?.teachers || [] };
+            dashboardData = { teachers: teachers.data, students: students.data, pendingTeachers: pendingTeachers.data?.teachers || [], classes: classes.data };
         } else if (role === 'teacher') {
             const [students, todayDuty] = await Promise.all([
                 api.teacher.getMyStudents().catch(err => ({ data: [] })),
@@ -212,14 +191,12 @@ async function showDashboardSection(section) {
             'ai-tutor': 'AI Tutor',
             payments: 'Payments',
             progress: 'Academic Progress',
-            'child-selector': 'Select Child',
             schools: 'School Management',
             'platform-health': 'Platform Health',
             'name-change-requests': 'Name Change Requests',
             'school-approvals': 'School Approvals',
             'pending-approvals': 'Pending School Approvals',
             'teacher-approvals': 'Pending Teacher Approvals',
-            'paid-schools': 'Paid Schools',
             'custom-subjects': 'Custom Subjects',
             'duty-preferences': 'Duty Preferences',
             'fairness-report': 'Fairness Report',
@@ -233,25 +210,21 @@ async function showDashboardSection(section) {
 
         if (section === 'dashboard' || section === 'analytics') {
             setTimeout(() => {
-                if (currentRole === 'admin') {
-                    if (typeof initAdminCharts === 'function') initAdminCharts();
-                }
-                if (typeof initRoleCharts === 'function') {
-                    initRoleCharts(currentRole, dashboardData);
-                }
+                if (currentRole === 'admin' && typeof initAdminCharts === 'function') initAdminCharts();
+                if (typeof initRoleCharts === 'function') initRoleCharts(currentRole, dashboardData);
             }, 300);
         }
 
         setupSectionListeners(currentRole, section);
 
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
     } catch (error) {
         console.error('Error loading section:', error);
         content.innerHTML = `<div class="text-center py-12">
             <i data-lucide="alert-circle" class="h-12 w-12 mx-auto text-red-500 mb-4"></i>
             <p class="text-red-500">Failed to load section: ${error.message}</p>
         </div>`;
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
     } finally {
         hideLoading();
     }
@@ -287,7 +260,7 @@ function setupSectionListeners(role, section) {
         const input = document.getElementById('chat-message-input');
         if (input) {
             input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendChatMessage();
+                if (e.key === 'Enter' && typeof sendChatMessage === 'function') sendChatMessage();
             });
         }
     }
@@ -296,13 +269,12 @@ function setupSectionListeners(role, section) {
         const input = document.getElementById('ai-question-input');
         if (input) {
             input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') askAITutor();
+                if (e.key === 'Enter' && typeof askAITutor === 'function') askAITutor();
             });
         }
     }
 }
 
-// ============ ADMIN STATS ============
 async function updateAdminStats() {
     try {
         const [students, teachers, classes] = await Promise.all([
@@ -324,30 +296,25 @@ async function updateAdminStats() {
         if (classEl) classEl.textContent = classCount;
 
         console.log('📊 Stats updated:', { studentCount, teacherCount, classCount });
-
     } catch (error) {
         console.error('Stats error:', error);
     }
 }
 
-// ============ REGISTER SCHOOL UPDATE CALLBACK ============
 function onSchoolUpdate(callback) {
     if (typeof callback === 'function') {
         schoolUpdateCallbacks.push(callback);
     }
 }
 
-// Expose globally
 window.currentRole = currentRole;
 window.currentSection = currentSection;
 window.dashboardData = dashboardData;
 window.schoolSettings = schoolSettings;
 window.customSubjects = customSubjects;
-window.schoolUpdateCallbacks = schoolUpdateCallbacks;
 window.clickCount = clickCount;
 
 window.loadSchoolSettings = loadSchoolSettings;
-window.saveSchoolSettings = saveSchoolSettings;
 window.showDashboard = showDashboard;
 window.showDashboardSection = showDashboardSection;
 window.renderDashboardSection = renderDashboardSection;
