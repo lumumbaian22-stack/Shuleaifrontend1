@@ -10,11 +10,35 @@ async function loadMyStudents() {
     } catch (error) {
         console.error('❌ Failed to load students:', error);
         if (error.message.includes('403')) {
-            showToast('You are not authorized to view students. Please check your teacher account status.', 'error');
+            showToast('You do not have permission to view students. Please contact your school admin.', 'error');
         } else {
             showToast(error.message || 'Failed to load students', 'error');
         }
         return [];
+    }
+}
+
+async function deleteStudent(studentId, studentName) {
+    if (!confirm(`⚠️ Are you sure you want to remove ${studentName} from your class? This action cannot be undone.`)) {
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await api.teacher.deleteStudent(studentId);
+        
+        if (response.success) {
+            showToast(`✅ ${studentName} removed from class`, 'success');
+            await refreshMyStudents();
+        }
+    } catch (error) {
+        if (error.message.includes('403')) {
+            showToast('You do not have permission to delete students. Only admins can perform this action.', 'error');
+        } else {
+            showToast(error.message || 'Failed to delete student', 'error');
+        }
+    } finally {
+        hideLoading();
     }
 }
 
