@@ -1,4 +1,4 @@
-// profile.js - Profile section
+// profile.js - Profile section (must be exported)
 
 async function renderProfileSection() {
     const user = getCurrentUser();
@@ -8,6 +8,7 @@ async function renderProfileSection() {
 
     return `
         <div class="space-y-6 animate-fade-in max-w-4xl mx-auto">
+            <!-- Profile Header -->
             <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
                 <div class="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10"></div>
                 <div class="absolute bottom-0 left-0 -mb-10 -ml-10 h-40 w-40 rounded-full bg-black/10"></div>
@@ -26,6 +27,7 @@ async function renderProfileSection() {
                 </div>
             </div>
 
+            <!-- Stats Cards -->
             <div class="grid gap-4 md:grid-cols-3">
                 <div class="rounded-xl border bg-card p-4">
                     <p class="text-sm text-muted-foreground">Member Since</p>
@@ -41,6 +43,7 @@ async function renderProfileSection() {
                 </div>
             </div>
 
+            <!-- Profile Information Form -->
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold text-lg mb-4">Profile Information</h3>
                 <form id="profile-form" class="space-y-4" onsubmit="updateProfile(event)">
@@ -76,6 +79,7 @@ async function renderProfileSection() {
                 </form>
             </div>
 
+            <!-- Change Password -->
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold text-lg mb-4">Change Password</h3>
                 <form id="password-form" class="space-y-4" onsubmit="updatePassword(event)">
@@ -104,6 +108,7 @@ async function renderProfileSection() {
                 </form>
             </div>
 
+            <!-- Preferences -->
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold text-lg mb-4">Preferences</h3>
                 <div class="space-y-4">
@@ -140,6 +145,7 @@ async function renderProfileSection() {
                 </div>
             </div>
 
+            <!-- Account Actions -->
             <div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 p-6">
                 <h3 class="font-semibold text-lg mb-4 text-red-700 dark:text-red-400">Account Actions</h3>
                 <div class="flex gap-3">
@@ -299,6 +305,7 @@ async function loadUserStats(role) {
     }
 }
 
+// Export
 window.renderProfileSection = renderProfileSection;
 window.updateProfile = updateProfile;
 window.updatePassword = updatePassword;
