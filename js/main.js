@@ -1,4 +1,5 @@
-// main.js - Entry point, initialises the application
+// main.js - Entry point
+
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🔵 DOM Content Loaded - Starting initialization');
 
@@ -101,8 +102,9 @@ function setupEventListeners() {
 
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('bg-black/50')) {
-            closeAuthModal();
-            closeNameChangeModal();
+            if (typeof closeAuthModal === 'function') closeAuthModal();
+            if (typeof closeNameChangeModal === 'function') closeNameChangeModal();
+            if (typeof closeDayDetailsModal === 'function') closeDayDetailsModal();
         }
     });
 
@@ -110,7 +112,7 @@ function setupEventListeners() {
         const menu = document.getElementById('user-menu');
         const btn = e.target.closest('button');
         if (menu && !menu.contains(e.target) && (!btn || !btn.onclick || !btn.onclick.toString().includes('toggleUserMenu'))) {
-            menu.classList.add('hidden');
+            if (typeof toggleUserMenu === 'function') menu.classList.add('hidden');
         }
     });
 }
