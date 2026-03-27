@@ -766,6 +766,186 @@ window.saveAllSettings = async function() {
     }
 };
 
+// ============ HELP SECTION ============
+function renderHelpSection() {
+    const user = getCurrentUser();
+    const role = user?.role || 'user';
+    
+    // Help articles database
+    const helpArticles = {
+        superadmin: [
+            { title: 'How to approve a new school', content: 'Go to School Approvals, review school details, click Approve. The school will be activated immediately.', keywords: ['approve', 'school', 'activate', 'registration'] },
+            { title: 'How to suspend a school', content: 'Find the school in Schools list, click the suspend button, enter reason. All users will be locked out.', keywords: ['suspend', 'block', 'deactivate', 'school'] },
+            { title: 'How to change platform name', content: 'Go to Platform Settings, enter new name, click Save. Changes appear in emails and headers.', keywords: ['name', 'platform', 'rename', 'settings'] },
+            { title: 'How to view platform health', content: 'Go to Platform Health to see system status, CPU usage, memory usage, and recent events.', keywords: ['health', 'status', 'monitor', 'performance', 'cpu', 'memory'] }
+        ],
+        admin: [
+            { title: 'How to add a student', content: 'Go to Students, click Add Student, fill in details. The student receives an ELIMUID automatically.', keywords: ['add', 'student', 'create', 'enroll'] },
+            { title: 'How to approve a teacher', content: 'Go to Teacher Approvals, review teacher details, click Approve or Reject.', keywords: ['teacher', 'approve', 'hire', 'staff'] },
+            { title: 'How to generate duty roster', content: 'Go to Duty Management, select dates, click Generate Roster. The system assigns duties based on points.', keywords: ['duty', 'roster', 'schedule', 'generate', 'assign'] },
+            { title: 'How to change curriculum', content: 'Go to Settings, select new curriculum, click Save. All users will see updated grading.', keywords: ['curriculum', 'cbc', '844', 'british', 'american', 'change'] }
+        ],
+        teacher: [
+            { title: 'How to take attendance', content: 'Go to Attendance, mark each student as Present/Absent/Late, add notes, click Save Attendance.', keywords: ['attendance', 'present', 'absent', 'mark', 'register'] },
+            { title: 'How to enter grades', content: 'Go to Grades, select subject and assessment type, enter scores, click Save.', keywords: ['grade', 'mark', 'score', 'exam', 'test', 'enter'] },
+            { title: 'How to check in for duty', content: 'Go to Dashboard, find Duty Card, click Check In when on duty.', keywords: ['duty', 'checkin', 'check in', 'responsibility'] }
+        ],
+        parent: [
+            { title: 'How to view child progress', content: 'Select your child from the top, view grades, attendance, and teacher comments.', keywords: ['progress', 'grades', 'attendance', 'child', 'performance'] },
+            { title: 'How to report absence', content: 'Click Report Absence, select date, enter reason, submit. Teacher will be notified.', keywords: ['absence', 'absent', 'report', 'sick', 'leave'] },
+            { title: 'How to make payment', content: 'Go to Payments, select child, choose plan, enter amount, complete payment.', keywords: ['payment', 'pay', 'fee', 'school fees', 'money'] }
+        ],
+        student: [
+            { title: 'How to view my grades', content: 'Go to My Grades to see all your scores and performance.', keywords: ['grade', 'score', 'result', 'performance'] },
+            { title: 'How to use AI Tutor', content: 'Type your question in AI Tutor chat, get instant help with any subject.', keywords: ['ai', 'tutor', 'help', 'question', 'assistant'] },
+            { title: 'How to join study groups', content: 'Go to Study Chat to connect with other students and study together.', keywords: ['study', 'chat', 'group', 'discussion'] }
+        ]
+    };
+    
+    const articles = helpArticles[role] || helpArticles.admin;
+    
+    return `
+        <div class="space-y-6 animate-fade-in max-w-5xl mx-auto">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Help Center</h2>
+                <p class="text-muted-foreground mt-2">Find answers to common questions and learn how to use the platform</p>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"></i>
+                <input type="text" id="help-search" placeholder="Search help articles..." 
+                       onkeyup="searchHelpArticles()"
+                       class="w-full pl-10 pr-4 py-3 rounded-xl border bg-card focus:ring-2 focus:ring-primary transition-all">
+            </div>
+            
+            <!-- Articles Container -->
+            <div id="help-articles-container" class="grid gap-4">
+                ${articles.map(article => `
+                    <div class="help-article rounded-xl border bg-card p-6 hover:shadow-md transition-all cursor-pointer" 
+                         data-title="${article.title.toLowerCase()}" 
+                         data-content="${article.content.toLowerCase()}"
+                         data-keywords="${article.keywords.join(' ').toLowerCase()}"
+                         onclick="showHelpArticleDetail('${article.title.replace(/'/g, "\\'")}', '${article.content.replace(/'/g, "\\'")}')">
+                        <h3 class="font-semibold text-lg mb-2">📚 ${article.title}</h3>
+                        <p class="text-muted-foreground">${article.content.substring(0, 150)}${article.content.length > 150 ? '...' : ''}</p>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <!-- Contact Support -->
+            <div class="rounded-xl border bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 text-center">
+                <h3 class="font-semibold text-lg mb-2">💬 Still Need Help?</h3>
+                <p class="text-muted-foreground mb-4">Contact our support team for assistance</p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="showToast('Opening support chat...', 'info')" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
+                        <i data-lucide="message-circle" class="h-4 w-4 inline mr-2"></i>
+                        Live Chat
+                    </button>
+                    <button onclick="window.location.href='mailto:support@shuleai.com'" class="px-4 py-2 border rounded-lg hover:bg-accent">
+                        <i data-lucide="mail" class="h-4 w-4 inline mr-2"></i>
+                        Email Support
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Search help articles
+window.searchHelpArticles = function() {
+    const searchTerm = document.getElementById('help-search')?.value.toLowerCase().trim();
+    const articles = document.querySelectorAll('.help-article');
+    
+    if (!searchTerm) {
+        articles.forEach(article => article.style.display = 'block');
+        return;
+    }
+    
+    let foundCount = 0;
+    articles.forEach(article => {
+        const title = article.dataset.title || '';
+        const content = article.dataset.content || '';
+        const keywords = article.dataset.keywords || '';
+        
+        const matches = title.includes(searchTerm) || 
+                       content.includes(searchTerm) || 
+                       keywords.includes(searchTerm);
+        
+        article.style.display = matches ? 'block' : 'none';
+        if (matches) foundCount++;
+    });
+    
+    const container = document.getElementById('help-articles-container');
+    const noResultsMsg = document.getElementById('no-results-message');
+    
+    if (foundCount === 0 && searchTerm) {
+        if (!noResultsMsg) {
+            const msg = document.createElement('div');
+            msg.id = 'no-results-message';
+            msg.className = 'text-center py-12 col-span-full';
+            msg.innerHTML = `
+                <i data-lucide="search-x" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i>
+                <p class="text-muted-foreground">No results found for "${searchTerm}"</p>
+                <p class="text-sm text-muted-foreground mt-1">Try different keywords or contact support</p>
+            `;
+            container.appendChild(msg);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    } else if (noResultsMsg) {
+        noResultsMsg.remove();
+    }
+};
+
+// Show article detail modal
+window.showHelpArticleDetail = function(title, content) {
+    let modal = document.getElementById('help-article-modal');
+    if (!modal) {
+        createHelpArticleModal();
+        modal = document.getElementById('help-article-modal');
+    }
+    
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.innerHTML = `
+            <div class="space-y-4">
+                <div class="border-b pb-3">
+                    <h3 class="text-xl font-semibold">${title}</h3>
+                </div>
+                <div class="prose prose-sm max-w-none">
+                    <p class="text-muted-foreground">${content}</p>
+                </div>
+                <div class="flex justify-end gap-2 pt-4 border-t">
+                    <button onclick="closeHelpArticleModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                    <button onclick="window.location.href='mailto:support@shuleai.com'" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Contact Support</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    modal.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+function createHelpArticleModal() {
+    const modalHTML = `
+        <div id="help-article-modal" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black/50" onclick="closeHelpArticleModal()"></div>
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
+                    <div class="modal-content"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeHelpArticleModal() {
+    const modal = document.getElementById('help-article-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
 // ============ EXPORT FUNCTIONS ============
 window.renderAdminSection = renderAdminSection;
 window.renderAdminDashboard = renderAdminDashboard;
