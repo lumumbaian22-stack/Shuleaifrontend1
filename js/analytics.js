@@ -1,277 +1,298 @@
-// Analytics and Charts
+// analytics.js - Charts with real data
+
 let charts = {};
 
-// Initialize charts based on role and data
-function initRoleCharts(role, data) {
-    switch(role) {
-        case 'superadmin':
-            initSuperAdminCharts(data);
-            break;
-        case 'admin':
-            initAdminCharts(data);
-            break;
-        case 'teacher':
-            initTeacherCharts(data);
-            break;
-        case 'parent':
-            initParentCharts(data);
-            break;
-        case 'student':
-            initStudentCharts(data);
-            break;
+async function initRoleCharts(role, data) {
+    try {
+        if (role === 'admin') {
+            await initAdminCharts();
+        } else if (role === 'teacher') {
+            await initTeacherCharts(data);
+        } else if (role === 'parent') {
+            await initParentCharts(data);
+        } else if (role === 'student') {
+            await initStudentCharts(data);
+        } else if (role === 'superadmin') {
+            await initSuperAdminCharts();
+        }
+    } catch (error) {
+        console.error('Chart initialization error:', error);
     }
 }
 
-// Super Admin Charts
-function initSuperAdminCharts(data) {
-    // School growth chart
-    const growthCtx = document.getElementById('superadmin-growthChart');
-    if (growthCtx) {
-        if (charts.superGrowth) charts.superGrowth.destroy();
-        charts.superGrowth = new Chart(growthCtx, {
-            type: 'line',
-            data: {
-                labels: data?.growthLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                datasets: [{
-                    label: 'New Schools',
-                    data: data?.growthData || [2, 3, 4, 3, 5, 7],
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-    
-    // School distribution chart
-    const distCtx = document.getElementById('superadmin-distChart');
-    if (distCtx) {
-        if (charts.superDist) charts.superDist.destroy();
-        charts.superDist = new Chart(distCtx, {
-            type: 'doughnut',
-            data: {
-                labels: data?.distributionLabels || ['Primary', 'Secondary', 'Mixed'],
-                datasets: [{
-                    data: data?.distributionData || [12, 18, 4],
-                    backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { usePointStyle: true, padding: 20 }
+async function initAdminCharts() {
+    try {
+        // Fetch real data
+        const [gradeStats, enrollmentStats] = await Promise.all([
+            api.admin.getStudentGrades().catch(() => ({ data: {} })),
+            api.admin.getAttendanceStats().catch(() => ({ data: {} }))
+        ]);
+
+        const gradeData = gradeStats.data || {};
+        const enrollmentData = enrollmentStats.data || {};
+
+        // Enrollment Chart
+        const enrollCtx = document.getElementById('admin-enrollmentChart');
+        if (enrollCtx) {
+            if (charts.adminEnroll) charts.adminEnroll.destroy();
+
+            const labels = enrollmentData.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const values = enrollmentData.values || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+            if (values.every(v => v === 0)) {
+                // Show "No data" message
+                enrollCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No enrollment data available</p></div>';
+            } else {
+                charts.adminEnroll = new Chart(enrollCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Students',
+                            data: values,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }
                     }
-                },
-                cutout: '70%'
+                });
             }
-        });
-    }
-}
+        }
 
-// Admin Charts
-function initAdminCharts(data) {
-    // Enrollment chart
-    const enrollCtx = document.getElementById('admin-enrollmentChart');
-    if (enrollCtx) {
-        if (charts.adminEnroll) charts.adminEnroll.destroy();
-        charts.adminEnroll = new Chart(enrollCtx, {
-            type: 'line',
-            data: {
-                labels: data?.enrollmentLabels || ['Term 1', 'Term 2', 'Term 3'],
-                datasets: [{
-                    label: 'Students',
-                    data: data?.enrollmentData || [520, 535, 543],
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-    
-    // Grade distribution chart
-    const gradeCtx = document.getElementById('admin-gradeChart');
-    if (gradeCtx) {
-        if (charts.adminGrade) charts.adminGrade.destroy();
-        charts.adminGrade = new Chart(gradeCtx, {
-            type: 'doughnut',
-            data: {
-                labels: data?.gradeLabels || ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'],
-                datasets: [{
-                    data: data?.gradeData || [142, 138, 135, 128],
-                    backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { usePointStyle: true, padding: 20 }
+        // Grade Distribution Chart
+        const gradeCtx = document.getElementById('admin-gradeChart');
+        if (gradeCtx) {
+            if (charts.adminGrade) charts.adminGrade.destroy();
+
+            const gradeLabels = gradeData.labels || ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+            const gradeValues = gradeData.values || [0, 0, 0, 0];
+
+            if (gradeValues.every(v => v === 0)) {
+                gradeCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No grade distribution data available</p></div>';
+            } else {
+                charts.adminGrade = new Chart(gradeCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: gradeLabels,
+                        datasets: [{
+                            data: gradeValues,
+                            backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                        },
+                        cutout: '70%'
                     }
-                },
-                cutout: '70%'
+                });
             }
-        });
-    }
-    
-    // Fairness score chart
-    const fairnessCtx = document.getElementById('admin-fairnessChart');
-    if (fairnessCtx) {
-        if (charts.adminFairness) charts.adminFairness.destroy();
-        charts.adminFairness = new Chart(fairnessCtx, {
-            type: 'gauge',
-            data: {
-                datasets: [{
-                    value: data?.fairnessScore || 85,
-                    minValue: 0,
-                    maxValue: 100,
-                    data: [data?.fairnessScore || 85],
-                    backgroundColor: ['#10b981'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
+        }
+    } catch (error) {
+        console.error('Error initializing admin charts:', error);
+        // Show error message in chart containers
+        document.querySelectorAll('#admin-enrollmentChart, #admin-gradeChart').forEach(canvas => {
+            canvas.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-red-500">Failed to load chart data</p></div>';
         });
     }
 }
 
-// Teacher Charts
-function initTeacherCharts(data) {
-    // Performance chart
+async function initTeacherCharts(data) {
     const perfCtx = document.getElementById('teacher-performanceChart');
     if (perfCtx) {
         if (charts.teacherPerf) charts.teacherPerf.destroy();
-        charts.teacherPerf = new Chart(perfCtx, {
-            type: 'line',
-            data: {
-                labels: data?.performanceLabels || ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-                datasets: [{
-                    label: 'Class Average',
-                    data: data?.performanceData || [74, 78, 76, 82],
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
-        });
+
+        const performanceData = data?.performanceData || [];
+        if (performanceData.length === 0) {
+            perfCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No performance data available</p></div>';
+        } else {
+            charts.teacherPerf = new Chart(perfCtx, {
+                type: 'line',
+                data: {
+                    labels: performanceData.map(p => p.date) || ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Class Average',
+                        data: performanceData.map(p => p.average) || [0, 0, 0, 0],
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
     }
-    
-    // Grade distribution chart
+
     const gradeCtx = document.getElementById('teacher-gradeChart');
     if (gradeCtx) {
         if (charts.teacherGrade) charts.teacherGrade.destroy();
-        charts.teacherGrade = new Chart(gradeCtx, {
-            type: 'bar',
-            data: {
-                labels: data?.gradeLabels || ['A', 'B', 'C', 'D', 'E'],
-                datasets: [{
-                    label: 'Students',
-                    data: data?.gradeData || [12, 18, 8, 4, 2],
-                    backgroundColor: '#3b82f6',
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                    x: { grid: { display: false } }
+
+        const gradeDistribution = data?.gradeDistribution || [];
+        if (gradeDistribution.length === 0) {
+            gradeCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No grade distribution data available</p></div>';
+        } else {
+            charts.teacherGrade = new Chart(gradeCtx, {
+                type: 'bar',
+                data: {
+                    labels: gradeDistribution.map(g => g.grade) || ['A', 'B', 'C', 'D', 'E'],
+                    datasets: [{
+                        label: 'Students',
+                        data: gradeDistribution.map(g => g.count) || [0, 0, 0, 0, 0],
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }
                 }
-            }
-        });
+            });
+        }
     }
 }
 
-// Parent Charts
-function initParentCharts(data) {
+async function initParentCharts(data) {
     const ctx = document.getElementById('parent-gradeChart');
     if (ctx) {
         if (charts.parentGrade) charts.parentGrade.destroy();
-        charts.parentGrade = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: data?.labels || ['Test 1', 'Test 2', 'Test 3', 'Exam'],
-                datasets: [{
-                    label: 'Child\'s Performance',
-                    data: data?.performanceData || [72, 78, 75, 85],
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
-        });
+
+        const performanceData = data?.performanceData || [];
+        if (performanceData.length === 0) {
+            ctx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No performance data available</p></div>';
+        } else {
+            charts.parentGrade = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: performanceData.map(p => p.date) || ['Test 1', 'Test 2', 'Test 3', 'Exam'],
+                    datasets: [{
+                        label: 'Child\'s Performance',
+                        data: performanceData.map(p => p.score) || [0, 0, 0, 0],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
     }
 }
 
-// Student Charts
-function initStudentCharts(data) {
+async function initStudentCharts(data) {
     const ctx = document.getElementById('student-gradeChart');
     if (ctx) {
         if (charts.studentGrade) charts.studentGrade.destroy();
-        charts.studentGrade = new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: data?.subjectLabels || ['Math', 'English', 'Science', 'History', 'Art'],
-                datasets: [{
-                    label: 'My Scores',
-                    data: data?.subjectScores || [85, 78, 92, 88, 95],
-                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                    borderColor: '#3b82f6',
-                    pointBackgroundColor: '#3b82f6'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { r: { beginAtZero: true, max: 100 } }
-            }
-        });
+
+        const subjectScores = data?.subjectScores || [];
+        if (subjectScores.length === 0) {
+            ctx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No grades available</p></div>';
+        } else {
+            charts.studentGrade = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: subjectScores.map(s => s.subject) || ['Math', 'English', 'Science', 'History', 'Art'],
+                    datasets: [{
+                        label: 'My Scores',
+                        data: subjectScores.map(s => s.score) || [0, 0, 0, 0, 0],
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#3b82f6',
+                        pointBackgroundColor: '#3b82f6'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true, max: 100 } } }
+            });
+        }
     }
 }
 
-// Update chart theme (dark/light mode)
+async function initSuperAdminCharts() {
+    try {
+        const [growthData, distributionData] = await Promise.all([
+            api.superAdmin.getGrowthData().catch(() => ({ data: {} })),
+            api.superAdmin.getSchoolDistribution().catch(() => ({ data: {} }))
+        ]);
+
+        const growthCtx = document.getElementById('superadmin-enrollmentChart');
+        if (growthCtx) {
+            if (charts.superGrowth) charts.superGrowth.destroy();
+
+            const labels = growthData.data?.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+            const values = growthData.data?.values || [0, 0, 0, 0, 0, 0];
+
+            if (values.every(v => v === 0)) {
+                growthCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No growth data available</p></div>';
+            } else {
+                charts.superGrowth = new Chart(growthCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'New Schools',
+                            data: values,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            }
+        }
+
+        const distCtx = document.getElementById('superadmin-gradeChart');
+        if (distCtx) {
+            if (charts.superDist) charts.superDist.destroy();
+
+            const distLabels = distributionData.data?.labels || ['Primary', 'Secondary', 'Mixed'];
+            const distValues = distributionData.data?.values || [0, 0, 0];
+
+            if (distValues.every(v => v === 0)) {
+                distCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No distribution data available</p></div>';
+            } else {
+                charts.superDist = new Chart(distCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: distLabels,
+                        datasets: [{
+                            data: distValues,
+                            backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } },
+                        cutout: '70%'
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error initializing super admin charts:', error);
+    }
+}
+
 function updateChartTheme() {
     const isDark = document.documentElement.classList.contains('dark');
     const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
     const textColor = isDark ? '#94a3b8' : '#64748b';
-    
+
     Object.values(charts).forEach(chart => {
         if (chart && chart.options) {
             if (chart.options.scales) {
@@ -288,17 +309,14 @@ function updateChartTheme() {
                     if (chart.options.scales.r.ticks) chart.options.scales.r.ticks.color = textColor;
                 }
             }
-            
             if (chart.options.plugins?.legend?.labels) {
                 chart.options.plugins.legend.labels.color = textColor;
             }
-            
             chart.update();
         }
     });
 }
 
-// Export functions
 window.initRoleCharts = initRoleCharts;
 window.updateChartTheme = updateChartTheme;
 window.charts = charts;
