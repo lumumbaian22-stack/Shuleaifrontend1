@@ -143,9 +143,7 @@ const superAdminAPI = {
     getPendingSchools: () => apiRequest('/api/super-admin/pending-schools'),
     getSuspendedSchools: () => apiRequest('/api/super-admin/suspended-schools'),
     approveSchool: (schoolId) => 
-        apiRequest(`/api/super-admin/schools/${schoolId}/approve`, {
-            method: 'POST'
-        }),
+        apiRequest(`/api/super-admin/schools/${schoolId}/approve`, { method: 'POST' }),
     rejectSchool: (schoolId, reason) => 
         apiRequest(`/api/super-admin/schools/${schoolId}/reject`, {
             method: 'POST',
@@ -172,14 +170,10 @@ const superAdminAPI = {
             body: JSON.stringify(data)
         }),
     deleteSchool: (schoolId) => 
-        apiRequest(`/api/super-admin/schools/${schoolId}`, {
-            method: 'DELETE'
-        }),
+        apiRequest(`/api/super-admin/schools/${schoolId}`, { method: 'DELETE' }),
     getPendingRequests: () => apiRequest('/api/super-admin/requests'),
     approveRequest: (requestId) => 
-        apiRequest(`/api/super-admin/requests/${requestId}/approve`, {
-            method: 'POST'
-        }),
+        apiRequest(`/api/super-admin/requests/${requestId}/approve`, { method: 'POST' }),
     rejectRequest: (requestId, reason) => 
         apiRequest(`/api/super-admin/requests/${requestId}/reject`, {
             method: 'POST',
@@ -190,22 +184,14 @@ const superAdminAPI = {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-    // ============ ADD THESE NEW METHODS ============
-    // Get all users (for platform health)
     getAllUsers: () => apiRequest('/api/super-admin/users'),
-
-    // Get system metrics
     getSystemMetrics: () => apiRequest('/api/super-admin/metrics'),
-    
-    // Get system logs
     getSystemLogs: () => apiRequest('/api/super-admin/logs'),
-
-    // Get request history (approved/rejected name changes)
     getRequestHistory: () => apiRequest('/api/super-admin/requests/history'),
-
-    // Get school stats (students, teachers, parents counts)
-    getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats`)
-
+    getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats`),
+    // Chart data endpoints
+    getGrowthData: () => apiRequest('/api/super-admin/growth-data'),
+    getSchoolDistribution: () => apiRequest('/api/super-admin/school-distribution')
 };
 
 // ============ ADMIN ENDPOINTS ============
@@ -220,33 +206,22 @@ const adminAPI = {
             method: 'POST',
             body: JSON.stringify({ action, rejectionReason })
         }),
-    
     suspendTeacher: (teacherId, reason) => 
         apiRequest(`/api/admin/teachers/${teacherId}/suspend`, {
             method: 'POST',
             body: JSON.stringify({ reason })
         }),
-    
     reactivateTeacher: (teacherId) => 
-        apiRequest(`/api/admin/teachers/${teacherId}/reactivate`, {
-            method: 'POST'
-        }),
-    
+        apiRequest(`/api/admin/teachers/${teacherId}/reactivate`, { method: 'POST' }),
     deactivateTeacher: (teacherId, data) => 
         apiRequest(`/api/admin/teachers/${teacherId}/deactivate`, {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-
     activateTeacher: (teacherId) => 
-        apiRequest(`/api/admin/teachers/${teacherId}/activate`, {
-            method: 'POST'
-        }),
-    
+        apiRequest(`/api/admin/teachers/${teacherId}/activate`, { method: 'POST' }),
     deleteTeacher: (teacherId) => 
-        apiRequest(`/api/admin/teachers/${teacherId}`, {
-            method: 'DELETE'
-        }),
+        apiRequest(`/api/admin/teachers/${teacherId}`, { method: 'DELETE' }),
     
     // School settings
     getSchoolSettings: () => apiRequest('/api/admin/settings'),
@@ -256,77 +231,63 @@ const adminAPI = {
             body: JSON.stringify(data)
         }),
     
-    // ============ CLASS MANAGEMENT ============
-    // Create a new class
+    // Class management
     createClass: (data) => 
         apiRequest('/api/admin/classes', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
-    // Get all classes
     getClasses: () => apiRequest('/api/admin/classes'),
-    
-    // Update a class
     updateClass: (classId, data) => 
         apiRequest(`/api/admin/classes/${classId}`, {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-    
-    // Delete a class
     deleteClass: (classId) => 
-        apiRequest(`/api/admin/classes/${classId}`, {
-            method: 'DELETE'
-        }),
-    
-    // Get available teachers for class assignment
+        apiRequest(`/api/admin/classes/${classId}`, { method: 'DELETE' }),
     getAvailableTeachers: () => apiRequest('/api/admin/available-teachers'),
-    
-    // Assign teacher to a class
     assignTeacherToClass: (classId, teacherId) => 
         apiRequest(`/api/admin/classes/${classId}/assign-teacher`, {
             method: 'POST',
             body: JSON.stringify({ teacherId })
         }),
-    
-    // Remove teacher from a class
     removeTeacherFromClass: (classId) => 
-        apiRequest(`/api/admin/classes/${classId}/remove-teacher`, {
-            method: 'POST'
-        }),
-    
-    // Get students in a specific class
+        apiRequest(`/api/admin/classes/${classId}/remove-teacher`, { method: 'POST' }),
     getClassStudents: (classId) => 
         apiRequest(`/api/admin/classes/${classId}/students`),
     
-    // Student details
+    // Subject assignment (for classes)
+    getClassSubjectAssignments: (classId) => 
+        apiRequest(`/api/admin/classes/${classId}/subjects`),
+    assignTeacherToSubject: (data) => 
+        apiRequest('/api/admin/classes/subject-assign', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
+    removeSubjectAssignment: (assignmentId) => 
+        apiRequest(`/api/admin/classes/subject-assign/${assignmentId}`, { method: 'DELETE' }),
+    
+    // Student management
     getStudentDetails: (studentId) => 
         apiRequest(`/api/admin/students/${studentId}`),
-
-    // Student suspension/reactivation
     suspendStudent: (studentId, data) => 
         apiRequest(`/api/admin/students/${studentId}/suspend`, {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
     reactivateStudent: (studentId) => 
-        apiRequest(`/api/admin/students/${studentId}/reactivate`, {
-            method: 'POST'
-        }),
-    
-    // Student expulsion (permanent removal)
+        apiRequest(`/api/admin/students/${studentId}/reactivate`, { method: 'POST' }),
     expelStudent: (studentId, data) => 
         apiRequest(`/api/admin/students/${studentId}/expel`, {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
-    // Delete student permanently
     deleteStudent: (studentId) => 
+        apiRequest(`/api/admin/students/${studentId}`, { method: 'DELETE' }),
+    updateStudent: (studentId, data) => 
         apiRequest(`/api/admin/students/${studentId}`, {
-            method: 'DELETE'
+            method: 'PUT',
+            body: JSON.stringify(data)
         }),
     
     // Duty management
@@ -344,28 +305,24 @@ const adminAPI = {
         }),
     getUnderstaffedAreas: () => apiRequest('/api/admin/duty/understaffed'),
     getTeacherWorkload: () => apiRequest('/api/admin/duty/teacher-workload'),
-
-    // ============ ADD THESE NEW METHODS ============
-    // Get grade statistics for charts
+    
+    // Analytics for charts
     getStudentGrades: () => apiRequest('/api/admin/grades/stats'),
-
-    // Get attendance statistics
     getAttendanceStats: () => apiRequest('/api/admin/attendance/stats'),
-
-    // Update teacher (for edit teacher modal)
+    
+    // Teacher update
     updateTeacher: (teacherId, data) => 
         apiRequest(`/api/admin/teachers/${teacherId}`, {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-
-    // Get school dashboard data (includes classes count, etc.)
+    
+    // Dashboard data
     getDashboardData: () => apiRequest('/api/admin/dashboard')
 };
 
 // ============ TEACHER ENDPOINTS ============
 const teacherAPI = {
-    // Student management
     getMyStudents: () => apiRequest('/api/teacher/students'),
     addStudent: (data) => 
         apiRequest('/api/teacher/students', {
@@ -389,78 +346,49 @@ const teacherAPI = {
         }),
     uploadMarksCSV: (formData) => 
         uploadFile('/api/teacher/upload/marks', formData),
-    
-    // Message system for parent communication
     getConversations: () => apiRequest('/api/teacher/conversations'),
     getMessages: (otherUserId) => apiRequest(`/api/teacher/messages/${otherUserId}`),
     markMessagesAsRead: (otherUserId) => 
-        apiRequest(`/api/teacher/messages/read/${otherUserId}`, {
-            method: 'PUT'
-        }),
+        apiRequest(`/api/teacher/messages/read/${otherUserId}`, { method: 'PUT' }),
     replyToParent: (data) => 
         apiRequest('/api/teacher/reply', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
-    // Delete student from teacher's class
     deleteStudent: (studentId) => 
-        apiRequest(`/api/teacher/students/${studentId}`, {
-            method: 'DELETE'
-        }),
+        apiRequest(`/api/teacher/students/${studentId}`, { method: 'DELETE' }),
 };
 
 // ============ PARENT ENDPOINTS ============
 const parentAPI = {
-    // Get all children linked to this parent
     getChildren: () => apiRequest('/api/parent/children'),
-    
-    // Get summary for a specific child
     getChildSummary: (studentId) => 
         apiRequest(`/api/parent/child/${studentId}/summary`),
-    
-    // Report absence for a child
     reportAbsence: (data) => 
         apiRequest('/api/parent/report-absence', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
-    // Make a payment
     makePayment: (data) => 
         apiRequest('/api/parent/pay', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
-    // Get payment history
     getPayments: () => apiRequest('/api/parent/payments'),
-    
-    // Get available subscription plans
     getSubscriptionPlans: () => apiRequest('/api/parent/plans'),
-    
-    // Upgrade subscription plan
     upgradePlan: (data) => 
         apiRequest('/api/parent/upgrade-plan', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
-    // Send message to teacher or admin
     sendMessage: (data) => 
         apiRequest('/api/parent/message', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    
-    // Get all conversations
     getConversations: () => apiRequest('/api/parent/conversations'),
-    
-    // Get messages with a specific user
     getMessages: (otherUserId) => 
         apiRequest(`/api/parent/messages/${otherUserId}`),
-    
-    // Confirm payment
     confirmPayment: (data) => 
         apiRequest('/api/parent/payment-confirm', {
             method: 'POST',
@@ -480,7 +408,6 @@ const studentAPI = {
         }),
     getMessages: (otherUserId) => 
         apiRequest(`/api/student/messages/${otherUserId}`),
-    // Set first password for students
     setFirstPassword: (data) => 
         apiRequest('/api/student/set-first-password', {
             method: 'POST',
@@ -561,6 +488,27 @@ const publicAPI = {
         apiRequest(`/api/public/school/${schoolId}`)
 };
 
+// ============ USER PROFILE ENDPOINTS ============
+const userAPI = {
+    updateProfile: (data) => 
+        apiRequest('/api/user/profile', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        }),
+    updatePreferences: (preferences) => 
+        apiRequest('/api/user/preferences', {
+            method: 'PUT',
+            body: JSON.stringify({ preferences })
+        }),
+    getMyStats: () => apiRequest('/api/user/stats'),
+    exportMyData: () => apiRequest('/api/user/export'),
+    deactivateAccount: (reason) => 
+        apiRequest('/api/user/deactivate', {
+            method: 'POST',
+            body: JSON.stringify({ reason })
+        })
+};
+
 // File upload helper
 async function uploadFile(endpoint, file, onProgress) {
     const formData = new FormData();
@@ -604,7 +552,8 @@ window.api = {
     analytics: analyticsAPI,
     upload: uploadAPI,
     public: publicAPI,
-    school: schoolAPI
+    school: schoolAPI,
+    user: userAPI
 };
 
 // Legacy support
