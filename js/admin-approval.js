@@ -1,4 +1,14 @@
-// admin-approvals.js - Complete with all load functions
+// js/admin-approvals.js
+async function loadAllTeachers() {
+    try {
+        const response = await api.admin.getTeachers();
+        return response?.data || [];
+    } catch (error) {
+        console.error('Failed to load teachers:', error);
+        showToast('Failed to load teachers', 'error');
+        return [];
+    }
+}
 
 async function loadPendingTeachers() {
     try {
@@ -11,35 +21,12 @@ async function loadPendingTeachers() {
     }
 }
 
-async function loadAllTeachers() {
-    try {
-        const response = await api.admin.getTeachers();
-        return response?.data || [];
-    } catch (error) {
-        console.error('Failed to load teachers:', error);
-        showToast('Failed to load teachers', 'error');
-        return [];
-    }
-}
-
 async function loadAllStudents() {
     try {
         const response = await api.admin.getStudents();
         return response?.data || [];
     } catch (error) {
         console.error('Failed to load students:', error);
-        showToast('Failed to load students', 'error');
-        return [];
-    }
-}
-
-async function loadAllParents() {
-    try {
-        const response = await api.admin.getParents();
-        return response?.data || [];
-    } catch (error) {
-        console.error('Failed to load parents:', error);
-        showToast('Failed to load parents', 'error');
         return [];
     }
 }
@@ -83,7 +70,6 @@ async function rejectTeacher(teacherId) {
 async function refreshPendingTeachers() {
     const container = document.querySelector('#pending-teachers-table');
     if (!container) return;
-
     const teachers = await loadPendingTeachers();
     container.innerHTML = renderPendingTeachersTable(teachers);
     if (window.lucide) lucide.createIcons();
@@ -92,7 +78,6 @@ async function refreshPendingTeachers() {
 async function refreshTeachersList() {
     const container = document.getElementById('teachers-table-container');
     if (!container) return;
-
     const teachers = await loadAllTeachers();
     container.innerHTML = renderTeachersTable(teachers);
     if (window.lucide) lucide.createIcons();
@@ -102,7 +87,6 @@ function renderPendingTeachersTable(teachers) {
     if (!teachers || teachers.length === 0) {
         return '<div class="text-center py-8 text-muted-foreground">No pending teachers</div>';
     }
-
     return `
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -114,7 +98,7 @@ function renderPendingTeachersTable(teachers) {
                         <th class="px-4 py-3 text-left font-medium">Qualification</th>
                         <th class="px-4 py-3 text-left font-medium">Applied</th>
                         <th class="px-4 py-3 text-right font-medium">Actions</th>
-                    </tr>
+                     </tr>
                 </thead>
                 <tbody class="divide-y">
                     ${teachers.map(teacher => {
@@ -150,7 +134,6 @@ function renderTeachersTable(teachers) {
     if (!teachers || teachers.length === 0) {
         return '<div class="text-center py-8 text-muted-foreground">No teachers found</div>';
     }
-
     return `
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -161,7 +144,7 @@ function renderTeachersTable(teachers) {
                         <th class="px-4 py-3 text-left font-medium">Subjects</th>
                         <th class="px-4 py-3 text-left font-medium">Status</th>
                         <th class="px-4 py-3 text-right font-medium">Actions</th>
-                    </tr>
+                     </tr>
                 </thead>
                 <tbody class="divide-y">
                     ${teachers.map(teacher => {
@@ -201,11 +184,10 @@ function renderTeachersTable(teachers) {
     `;
 }
 
-// Export all
-window.loadPendingTeachers = loadPendingTeachers;
+// Expose globally
 window.loadAllTeachers = loadAllTeachers;
+window.loadPendingTeachers = loadPendingTeachers;
 window.loadAllStudents = loadAllStudents;
-window.loadAllParents = loadAllParents;
 window.approveTeacher = approveTeacher;
 window.rejectTeacher = rejectTeacher;
 window.refreshPendingTeachers = refreshPendingTeachers;
