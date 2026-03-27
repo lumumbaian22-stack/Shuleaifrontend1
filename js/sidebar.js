@@ -107,7 +107,7 @@ function updateSidebar(role) {
         `).join('');
     }
 
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 
 function updateSidebarActiveState(section) {
