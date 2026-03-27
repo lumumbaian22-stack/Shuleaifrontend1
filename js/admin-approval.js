@@ -1,7 +1,5 @@
-// admin-approvals.js - Admin approval functions
-// This file should exist. If not, create it with the basic functions:
+// admin-approvals.js - Complete with all load functions
 
-// Load pending teachers
 async function loadPendingTeachers() {
     try {
         const response = await api.admin.getPendingApprovals();
@@ -13,40 +11,39 @@ async function loadPendingTeachers() {
     }
 }
 
-// Load all teachers
 async function loadAllTeachers() {
     try {
         const response = await api.admin.getTeachers();
         return response?.data || [];
     } catch (error) {
         console.error('Failed to load teachers:', error);
+        showToast('Failed to load teachers', 'error');
         return [];
     }
 }
 
-// Load all students
 async function loadAllStudents() {
     try {
         const response = await api.admin.getStudents();
         return response?.data || [];
     } catch (error) {
         console.error('Failed to load students:', error);
+        showToast('Failed to load students', 'error');
         return [];
     }
 }
 
-// Load all parents
 async function loadAllParents() {
     try {
         const response = await api.admin.getParents();
         return response?.data || [];
     } catch (error) {
         console.error('Failed to load parents:', error);
+        showToast('Failed to load parents', 'error');
         return [];
     }
 }
 
-// Approve teacher
 async function approveTeacher(teacherId) {
     if (!teacherId) return;
     if (!confirm('Approve this teacher?')) return;
@@ -65,7 +62,6 @@ async function approveTeacher(teacherId) {
     }
 }
 
-// Reject teacher
 async function rejectTeacher(teacherId) {
     if (!teacherId) return;
     const reason = prompt('Please enter rejection reason:');
@@ -84,32 +80,29 @@ async function rejectTeacher(teacherId) {
     }
 }
 
-// Refresh pending teachers
 async function refreshPendingTeachers() {
     const container = document.querySelector('#pending-teachers-table');
     if (!container) return;
-    
+
     const teachers = await loadPendingTeachers();
     container.innerHTML = renderPendingTeachersTable(teachers);
     if (window.lucide) lucide.createIcons();
 }
 
-// Refresh teachers list
 async function refreshTeachersList() {
     const container = document.getElementById('teachers-table-container');
     if (!container) return;
-    
+
     const teachers = await loadAllTeachers();
     container.innerHTML = renderTeachersTable(teachers);
     if (window.lucide) lucide.createIcons();
 }
 
-// Render pending teachers table
 function renderPendingTeachersTable(teachers) {
     if (!teachers || teachers.length === 0) {
         return '<div class="text-center py-8 text-muted-foreground">No pending teachers</div>';
     }
-    
+
     return `
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -153,12 +146,11 @@ function renderPendingTeachersTable(teachers) {
     `;
 }
 
-// Render teachers table
 function renderTeachersTable(teachers) {
     if (!teachers || teachers.length === 0) {
         return '<div class="text-center py-8 text-muted-foreground">No teachers found</div>';
     }
-    
+
     return `
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -209,7 +201,6 @@ function renderTeachersTable(teachers) {
     `;
 }
 
-// Export functions
 window.loadPendingTeachers = loadPendingTeachers;
 window.loadAllTeachers = loadAllTeachers;
 window.loadAllStudents = loadAllStudents;
