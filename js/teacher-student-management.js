@@ -1,185 +1,24 @@
-// teacher-features.js - Complete file with all teacher functions including delete
+// teacher-student-management.js - COMPLETE FIXED VERSION
 
-// ============ STUDENT MANAGEMENT ============
+// ============ LOAD FUNCTIONS ============
 
-// Show add student modal
-function showAddStudentModal() {
-    let modal = document.getElementById('add-student-modal');
-    
-    if (!modal) {
-        createAddStudentModal();
-        modal = document.getElementById('add-student-modal');
-    }
-    
-    if (modal) {
-        modal.classList.remove('hidden');
-    }
-}
-
-// Create add student modal
-function createAddStudentModal() {
-    const modalHTML = `
-        <div id="add-student-modal" class="fixed inset-0 z-50 hidden">
-            <div class="absolute inset-0 bg-black/50" onclick="closeAddStudentModal()"></div>
-            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
-                <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
-                    <h3 class="text-lg font-semibold mb-4">Add New Student</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Full Name *</label>
-                            <input type="text" id="modal-student-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Grade/Class *</label>
-                            <input type="text" id="modal-student-grade" placeholder="e.g., 10A, Form 2" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Parent Email</label>
-                            <input type="email" id="modal-parent-email" placeholder="parent@example.com" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Date of Birth</label>
-                            <input type="date" id="modal-student-dob" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Gender</label>
-                            <select id="modal-student-gender" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                <option value="">Select</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                            <p class="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-2">
-                                <i data-lucide="info" class="h-4 w-4 flex-shrink-0 mt-0.5"></i>
-                                <span>Default password: <strong>Student123!</strong> Student will be prompted to change on first login.</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex justify-end gap-2 mt-6">
-                        <button onclick="closeAddStudentModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Cancel</button>
-                        <button onclick="handleAddStudentModal()" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Add Student</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-// Close add student modal
-function closeAddStudentModal() {
-    const modal = document.getElementById('add-student-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        document.getElementById('modal-student-name') && (document.getElementById('modal-student-name').value = '');
-        document.getElementById('modal-student-grade') && (document.getElementById('modal-student-grade').value = '');
-        document.getElementById('modal-parent-email') && (document.getElementById('modal-parent-email').value = '');
-        document.getElementById('modal-student-dob') && (document.getElementById('modal-student-dob').value = '');
-        document.getElementById('modal-student-gender') && (document.getElementById('modal-student-gender').value = '');
-    }
-}
-
-// Handle add student from modal
-async function handleAddStudentModal() {
-    const studentData = {
-        name: document.getElementById('modal-student-name')?.value,
-        grade: document.getElementById('modal-student-grade')?.value,
-        parentEmail: document.getElementById('modal-parent-email')?.value,
-        dateOfBirth: document.getElementById('modal-student-dob')?.value,
-        gender: document.getElementById('modal-student-gender')?.value
-    };
-    
-    if (!studentData.name || !studentData.grade) {
-        showToast('Name and grade are required', 'error');
-        return;
-    }
-    
-    await addStudent(studentData);
-    closeAddStudentModal();
-}
-
-// Add new student
-async function addStudent(studentData) {
-    showLoading();
-    try {
-        const response = await api.teacher.addStudent(studentData);
-        showToast(`✅ Student added! ELIMUID: ${response.data.elimuid}`, 'success');
-        await refreshMyStudents();
-        return response;
-    } catch (error) {
-        showToast(error.message || 'Failed to add student', 'error');
-        throw error;
-    } finally {
-        hideLoading();
-    }
-}
-
-// Load teacher's students
 async function loadMyStudents() {
     try {
+        console.log('📥 Loading teacher students...');
         const response = await api.teacher.getMyStudents();
         return response.data || [];
     } catch (error) {
-        console.error('Failed to load students:', error);
-        showToast('Failed to load students', 'error');
+        console.error('❌ Failed to load students:', error);
+        if (error.message.includes('403')) {
+            showToast('You are not authorized to view students. Please check your teacher account status.', 'error');
+        } else {
+            showToast(error.message || 'Failed to load students', 'error');
+        }
         return [];
     }
 }
 
-// Refresh my students list
-async function refreshMyStudents() {
-    const container = document.getElementById('my-students-table');
-    if (!container) return;
-    
-    const students = await loadMyStudents();
-    
-    if (students && students.length > 0) {
-        container.innerHTML = renderStudentsTable(students);
-    } else {
-        container.innerHTML = '<div class="text-center py-8 text-muted-foreground">No students yet. Click "Add Student" to get started.</div>';
-    }
-    
-    updateStats(students);
-    
-    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-        lucide.createIcons();
-    }
-}
-
-// Update stats with null checks
-function updateStats(students) {
-    const countElement = document.getElementById('my-students-count');
-    if (countElement) {
-        countElement.textContent = students ? students.length : 0;
-    }
-    
-    const classesElement = document.getElementById('my-classes-count');
-    if (classesElement && students) {
-        const uniqueClasses = [...new Set(students.map(s => s.grade).filter(Boolean))];
-        classesElement.textContent = uniqueClasses.length;
-    }
-    
-    const avgElement = document.getElementById('class-average');
-    if (avgElement && students && students.length > 0) {
-        const total = students.reduce((sum, s) => sum + (s.average || 0), 0);
-        const avg = Math.round(total / students.length);
-        avgElement.textContent = avg + '%';
-    }
-    
-    const attendanceElement = document.getElementById('attendance-today');
-    if (attendanceElement) {
-        attendanceElement.textContent = '0/0';
-    }
-    
-    const tasksElement = document.getElementById('pending-tasks');
-    if (tasksElement) {
-        tasksElement.textContent = '0';
-    }
-}
-
-// ============ STUDENT DETAILS MODAL ============
+// ============ STUDENT DETAILS ============
 
 async function viewStudentDetails(studentId) {
     showLoading();
@@ -296,23 +135,9 @@ function getStudentDetailsHTML(student) {
                     '<p class="text-sm text-muted-foreground">No parent email provided</p>'}
             </div>
             
-            <div class="border-t pt-4">
-                <h4 class="font-medium mb-2">Academic Information</h4>
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                        <p class="text-muted-foreground">Attendance</p>
-                        <p class="font-medium">${student.attendance || 95}%</p>
-                    </div>
-                    <div>
-                        <p class="text-muted-foreground">Average Score</p>
-                        <p class="font-medium">${student.average || 0}%</p>
-                    </div>
-                </div>
-            </div>
-            
             <div class="flex justify-end gap-2 pt-4 border-t">
                 <button onclick="closeStudentDetailsModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Close</button>
-                <button onclick="copyElimuid('${student.elimuid}')" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                <button onclick="copyToClipboard('${student.elimuid}')" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
                     <i data-lucide="copy" class="h-4 w-4"></i>
                     Copy ELIMUID
                 </button>
@@ -328,7 +153,153 @@ function closeStudentDetailsModal() {
     }
 }
 
-// ============ RENDER STUDENTS TABLE WITH DELETE BUTTON ============
+// ============ ADD STUDENT ============
+
+function showAddStudentModal() {
+    let modal = document.getElementById('add-student-modal');
+    
+    if (!modal) {
+        createAddStudentModal();
+        modal = document.getElementById('add-student-modal');
+    }
+    
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function createAddStudentModal() {
+    const modalHTML = `
+        <div id="add-student-modal" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black/50" onclick="closeAddStudentModal()"></div>
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
+                    <h3 class="text-lg font-semibold mb-4">Add New Student</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Full Name *</label>
+                            <input type="text" id="modal-student-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Grade/Class *</label>
+                            <input type="text" id="modal-student-grade" placeholder="e.g., 10A, Form 2" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Parent Email</label>
+                            <input type="email" id="modal-parent-email" placeholder="parent@example.com" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Date of Birth</label>
+                            <input type="date" id="modal-student-dob" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Gender</label>
+                            <select id="modal-student-gender" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="">Select</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-6">
+                        <button onclick="closeAddStudentModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Cancel</button>
+                        <button onclick="handleAddStudentModal()" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Add Student</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeAddStudentModal() {
+    const modal = document.getElementById('add-student-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.getElementById('modal-student-name') && (document.getElementById('modal-student-name').value = '');
+        document.getElementById('modal-student-grade') && (document.getElementById('modal-student-grade').value = '');
+        document.getElementById('modal-parent-email') && (document.getElementById('modal-parent-email').value = '');
+        document.getElementById('modal-student-dob') && (document.getElementById('modal-student-dob').value = '');
+        document.getElementById('modal-student-gender') && (document.getElementById('modal-student-gender').value = '');
+    }
+}
+
+async function handleAddStudentModal() {
+    const studentData = {
+        name: document.getElementById('modal-student-name')?.value,
+        grade: document.getElementById('modal-student-grade')?.value,
+        parentEmail: document.getElementById('modal-parent-email')?.value,
+        dateOfBirth: document.getElementById('modal-student-dob')?.value,
+        gender: document.getElementById('modal-student-gender')?.value
+    };
+    
+    if (!studentData.name || !studentData.grade) {
+        showToast('Name and grade are required', 'error');
+        return;
+    }
+    
+    await addStudent(studentData);
+    closeAddStudentModal();
+}
+
+async function addStudent(studentData) {
+    showLoading();
+    try {
+        const response = await api.teacher.addStudent(studentData);
+        showToast(`✅ Student added! ELIMUID: ${response.data.elimuid}`, 'success');
+        await refreshMyStudents();
+        return response;
+    } catch (error) {
+        showToast(error.message || 'Failed to add student', 'error');
+        throw error;
+    } finally {
+        hideLoading();
+    }
+}
+
+// ============ REFRESH STUDENTS ============
+
+async function refreshMyStudents() {
+    const container = document.getElementById('my-students-table');
+    if (!container) return;
+    
+    const students = await loadMyStudents();
+    
+    if (students && students.length > 0) {
+        container.innerHTML = renderStudentsTable(students);
+    } else {
+        container.innerHTML = '<div class="text-center py-8 text-muted-foreground">No students yet. Click "Add Student" to get started.</div>';
+    }
+    
+    updateStats(students);
+    
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+    }
+}
+
+function updateStats(students) {
+    const countElement = document.getElementById('my-students-count');
+    if (countElement) {
+        countElement.textContent = students ? students.length : 0;
+    }
+    
+    const classesElement = document.getElementById('my-classes-count');
+    if (classesElement && students) {
+        const uniqueClasses = [...new Set(students.map(s => s.grade).filter(Boolean))];
+        classesElement.textContent = uniqueClasses.length;
+    }
+    
+    const avgElement = document.getElementById('class-average');
+    if (avgElement && students && students.length > 0) {
+        const total = students.reduce((sum, s) => sum + (s.average || 0), 0);
+        const avg = Math.round(total / students.length);
+        avgElement.textContent = avg + '%';
+    }
+}
+
+// ============ RENDER STUDENTS TABLE ============
 
 function renderStudentsTable(students) {
     if (!students || students.length === 0) {
@@ -387,7 +358,7 @@ function renderStudentsTable(students) {
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-1">
-                                        <button onclick="copyElimuid('${student.elimuid}')" class="p-2 hover:bg-accent rounded-lg" title="Copy ELIMUID">
+                                        <button onclick="copyToClipboard('${student.elimuid}')" class="p-2 hover:bg-accent rounded-lg" title="Copy ELIMUID">
                                             <i data-lucide="copy" class="h-4 w-4"></i>
                                         </button>
                                         <button onclick="viewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
@@ -408,7 +379,7 @@ function renderStudentsTable(students) {
     `;
 }
 
-// ============ DELETE STUDENT FUNCTION ============
+// ============ DELETE STUDENT ============
 
 async function deleteStudent(studentId, studentName) {
     if (!confirm(`⚠️ Are you sure you want to remove ${studentName} from your class? This action cannot be undone.`)) {
@@ -424,35 +395,17 @@ async function deleteStudent(studentId, studentName) {
             await refreshMyStudents();
         }
     } catch (error) {
-        showToast(error.message || 'Failed to delete student', 'error');
+        if (error.message.includes('403')) {
+            showToast('You do not have permission to delete students. Only admins can perform this action.', 'error');
+        } else {
+            showToast(error.message || 'Failed to delete student', 'error');
+        }
     } finally {
         hideLoading();
     }
 }
 
 // ============ UTILITY FUNCTIONS ============
-
-function copyElimuid(elimuid) {
-    navigator.clipboard.writeText(elimuid).then(() => {
-        showToast('✅ ELIMUID copied to clipboard', 'success');
-    }).catch(() => {
-        showToast('Failed to copy', 'error');
-    });
-}
-
-function formatDate(dateString) {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    });
-}
-
-function getInitials(name) {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-}
 
 function getStatusColor(status) {
     switch(status?.toLowerCase()) {
@@ -464,25 +417,35 @@ function getStatusColor(status) {
     }
 }
 
-// ============ TASK MANAGEMENT ============
+// ============ GRADE FUNCTIONS ============
 
-function addTeacherTask() {
-    showToast('Add task feature coming soon', 'info');
-}
-
-// ============ MARKS MANAGEMENT ============
-
-async function enterMarks(marksData) {
-    showLoading();
-    try {
-        const response = await api.teacher.enterMarks(marksData);
-        showToast('✅ Marks saved successfully', 'success');
-        return response;
-    } catch (error) {
-        showToast(error.message || 'Failed to save marks', 'error');
-        throw error;
-    } finally {
-        hideLoading();
+function updateGradeDisplay(input, curriculum, level) {
+    const row = input.closest('tr');
+    const score = parseInt(input.value);
+    const gradeSpan = row.querySelector('.student-grade');
+    
+    if (!isNaN(score) && score >= 0 && score <= 100) {
+        let grade = '';
+        let color = 'gray';
+        
+        if (score >= 80) { grade = 'A'; color = 'green'; }
+        else if (score >= 75) { grade = 'A-'; color = 'green'; }
+        else if (score >= 70) { grade = 'B+'; color = 'blue'; }
+        else if (score >= 65) { grade = 'B'; color = 'blue'; }
+        else if (score >= 60) { grade = 'B-'; color = 'blue'; }
+        else if (score >= 55) { grade = 'C+'; color = 'yellow'; }
+        else if (score >= 50) { grade = 'C'; color = 'yellow'; }
+        else if (score >= 45) { grade = 'C-'; color = 'yellow'; }
+        else if (score >= 40) { grade = 'D+'; color = 'orange'; }
+        else if (score >= 35) { grade = 'D'; color = 'orange'; }
+        else if (score >= 30) { grade = 'D-'; color = 'orange'; }
+        else { grade = 'E'; color = 'red'; }
+        
+        gradeSpan.textContent = grade;
+        gradeSpan.className = `student-grade px-2 py-1 bg-${color}-100 text-${color}-700 text-xs rounded-full`;
+    } else {
+        gradeSpan.textContent = '-';
+        gradeSpan.className = 'student-grade px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full';
     }
 }
 
@@ -515,51 +478,21 @@ async function saveStudentGrade(button) {
     }
 }
 
-function updateGradeDisplay(input, curriculum, level) {
-    const row = input.closest('tr');
-    const score = parseInt(input.value);
-    const gradeSpan = row.querySelector('.student-grade');
-    
-    if (!isNaN(score) && score >= 0 && score <= 100) {
-        let grade = '';
-        let color = 'gray';
-        
-        if (score >= 80) { grade = 'A'; color = 'green'; }
-        else if (score >= 75) { grade = 'A-'; color = 'green'; }
-        else if (score >= 70) { grade = 'B+'; color = 'blue'; }
-        else if (score >= 65) { grade = 'B'; color = 'blue'; }
-        else if (score >= 60) { grade = 'B-'; color = 'blue'; }
-        else if (score >= 55) { grade = 'C+'; color = 'yellow'; }
-        else if (score >= 50) { grade = 'C'; color = 'yellow'; }
-        else if (score >= 45) { grade = 'C-'; color = 'yellow'; }
-        else if (score >= 40) { grade = 'D+'; color = 'orange'; }
-        else if (score >= 35) { grade = 'D'; color = 'orange'; }
-        else if (score >= 30) { grade = 'D-'; color = 'orange'; }
-        else { grade = 'E'; color = 'red'; }
-        
-        gradeSpan.textContent = grade;
-        gradeSpan.className = `student-grade px-2 py-1 bg-${color}-100 text-${color}-700 text-xs rounded-full`;
-    } else {
-        gradeSpan.textContent = '-';
-        gradeSpan.className = 'student-grade px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full';
-    }
-}
-
-// ============ ATTENDANCE MANAGEMENT ============
-
-async function takeAttendance(attendanceData) {
+async function enterMarks(marksData) {
     showLoading();
     try {
-        const response = await api.teacher.takeAttendance(attendanceData);
-        showToast('✅ Attendance recorded', 'success');
+        const response = await api.teacher.enterMarks(marksData);
+        showToast('✅ Marks saved successfully', 'success');
         return response;
     } catch (error) {
-        showToast(error.message || 'Failed to record attendance', 'error');
+        showToast(error.message || 'Failed to save marks', 'error');
         throw error;
     } finally {
         hideLoading();
     }
 }
+
+// ============ ATTENDANCE FUNCTIONS ============
 
 async function saveAttendance() {
     const rows = document.querySelectorAll('[data-student-id]');
@@ -592,16 +525,24 @@ async function saveAttendance() {
         }
         showToast(`✅ Saved ${attendanceData.length} attendance records`, 'success');
     } catch (error) {
-        // Error already shown
+        showToast(error.message || 'Failed to save attendance', 'error');
     } finally {
         hideLoading();
     }
 }
 
-// ============ COMMENT MANAGEMENT ============
+async function takeAttendance(attendanceData) {
+    try {
+        const response = await api.teacher.takeAttendance(attendanceData);
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+// ============ COMMENT FUNCTIONS ============
 
 async function addComment(studentId, comment) {
-    showLoading();
     try {
         const response = await api.teacher.addComment({ studentId, comment });
         showToast('✅ Comment sent to parents', 'success');
@@ -609,28 +550,16 @@ async function addComment(studentId, comment) {
     } catch (error) {
         showToast(error.message || 'Failed to add comment', 'error');
         throw error;
-    } finally {
-        hideLoading();
     }
 }
 
-// ============ CSV UPLOAD ============
+// ============ TASK FUNCTIONS ============
 
-async function uploadMarksCSV(file, onProgress) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    try {
-        const response = await api.teacher.uploadMarksCSV(formData, onProgress);
-        showToast(`✅ Processed ${response.data.stats?.processed || 0} records`, 'success');
-        return response;
-    } catch (error) {
-        showToast(error.message || 'Failed to upload CSV', 'error');
-        throw error;
-    }
+function addTeacherTask() {
+    showToast('Add task feature coming soon', 'info');
 }
 
-// ============ PARENT MESSAGING ============
+// ============ MESSAGE FUNCTIONS ============
 
 async function loadTeacherMessages() {
     try {
@@ -692,27 +621,37 @@ async function loadTeacherMessages() {
     }
 }
 
+// ============ CSV UPLOAD ============
+
+async function uploadMarksCSV(file, onProgress) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await api.teacher.uploadMarksCSV(formData, onProgress);
+        showToast(`✅ Processed ${response.data.stats?.processed || 0} records`, 'success');
+        return response;
+    } catch (error) {
+        showToast(error.message || 'Failed to upload CSV', 'error');
+        throw error;
+    }
+}
+
 // ============ EXPORT FUNCTIONS ============
 
+window.loadMyStudents = loadMyStudents;
+window.refreshMyStudents = refreshMyStudents;
 window.showAddStudentModal = showAddStudentModal;
 window.closeAddStudentModal = closeAddStudentModal;
 window.handleAddStudentModal = handleAddStudentModal;
-window.addStudent = addStudent;
-window.loadMyStudents = loadMyStudents;
-window.refreshMyStudents = refreshMyStudents;
-window.renderStudentsTable = renderStudentsTable;
 window.viewStudentDetails = viewStudentDetails;
 window.closeStudentDetailsModal = closeStudentDetailsModal;
-window.addTeacherTask = addTeacherTask;
-window.enterMarks = enterMarks;
+window.renderStudentsTable = renderStudentsTable;
+window.deleteStudent = deleteStudent;
 window.saveStudentGrade = saveStudentGrade;
 window.updateGradeDisplay = updateGradeDisplay;
-window.takeAttendance = takeAttendance;
 window.saveAttendance = saveAttendance;
-window.addComment = addComment;
-window.uploadMarksCSV = uploadMarksCSV;
-window.formatDate = formatDate;
-window.getInitials = getInitials;
-window.deleteStudent = deleteStudent;
+window.addTeacherTask = addTeacherTask;
 window.loadTeacherMessages = loadTeacherMessages;
+window.uploadMarksCSV = uploadMarksCSV;
 window.getStatusColor = getStatusColor;
