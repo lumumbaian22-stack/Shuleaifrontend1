@@ -1,6 +1,5 @@
-// ui-helpers.js - UI helper functions (loading, toasts, modals, theme)
+// ui-helpers.js - UI helper functions
 
-// ============ LOADING OVERLAY ============
 function showLoading() {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
@@ -11,7 +10,6 @@ function hideLoading() {
     if (overlay) overlay.classList.add('hidden');
 }
 
-// ============ TOAST NOTIFICATIONS ============
 function showToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -44,7 +42,6 @@ function showToast(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
-// ============ TOGGLE SWITCH (for preferences) ============
 function toggleSwitch(btn) {
     const checked = btn.dataset.checked === 'true';
     btn.dataset.checked = !checked;
@@ -63,14 +60,12 @@ function toggleSwitch(btn) {
     }
 }
 
-// ============ THEME TOGGLE ============
 function toggleTheme() {
     document.documentElement.classList.toggle('dark');
     localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     if (typeof updateChartTheme === 'function') updateChartTheme();
 }
 
-// ============ MOBILE SIDEBAR ============
 function toggleMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('mobile-overlay');
@@ -78,15 +73,24 @@ function toggleMobileSidebar() {
     if (overlay) overlay.classList.toggle('hidden');
 }
 
-// ============ USER MENU ============
 function toggleUserMenu() {
     const menu = document.getElementById('user-menu');
     if (menu) menu.classList.toggle('hidden');
 }
 
-// ui-helpers.js - Add this at the end
+function toggleNotifications() {
+    const panel = document.getElementById('notifications-panel');
+    if (panel) {
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) {
+            if (typeof loadNotifications === 'function') loadNotifications();
+        }
+    } else {
+        showToast('Notifications coming soon', 'info');
+    }
+}
 
-// Add fade-out animation class
+// Add fade-out animation
 const style = document.createElement('style');
 style.textContent = `
     .animate-fade-out {
@@ -99,7 +103,6 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Expose globally
 window.showLoading = showLoading;
 window.hideLoading = hideLoading;
 window.showToast = showToast;
@@ -107,3 +110,4 @@ window.toggleSwitch = toggleSwitch;
 window.toggleTheme = toggleTheme;
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.toggleUserMenu = toggleUserMenu;
+window.toggleNotifications = toggleNotifications;
