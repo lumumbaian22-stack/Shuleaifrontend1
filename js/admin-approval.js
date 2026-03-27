@@ -201,6 +201,7 @@ function renderTeachersTable(teachers) {
     `;
 }
 
+// Export all
 window.loadPendingTeachers = loadPendingTeachers;
 window.loadAllTeachers = loadAllTeachers;
 window.loadAllStudents = loadAllStudents;
