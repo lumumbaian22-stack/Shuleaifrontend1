@@ -11,7 +11,7 @@ function openAuthModal(role, mode) {
     titleEl.textContent = mode === 'signin' ? `Sign In as ${role}` : `Sign Up as ${role}`;
     contentEl.innerHTML = getAuthForm(role, mode);
     modal.classList.remove('hidden');
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 
 function getAuthForm(role, mode) {
@@ -87,7 +87,7 @@ function getAuthForm(role, mode) {
                 <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                     <p class="text-xs text-blue-600 dark:text-blue-400">
                         <i data-lucide="info" class="h-3 w-3 inline mr-1"></i>
-                        Your school will be pending approval. You'll receive a short code (e.g., SHL-A7K29) for teachers to use.
+                        Your school will be pending approval. You'll receive a short code for teachers to use.
                     </p>
                 </div>
             `;
@@ -151,17 +151,6 @@ function getAuthForm(role, mode) {
                     <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 </div>
             `;
-        } else if (role === 'student') {
-            return `
-                <div>
-                    <label class="block text-sm font-medium mb-1">ELIMUID</label>
-                    <input type="text" id="auth-elimuid" placeholder="e.g., ELI-2024-001" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-            `;
         }
     }
     return '';
@@ -181,14 +170,14 @@ async function verifySchoolCodeInput() {
         statusDiv.className = 'text-xs mt-1 p-2 bg-green-100 text-green-700 rounded-lg';
         statusDiv.innerHTML = `<i data-lucide="check-circle" class="h-3 w-3 inline mr-1"></i> Verified: ${response.data.schoolName}`;
         statusDiv.classList.remove('hidden');
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
         showToast(`School found: ${response.data.schoolName}`, 'success');
     } catch (error) {
         const statusDiv = document.getElementById('school-verify-status');
         statusDiv.className = 'text-xs mt-1 p-2 bg-red-100 text-red-700 rounded-lg';
         statusDiv.innerHTML = `<i data-lucide="x-circle" class="h-3 w-3 inline mr-1"></i> ${error.message}`;
         statusDiv.classList.remove('hidden');
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
         showToast(error.message || 'Invalid school code', 'error');
     } finally {
         hideLoading();
@@ -378,7 +367,7 @@ function openStudentLoginModal() {
         </div>
     `;
     modal.classList.remove('hidden');
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 async function handleStudentLogin() {
@@ -450,7 +439,7 @@ function showFirstTimePasswordModal(elimuid) {
         </div>
     `;
     modal.classList.remove('hidden');
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 async function handleFirstPasswordChange(elimuid) {
