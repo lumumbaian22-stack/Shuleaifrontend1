@@ -403,6 +403,10 @@ async function renderAdminFairnessReport() {
     showLoading();
     try {
         const report = await api.admin.getFairnessReport();
+        const fairnessData = report.data || {};
+
+        // If no data, show message
+        const hasData = fairnessData.summary && fairnessData.summary.fairnessScore !== undefined;
 
         return `
             <div class="space-y-6 animate-fade-in">
@@ -414,64 +418,152 @@ async function renderAdminFairnessReport() {
                     </button>
                 </div>
 
-                <div class="grid gap-4 md:grid-cols-3">
-                    <div class="rounded-xl border bg-card p-6">
-                        <p class="text-sm text-muted-foreground">Fairness Score</p>
-                        <div class="flex items-end gap-2">
-                            <h3 class="text-3xl font-bold">${report?.data?.summary?.fairnessScore || 0}%</h3>
-                            <span class="text-sm text-muted-foreground mb-1">/ 100</span>
+                ${!hasData ? `
+                    <div class="rounded-xl border bg-card p-12 text-center">
+                        <i data-lucide="bar-chart-2" class="h-12 w-12 mx-auto text-muted-foreground mb-4"></i>
+                        <p class="text-muted-foreground">No fairness data available yet.</p>
+                        <p class="text-xs text-muted-foreground mt-1">Once duties are assigned, metrics will appear here.</p>
+                    </div>
+                ` : `
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <div class="rounded-xl border bg-card p-6">
+                            <p class="text-sm text-muted-foreground">Fairness Score</p>
+                            <div class="flex items-end gap-2">
+                                <h3 class="text-3xl font-bold">${fairnessData.summary?.fairnessScore || 0}%</h3>
+                                <span class="text-sm text-muted-foreground mb-1">/ 100</span>
+                            </div>
+                        </div>
+                        <div class="rounded-xl border bg-card p-6">
+                            <p class="text-sm text-muted-foreground">Total Duties</p>
+                            <h3 class="text-3xl font-bold">${fairnessData.summary?.totalDuties || 0}</h3>
+                        </div>
+                        <div class="rounded-xl border bg-card p-6">
+                            <p class="text-sm text-muted-foreground">Teachers</p>
+                            <h3 class="text-3xl font-bold">${fairnessData.teacherStats?.length || 0}</h3>
                         </div>
                     </div>
-                    <div class="rounded-xl border bg-card p-6">
-                        <p class="text-sm text-muted-foreground">Total Duties</p>
-                        <h3 class="text-3xl font-bold">${report?.data?.summary?.totalDuties || 0}</h3>
-                    </div>
-                    <div class="rounded-xl border bg-card p-6">
-                        <p class="text-sm text-muted-foreground">Teachers</p>
-                        <h3 class="text-3xl font-bold">${report?.data?.teacherStats?.length || 0}</h3>
-                    </div>
-                </div>
 
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    <div class="p-4 border-b">
-                        <h3 class="font-semibold">Teacher Workload Distribution</h3>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-muted/50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left">Teacher</th>
-                                    <th class="px-4 py-3 text-left">Department</th>
-                                    <th class="px-4 py-3 text-center">Scheduled</th>
-                                    <th class="px-4 py-3 text-center">Completed</th>
-                                    <th class="px-4 py-3 text-center">Completion Rate</th>
-                                 </tr>
-                            </thead>
-                            <tbody class="divide-y">
-                                ${report?.data?.teacherStats?.map(t => `
-                                    <tr class="hover:bg-accent/50">
-                                        <td class="px-4 py-3 font-medium">${t.teacherName}</td>
-                                        <td class="px-4 py-3">${t.department}</td>
-                                        <td class="px-4 py-3 text-center">${t.scheduled}</td>
-                                        <td class="px-4 py-3 text-center">${t.completed}</td>
-                                        <td class="px-4 py-3 text-center">
-                                            <span class="px-2 py-1 rounded-full text-xs ${t.completionRate >= 80 ? 'bg-green-100 text-green-700' : t.completionRate >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
-                                                ${t.completionRate}%
-                                            </span>
-                                        </td>
+                    <div class="rounded-xl border bg-card overflow-hidden">
+                        <div class="p-4 border-b">
+                            <h3 class="font-semibold">Teacher Workload Distribution</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-muted/50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">Teacher</th>
+                                        <th class="px-4 py-3 text-left">Department</th>
+                                        <th class="px-4 py-3 text-center">Scheduled</th>
+                                        <th class="px-4 py-3 text-center">Completed</th>
+                                        <th class="px-4 py-3 text-center">Completion Rate</th>
                                     </tr>
-                                `).join('')}
-                                ${!report?.data?.teacherStats?.length ? '<tr><td colspan="5" class="text-center py-8 text-muted-foreground">No data available</td></tr>' : ''}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${(fairnessData.teacherStats || []).map(t => `
+                                        <tr class="hover:bg-accent/50">
+                                            <td class="px-4 py-3 font-medium">${t.teacherName} </td>
+                                            <td class="px-4 py-3">${t.department} </td>
+                                            <td class="px-4 py-3 text-center">${t.scheduled} </td>
+                                            <td class="px-4 py-3 text-center">${t.completed} </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <span class="px-2 py-1 rounded-full text-xs ${t.completionRate >= 80 ? 'bg-green-100 text-green-700' : t.completionRate >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
+                                                    ${t.completionRate}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                    ${(!fairnessData.teacherStats || fairnessData.teacherStats.length === 0) ? `
+                                        <tr><td colspan="5" class="text-center py-8 text-muted-foreground">No data available</td></tr>
+                                    ` : ''}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                `}
             </div>
         `;
     } catch (error) {
+        console.error('Error loading fairness report:', error);
         return `<div class="text-center py-12 text-red-500">Error loading fairness report: ${error.message}</div>`;
     } finally {
         hideLoading();
+    }
+}
+
+async function renderAdminTeacherWorkload() {
+    try {
+        const workload = await api.admin.getTeacherWorkload();
+        const teachers = workload.data || [];
+
+        const hasData = teachers.length > 0;
+
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">Teacher Workload Monitor</h2>
+
+                ${!hasData ? `
+                    <div class="rounded-xl border bg-card p-12 text-center">
+                        <i data-lucide="users" class="h-12 w-12 mx-auto text-muted-foreground mb-4"></i>
+                        <p class="text-muted-foreground">No workload data available yet.</p>
+                        <p class="text-xs text-muted-foreground mt-1">Once duties are assigned, teacher workloads will appear here.</p>
+                    </div>
+                ` : `
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <div class="rounded-xl border bg-card p-6">
+                            <p class="text-sm text-muted-foreground">Overworked Teachers</p>
+                            <h3 class="text-3xl font-bold text-red-600">${teachers.filter(t => t.status === 'overworked').length}</h3>
+                        </div>
+                        <div class="rounded-xl border bg-card p-6">
+                            <p class="text-sm text-muted-foreground">Balanced Teachers</p>
+                            <h3 class="text-3xl font-bold text-green-600">${teachers.filter(t => t.status === 'balanced').length}</h3>
+                        </div>
+                        <div class="rounded-xl border bg-card p-6">
+                            <p class="text-sm text-muted-foreground">Underworked Teachers</p>
+                            <h3 class="text-3xl font-bold text-yellow-600">${teachers.filter(t => t.status === 'underworked').length}</h3>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border bg-card overflow-hidden">
+                        <div class="p-4 border-b">
+                            <h3 class="font-semibold">Current Workload Distribution</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-muted/50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">Teacher</th>
+                                        <th class="px-4 py-3 text-left font-medium">Department</th>
+                                        <th class="px-4 py-3 text-center font-medium">Monthly Duties</th>
+                                        <th class="px-4 py-3 text-center font-medium">Weekly Duties</th>
+                                        <th class="px-4 py-3 text-center font-medium">Reliability</th>
+                                        <th class="px-4 py-3 text-center font-medium">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${teachers.map(teacher => `
+                                        <tr class="hover:bg-accent/50 transition-colors">
+                                            <td class="px-4 py-3 font-medium">${teacher.teacherName} </td>
+                                            <td class="px-4 py-3">${teacher.department} </td>
+                                            <td class="px-4 py-3 text-center">${teacher.monthlyDutyCount} </td>
+                                            <td class="px-4 py-3 text-center">${teacher.weeklyDutyCount} </td>
+                                            <td class="px-4 py-3 text-center">${teacher.reliabilityScore} </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <span class="px-2 py-1 ${teacher.status === 'overworked' ? 'bg-red-100 text-red-700' : teacher.status === 'underworked' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'} text-xs rounded-full">
+                                                    ${teacher.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `}
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading workload:', error);
+        return `<div class="text-center py-12 text-red-500">Error loading workload: ${error.message}</div>`;
     }
 }
 
