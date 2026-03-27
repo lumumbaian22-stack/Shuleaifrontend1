@@ -345,6 +345,26 @@ function closeStudentDetailsModal() {
     if (modal) modal.classList.add('hidden');
 }
 
+// Add after other functions
+
+async function editStudent(studentId) {
+    showLoading();
+    try {
+        const students = await loadAllStudents();
+        const student = students.find(s => s.id == studentId);
+        if (!student) {
+            showToast('Student not found', 'error');
+            return;
+        }
+        showEditStudentModal(student);
+    } catch (error) {
+        console.error('Error loading student for edit:', error);
+        showToast('Failed to load student data', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 // Export
 window.loadAllStudents = loadAllStudents;
 window.refreshAdminStudentList = refreshAdminStudentList;
@@ -353,5 +373,6 @@ window.editAdminStudent = editAdminStudent;
 window.suspendStudent = suspendStudent;
 window.reactivateStudent = reactivateStudent;
 window.deleteStudent = deleteStudent;
+window.editStudent = editStudent;  
 window.showStudentDetailsModal = showStudentDetailsModal;
 window.closeStudentDetailsModal = closeStudentDetailsModal;
