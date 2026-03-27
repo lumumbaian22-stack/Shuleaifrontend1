@@ -222,7 +222,12 @@ async function suspendStudent(studentId, studentName) {
             await refreshAdminStudentList();
         }
     } catch (error) {
-        showToast(error.message || 'Failed to suspend student', 'error');
+        // Handle the 500 error gracefully
+        if (error.message.includes('invalid input value for enum')) {
+            showToast('Unable to suspend student. Please contact support.', 'error');
+        } else {
+            showToast(error.message || 'Failed to suspend student', 'error');
+        }
     } finally {
         hideLoading();
     }
