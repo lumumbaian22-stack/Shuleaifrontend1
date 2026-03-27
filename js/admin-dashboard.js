@@ -1,4 +1,4 @@
-// admin-dashboard.js - Admin dashboard rendering
+// admin-dashboard.js - COMPLETE FIXED VERSION
 
 async function renderAdminSection(section) {
     try {
@@ -193,7 +193,7 @@ async function renderAdminStudents() {
                                     const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
                                                        status === 'suspended' ? 'bg-red-100 text-red-700' : 
                                                        'bg-gray-100 text-gray-700';
-                                    const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                                    const initials = getInitials(name);
 
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
@@ -204,14 +204,14 @@ async function renderAdminStudents() {
                                                     </div>
                                                     <span class="font-medium">${name}</span>
                                                 </div>
-                                            </td>
+                                             </td>
                                             <td class="px-4 py-3">
                                                 <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid || 'N/A'}</span>
-                                            </td>
+                                             </td>
                                             <td class="px-4 py-3">${student.grade || 'N/A'}</td>
                                             <td class="px-4 py-3">
                                                 <span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span>
-                                            </td>
+                                             </td>
                                             <td class="px-4 py-3">${email}</td>
                                             <td class="px-4 py-3 text-center">
                                                 <div class="flex items-center justify-center gap-2">
@@ -232,17 +232,17 @@ async function renderAdminStudents() {
                                                     <button onclick="deleteStudent('${student.id}', '${name}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
                                                         <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
                                                     </button>
-                                                    <button onclick="copyElimuid('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
+                                                    <button onclick="copyToClipboard('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
                                                         <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
                                                     </button>
                                                 </div>
-                                            </td>
-                                        </tr>
+                                             </td>
+                                         </tr>
                                     `;
                                 }).join('')}
                                 ${students.length === 0 ? '<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No students found</td></tr>' : ''}
                             </tbody>
-                        </table>
+                         </table>
                     </div>
                 </div>
             </div>
@@ -275,47 +275,7 @@ async function renderAdminPendingTeachers() {
             <div class="space-y-6 animate-fade-in">
                 <h2 class="text-2xl font-bold">Pending Teacher Approvals</h2>
                 <div class="rounded-xl border bg-card overflow-hidden">
-                    ${teachers.length > 0 ? `
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead class="bg-muted/50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left font-medium">Teacher</th>
-                                        <th class="px-4 py-3 text-left font-medium">Email</th>
-                                        <th class="px-4 py-3 text-left font-medium">Subjects</th>
-                                        <th class="px-4 py-3 text-left font-medium">Qualification</th>
-                                        <th class="px-4 py-3 text-left font-medium">Applied</th>
-                                        <th class="px-4 py-3 text-right font-medium">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y">
-                                    ${teachers.map(teacher => {
-                                        const user = teacher.User || {};
-                                        return `
-                                            <tr class="hover:bg-accent/50 transition-colors">
-                                                <td class="px-4 py-3">
-                                                    <div class="flex items-center gap-3">
-                                                        <div class="h-8 w-8 rounded-full bg-violet-100 flex items-center justify-center">
-                                                            <span class="font-medium text-violet-700 text-sm">${getInitials(user.name)}</span>
-                                                        </div>
-                                                        <span class="font-medium">${user.name || 'Unknown'}</span>
-                                                    </div>
-                                                </td>
-                                                <td class="px-4 py-3">${user.email || 'N/A'}</td>
-                                                <td class="px-4 py-3">${(teacher.subjects || []).join(', ')}</td>
-                                                <td class="px-4 py-3">${teacher.qualification || 'N/A'}</td>
-                                                <td class="px-4 py-3">${timeAgo(teacher.createdAt)}</td>
-                                                <td class="px-4 py-3 text-right">
-                                                    <button onclick="approveTeacher('${teacher.id}')" class="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full hover:bg-green-200 mr-2">Approve</button>
-                                                    <button onclick="rejectTeacher('${teacher.id}')" class="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-full hover:bg-red-200">Reject</button>
-                                                </td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : '<div class="p-8 text-center text-muted-foreground">No pending teacher approvals</div>'}
+                    ${renderPendingTeachersTable(teachers)}
                 </div>
             </div>
         `;
@@ -485,7 +445,7 @@ async function renderAdminFairnessReport() {
                                     <th class="px-4 py-3 text-center">Scheduled</th>
                                     <th class="px-4 py-3 text-center">Completed</th>
                                     <th class="px-4 py-3 text-center">Completion Rate</th>
-                                </tr>
+                                 </tr>
                             </thead>
                             <tbody class="divide-y">
                                 ${report?.data?.teacherStats?.map(t => `
@@ -551,7 +511,7 @@ async function renderAdminTeacherWorkload() {
                                     <th class="px-4 py-3 text-center font-medium">Weekly Duties</th>
                                     <th class="px-4 py-3 text-center font-medium">Reliability</th>
                                     <th class="px-4 py-3 text-center font-medium">Status</th>
-                                </tr>
+                                 </tr>
                             </thead>
                             <tbody class="divide-y">
                                 ${workload?.map(teacher => `
@@ -568,7 +528,7 @@ async function renderAdminTeacherWorkload() {
                                         </td>
                                     </tr>
                                 `).join('')}
-                                ${!workload?.length ? '<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No data available</td></tr>' : ''}
+                                ${!workload?.length ? '<tr><td colspan="6" class="text-center py-8 text-muted-foreground">No data available</td></tr>' : ''}
                             </tbody>
                         </table>
                     </div>
@@ -704,7 +664,109 @@ function renderAdminCustomSubjects() {
     `;
 }
 
-// Helper functions for admin (if not already defined elsewhere)
+// ============ CUSTOM SUBJECT FUNCTIONS ============
+
+window.addCustomSubject = function() {
+    const newSubject = document.getElementById('new-subject-name')?.value.trim();
+    if (!newSubject) {
+        showToast('Please enter a subject name', 'error');
+        return;
+    }
+    
+    if (!customSubjects) customSubjects = [];
+    
+    if (customSubjects.includes(newSubject)) {
+        showToast('Subject already exists', 'warning');
+        return;
+    }
+    
+    customSubjects.push(newSubject);
+    schoolSettings.customSubjects = customSubjects;
+    localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+    
+    const container = document.getElementById('custom-subjects-container');
+    if (container) {
+        const noSubjectsMsg = document.getElementById('no-custom-subjects-message');
+        if (noSubjectsMsg) noSubjectsMsg.remove();
+        
+        const newSubjectHTML = `
+            <div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border" data-subject="${newSubject}">
+                <span class="text-sm font-medium">${newSubject}</span>
+                <button onclick="removeCustomSubject('${newSubject}')" class="text-red-500 hover:text-red-700">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', newSubjectHTML);
+    }
+    
+    document.getElementById('new-subject-name').value = '';
+    showToast(`Subject "${newSubject}" added`, 'success');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.removeCustomSubject = function(subject) {
+    if (!confirm(`Remove "${subject}" from custom subjects?`)) return;
+    
+    customSubjects = customSubjects.filter(s => s !== subject);
+    schoolSettings.customSubjects = customSubjects;
+    localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+    
+    const subjectItem = document.querySelector(`.custom-subject-item[data-subject="${subject}"]`);
+    if (subjectItem) subjectItem.remove();
+    
+    const container = document.getElementById('custom-subjects-container');
+    if (container && container.children.length === 0) {
+        container.innerHTML = '<p class="text-sm text-muted-foreground col-span-3 py-4 text-center bg-muted/30 rounded-lg" id="no-custom-subjects-message">No custom subjects added yet</p>';
+    }
+    
+    showToast(`Subject "${subject}" removed`, 'info');
+};
+
+window.saveAllSettings = async function() {
+    const curriculum = document.getElementById('settings-curriculum')?.value;
+    const schoolName = document.getElementById('settings-school-name')?.value;
+    const schoolLevel = document.getElementById('settings-school-level')?.value;
+    
+    if (!schoolName) {
+        showToast('School name is required', 'error');
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({
+            curriculum: curriculum,
+            schoolName: schoolName,
+            schoolLevel: schoolLevel,
+            customSubjects: customSubjects || []
+        });
+        
+        if (response && response.success) {
+            window.schoolSettings = response.data;
+            window.customSubjects = response.data.customSubjects || [];
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            
+            const school = JSON.parse(localStorage.getItem('school') || '{}');
+            school.name = schoolName;
+            school.system = curriculum;
+            school.settings = response.data;
+            localStorage.setItem('school', JSON.stringify(school));
+            
+            showToast('✅ Settings saved!', 'success');
+            await updateAdminStats();
+        } else {
+            throw new Error(response?.message || 'Save failed');
+        }
+    } catch (error) {
+        console.error('Save error:', error);
+        showToast(error.message || 'Failed to save settings', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+// ============ EXPORT FUNCTIONS ============
 window.renderAdminSection = renderAdminSection;
 window.renderAdminDashboard = renderAdminDashboard;
 window.renderAdminStudents = renderAdminStudents;
@@ -715,3 +777,6 @@ window.renderAdminFairnessReport = renderAdminFairnessReport;
 window.renderAdminTeacherWorkload = renderAdminTeacherWorkload;
 window.renderAdminSettings = renderAdminSettings;
 window.renderAdminCustomSubjects = renderAdminCustomSubjects;
+window.addCustomSubject = addCustomSubject;
+window.removeCustomSubject = removeCustomSubject;
+window.saveAllSettings = saveAllSettings;
