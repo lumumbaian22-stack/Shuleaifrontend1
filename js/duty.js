@@ -243,6 +243,34 @@ function renderDutyPreferencesForm(preferences = {}) {
     `;
 }
 
+// ============ DUTY ROSTER GENERATION ============
+window.handleGenerateDutyRoster = async function() {
+    const startDate = document.getElementById('duty-start-date')?.value;
+    const endDate = document.getElementById('duty-end-date')?.value;
+    
+    if (!startDate || !endDate) {
+        showToast('Please select start and end dates', 'error');
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await api.admin.generateDutyRoster(startDate, endDate);
+        
+        if (response.success) {
+            showToast(`✅ Generated ${response.data.rosters?.length || 0} duty rosters`, 'success');
+            if (response.data.understaffed?.length > 0) {
+                showToast(`⚠️ ${response.data.understaffed.length} understaffed slots detected`, 'warning');
+            }
+            await showDashboardSection('duty');
+        }
+    } catch (error) {
+        showToast(error.message || 'Failed to generate duty roster', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
 // Export functions
 window.loadTodayDuty = loadTodayDuty;
 window.loadWeeklyDuty = loadWeeklyDuty;
