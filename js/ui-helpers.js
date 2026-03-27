@@ -90,6 +90,44 @@ function toggleNotifications() {
     }
 }
 
+// Add search functionality
+window.searchContent = function() {
+    const searchInput = document.getElementById('global-search');
+    const searchTerm = searchInput?.value.toLowerCase().trim();
+
+    if (!searchTerm) {
+        // Show all content
+        document.querySelectorAll('.searchable').forEach(el => el.style.display = '');
+        return;
+    }
+
+    // Find all searchable elements (tables, cards, etc.)
+    const searchableElements = document.querySelectorAll('.searchable, table tbody tr, .card');
+    let foundCount = 0;
+
+    searchableElements.forEach(el => {
+        const text = el.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            el.style.display = '';
+            foundCount++;
+        } else {
+            el.style.display = 'none';
+        }
+    });
+
+    if (foundCount === 0) {
+        showToast('No results found', 'info');
+    }
+};
+
+// Add search input listener in main.js or here
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', window.searchContent);
+    }
+});
+
 // Add fade-out animation
 const style = document.createElement('style');
 style.textContent = `
