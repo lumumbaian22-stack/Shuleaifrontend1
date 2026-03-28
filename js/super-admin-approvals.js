@@ -758,6 +758,8 @@ async function loadNameChangeRequests() {
 }
 
 // Approve name change
+// In super-admin-approvals.js - Replace the approveNameChange function
+
 async function approveNameChange(requestId) {
     showLoading();
     try {
@@ -773,45 +775,62 @@ async function approveNameChange(requestId) {
         
         if (approvedRequest) {
             const newSchoolName = approvedRequest.newName;
-            const schoolCode = approvedRequest.schoolCode;
             const schoolId = approvedRequest.School?.id;
+            const schoolCode = approvedRequest.School?.shortCode;
             
             console.log('✅ School name changed to:', newSchoolName);
-            console.log('School code:', schoolCode);
+            console.log('School ID:', schoolId);
+            console.log('School Code:', schoolCode);
             
-            // ============ METHOD 1: Update localStorage ============
-            const schoolData = {
-                id: schoolId,
-                schoolId: schoolCode,
-                shortCode: approvedRequest.School?.shortCode,
-                name: newSchoolName,
-                status: 'active',
-                settings: approvedRequest.School?.settings || {}
+            // ============ UPDATE FOR ALL USERS IN THIS SCHOOL ============
+            
+            // Store the name change in localStorage for cross-tab sync
+            const nameChangeEvent = {
+                schoolId: schoolId,
+                newName: newSchoolName,
+                timestamp: new Date().toISOString()
             };
+            localStorage.setItem('pendingSchoolNameChange', JSON.stringify(nameChangeEvent));
             
-            localStorage.setItem('school', JSON.stringify(schoolData));
+            // Update current user's localStorage if they belong to this school
+            const currentUser = getCurrentUser();
+            const currentSchool = getCurrentSchool();
             
-            // Update schoolSettings
-            const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
-            settings.schoolName = newSchoolName;
-            localStorage.setItem('schoolSettings', JSON.stringify(settings));
-            
-            // ============ METHOD 2: Update global variables if they exist ============
-            if (typeof window.currentSchool !== 'undefined') {
-                window.currentSchool = schoolData;
+            if (currentSchool && (currentSchool.id === schoolId || currentSchool.shortCode === schoolCode)) {
+                // Update school object in localStorage
+                const updatedSchool = {
+                    ...currentSchool,
+                    name: newSchoolName,
+                    settings: { ...currentSchool.settings, schoolName: newSchoolName }
+                };
+                localStorage.setItem('school', JSON.stringify(updatedSchool));
+                
+                // Update schoolSettings
+                const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+                settings.schoolName = newSchoolName;
+                localStorage.setItem('schoolSettings', JSON.stringify(settings));
+                
+                // Update global variables
+                if (typeof window.schoolSettings !== 'undefined') {
+                    window.schoolSettings.schoolName = newSchoolName;
+                }
+                if (typeof window.currentSchool !== 'undefined') {
+                    window.currentSchool = updatedSchool;
+                }
+                
+                // Update ALL UI elements immediately
+                updateAllSchoolNameElements(newSchoolName);
+                
+                // Refresh current dashboard section to show updated name
+                if (typeof showDashboardSection === 'function') {
+                    await showDashboardSection(window.currentSection || 'dashboard');
+                }
+                
+                // Dispatch event for other tabs/windows
+                window.dispatchEvent(new CustomEvent('school-name-changed', { 
+                    detail: { newName: newSchoolName, schoolId: schoolId, schoolCode: schoolCode } 
+                }));
             }
-            
-            if (typeof window.schoolSettings !== 'undefined') {
-                window.schoolSettings.schoolName = newSchoolName;
-            }
-            
-            // ============ METHOD 3: Update all possible UI elements ============
-            updateAllSchoolNameElements(newSchoolName);
-            
-            // ============ METHOD 4: Dispatch custom event ============
-            window.dispatchEvent(new CustomEvent('school-name-changed', { 
-                detail: { newName: newSchoolName, schoolCode: schoolCode } 
-            }));
             
             showToast(`✅ School name updated to "${newSchoolName}"`, 'success');
         }
@@ -823,6 +842,48 @@ async function approveNameChange(requestId) {
     } finally {
         hideLoading();
     }
+}
+
+// Update all school name elements across the entire application
+function updateAllSchoolNameElements(newName) {
+    // Update sidebar school name
+    const sidebarSchoolName = document.querySelector('#sidebar .text-lg.font-bold');
+    if (sidebarSchoolName) sidebarSchoolName.textContent = newName;
+    
+    // Update admin dashboard school name card
+    const adminSchoolName = document.querySelector('.rounded-xl.border.bg-card.p-6 h2.text-2xl.font-bold');
+    if (adminSchoolName) adminSchoolName.textContent = newName;
+    
+    // Update all elements with school-name class
+    document.querySelectorAll('.school-name, .school-name-display, [data-school-name]').forEach(el => {
+        el.textContent = newName;
+    });
+    
+    // Update profile section if visible
+    const profileSchoolName = document.querySelector('#profile-section .school-name');
+    if (profileSchoolName) profileSchoolName.textContent = newName;
+    
+    // Update any h2 elements that contain school name (but not "Dashboard" or other titles)
+    document.querySelectorAll('h2').forEach(el => {
+        const currentText = el.textContent;
+        // If the element contains the old school name (check against localStorage)
+        const oldSchool = getCurrentSchool();
+        if (oldSchool && currentText.includes(oldSchool.name) && !currentText.includes('Dashboard')) {
+            el.textContent = currentText.replace(oldSchool.name, newName);
+        }
+    });
+    
+    // Update breadcrumb if exists
+    const breadcrumb = document.querySelector('.breadcrumb span:last-child');
+    if (breadcrumb) breadcrumb.textContent = newName;
+    
+    // Force a small delay and try again for dynamically loaded content
+    setTimeout(() => {
+        // Re-run for any elements that might have been loaded after
+        document.querySelectorAll('.school-name, .school-name-display, [data-school-name]').forEach(el => {
+            el.textContent = newName;
+        });
+    }, 500);
 }
 
 // Helper function to update all school name elements
