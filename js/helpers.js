@@ -81,6 +81,51 @@ function getCurrentRole() {
     return localStorage.getItem('userRole');
 }
 
+// Global function to update all school name elements across the entire app
+function updateAllSchoolNameElements(newName) {
+    console.log('Updating all school name elements to:', newName);
+    
+    // Update sidebar
+    const sidebarSchoolName = document.getElementById('sidebar-school-name');
+    if (sidebarSchoolName) sidebarSchoolName.textContent = newName;
+    
+    // Update admin dashboard
+    const adminSchoolName = document.getElementById('dashboard-school-name');
+    if (adminSchoolName) adminSchoolName.textContent = newName;
+    
+    // Update teacher dashboard
+    const teacherSchoolName = document.getElementById('teacher-school-name');
+    if (teacherSchoolName) teacherSchoolName.textContent = newName;
+    
+    // Update parent dashboard
+    const parentSchoolName = document.getElementById('parent-school-name');
+    if (parentSchoolName) parentSchoolName.textContent = newName;
+    
+    // Update student dashboard
+    const studentSchoolName = document.getElementById('student-school-name');
+    if (studentSchoolName) studentSchoolName.textContent = newName;
+    
+    // Update any elements with class .school-name
+    document.querySelectorAll('.school-name, .school-name-display, [data-school-name]').forEach(el => {
+        el.textContent = newName;
+    });
+    
+    // Update the main school name in admin dashboard card (fallback)
+    const adminCardSchoolName = document.querySelector('.rounded-xl.border.bg-card.p-6 h2.text-2xl.font-bold');
+    if (adminCardSchoolName) adminCardSchoolName.textContent = newName;
+    
+    // Update profile section if visible
+    const profileSchoolName = document.querySelector('#profile-section .school-name');
+    if (profileSchoolName) profileSchoolName.textContent = newName;
+    
+    // Force a re-render of the current section to catch any dynamically loaded elements
+    setTimeout(() => {
+        if (typeof showDashboardSection === 'function' && window.currentSection) {
+            showDashboardSection(window.currentSection);
+        }
+    }, 100);
+}
+
 // Export
 window.getInitials = getInitials;
 window.timeAgo = timeAgo;
@@ -91,3 +136,4 @@ window.escapeHtml = escapeHtml;
 window.getCurrentUser = getCurrentUser;
 window.getCurrentSchool = getCurrentSchool;
 window.getCurrentRole = getCurrentRole;
+window.updateAllSchoolNameElements = updateAllSchoolNameElements;
