@@ -48,7 +48,7 @@ function renderAdminDashboard() {
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <div class="flex items-center gap-3 mb-2">
-                            <h2 class="text-2xl font-bold">${school?.name || 'Your School'}</h2>
+                            <h2 id="dashboard-school-name" class="text-2xl font-bold">${school?.name || 'Your School'}</h2>
                             <span class="px-3 py-1 ${school?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} text-xs rounded-full">
                                 ${school?.status || 'pending'}
                             </span>
@@ -182,8 +182,7 @@ async function renderAdminStudents() {
                                     <th class="px-4 py-3 text-left font-medium">Status</th>
                                     <th class="px-4 py-3 text-left font-medium">Parent Email</th>
                                     <th class="px-4 py-3 text-center font-medium">Actions</th>
-                                </tr>
-                            </thead>
+                                 </thead>
                             <tbody class="divide-y" id="students-table-body">
                                 ${students.map(student => {
                                     const user = student.User || {};
@@ -204,14 +203,14 @@ async function renderAdminStudents() {
                                                     </div>
                                                     <span class="font-medium">${name}</span>
                                                 </div>
-                                             </td>
+                                              </td>
                                             <td class="px-4 py-3">
                                                 <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid || 'N/A'}</span>
-                                             </td>
+                                              </td>
                                             <td class="px-4 py-3">${student.grade || 'N/A'}</td>
                                             <td class="px-4 py-3">
                                                 <span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span>
-                                             </td>
+                                              </td>
                                             <td class="px-4 py-3">${email}</td>
                                             <td class="px-4 py-3 text-center">
                                                 <div class="flex items-center justify-center gap-2">
@@ -236,13 +235,13 @@ async function renderAdminStudents() {
                                                         <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
                                                     </button>
                                                 </div>
-                                             </td>
-                                         </tr>
+                                              </td>
+                                          </tr>
                                     `;
                                 }).join('')}
                                 ${students.length === 0 ? '<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No students found</td></tr>' : ''}
                             </tbody>
-                         </table>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -405,7 +404,6 @@ async function renderAdminFairnessReport() {
         const report = await api.admin.getFairnessReport();
         const fairnessData = report.data || {};
 
-        // If no data, show message
         const hasData = fairnessData.summary && fairnessData.summary.fairnessScore !== undefined;
 
         return `
@@ -461,10 +459,10 @@ async function renderAdminFairnessReport() {
                                 <tbody class="divide-y">
                                     ${(fairnessData.teacherStats || []).map(t => `
                                         <tr class="hover:bg-accent/50">
-                                            <td class="px-4 py-3 font-medium">${t.teacherName} </td>
-                                            <td class="px-4 py-3">${t.department} </td>
-                                            <td class="px-4 py-3 text-center">${t.scheduled} </td>
-                                            <td class="px-4 py-3 text-center">${t.completed} </td>
+                                            <td class="px-4 py-3 font-medium">${t.teacherName}</td>
+                                            <td class="px-4 py-3">${t.department}</td>
+                                            <td class="px-4 py-3 text-center">${t.scheduled}</td>
+                                            <td class="px-4 py-3 text-center">${t.completed}</td>
                                             <td class="px-4 py-3 text-center">
                                                 <span class="px-2 py-1 rounded-full text-xs ${t.completionRate >= 80 ? 'bg-green-100 text-green-700' : t.completionRate >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
                                                     ${t.completionRate}%
@@ -492,8 +490,8 @@ async function renderAdminFairnessReport() {
 
 async function renderAdminTeacherWorkload() {
     try {
-        const workload = await api.admin.getTeacherWorkload();
-        const teachers = workload.data || [];
+        const workload = await loadTeacherWorkload();
+        const teachers = workload || [];
 
         const hasData = teachers.length > 0;
 
@@ -542,11 +540,11 @@ async function renderAdminTeacherWorkload() {
                                 <tbody class="divide-y">
                                     ${teachers.map(teacher => `
                                         <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3 font-medium">${teacher.teacherName} </td>
-                                            <td class="px-4 py-3">${teacher.department} </td>
-                                            <td class="px-4 py-3 text-center">${teacher.monthlyDutyCount} </td>
-                                            <td class="px-4 py-3 text-center">${teacher.weeklyDutyCount} </td>
-                                            <td class="px-4 py-3 text-center">${teacher.reliabilityScore} </td>
+                                            <td class="px-4 py-3 font-medium">${teacher.teacherName}</td>
+                                            <td class="px-4 py-3">${teacher.department}</td>
+                                            <td class="px-4 py-3 text-center">${teacher.monthlyDutyCount}</td>
+                                            <td class="px-4 py-3 text-center">${teacher.weeklyDutyCount}</td>
+                                            <td class="px-4 py-3 text-center">${teacher.reliabilityScore}</td>
                                             <td class="px-4 py-3 text-center">
                                                 <span class="px-2 py-1 ${teacher.status === 'overworked' ? 'bg-red-100 text-red-700' : teacher.status === 'underworked' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'} text-xs rounded-full">
                                                     ${teacher.status}
@@ -563,71 +561,6 @@ async function renderAdminTeacherWorkload() {
         `;
     } catch (error) {
         console.error('Error loading workload:', error);
-        return `<div class="text-center py-12 text-red-500">Error loading workload: ${error.message}</div>`;
-    }
-}
-
-async function renderAdminTeacherWorkload() {
-    try {
-        const workload = await loadTeacherWorkload();
-        return `
-            <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">Teacher Workload Monitor</h2>
-
-                <div class="grid gap-4 md:grid-cols-3">
-                    <div class="rounded-xl border bg-card p-6">
-                        <p class="text-sm text-muted-foreground">Overworked Teachers</p>
-                        <h3 class="text-3xl font-bold text-red-600">${workload?.filter(w => w.status === 'overworked').length || 0}</h3>
-                    </div>
-                    <div class="rounded-xl border bg-card p-6">
-                        <p class="text-sm text-muted-foreground">Balanced Teachers</p>
-                        <h3 class="text-3xl font-bold text-green-600">${workload?.filter(w => w.status === 'balanced').length || 0}</h3>
-                    </div>
-                    <div class="rounded-xl border bg-card p-6">
-                        <p class="text-sm text-muted-foreground">Underworked Teachers</p>
-                        <h3 class="text-3xl font-bold text-yellow-600">${workload?.filter(w => w.status === 'underworked').length || 0}</h3>
-                    </div>
-                </div>
-
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    <div class="p-4 border-b">
-                        <h3 class="font-semibold">Current Workload Distribution</h3>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-muted/50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left font-medium">Teacher</th>
-                                    <th class="px-4 py-3 text-left font-medium">Department</th>
-                                    <th class="px-4 py-3 text-center font-medium">Monthly Duties</th>
-                                    <th class="px-4 py-3 text-center font-medium">Weekly Duties</th>
-                                    <th class="px-4 py-3 text-center font-medium">Reliability</th>
-                                    <th class="px-4 py-3 text-center font-medium">Status</th>
-                                 </tr>
-                            </thead>
-                            <tbody class="divide-y">
-                                ${workload?.map(teacher => `
-                                    <tr class="hover:bg-accent/50 transition-colors">
-                                        <td class="px-4 py-3 font-medium">${teacher.teacherName}</td>
-                                        <td class="px-4 py-3">${teacher.department}</td>
-                                        <td class="px-4 py-3 text-center">${teacher.monthlyDutyCount}</td>
-                                        <td class="px-4 py-3 text-center">${teacher.weeklyDutyCount}</td>
-                                        <td class="px-4 py-3 text-center">${teacher.reliabilityScore}</td>
-                                        <td class="px-4 py-3 text-center">
-                                            <span class="px-2 py-1 ${teacher.status === 'overworked' ? 'bg-red-100 text-red-700' : teacher.status === 'underworked' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'} text-xs rounded-full">
-                                                ${teacher.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                                ${!workload?.length ? '<tr><td colspan="6" class="text-center py-8 text-muted-foreground">No data available</td></tr>' : ''}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-    } catch (error) {
         return `<div class="text-center py-12 text-red-500">Error loading workload: ${error.message}</div>`;
     }
 }
@@ -845,6 +778,9 @@ window.saveAllSettings = async function() {
             school.settings = response.data;
             localStorage.setItem('school', JSON.stringify(school));
             
+            // Update sidebar and dashboard school name
+            updateAllSchoolNameElements(schoolName);
+            
             showToast('✅ Settings saved!', 'success');
             await updateAdminStats();
         } else {
@@ -863,7 +799,6 @@ function renderHelpSection() {
     const user = getCurrentUser();
     const role = user?.role || 'user';
     
-    // Help articles database
     const helpArticles = {
         superadmin: [
             { title: 'How to approve a new school', content: 'Go to School Approvals, review school details, click Approve. The school will be activated immediately.', keywords: ['approve', 'school', 'activate', 'registration'] },
@@ -903,7 +838,6 @@ function renderHelpSection() {
                 <p class="text-muted-foreground mt-2">Find answers to common questions and learn how to use the platform</p>
             </div>
             
-            <!-- Search Bar -->
             <div class="relative">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"></i>
                 <input type="text" id="help-search" placeholder="Search help articles..." 
@@ -911,7 +845,6 @@ function renderHelpSection() {
                        class="w-full pl-10 pr-4 py-3 rounded-xl border bg-card focus:ring-2 focus:ring-primary transition-all">
             </div>
             
-            <!-- Articles Container -->
             <div id="help-articles-container" class="grid gap-4">
                 ${articles.map(article => `
                     <div class="help-article rounded-xl border bg-card p-6 hover:shadow-md transition-all cursor-pointer" 
@@ -925,7 +858,6 @@ function renderHelpSection() {
                 `).join('')}
             </div>
             
-            <!-- Contact Support -->
             <div class="rounded-xl border bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 text-center">
                 <h3 class="font-semibold text-lg mb-2">💬 Still Need Help?</h3>
                 <p class="text-muted-foreground mb-4">Contact our support team for assistance</p>
@@ -944,7 +876,6 @@ function renderHelpSection() {
     `;
 }
 
-// Search help articles
 window.searchHelpArticles = function() {
     const searchTerm = document.getElementById('help-search')?.value.toLowerCase().trim();
     const articles = document.querySelectorAll('.help-article');
@@ -989,7 +920,6 @@ window.searchHelpArticles = function() {
     }
 };
 
-// Show article detail modal
 window.showHelpArticleDetail = function(title, content) {
     let modal = document.getElementById('help-article-modal');
     if (!modal) {
