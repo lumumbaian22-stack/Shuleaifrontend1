@@ -1,4 +1,4 @@
-// class-management.js - Complete with subject teacher assignment
+// class-management.js - Complete with proper subject filtering by school level
 
 // ============ LOAD FUNCTIONS ============
 
@@ -33,34 +33,71 @@ async function loadSubjectAssignmentsForClass(classId) {
     }
 }
 
-async function getAllSubjects() {
+async function getSchoolSubjects() {
     const curriculum = window.schoolSettings?.curriculum || 'cbc';
-    const schoolLevel = window.schoolSettings?.schoolLevel || 'secondary';
+    const schoolLevel = window.schoolSettings?.schoolLevel || 'both';
 
     const subjectsByCurriculum = {
         'cbc': {
-            primary: ['Mathematics', 'English', 'Kiswahili', 'Science', 'Social Studies', 'CRE/IRE', 'Physical Education', 'Art & Craft', 'Music'],
-            secondary: ['Mathematics', 'English', 'Kiswahili', 'Biology', 'Chemistry', 'Physics', 'History', 'Geography', 'CRE/IRE', 'Business Studies', 'Agriculture', 'Computer Studies']
+            pre_primary: ['Language Activities', 'Mathematics Activities', 'Environmental Activities', 'Psychomotor and Creative Activities', 'Religious Education'],
+            primary: ['Mathematics', 'English', 'Kiswahili', 'Science and Technology', 'Agriculture and Nutrition', 'Creative Arts', 'Social Studies', 'Religious Education', 'Physical and Health Education'],
+            junior_secondary: ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Health Education', 'Social Studies', 'Pre-Technical and Pre-Career Education', 'Agriculture', 'Business Studies', 'Religious Education', 'Life Skills Education', 'Sports and Physical Education', 'Visual Arts', 'Performing Arts'],
+            senior_secondary: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'Aviation Technology', 'Agriculture', 'Music', 'Fine Arts', 'Performing Arts', 'Media Studies', 'Physical Education', 'Creative Writing', 'History', 'Geography', 'English Literature', 'Religious Education', 'Business Studies', 'Sociology', 'Philosophy', 'Foreign Languages']
         },
         '844': {
-            primary: ['Mathematics', 'English', 'Kiswahili', 'Science', 'Social Studies', 'CRE/IRE', 'Physical Education'],
-            secondary: ['Mathematics', 'English', 'Kiswahili', 'Biology', 'Chemistry', 'Physics', 'History', 'Geography', 'CRE/IRE', 'Business Studies', 'Agriculture', 'Computer Studies']
+            primary: ['Mathematics', 'English', 'Kiswahili', 'Science', 'Social Studies', 'Religious Education', 'Physical Education'],
+            secondary: ['Mathematics', 'English', 'Kiswahili', 'Biology', 'Chemistry', 'Physics', 'History', 'Geography', 'Religious Education', 'Business Studies', 'Agriculture', 'Computer Studies']
         },
         'british': {
-            primary: ['English', 'Mathematics', 'Science', 'History', 'Geography', 'Art', 'Music', 'Physical Education'],
-            secondary: ['English Literature', 'English Language', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'History', 'Geography', 'French', 'Spanish', 'Computer Science', 'Business Studies', 'Economics', 'Art & Design', 'Music', 'Physical Education']
+            primary: ['English', 'Mathematics', 'Science', 'History', 'Geography', 'Art', 'Music', 'Physical Education', 'Computing'],
+            secondary: ['English Literature', 'English Language', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'History', 'Geography', 'French', 'Spanish', 'Computer Science', 'Business Studies', 'Economics', 'Psychology', 'Sociology', 'Art', 'Music']
         },
         'american': {
-            primary: ['English Language Arts', 'Mathematics', 'Science', 'Social Studies', 'Art', 'Music', 'Physical Education'],
-            secondary: ['English', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'History', 'Geography', 'Spanish', 'French', 'Computer Science', 'Business', 'Economics', 'Art', 'Music', 'Physical Education']
+            elementary: ['English Language Arts', 'Mathematics', 'Science', 'Social Studies', 'Art', 'Music', 'Physical Education'],
+            middle: ['English', 'Mathematics', 'Science', 'Social Studies', 'Spanish', 'French', 'Computer Science', 'Art', 'Music', 'Physical Education'],
+            high: ['English', 'Mathematics', 'Biology', 'Chemistry', 'Physics', 'History', 'Government', 'Economics', 'Spanish', 'French', 'Computer Science', 'Business', 'Art', 'Music', 'Physical Education', 'Psychology', 'Sociology']
         }
     };
 
-    const level = schoolLevel === 'primary' ? 'primary' : 'secondary';
-    const subjects = subjectsByCurriculum[curriculum]?.[level] || subjectsByCurriculum['cbc'][level];
-    const customSubjects = window.schoolSettings?.customSubjects || [];
+    let subjects = [];
+    const level = schoolLevel;
 
-    return [...subjects, ...customSubjects];
+    if (curriculum === 'cbc') {
+        if (level === 'primary') {
+            subjects = subjectsByCurriculum.cbc.primary;
+        } else if (level === 'secondary') {
+            subjects = [...subjectsByCurriculum.cbc.junior_secondary, ...subjectsByCurriculum.cbc.senior_secondary];
+        } else if (level === 'both') {
+            subjects = [...subjectsByCurriculum.cbc.primary, ...subjectsByCurriculum.cbc.junior_secondary, ...subjectsByCurriculum.cbc.senior_secondary];
+        }
+    } else if (curriculum === '844') {
+        if (level === 'primary') {
+            subjects = subjectsByCurriculum['844'].primary;
+        } else if (level === 'secondary') {
+            subjects = subjectsByCurriculum['844'].secondary;
+        } else if (level === 'both') {
+            subjects = [...subjectsByCurriculum['844'].primary, ...subjectsByCurriculum['844'].secondary];
+        }
+    } else if (curriculum === 'british') {
+        if (level === 'primary') {
+            subjects = subjectsByCurriculum.british.primary;
+        } else if (level === 'secondary') {
+            subjects = subjectsByCurriculum.british.secondary;
+        } else if (level === 'both') {
+            subjects = [...subjectsByCurriculum.british.primary, ...subjectsByCurriculum.british.secondary];
+        }
+    } else if (curriculum === 'american') {
+        if (level === 'primary') {
+            subjects = subjectsByCurriculum.american.elementary;
+        } else if (level === 'secondary') {
+            subjects = [...subjectsByCurriculum.american.middle, ...subjectsByCurriculum.american.high];
+        } else if (level === 'both') {
+            subjects = [...subjectsByCurriculum.american.elementary, ...subjectsByCurriculum.american.middle, ...subjectsByCurriculum.american.high];
+        }
+    }
+
+    const customSubjects = window.schoolSettings?.customSubjects || [];
+    return [...new Set([...subjects, ...customSubjects])];
 }
 
 // ============ RENDER CLASS MANAGEMENT PAGE ============
@@ -70,7 +107,7 @@ async function renderClassManagement() {
         const [classes, teachers, allSubjects] = await Promise.all([
             loadAllClasses(),
             loadAvailableTeachers(),
-            getAllSubjects()
+            getSchoolSubjects()
         ]);
 
         if (!classes || classes.length === 0) {
@@ -79,7 +116,7 @@ async function renderClassManagement() {
                     <div class="flex justify-between items-center">
                         <h2 class="text-2xl font-bold">Class Management</h2>
                         <div class="flex gap-3">
-                            <button onclick="showAddClassModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            <button onclick="showAddClassModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600">
                                 <i data-lucide="plus" class="h-4 w-4 inline mr-2"></i>
                                 Add Class
                             </button>
@@ -97,7 +134,6 @@ async function renderClassManagement() {
             `;
         }
 
-        // Sort classes by grade order
         const gradeOrder = ['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
         const sortedClasses = [...classes].sort((a, b) => {
             const indexA = gradeOrder.indexOf(a.grade);
@@ -113,7 +149,7 @@ async function renderClassManagement() {
                         <p class="text-sm text-muted-foreground">${classes.length} total classes</p>
                     </div>
                     <div class="flex gap-3">
-                        <button onclick="showAddClassModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        <button onclick="showAddClassModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600">
                             <i data-lucide="plus" class="h-4 w-4 inline mr-2"></i>
                             Add Class
                         </button>
@@ -133,8 +169,7 @@ async function renderClassManagement() {
                                 <th class="px-4 py-3 text-left font-medium">Class Teacher</th>
                                 <th class="px-4 py-3 text-left font-medium">Students</th>
                                 <th class="px-4 py-3 text-right font-medium">Actions</th>
-                            </tr>
-                        </thead>
+                             </thead>
                         <tbody class="divide-y">
         `;
 
@@ -147,7 +182,7 @@ async function renderClassManagement() {
                     <td class="px-4 py-3 font-medium">${escapeHtml(cls.name)}</td>
                     <td class="px-4 py-3">${escapeHtml(cls.grade)}</td>
                     <td class="px-4 py-3">
-                        <select id="teacher-${cls.id}" class="rounded border px-2 py-1 text-sm">
+                        <select id="teacher-${cls.id}" class="rounded border border-input bg-background px-2 py-1 text-sm focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700">
                             <option value="">-- Select Class Teacher --</option>
                             ${teachers.map(t => `
                                 <option value="${t.id}" ${t.id === cls.teacherId ? 'selected' : ''}>
@@ -156,7 +191,7 @@ async function renderClassManagement() {
                             `).join('')}
                         </select>
                         <button onclick="assignClassTeacher(${cls.id})" class="ml-2 text-primary hover:underline text-sm">Save</button>
-                        <span class="ml-2 text-xs ${hasTeacher ? 'text-green-600' : 'text-yellow-600'}">${currentTeacher}</span>
+                        <span class="ml-2 text-xs ${hasTeacher ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}">${currentTeacher}</span>
                     </td>
                     <td class="px-4 py-3">${cls.studentCount || 0}</td>
                     <td class="px-4 py-3 text-right">
@@ -169,12 +204,12 @@ async function renderClassManagement() {
                         <button onclick="editClass(${cls.id})" class="p-1 hover:bg-accent rounded" title="Edit Class">
                             <i data-lucide="edit" class="h-4 w-4"></i>
                         </button>
-                        <button onclick="deleteClass(${cls.id})" class="p-1 hover:bg-red-100 rounded text-red-600" title="Delete Class">
+                        <button onclick="deleteClass(${cls.id})" class="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-600 dark:text-red-400" title="Delete Class">
                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                         </button>
                     </td>
                 </tr>
-                <tr id="class-details-${cls.id}" class="hidden bg-muted/20">
+                <tr id="class-details-${cls.id}" class="hidden bg-muted/20 dark:bg-gray-800/50">
                     <td colspan="5" class="px-4 py-3">
                         <div class="p-4">
                             <div class="flex justify-between items-center mb-3">
@@ -210,7 +245,6 @@ async function renderClassManagement() {
             </script>
         `;
 
-        // Load subject assignments for each class
         setTimeout(async () => {
             for (const cls of classes) {
                 await loadAndDisplaySubjectAssignments(cls.id);
@@ -246,7 +280,7 @@ async function loadAndDisplaySubjectAssignments(classId) {
         container.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 ${assignments.map(ass => `
-                    <div class="flex justify-between items-center p-3 bg-card border rounded-lg shadow-sm">
+                    <div class="flex justify-between items-center p-3 bg-card border rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
                         <div>
                             <span class="font-medium text-sm">📚 ${escapeHtml(ass.subject)}</span>
                             <div class="flex items-center gap-2 mt-1">
@@ -255,7 +289,7 @@ async function loadAndDisplaySubjectAssignments(classId) {
                             </div>
                         </div>
                         <button onclick="removeSubjectAssignment(${ass.id}, ${classId})" 
-                                class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                                class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                                 title="Remove teacher from this subject">
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
@@ -269,7 +303,7 @@ async function loadAndDisplaySubjectAssignments(classId) {
     } catch (error) {
         console.error('Error loading subject assignments:', error);
         container.innerHTML = `
-            <div class="text-sm text-red-500 text-center py-4 bg-red-50 rounded">
+            <div class="text-sm text-red-500 text-center py-4 bg-red-50 dark:bg-red-900/20 rounded">
                 <i data-lucide="alert-circle" class="h-4 w-4 inline mr-2"></i>
                 Error loading subject assignments. Please try again.
             </div>
@@ -286,10 +320,9 @@ async function openSubjectAssignmentModal(classId, className) {
         const [teachers, existingAssignments, allSubjects] = await Promise.all([
             loadAvailableTeachers(),
             loadSubjectAssignmentsForClass(classId),
-            getAllSubjects()
+            getSchoolSubjects()
         ]);
 
-        // Create a map of existing assignments for quick lookup
         const existingMap = {};
         existingAssignments.forEach(a => {
             existingMap[a.subject] = a;
@@ -322,16 +355,10 @@ async function openSubjectAssignmentModal(classId, className) {
                                     <th class="px-4 py-3 text-left font-medium">Subject</th>
                                     <th class="px-4 py-3 text-left font-medium">Teacher</th>
                                     <th class="px-4 py-3 text-center font-medium">Action</th>
-                                </tr>
-                            </thead>
+                                 </thead>
                             <tbody class="divide-y">
                                 ${allSubjects.map(subject => {
                                     const existing = existingMap[subject];
-                                    const teachersWithSubject = teachers.filter(t => 
-                                        t.subjects?.includes(subject) || 
-                                        t.subjects?.includes('All') ||
-                                        !existing
-                                    );
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
                                             <td class="px-4 py-3 font-medium">
@@ -342,7 +369,7 @@ async function openSubjectAssignmentModal(classId, className) {
                                             </td>
                                             <td class="px-4 py-3">
                                                 <select id="subject-teacher-${subject.replace(/\s/g, '_')}" 
-                                                        class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                                                        class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:border-gray-700">
                                                     <option value="">-- Select Teacher --</option>
                                                     ${teachers.map(t => `
                                                         <option value="${t.id}" ${existing?.teacherId === t.id ? 'selected' : ''}>
@@ -360,7 +387,7 @@ async function openSubjectAssignmentModal(classId, className) {
                                                 </button>
                                                 ${existing ? `
                                                     <button onclick="removeSubjectAssignment(${existing.id}, ${classId})" 
-                                                            class="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors flex items-center gap-2 mx-auto">
+                                                            class="mt-2 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors flex items-center gap-2 mx-auto">
                                                         <i data-lucide="trash-2" class="h-4 w-4"></i>
                                                         Remove
                                                     </button>
@@ -398,7 +425,7 @@ function createSubjectAssignmentModal() {
         <div id="subject-assignment-modal" class="fixed inset-0 z-50 hidden">
             <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeSubjectAssignmentModal()"></div>
             <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl p-4">
-                <div class="rounded-xl border bg-card shadow-2xl animate-fade-in max-h-[85vh] overflow-hidden flex flex-col">
+                <div class="rounded-xl border bg-card shadow-2xl animate-fade-in max-h-[85vh] overflow-hidden flex flex-col dark:bg-gray-900">
                     <div class="modal-content p-6 overflow-y-auto">
                         <!-- Content filled dynamically -->
                     </div>
@@ -590,7 +617,7 @@ window.openSubjectAssignmentModal = openSubjectAssignmentModal;
 window.closeSubjectAssignmentModal = closeSubjectAssignmentModal;
 window.saveSubjectAssignment = saveSubjectAssignment;
 window.removeSubjectAssignment = removeSubjectAssignment;
-window.getAllSubjects = getAllSubjects;
+window.getSchoolSubjects = getSchoolSubjects;
 window.escapeHtml = escapeHtml;
 window.toggleClassDetails = function(classId) {
     const row = document.getElementById('class-details-' + classId);
