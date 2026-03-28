@@ -4,12 +4,18 @@ function updateSidebar(role) {
     const nav = document.getElementById('sidebar-nav');
     const settingsNav = document.getElementById('settings-nav');
     const mobileNav = document.getElementById('mobile-nav');
+    
+    // Update sidebar school name
+    const schoolNameSpan = document.getElementById('sidebar-school-name');
     const school = getCurrentSchool();
-    const sidebarHeader = document.querySelector('#sidebar .flex.items-center.gap-2 span');
-
-    if (sidebarHeader && school) {
-        sidebarHeader.textContent = school.name || 'ShuleAI';
+    
+    if (schoolNameSpan && school && school.name) {
+        schoolNameSpan.textContent = school.name;
+        console.log('Sidebar school name updated to:', school.name);
+    } else if (schoolNameSpan) {
+        schoolNameSpan.textContent = 'ShuleAI';
     }
+
     if (!nav) return;
 
     const sidebarConfig = {
@@ -147,6 +153,17 @@ function updateUserInfo() {
     if (dropdownEmail) dropdownEmail.textContent = user?.email || '';
 }
 
+// Function to update sidebar school name (called when school name changes)
+function updateSidebarSchoolName(newName) {
+    const schoolNameSpan = document.getElementById('sidebar-school-name');
+    if (schoolNameSpan && newName) {
+        schoolNameSpan.textContent = newName;
+        console.log('Sidebar school name updated to:', newName);
+    }
+}
+
+// Export functions
 window.updateSidebar = updateSidebar;
 window.updateSidebarActiveState = updateSidebarActiveState;
 window.updateUserInfo = updateUserInfo;
+window.updateSidebarSchoolName = updateSidebarSchoolName;
