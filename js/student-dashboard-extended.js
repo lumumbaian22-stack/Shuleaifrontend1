@@ -1,4 +1,4 @@
-// student-dashboard-extended.js - Student dashboard rendering
+// student-dashboard-extended.js - Student dashboard rendering with dynamic school name
 
 async function renderStudentSection(section) {
     switch(section) {
@@ -25,15 +25,22 @@ async function renderStudentDashboard() {
     try {
         const data = dashboardData || {};
         const user = getCurrentUser();
+        const school = getCurrentSchool();
 
         return `
             <div class="space-y-6 animate-fade-in">
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 id="student-school-name" class="text-xl font-semibold">${school?.name || 'Your School'}</h2>
+                    <p class="text-sm text-muted-foreground">Welcome back, ${user?.name || 'Student'}</p>
+                </div>
+                
                 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <div class="rounded-xl border bg-card p-6 card-hover">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">My ELIMUID</p>
-                                <h3 class="text-lg font-mono font-bold mt-1">${user?.elimuid || 'ELI-2024-001'}</h3>
+                                <h3 class="text-lg font-mono font-bold mt-1" id="student-elimuid">${user?.elimuid || 'ELI-2024-001'}</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
                                 <i data-lucide="id-card" class="h-6 w-6 text-purple-600"></i>
@@ -44,7 +51,7 @@ async function renderStudentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">Class Average</p>
-                                <h3 class="text-2xl font-bold mt-1">82%</h3>
+                                <h3 class="text-2xl font-bold mt-1" id="class-average-student">82%</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
                                 <i data-lucide="trending-up" class="h-6 w-6 text-green-600"></i>
@@ -55,7 +62,7 @@ async function renderStudentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">My Attendance</p>
-                                <h3 class="text-2xl font-bold mt-1">95%</h3>
+                                <h3 class="text-2xl font-bold mt-1" id="student-attendance">95%</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
                                 <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i>
@@ -66,7 +73,7 @@ async function renderStudentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">Study Groups</p>
-                                <h3 class="text-2xl font-bold mt-1">3</h3>
+                                <h3 class="text-2xl font-bold mt-1" id="study-groups-count">3</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
                                 <i data-lucide="message-circle" class="h-6 w-6 text-blue-600"></i>
@@ -104,9 +111,16 @@ async function renderStudentDashboard() {
 async function renderStudentGrades() {
     try {
         const data = dashboardData || {};
+        const school = getCurrentSchool();
+        
         return `
             <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">My Grades</h2>
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">My Grades</h2>
+                    <div class="text-sm text-muted-foreground">
+                        ${school?.name || 'Your School'}
+                    </div>
+                </div>
                 <div class="rounded-xl border bg-card overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
@@ -117,9 +131,8 @@ async function renderStudentGrades() {
                                     <th class="px-4 py-3 text-center font-medium">Score</th>
                                     <th class="px-4 py-3 text-center font-medium">Grade</th>
                                     <th class="px-4 py-3 text-left font-medium">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y">
+                                 </thead>
+                            <tbody class="divide-y" id="grades-table-body">
                                 <tr class="hover:bg-accent/50 transition-colors">
                                     <td class="px-4 py-3 font-medium">Mathematics</td>
                                     <td class="px-4 py-3">Mid-term Exam</td>
@@ -161,9 +174,16 @@ async function renderStudentGrades() {
 async function renderStudentAttendance() {
     try {
         const data = dashboardData || {};
+        const school = getCurrentSchool();
+        
         return `
             <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">My Attendance</h2>
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">My Attendance</h2>
+                    <div class="text-sm text-muted-foreground">
+                        ${school?.name || 'Your School'}
+                    </div>
+                </div>
                 <div class="rounded-xl border bg-card p-6">
                     <div class="grid gap-4 md:grid-cols-3">
                         <div class="text-center p-4">
@@ -187,13 +207,13 @@ async function renderStudentAttendance() {
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead class="bg-muted/50">
-                                <tr>
+                                 <tr>
                                     <th class="px-4 py-3 text-left font-medium">Date</th>
                                     <th class="px-4 py-3 text-left font-medium">Status</th>
                                     <th class="px-4 py-3 text-left font-medium">Reason</th>
-                                </tr>
+                                 </tr>
                             </thead>
-                            <tbody class="divide-y">
+                            <tbody class="divide-y" id="attendance-history-body">
                                 <tr class="hover:bg-accent/50 transition-colors">
                                     <td class="px-4 py-3">Mar 15, 2024</td>
                                     <td class="px-4 py-3">
@@ -227,8 +247,15 @@ async function renderStudentAttendance() {
 }
 
 function renderStudentChat() {
+    const school = getCurrentSchool();
     return `
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Study Groups</h2>
+                <div class="text-sm text-muted-foreground">
+                    ${school?.name || 'Your School'}
+                </div>
+            </div>
             <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b">
                     <div class="flex items-center gap-3">
@@ -271,8 +298,16 @@ function renderStudentChat() {
 
 function renderStudentAITutor() {
     const curriculum = schoolSettings.curriculum || 'cbc';
+    const school = getCurrentSchool();
+    
     return `
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">AI Tutor</h2>
+                <div class="text-sm text-muted-foreground">
+                    ${school?.name || 'Your School'}
+                </div>
+            </div>
             <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
                 <div class="flex items-center gap-3 mb-4 pb-2 border-b">
                     <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
@@ -303,9 +338,16 @@ function renderStudentAITutor() {
 }
 
 function renderStudentSchedule() {
+    const school = getCurrentSchool();
+    
     return `
         <div class="space-y-6 animate-fade-in">
-            <h2 class="text-2xl font-bold">My Schedule - ${schoolSettings.schoolName || 'School'}</h2>
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">My Schedule</h2>
+                <div class="text-sm text-muted-foreground" id="schedule-school-name">
+                    ${school?.name || 'Your School'}
+                </div>
+            </div>
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold mb-4">Today's Classes</h3>
                 <div class="space-y-3">
@@ -359,7 +401,7 @@ window.sendStudentMessage = function() {
             <div class="flex justify-end">
                 <div class="chat-bubble-sent max-w-[70%]">
                     <p class="text-sm font-medium">You</p>
-                    <p class="text-sm">${message}</p>
+                    <p class="text-sm">${escapeHtml(message)}</p>
                     <p class="text-xs text-muted-foreground mt-1">just now</p>
                 </div>
             </div>
@@ -379,7 +421,7 @@ window.askAITutor = function() {
         <div class="flex justify-end">
             <div class="chat-bubble-sent max-w-[70%]">
                 <p class="text-sm font-medium">You</p>
-                <p class="text-sm">${question}</p>
+                <p class="text-sm">${escapeHtml(question)}</p>
                 <p class="text-xs text-muted-foreground mt-1">just now</p>
             </div>
         </div>
@@ -404,7 +446,7 @@ window.askAITutor = function() {
             <div class="flex justify-start">
                 <div class="chat-bubble-received max-w-[70%]">
                     <p class="text-sm font-medium">AI Tutor</p>
-                    <p class="text-sm">${randomResponse} "${question}" is an important concept. Would you like me to provide examples or practice problems?</p>
+                    <p class="text-sm">${randomResponse} "${escapeHtml(question)}" is an important concept. Would you like me to provide examples or practice problems?</p>
                     <p class="text-xs text-muted-foreground mt-1">just now</p>
                 </div>
             </div>
@@ -413,7 +455,14 @@ window.askAITutor = function() {
     }, 1500);
 };
 
-// Expose globally
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============ EXPORT FUNCTIONS ============
 window.renderStudentSection = renderStudentSection;
 window.renderStudentDashboard = renderStudentDashboard;
 window.renderStudentGrades = renderStudentGrades;
