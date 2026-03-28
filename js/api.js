@@ -1,12 +1,21 @@
 // API Configuration
-const API_BASE_URL = 'https://shuleaibackend-32h1.onrender.com'; // Your Render backend URL
+const API_BASE_URL = 'https://shuleaibackend-32h1.onrender.com';
 
 // Token management
 let authToken = localStorage.getItem('authToken');
 let refreshToken = localStorage.getItem('refreshToken');
 
+// Track rate limit state
+let rateLimitUntil = null;
+
 // API request wrapper with authentication
 async function apiRequest(endpoint, options = {}) {
+    // Check if we're in rate limit cooldown
+    if (rateLimitUntil && new Date() < rateLimitUntil) {
+        const waitSeconds = Math.ceil((rateLimitUntil - new Date()) / 1000);
+        throw new Error(`Rate limited. Please wait ${waitSeconds} seconds before trying again.`);
+    }
+    
     const url = `${API_BASE_URL}${endpoint}`;
     
     const headers = {
@@ -26,7 +35,31 @@ async function apiRequest(endpoint, options = {}) {
     
     try {
         const response = await fetch(url, config);
-        const data = await response.json();
+        
+        // Handle rate limiting (429)
+        if (response.status === 429) {
+            // Try to get retry-after header
+            let retryAfter = 60; // default 60 seconds
+            const retryAfterHeader = response.headers.get('Retry-After');
+            if (retryAfterHeader) {
+                retryAfter = parseInt(retryAfterHeader) || 60;
+            }
+            
+            // Set cooldown
+            rateLimitUntil = new Date(Date.now() + (retryAfter * 1000));
+            
+            throw new Error(`Too many login attempts. Please wait ${retryAfter} seconds before trying again.`);
+        }
+        
+        // Handle empty responses
+        const text = await response.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (e) {
+            console.error('Failed to parse response:', text);
+            throw new Error(`Server error: ${text.substring(0, 100)}`);
+        }
         
         // Handle token refresh
         if (response.status === 401 && refreshToken) {
@@ -53,7 +86,13 @@ async function apiRequest(endpoint, options = {}) {
 }
 
 async function handleResponse(response) {
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        throw new Error(`Invalid response: ${text.substring(0, 100)}`);
+    }
     if (!response.ok) {
         throw new Error(data.message || 'API request failed');
     }
@@ -189,14 +228,12 @@ const superAdminAPI = {
     getSystemLogs: () => apiRequest('/api/super-admin/logs'),
     getRequestHistory: () => apiRequest('/api/super-admin/requests/history'),
     getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats`),
-    // Chart data endpoints
     getGrowthData: () => apiRequest('/api/super-admin/growth-data'),
     getSchoolDistribution: () => apiRequest('/api/super-admin/school-distribution')
 };
 
 // ============ ADMIN ENDPOINTS ============
 const adminAPI = {
-    // Teacher management
     getTeachers: () => apiRequest('/api/admin/teachers'),
     getStudents: () => apiRequest('/api/admin/students'),
     getParents: () => apiRequest('/api/admin/parents'),
@@ -222,16 +259,12 @@ const adminAPI = {
         apiRequest(`/api/admin/teachers/${teacherId}/activate`, { method: 'POST' }),
     deleteTeacher: (teacherId) => 
         apiRequest(`/api/admin/teachers/${teacherId}`, { method: 'DELETE' }),
-    
-    // School settings
     getSchoolSettings: () => apiRequest('/api/admin/settings'),
     updateSchoolSettings: (data) => 
         apiRequest('/api/admin/settings', {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-    
-    // Class management
     createClass: (data) => 
         apiRequest('/api/admin/classes', {
             method: 'POST',
@@ -255,8 +288,6 @@ const adminAPI = {
         apiRequest(`/api/admin/classes/${classId}/remove-teacher`, { method: 'POST' }),
     getClassStudents: (classId) => 
         apiRequest(`/api/admin/classes/${classId}/students`),
-    
-    // Subject assignment (for classes)
     getClassSubjectAssignments: (classId) => 
         apiRequest(`/api/admin/classes/${classId}/subjects`),
     assignTeacherToSubject: (data) => 
@@ -266,8 +297,6 @@ const adminAPI = {
         }),
     removeSubjectAssignment: (assignmentId) => 
         apiRequest(`/api/admin/classes/subject-assign/${assignmentId}`, { method: 'DELETE' }),
-    
-    // Student management
     getStudentDetails: (studentId) => 
         apiRequest(`/api/admin/students/${studentId}`),
     suspendStudent: (studentId, data) => 
@@ -289,8 +318,6 @@ const adminAPI = {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-    
-    // Duty management
     generateDutyRoster: (startDate, endDate) => 
         apiRequest('/api/admin/duty/generate', {
             method: 'POST',
@@ -305,20 +332,15 @@ const adminAPI = {
         }),
     getUnderstaffedAreas: () => apiRequest('/api/admin/duty/understaffed'),
     getTeacherWorkload: () => apiRequest('/api/admin/duty/teacher-workload'),
-    
-    // Analytics for charts
     getStudentGrades: () => apiRequest('/api/admin/grades/stats'),
     getAttendanceStats: () => apiRequest('/api/admin/attendance/stats'),
-    
-    // Teacher update
     updateTeacher: (teacherId, data) => 
         apiRequest(`/api/admin/teachers/${teacherId}`, {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-    
-    // Dashboard data
-    getDashboardData: () => apiRequest('/api/admin/dashboard')
+    getDashboardData: () => apiRequest('/api/admin/dashboard'),
+    getClassDetails: (classId) => apiRequest(`/api/admin/classes/${classId}`)
 };
 
 // ============ TEACHER ENDPOINTS ============
@@ -357,6 +379,11 @@ const teacherAPI = {
         }),
     deleteStudent: (studentId) => 
         apiRequest(`/api/teacher/students/${studentId}`, { method: 'DELETE' }),
+    getClassStudents: (classId) => apiRequest(`/api/teacher/classes/${classId}/students`),
+    getMyClass: () => apiRequest('/api/teacher/my-class'),
+    getMySubjects: () => apiRequest('/api/teacher/my-subjects'),
+    getTeacherStats: () => apiRequest('/api/teacher/stats'),
+    uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress)
 };
 
 // ============ PARENT ENDPOINTS ============
@@ -393,7 +420,10 @@ const parentAPI = {
         apiRequest('/api/parent/payment-confirm', {
             method: 'POST',
             body: JSON.stringify(data)
-        })
+        }),
+    getChildMarks: (studentId) => apiRequest(`/api/parent/child/${studentId}/marks`),
+    getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
+    getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`)
 };
 
 // ============ STUDENT ENDPOINTS ============
@@ -412,7 +442,11 @@ const studentAPI = {
         apiRequest('/api/student/set-first-password', {
             method: 'POST',
             body: JSON.stringify(data)
-        })
+        }),
+    getAllMarks: () => apiRequest('/api/student/marks/all'),
+    getClassPerformance: () => apiRequest('/api/student/class-performance'),
+    getSubjectPerformance: () => apiRequest('/api/student/subject-performance'),
+    getGPA: () => apiRequest('/api/student/gpa')
 };
 
 // ============ DUTY ENDPOINTS ============
@@ -441,7 +475,7 @@ const dutyAPI = {
         })
 };
 
-// ============ SCHOOL ENDPOINTS (for name change requests) ============
+// ============ SCHOOL ENDPOINTS ============
 const schoolAPI = {
     createNameChangeRequest: (data) => 
         apiRequest('/api/school/name-change-request', {
@@ -526,16 +560,22 @@ async function uploadFile(endpoint, file, onProgress) {
         
         xhr.addEventListener('load', () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(JSON.parse(xhr.responseText));
+                try {
+                    resolve(JSON.parse(xhr.responseText));
+                } catch (e) {
+                    reject(new Error('Invalid response from server'));
+                }
             } else {
-                reject(new Error('Upload failed'));
+                reject(new Error(`Upload failed: ${xhr.status}`));
             }
         });
         
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+        xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
         
         xhr.open('POST', `${API_BASE_URL}${endpoint}`);
-        xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+        if (authToken) {
+            xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+        }
         xhr.send(formData);
     });
 }
@@ -560,6 +600,5 @@ window.api = {
 window.apiRequest = apiRequest;
 window.uploadFile = uploadFile;
 
-// Log to verify all APIs are loaded
 console.log('✅ API loaded successfully!');
 console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
