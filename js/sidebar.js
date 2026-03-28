@@ -4,7 +4,12 @@ function updateSidebar(role) {
     const nav = document.getElementById('sidebar-nav');
     const settingsNav = document.getElementById('settings-nav');
     const mobileNav = document.getElementById('mobile-nav');
+    const school = getCurrentSchool();
+    const sidebarHeader = document.querySelector('#sidebar .flex.items-center.gap-2 span');
 
+    if (sidebarHeader && school) {
+        sidebarHeader.textContent = school.name || 'ShuleAI';
+    }
     if (!nav) return;
 
     const sidebarConfig = {
