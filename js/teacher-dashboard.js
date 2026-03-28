@@ -28,9 +28,23 @@ async function renderTeacherSection(section) {
 function renderTeacherDashboard() {
     const data = dashboardData || {};
     const user = getCurrentUser();
+    const school = getCurrentSchool();
 
     return `
         <div class="space-y-6 animate-fade-in">
+            <!-- School Name Header -->
+            <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 id="teacher-school-name" class="text-xl font-semibold">${school?.name || 'Your School'}</h2>
+                        <p class="text-sm text-muted-foreground">Welcome back, ${user?.name || 'Teacher'}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-muted-foreground">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div class="rounded-xl border bg-card p-6 card-hover">
                     <div class="flex items-center justify-between">
@@ -161,6 +175,7 @@ function renderTeacherDashboard() {
 async function renderTeacherStudents() {
     try {
         const students = await loadMyStudents();
+        const school = getCurrentSchool();
         const curriculum = schoolSettings.curriculum || 'cbc';
         const schoolLevel = schoolSettings.schoolLevel || 'secondary';
         const curriculumInfo = CURRICULUMS[curriculum];
@@ -169,6 +184,11 @@ async function renderTeacherStudents() {
 
         return `
             <div class="space-y-6 animate-fade-in">
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 id="teacher-students-school-name" class="text-xl font-semibold">${school?.name || 'Your School'} - My Students</h2>
+                </div>
+
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">My Students</h2>
                     <button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
@@ -188,8 +208,7 @@ async function renderTeacherStudents() {
                                     <th class="px-4 py-3 text-left font-medium">Attendance</th>
                                     <th class="px-4 py-3 text-left font-medium">Average</th>
                                     <th class="px-4 py-3 text-right font-medium">Actions</th>
-                                </tr>
-                            </thead>
+                                 </thead>
                             <tbody class="divide-y" id="my-students-table">
                                 ${students.map(student => `
                                     <tr class="hover:bg-accent/50 transition-colors">
@@ -200,7 +219,7 @@ async function renderTeacherStudents() {
                                                 </div>
                                                 <span class="font-medium">${student.User?.name}</span>
                                             </div>
-                                        </td>
+                                         </tr>
                                         <td class="px-4 py-3">Grade ${student.grade}</td>
                                         <td class="px-4 py-3">
                                             <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid}</span>
@@ -261,9 +280,15 @@ async function renderTeacherStudents() {
 async function renderTeacherAttendance() {
     try {
         const students = await loadMyStudents();
+        const school = getCurrentSchool();
 
         return `
             <div class="space-y-6 animate-fade-in">
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 id="teacher-attendance-school-name" class="text-xl font-semibold">${school?.name || 'Your School'} - Attendance</h2>
+                </div>
+
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Take Attendance</h2>
                     <div class="flex items-center gap-4">
@@ -339,6 +364,7 @@ async function renderTeacherAttendance() {
 async function renderTeacherGrades() {
     try {
         const students = await loadMyStudents();
+        const school = getCurrentSchool();
         const curriculum = schoolSettings.curriculum || 'cbc';
         const schoolLevel = schoolSettings.schoolLevel || 'secondary';
         const curriculumInfo = CURRICULUMS[curriculum];
@@ -347,6 +373,11 @@ async function renderTeacherGrades() {
 
         return `
             <div class="space-y-6 animate-fade-in">
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 id="teacher-grades-school-name" class="text-xl font-semibold">${school?.name || 'Your School'} - Grade Management</h2>
+                </div>
+
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Grade Management</h2>
                     <div class="flex gap-2">
@@ -425,8 +456,14 @@ async function renderTeacherGrades() {
 }
 
 function renderTeacherTasks() {
+    const school = getCurrentSchool();
     return `
         <div class="space-y-6 animate-fade-in">
+            <!-- School Name Header -->
+            <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                <h2 id="teacher-tasks-school-name" class="text-xl font-semibold">${school?.name || 'Your School'} - My Tasks</h2>
+            </div>
+
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold">My Tasks</h2>
                 <button onclick="addTeacherTask()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
@@ -480,9 +517,15 @@ async function renderTeacherDuty() {
         const todayDuty = await loadTodayDuty();
         const weeklyDuty = await loadWeeklyDuty();
         const user = getCurrentUser();
+        const school = getCurrentSchool();
 
         return `
             <div class="space-y-6 animate-fade-in">
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 id="teacher-duty-school-name" class="text-xl font-semibold">${school?.name || 'Your School'} - My Duty Schedule</h2>
+                </div>
+
                 <h2 class="text-2xl font-bold">My Duty Schedule</h2>
 
                 <div class="grid gap-4 md:grid-cols-2">
@@ -566,9 +609,15 @@ function renderTeacherDutyPreferences() {
     const user = getCurrentUser();
     const teacher = user?.teacher || {};
     const preferences = teacher.dutyPreferences || {};
+    const school = getCurrentSchool();
 
     return `
         <div class="space-y-6 animate-fade-in">
+            <!-- School Name Header -->
+            <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                <h2 id="teacher-preferences-school-name" class="text-xl font-semibold">${school?.name || 'Your School'} - Duty Preferences</h2>
+            </div>
+
             <h2 class="text-2xl font-bold">Duty Preferences</h2>
             <div class="rounded-xl border bg-card p-6 max-w-2xl mx-auto">
                 ${renderDutyPreferencesForm(preferences)}
@@ -578,8 +627,14 @@ function renderTeacherDutyPreferences() {
 }
 
 function renderTeacherChat() {
+    const school = getCurrentSchool();
     return `
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
+            <!-- School Name Header -->
+            <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                <h2 id="teacher-chat-school-name" class="text-xl font-semibold">${school?.name || 'Your School'} - Staff Room</h2>
+            </div>
+
             <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b">
                     <div class="flex items-center gap-3">
@@ -624,6 +679,35 @@ function renderTeacherChat() {
         </div>
     `;
 }
+
+// Helper function to update teacher dashboard school name (can be called from outside)
+window.updateTeacherSchoolName = function(newName) {
+    const elements = [
+        'teacher-school-name',
+        'teacher-students-school-name',
+        'teacher-attendance-school-name',
+        'teacher-grades-school-name',
+        'teacher-tasks-school-name',
+        'teacher-duty-school-name',
+        'teacher-preferences-school-name',
+        'teacher-chat-school-name'
+    ];
+    
+    elements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            // Extract the current text and replace the school name part
+            const currentText = element.textContent;
+            const schoolPart = currentText.split(' - ')[0];
+            const rest = currentText.split(' - ')[1];
+            if (rest) {
+                element.textContent = `${newName} - ${rest}`;
+            } else {
+                element.textContent = newName;
+            }
+        }
+    });
+};
 
 window.renderTeacherSection = renderTeacherSection;
 window.renderTeacherDashboard = renderTeacherDashboard;
