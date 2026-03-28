@@ -15,140 +15,158 @@ function openAuthModal(role, mode) {
 }
 
 function getAuthForm(role, mode) {
+    // Logo HTML that appears at the top of EVERY auth form
+    const logoHtml = `
+        <div class="flex justify-center mb-6">
+            <img src="assets/logo-light.png" alt="Logo" class="h-16 w-16 object-contain block dark:hidden">
+            <img src="assets/logo-dark.png" alt="Logo" class="h-16 w-16 object-contain hidden dark:block">
+        </div>
+    `;
+
     if (role === 'superadmin') {
-        return `
-            <div>
-                <label class="block text-sm font-medium mb-1">Email</label>
-                <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="super@shuleai.com">
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Password</label>
-                <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Secret Key</label>
-                <input type="password" id="auth-secret-key" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Enter super admin key">
-                <p class="text-xs text-muted-foreground mt-1">Contact system administrator for the key</p>
+        return logoHtml + `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="super@shuleai.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Secret Key</label>
+                    <input type="password" id="auth-secret-key" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Enter super admin key">
+                    <p class="text-xs text-muted-foreground mt-1">Contact system administrator for the key</p>
+                </div>
             </div>
         `;
     }
 
     if (mode === 'signin') {
-        return `
-            <div>
-                <label class="block text-sm font-medium mb-1">Email</label>
-                <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Password</label>
-                <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+        return logoHtml + `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                </div>
             </div>
         `;
     } else {
         if (role === 'admin') {
-            return `
-                <div>
-                    <label class="block text-sm font-medium mb-1">Full Name</label>
-                    <input type="text" id="auth-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">School Name</label>
-                    <input type="text" id="auth-school-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">School Level</label>
-                    <select id="auth-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                        <option value="primary">Primary</option>
-                        <option value="secondary">Secondary</option>
-                        <option value="both">Both Primary & Secondary</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Curriculum</label>
-                    <select id="auth-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                        <option value="cbc">CBC (Competency Based Curriculum)</option>
-                        <option value="844">8-4-4 System</option>
-                        <option value="british">British Curriculum</option>
-                        <option value="american">American Curriculum</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Phone</label>
-                    <input type="tel" id="auth-phone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                    <p class="text-xs text-blue-600 dark:text-blue-400">
-                        <i data-lucide="info" class="h-3 w-3 inline mr-1"></i>
-                        Your school will be pending approval. You'll receive a short code for teachers to use.
-                    </p>
+            return logoHtml + `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Full Name</label>
+                        <input type="text" id="auth-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Email</label>
+                        <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">School Name</label>
+                        <input type="text" id="auth-school-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">School Level</label>
+                        <select id="auth-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="primary">Primary</option>
+                            <option value="secondary">Secondary</option>
+                            <option value="both">Both Primary & Secondary</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Curriculum</label>
+                        <select id="auth-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="cbc">CBC (Competency Based Curriculum)</option>
+                            <option value="844">8-4-4 System</option>
+                            <option value="british">British Curriculum</option>
+                            <option value="american">American Curriculum</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Phone</label>
+                        <input type="tel" id="auth-phone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Password</label>
+                        <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                        <p class="text-xs text-blue-600 dark:text-blue-400">
+                            <i data-lucide="info" class="h-3 w-3 inline mr-1"></i>
+                            Your school will be pending approval. You'll receive a short code for teachers to use.
+                        </p>
+                    </div>
                 </div>
             `;
         } else if (role === 'teacher') {
-            return `
-                <div>
-                    <label class="block text-sm font-medium mb-1">Full Name</label>
-                    <input type="text" id="auth-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div class="flex gap-2">
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium mb-1">School Code</label>
-                        <input type="text" id="auth-school-code" placeholder="e.g., SHL-A7K29" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+            return logoHtml + `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Full Name</label>
+                        <input type="text" id="auth-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
-                    <div class="flex items-end">
-                        <button type="button" onclick="verifySchoolCodeInput()" class="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm mb-[1px]">Verify</button>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Email</label>
+                        <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
-                </div>
-                <div id="school-verify-status" class="text-xs hidden"></div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Subjects (comma separated)</label>
-                    <input type="text" id="auth-subjects" placeholder="Mathematics, Science, English" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Qualification</label>
-                    <input type="text" id="auth-qualification" placeholder="e.g., B.Ed Mathematics" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Phone</label>
-                    <input type="tel" id="auth-phone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium mb-1">School Code</label>
+                            <input type="text" id="auth-school-code" placeholder="e.g., SHL-A7K29" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="button" onclick="verifySchoolCodeInput()" class="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm mb-[1px]">Verify</button>
+                        </div>
+                    </div>
+                    <div id="school-verify-status" class="text-xs hidden"></div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Subjects (comma separated)</label>
+                        <input type="text" id="auth-subjects" placeholder="Mathematics, Science, English" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Qualification</label>
+                        <input type="text" id="auth-qualification" placeholder="e.g., B.Ed Mathematics" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Phone</label>
+                        <input type="tel" id="auth-phone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Password</label>
+                        <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
                 </div>
             `;
         } else if (role === 'parent') {
-            return `
-                <div>
-                    <label class="block text-sm font-medium mb-1">Full Name</label>
-                    <input type="text" id="auth-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Student's ELIMUID</label>
-                    <input type="text" id="auth-student-elimuid" placeholder="e.g., ELI-2024-001" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Phone</label>
-                    <input type="tel" id="auth-phone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+            return logoHtml + `
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Full Name</label>
+                        <input type="text" id="auth-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Email</label>
+                        <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Student's ELIMUID</label>
+                        <input type="text" id="auth-student-elimuid" placeholder="e.g., ELI-2024-001" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Phone</label>
+                        <input type="tel" id="auth-phone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Password</label>
+                        <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    </div>
                 </div>
             `;
         }
@@ -156,6 +174,7 @@ function getAuthForm(role, mode) {
     return '';
 }
 
+// The rest of your functions remain the same...
 async function verifySchoolCodeInput() {
     const code = document.getElementById('auth-school-code')?.value;
     if (!code) {
@@ -339,6 +358,10 @@ function openStudentLoginModal() {
 
     titleEl.textContent = 'Student Login';
     contentEl.innerHTML = `
+        <div class="flex justify-center mb-6">
+            <img src="assets/logo-light.png" alt="Logo" class="h-16 w-16 object-contain block dark:hidden">
+            <img src="assets/logo-dark.png" alt="Logo" class="h-16 w-16 object-contain hidden dark:block">
+        </div>
         <div class="space-y-4">
             <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
                 <p class="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-2">
@@ -414,6 +437,10 @@ function showFirstTimePasswordModal(elimuid) {
 
     titleEl.textContent = 'Set Your Password';
     contentEl.innerHTML = `
+        <div class="flex justify-center mb-6">
+            <img src="assets/logo-light.png" alt="Logo" class="h-16 w-16 object-contain block dark:hidden">
+            <img src="assets/logo-dark.png" alt="Logo" class="h-16 w-16 object-contain hidden dark:block">
+        </div>
         <div class="space-y-4">
             <div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
                 <p class="text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
