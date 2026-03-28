@@ -1,4 +1,4 @@
-// parent-dashboard.js - Parent dashboard rendering
+// parent-dashboard.js - Complete Parent Dashboard
 
 async function renderParentSection(section) {
     switch(section) {
@@ -19,6 +19,7 @@ async function renderParentSection(section) {
 
 async function renderParentDashboard() {
     try {
+        const school = getCurrentSchool();
         const childrenResponse = await api.parent.getChildren();
         const children = childrenResponse.data || [];
 
@@ -39,6 +40,20 @@ async function renderParentDashboard() {
 
         let html = `
             <div class="space-y-6 animate-fade-in">
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 id="parent-school-name" class="text-xl font-semibold">${escapeHtml(school?.name || 'Your School')}</h2>
+                            <p class="text-sm text-muted-foreground">Parent Portal</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 px-3 py-1 rounded-lg shadow-sm">
+                            <p class="text-xs text-muted-foreground">School Code</p>
+                            <p class="text-sm font-mono font-bold">${school?.shortCode || 'SHL-XXXXX'}</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex gap-2 border-b pb-4 overflow-x-auto" id="child-selector">
         `;
 
@@ -52,8 +67,8 @@ async function renderParentDashboard() {
 
                 html += `
                     <button onclick="selectChild('${child.id}')" 
-                            class="child-selector-btn px-4 py-2 ${isActive} rounded-lg">
-                        ${childName} (Grade ${childGrade})
+                            class="child-selector-btn px-4 py-2 ${isActive} rounded-lg transition-all">
+                        ${escapeHtml(childName)} (Grade ${escapeHtml(childGrade)})
                     </button>
                 `;
             });
@@ -84,8 +99,8 @@ async function renderParentDashboard() {
                             </div>
                             <div>
                                 <p class="text-xs text-muted-foreground">Class Teacher</p>
-                                <p class="font-medium">${classTeacher.name || 'Not Assigned'}</p>
-                                <p class="text-xs text-muted-foreground">${classTeacher.email || ''}</p>
+                                <p class="font-medium">${escapeHtml(classTeacher.name || 'Not Assigned')}</p>
+                                <p class="text-xs text-muted-foreground">${escapeHtml(classTeacher.email || '')}</p>
                             </div>
                         </div>
                     </div>
@@ -98,7 +113,7 @@ async function renderParentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">ELIMUID</p>
-                                <h3 class="text-lg font-mono font-bold mt-1">${student.elimuid || 'N/A'}</h3>
+                                <h3 class="text-lg font-mono font-bold mt-1">${escapeHtml(student.elimuid || 'N/A')}</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
                                 <i data-lucide="id-card" class="h-6 w-6 text-purple-600"></i>
@@ -155,7 +170,7 @@ async function renderParentDashboard() {
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead class="bg-muted/50">
-                                播
+                                <tr>
                                     <th class="px-4 py-3 text-left font-medium">Subject</th>
                                     <th class="px-4 py-3 text-left font-medium">Assessment</th>
                                     <th class="px-4 py-3 text-center font-medium">Score</th>
@@ -171,12 +186,12 @@ async function renderParentDashboard() {
                                                       'bg-red-100 text-red-700';
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3 font-medium">${record.subject || 'N/A'}</td>
-                                            <td class="px-4 py-3">${record.assessmentName || record.assessmentType || 'N/A'}</td>
+                                            <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
+                                            <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
                                             <td class="px-4 py-3 text-center">${score}%</td>
                                             <td class="px-4 py-3 text-center">
                                                 <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">
-                                                    ${record.grade || 'N/A'}
+                                                    ${escapeHtml(record.grade || 'N/A')}
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
@@ -227,6 +242,7 @@ async function renderParentDashboard() {
 
 async function renderParentProgress() {
     try {
+        const school = getCurrentSchool();
         const selectedChildId = dashboardData?.selectedChildId;
 
         if (!selectedChildId) {
@@ -267,7 +283,11 @@ async function renderParentProgress() {
 
         return `
             <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">Academic Progress - ${childData?.student?.name || 'Student'}</h2>
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 id="parent-school-name-progress" class="text-xl font-semibold">${escapeHtml(school?.name || 'Your School')}</h2>
+                    <p class="text-sm text-muted-foreground">Academic Progress - ${escapeHtml(childData?.student?.name || 'Student')}</p>
+                </div>
 
                 <div class="grid gap-4 md:grid-cols-3">
                     <div class="rounded-xl border bg-card p-6">
@@ -316,12 +336,12 @@ async function renderParentProgress() {
                                                       'bg-red-100 text-red-700';
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3 font-medium">${record.subject || 'N/A'}</td>
-                                            <td class="px-4 py-3">${record.assessmentName || record.assessmentType || 'N/A'}</td>
+                                            <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
+                                            <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
                                             <td class="px-4 py-3 text-center">${score}%</td>
                                             <td class="px-4 py-3 text-center">
                                                 <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">
-                                                    ${record.grade || 'N/A'}
+                                                    ${escapeHtml(record.grade || 'N/A')}
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
@@ -349,6 +369,7 @@ async function renderParentProgress() {
 
 async function renderParentPayments() {
     try {
+        const school = getCurrentSchool();
         const selectedChildId = dashboardData?.selectedChildId;
 
         let payments = [];
@@ -372,12 +393,12 @@ async function renderParentPayments() {
             ];
         }
 
-        let school = null;
+        let schoolDetails = null;
         try {
             const user = getCurrentUser();
             if (user?.schoolCode) {
                 const schoolResponse = await api.public.getSchoolInfo(user.schoolCode);
-                school = schoolResponse.data;
+                schoolDetails = schoolResponse.data;
             }
         } catch (error) {
             console.log('Could not fetch school details');
@@ -385,19 +406,23 @@ async function renderParentPayments() {
 
         return `
             <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">Payments & Subscriptions</h2>
+                <!-- School Name Header -->
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(school?.name || 'Your School')}</h2>
+                    <p class="text-sm text-muted-foreground">Payments & Subscriptions</p>
+                </div>
 
                 <div class="grid gap-4 md:grid-cols-3">
                     <div class="rounded-xl border bg-card p-6">
                         <h3 class="font-semibold mb-4">Make Payment</h3>
                         <div class="space-y-3">
-                            ${school ? `
+                            ${schoolDetails ? `
                                 <div class="p-3 bg-muted/30 rounded-lg mb-4">
                                     <p class="text-xs font-medium text-muted-foreground">School Account</p>
-                                    <p class="font-medium">${school.name || 'Your School'}</p>
-                                    ${school.bankDetails ? `
-                                        <p class="text-xs mt-2">Bank: ${school.bankDetails.bankName || 'N/A'}</p>
-                                        <p class="text-xs">Account: ${school.bankDetails.accountNumber || 'N/A'}</p>
+                                    <p class="font-medium">${escapeHtml(schoolDetails.name || 'Your School')}</p>
+                                    ${schoolDetails.bankDetails ? `
+                                        <p class="text-xs mt-2">Bank: ${escapeHtml(schoolDetails.bankDetails.bankName || 'N/A')}</p>
+                                        <p class="text-xs">Account: ${escapeHtml(schoolDetails.bankDetails.accountNumber || 'N/A')}</p>
                                     ` : ''}
                                 </div>
                             ` : ''}
@@ -406,7 +431,7 @@ async function renderParentPayments() {
                                 <option value="">Select Child</option>
                                 ${dashboardData?.children?.map(child => `
                                     <option value="${child.id}" ${child.id == selectedChildId ? 'selected' : ''}>
-                                        ${child.User?.name || 'Unknown'} (${child.grade})
+                                        ${escapeHtml(child.User?.name || 'Unknown')} (${escapeHtml(child.grade)})
                                     </option>
                                 `).join('')}
                             </select>
@@ -414,7 +439,7 @@ async function renderParentPayments() {
                             <select id="payment-plan" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                 <option value="">Select Plan</option>
                                 ${plans.map(plan => `
-                                    <option value="${plan.id}">${plan.name} - $${plan.price}/mo</option>
+                                    <option value="${plan.id}">${escapeHtml(plan.name)} - $${plan.price}/mo</option>
                                 `).join('')}
                             </select>
                             
@@ -438,7 +463,7 @@ async function renderParentPayments() {
                             ${payments.length > 0 ? payments.map(payment => `
                                 <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
                                     <div>
-                                        <p class="text-sm font-medium">${payment.Student?.User?.name || 'Payment'}</p>
+                                        <p class="text-sm font-medium">${escapeHtml(payment.Student?.User?.name || 'Payment')}</p>
                                         <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt)}</p>
                                     </div>
                                     <div class="text-right">
@@ -463,19 +488,19 @@ async function renderParentPayments() {
                             ${plans.map(plan => `
                                 <div class="p-4 border rounded-lg hover:border-primary transition-colors">
                                     <div class="flex justify-between items-center mb-2">
-                                        <p class="font-semibold">${plan.name}</p>
+                                        <p class="font-semibold">${escapeHtml(plan.name)}</p>
                                         <p class="text-lg font-bold text-primary">$${plan.price}<span class="text-xs font-normal text-muted-foreground">/mo</span></p>
                                     </div>
                                     <ul class="space-y-1 mb-3">
                                         ${plan.features.map(feature => `
                                             <li class="text-xs flex items-center gap-1">
                                                 <i data-lucide="check" class="h-3 w-3 text-green-600"></i>
-                                                ${feature}
+                                                ${escapeHtml(feature)}
                                             </li>
                                         `).join('')}
                                     </ul>
                                     <button onclick="upgradePlan('${plan.id}')" class="w-full py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
-                                        Select ${plan.name}
+                                        Select ${escapeHtml(plan.name)}
                                     </button>
                                 </div>
                             `).join('')}
@@ -503,13 +528,13 @@ async function renderParentChat() {
                 <div class="flex justify-between items-center mb-4 pb-2 border-b">
                     <div>
                         <h3 class="font-semibold">Message School Staff</h3>
-                        <p class="text-xs text-muted-foreground">Chat with class teacher or admin about ${childName}</p>
+                        <p class="text-xs text-muted-foreground">Chat with class teacher or admin about ${escapeHtml(childName)}</p>
                     </div>
                 </div>
                 
                 <div class="flex gap-4 mb-4">
                     <select id="parent-recipient-type" class="px-3 py-2 border rounded-lg bg-background flex-1">
-                        <option value="teacher">📚 Class Teacher ${classTeacher ? `(${classTeacher.name})` : ''}</option>
+                        <option value="teacher">📚 Class Teacher ${classTeacher ? `(${escapeHtml(classTeacher.name)})` : ''}</option>
                         <option value="admin">🏫 School Administrator</option>
                     </select>
                 </div>
@@ -518,8 +543,8 @@ async function renderParentChat() {
                     ${messages.length > 0 ? messages.map(msg => `
                         <div class="flex ${msg.sender === 'parent' ? 'justify-end' : 'justify-start'}">
                             <div class="${msg.sender === 'parent' ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
-                                <p class="text-sm font-medium">${msg.sender === 'parent' ? 'You' : msg.senderName}</p>
-                                <p class="text-sm">${msg.content}</p>
+                                <p class="text-sm font-medium">${msg.sender === 'parent' ? 'You' : escapeHtml(msg.senderName)}</p>
+                                <p class="text-sm">${escapeHtml(msg.content)}</p>
                                 <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.timestamp)}</p>
                             </div>
                         </div>
@@ -544,7 +569,8 @@ async function renderParentChat() {
     `;
 }
 
-// Helper functions
+// ============ HELPER FUNCTIONS ============
+
 async function selectChild(childId) {
     document.querySelectorAll('.child-selector-btn').forEach(btn => {
         btn.classList.remove('bg-primary', 'text-primary-foreground');
@@ -602,6 +628,8 @@ async function reportAbsence() {
             showToast('✅ Absence reported and class teacher notified', 'success');
             document.getElementById('absence-date').value = new Date().toISOString().split('T')[0];
             document.getElementById('absence-reason').value = '';
+        } else {
+            throw new Error(response.message || 'Failed to report absence');
         }
     } catch (error) {
         console.error('Report absence error:', error);
@@ -668,6 +696,8 @@ Amount: $${amount}
 Please complete the payment and the school will confirm.
                 `);
             }
+        } else {
+            throw new Error(response.message || 'Payment initiation failed');
         }
     } catch (error) {
         console.error('Payment error:', error);
@@ -697,6 +727,8 @@ async function upgradePlan(planId) {
             if (currentSection === 'payments') {
                 await showDashboardSection('payments');
             }
+        } else {
+            throw new Error(response.message || 'Upgrade failed');
         }
     } catch (error) {
         console.error('Upgrade error:', error);
@@ -734,18 +766,21 @@ async function sendParentMessage() {
             document.getElementById('parent-chat-input').value = '';
 
             const container = document.getElementById('parent-chat-messages');
-            container.innerHTML += `
+            const newMessageHtml = `
                 <div class="flex justify-end">
                     <div class="chat-bubble-sent max-w-[70%]">
                         <p class="text-sm font-medium">You</p>
-                        <p class="text-sm">${message}</p>
+                        <p class="text-sm">${escapeHtml(message)}</p>
                         <p class="text-xs text-muted-foreground mt-1">just now</p>
                     </div>
                 </div>
             `;
+            container.insertAdjacentHTML('beforeend', newMessageHtml);
             container.scrollTop = container.scrollHeight;
 
             showToast('✅ Message sent to class teacher', 'success');
+        } else {
+            throw new Error(response.message || 'Failed to send message');
         }
     } catch (error) {
         console.error('Send message error:', error);
@@ -755,7 +790,14 @@ async function sendParentMessage() {
     }
 }
 
-// Export functions
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============ EXPORT FUNCTIONS ============
 window.selectChild = selectChild;
 window.reportAbsence = reportAbsence;
 window.processPayment = processPayment;
