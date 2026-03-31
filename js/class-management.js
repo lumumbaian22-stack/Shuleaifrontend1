@@ -605,7 +605,11 @@ window.closeEditClassModal = closeEditClassModal;
 window.saveClassChanges = saveClassChanges;
 window.renderClassManagement = renderClassManagement;
 window.loadAllClasses = loadAllClasses;
-// Export new functions
+window.loadAvailableTeachers = loadAvailableTeachers;
+window.loadSubjectAssignmentsForClass = loadSubjectAssignmentsForClass;
+window.assignClassTeacher = assignClassTeacher;
+window.getSchoolSubjects = getSchoolSubjects;
+window.escapeHtml = escapeHtml;
 window.toggleClassDetails = toggleClassDetails;
 window.openSubjectAssignmentModal = openSubjectAssignmentModal;
 window.closeSubjectAssignmentModal = closeSubjectAssignmentModal;
