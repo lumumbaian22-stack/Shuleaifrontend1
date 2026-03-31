@@ -603,6 +603,8 @@ window.deleteClass = deleteClass;
 window.assignTeacherToClass = assignTeacherToClass;
 window.closeEditClassModal = closeEditClassModal;
 window.saveClassChanges = saveClassChanges;
+window.renderClassManagement = renderClassManagement;
+window.loadAllClasses = loadAllClasses;
 // Export new functions
 window.toggleClassDetails = toggleClassDetails;
 window.openSubjectAssignmentModal = openSubjectAssignmentModal;
