@@ -1,5 +1,7 @@
 // admin-dashboard.js - COMPLETE FIXED VERSION
 
+// In admin-dashboard.js, update this section:
+
 async function renderAdminSection(section) {
     try {
         switch(section) {
@@ -12,23 +14,16 @@ async function renderAdminSection(section) {
             case 'teacher-approvals':
                 return await renderAdminPendingTeachers();
             case 'classes':
-                return await renderClassManagement();
+                // FIX: Use renderClassManagement from class-management.js
+                if (typeof window.renderClassManagement === 'function') {
+                    return await window.renderClassManagement();
+                } else {
+                    return '<div class="text-center py-12 text-red-500">Class management not loaded. Please refresh.</div>';
+                }
             case 'duty':
                 return await renderAdminDuty();
-            case 'duty-points':
-                return renderDutyPointsManagement();
-            case 'fairness-report':
-                return await renderAdminFairnessReport();
-            case 'teacher-workload':
-                return await renderAdminTeacherWorkload();
             case 'settings':
                 return renderAdminSettings();
-            case 'custom-subjects':
-                return renderAdminCustomSubjects();
-            case 'calendar':
-                return renderAdminCalendar();
-            case 'help':
-                return renderHelpSection();
             default:
                 return '<div class="text-center py-12">Section not found</div>';
         }
