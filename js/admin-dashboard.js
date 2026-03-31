@@ -1,6 +1,39 @@
-// admin-dashboard.js - COMPLETE FIXED VERSION
+// Add these at the very top of admin-dashboard.js
 
-// In admin-dashboard.js, update this section:
+// Fallback for loadPendingTeachers
+if (typeof window.loadPendingTeachers !== 'function') {
+    window.loadPendingTeachers = async function() {
+        try {
+            const response = await api.admin.getPendingApprovals();
+            return response?.data?.teachers || [];
+        } catch (error) {
+            console.error('Failed to load pending teachers:', error);
+            return [];
+        }
+    };
+}
+
+// Fallback for loadAllTeachers
+if (typeof window.loadAllTeachers !== 'function') {
+    window.loadAllTeachers = async function() {
+        try {
+            const response = await api.admin.getTeachers();
+            return response?.data || [];
+        } catch (error) {
+            console.error('Failed to load teachers:', error);
+            return [];
+        }
+    };
+}
+
+// Fallback for renderClassManagement
+if (typeof window.renderClassManagement !== 'function') {
+    window.renderClassManagement = async function() {
+        return '<div class="text-center py-12">Class management module loading...</div>';
+    };
+}
+
+// admin-dashboard.js - COMPLETE FIXED VERSION
 
 async function renderAdminSection(section) {
     try {
@@ -14,11 +47,17 @@ async function renderAdminSection(section) {
             case 'teacher-approvals':
                 return await renderAdminPendingTeachers();
             case 'classes':
-                // FIX: Use renderClassManagement from class-management.js
+                // Check if renderClassManagement exists
                 if (typeof window.renderClassManagement === 'function') {
-                    return await window.renderClassManagement();
+                    console.log('📚 Rendering class management');
+                    const html = await window.renderClassManagement();
+                    return html;
+                } else if (typeof renderClassManagement === 'function') {
+                    console.log('📚 Rendering class management (local)');
+                    return await renderClassManagement();
                 } else {
-                    return '<div class="text-center py-12 text-red-500">Class management not loaded. Please refresh.</div>';
+                    console.error('❌ renderClassManagement not found');
+                    return '<div class="text-center py-12"><p class="text-red-500">Class management module not loaded. Please refresh the page.</p><button onclick="location.reload()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Refresh Page</button></div>';
                 }
             case 'duty':
                 return await renderAdminDuty();
