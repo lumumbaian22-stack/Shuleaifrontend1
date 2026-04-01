@@ -85,7 +85,7 @@ async function renderAdminSection(section) {
                 return await renderAdminStudents();
             case 'calendar':
                 return renderAdminCalendar();   // from calendar.js
-             case 'teachers':
+            case 'teachers':
                 return await renderAdminTeachers();
             case 'teacher-debug':
                 return renderTeacherAssignmentDebug();
@@ -106,6 +106,12 @@ async function renderAdminSection(section) {
                 }
             case 'duty':
                 return await renderAdminDuty();
+            case 'fairness-report':
+                return await renderAdminFairnessReport();
+            case 'custom-subjects':
+                return renderAdminCustomSubjects();   
+            case 'teacher-workload':
+                return await renderAdminTeacherWorkload();
             case 'settings':
                 return renderAdminSettings();
             default:
@@ -331,26 +337,26 @@ async function renderAdminStudents() {
 }
 
 async function renderAdminTeachers() {
-    try {
-        const teachers = await loadAllTeachers();
-        console.log('Loaded teachers:', teachers);
-        return `
-            <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">Teacher Management</h2>
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    ${renderTeachersTable(teachers)}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        console.error('Error loading teachers:', error);
-        return `<div class="text-center py-12 text-red-500">Error loading teachers: ${error.message}</div>`;
-    }
+  try {
+    const teachers = await loadAllTeachers();
+    console.log('Loaded teachers:', teachers); // Debug
+    return `
+      <div class="space-y-6 animate-fade-in">
+        <h2 class="text-2xl font-bold">Teacher Management</h2>
+        <div class="rounded-xl border bg-card overflow-hidden">
+          ${renderTeachersTable(teachers)}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error loading teachers:', error);
+    return `<div class="text-center py-12 text-red-500">Error loading teachers: ${error.message}</div>`;
+  }
 }
 
 async function renderAdminPendingTeachers() {
   try {
-    const teachers = await loadPendingTeachers(); // from admin-approvals.js
+    const teachers = await loadPendingTeachers();
     return `
       <div class="space-y-6 animate-fade-in">
         <h2 class="text-2xl font-bold">Pending Teacher Approvals</h2>
@@ -360,6 +366,7 @@ async function renderAdminPendingTeachers() {
       </div>
     `;
   } catch (error) {
+    console.error('Error loading pending teachers:', error);
     return `<div class="text-center py-12 text-red-500">Error loading pending teachers: ${error.message}</div>`;
   }
 }
@@ -1197,5 +1204,3 @@ window.renderAdminCustomSubjects = renderAdminCustomSubjects;
 window.addCustomSubject = addCustomSubject;
 window.removeCustomSubject = removeCustomSubject;
 window.saveAllSettings = saveAllSettings;
-window.renderHelpSection = renderHelpSection;
-window.renderAdminCalendar = renderAdminCalendar;
