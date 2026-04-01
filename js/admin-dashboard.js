@@ -33,6 +33,45 @@ if (typeof window.renderClassManagement !== 'function') {
     };
 }
 
+// Add missing refresh functions to admin
+window.refreshTeachersList = async function() {
+    const container = document.getElementById('teachers-table-container');
+    if (!container) return;
+    try {
+        const response = await api.admin.getTeachers();
+        const teachers = response.data || [];
+        if (typeof renderTeachersTable === 'function') {
+            container.innerHTML = renderTeachersTable(teachers);
+        } else {
+            container.innerHTML = '<div class="text-center py-8">No teachers found</div>';
+        }
+        if (window.lucide) lucide.createIcons();
+    } catch (error) {
+        console.error('Error refreshing teachers:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Error loading teachers</div>';
+    }
+};
+
+window.refreshStudentsList = async function() {
+    const container = document.getElementById('students-table-body');
+    if (!container) return;
+    try {
+        const response = await api.admin.getStudents();
+        const students = response.data || [];
+        if (typeof renderStudentsTable === 'function') {
+            container.innerHTML = renderStudentsTable(students);
+        } else {
+            container.innerHTML = '<div class="text-center py-8">No students found</div>';
+        }
+        if (window.lucide) lucide.createIcons();
+    } catch (error) {
+        console.error('Error refreshing students:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Error loading students</div>';
+    }
+};
+
+console.log('✅ refreshTeachersList and refreshStudentsList added');
+
 // admin-dashboard.js - COMPLETE FIXED VERSION
 
 async function renderAdminSection(section) {
