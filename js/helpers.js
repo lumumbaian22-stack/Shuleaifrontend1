@@ -28,6 +28,7 @@ function timeAgo(timestamp) {
 }
 
 // Add this to helpers.js - Permanent user save function
+// Add to helpers.js - Permanent user save function
 function saveUser(userData) {
     if (!userData) return;
     
@@ -41,18 +42,36 @@ function saveUser(userData) {
         userData.teacher.studentCount = userData.teacher.studentCount || 0;
     }
     
+    // Also ensure admin structure
+    if (userData.role === 'admin') {
+        userData.admin = userData.admin || {};
+    }
+    
     localStorage.setItem('user', JSON.stringify(userData));
     return userData;
 }
 
-// Override getCurrentUser to ensure teacher structure is always valid
-const originalGetCurrentUser = getCurrentUser;
+// Override getCurrentUser to ensure structure is always valid
+const originalGetCurrentUser = window.getCurrentUser || function() {
+    try {
+        const userStr = localStorage.getItem('user');
+        return userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+        return null;
+    }
+};
+
 window.getCurrentUser = function() {
     const user = originalGetCurrentUser();
     if (user && user.role === 'teacher') {
-        user.teacher = user.teacher || {};
-        user.teacher.type = user.teacher.type || 'subject_teacher';
-        user.teacher.subjects = user.teacher.subjects || [];
+        if (!user.teacher) {
+            user.teacher = { type: 'subject_teacher', subjects: [], classId: null, className: null, studentCount: 0 };
+            saveUser(user);
+        }
+        if (!user.teacher.type) {
+            user.teacher.type = 'subject_teacher';
+            saveUser(user);
+        }
     }
     return user;
 };
@@ -163,6 +182,7 @@ window.formatDate = formatDate;
 window.copyToClipboard = copyToClipboard;
 window.copyElimuid = copyElimuid;
 window.escapeHtml = escapeHtml;
+window.saveUser = saveUser;
 window.getCurrentUser = getCurrentUser;
 window.getCurrentSchool = getCurrentSchool;
 window.getCurrentRole = getCurrentRole;
