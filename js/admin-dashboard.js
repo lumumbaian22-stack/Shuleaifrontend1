@@ -77,11 +77,15 @@ console.log('✅ refreshTeachersList and refreshStudentsList added');
 async function renderAdminSection(section) {
     try {
         switch(section) {
+            case 'help':
+                return renderHelpSection();
             case 'dashboard':
                 return renderAdminDashboard();
             case 'students':
                 return await renderAdminStudents();
-            case 'teachers':
+            case 'calendar':
+                return renderAdminCalendar();   // from calendar.js
+             case 'teachers':
                 return await renderAdminTeachers();
             case 'teacher-debug':
                 return renderTeacherAssignmentDebug();
@@ -329,6 +333,7 @@ async function renderAdminStudents() {
 async function renderAdminTeachers() {
     try {
         const teachers = await loadAllTeachers();
+        console.log('Loaded teachers:', teachers);
         return `
             <div class="space-y-6 animate-fade-in">
                 <h2 class="text-2xl font-bold">Teacher Management</h2>
@@ -338,24 +343,25 @@ async function renderAdminTeachers() {
             </div>
         `;
     } catch (error) {
+        console.error('Error loading teachers:', error);
         return `<div class="text-center py-12 text-red-500">Error loading teachers: ${error.message}</div>`;
     }
 }
 
 async function renderAdminPendingTeachers() {
-    try {
-        const teachers = await loadPendingTeachers();
-        return `
-            <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">Pending Teacher Approvals</h2>
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    ${renderPendingTeachersTable(teachers)}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div class="text-center py-12 text-red-500">Error loading pending teachers: ${error.message}</div>`;
-    }
+  try {
+    const teachers = await loadPendingTeachers(); // from admin-approvals.js
+    return `
+      <div class="space-y-6 animate-fade-in">
+        <h2 class="text-2xl font-bold">Pending Teacher Approvals</h2>
+        <div class="rounded-xl border bg-card overflow-hidden">
+          ${renderPendingTeachersTable(teachers)}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    return `<div class="text-center py-12 text-red-500">Error loading pending teachers: ${error.message}</div>`;
+  }
 }
 
 async function renderAdminDuty() {
