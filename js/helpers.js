@@ -27,6 +27,36 @@ function timeAgo(timestamp) {
     return 'just now';
 }
 
+// Add this to helpers.js - Permanent user save function
+function saveUser(userData) {
+    if (!userData) return;
+    
+    // Ensure teacher structure is always correct
+    if (userData.role === 'teacher') {
+        userData.teacher = userData.teacher || {};
+        userData.teacher.type = userData.teacher.type || 'subject_teacher';
+        userData.teacher.subjects = userData.teacher.subjects || [];
+        userData.teacher.classId = userData.teacher.classId || null;
+        userData.teacher.className = userData.teacher.className || null;
+        userData.teacher.studentCount = userData.teacher.studentCount || 0;
+    }
+    
+    localStorage.setItem('user', JSON.stringify(userData));
+    return userData;
+}
+
+// Override getCurrentUser to ensure teacher structure is always valid
+const originalGetCurrentUser = getCurrentUser;
+window.getCurrentUser = function() {
+    const user = originalGetCurrentUser();
+    if (user && user.role === 'teacher') {
+        user.teacher = user.teacher || {};
+        user.teacher.type = user.teacher.type || 'subject_teacher';
+        user.teacher.subjects = user.teacher.subjects || [];
+    }
+    return user;
+};
+
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
