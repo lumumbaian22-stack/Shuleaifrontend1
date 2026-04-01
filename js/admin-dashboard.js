@@ -1,30 +1,45 @@
-// Add these at the very top of admin-dashboard.js
-
-// Fallback for loadPendingTeachers
-if (typeof window.loadPendingTeachers !== 'function') {
-    window.loadPendingTeachers = async function() {
-        try {
-            const response = await api.admin.getPendingApprovals();
-            return response?.data?.teachers || [];
-        } catch (error) {
-            console.error('Failed to load pending teachers:', error);
-            return [];
+// ============ FALLBACK TABLE RENDERERS (in case admin-approvals.js fails) ============
+if (typeof window.renderTeachersTable !== 'function') {
+    console.warn('renderTeachersTable not defined – using fallback');
+    window.renderTeachersTable = function(teachers) {
+        if (!teachers || teachers.length === 0) {
+            return '<div class="text-center py-8 text-muted-foreground">No teachers found</div>';
         }
+        // Basic fallback table
+        return `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50"><tr><th class="px-4 py-3">Name</th><th class="px-4 py-3">Email</th></tr></thead>
+                    <tbody>${teachers.map(t => `<tr><td class="px-4 py-3">${t.User?.name || 'Unknown'}</td><td>${t.User?.email || ''}</td></tr>`).join('')}</tbody>
+                </table>
+            </div>
+        `;
     };
 }
 
-// Fallback for loadAllTeachers
-if (typeof window.loadAllTeachers !== 'function') {
-    window.loadAllTeachers = async function() {
-        try {
-            const response = await api.admin.getTeachers();
-            return response?.data || [];
-        } catch (error) {
-            console.error('Failed to load teachers:', error);
-            return [];
+if (typeof window.renderPendingTeachersTable !== 'function') {
+    console.warn('renderPendingTeachersTable not defined – using fallback');
+    window.renderPendingTeachersTable = function(teachers) {
+        if (!teachers || teachers.length === 0) {
+            return '<div class="text-center py-8 text-muted-foreground">No pending teachers</div>';
         }
+        return `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50"><tr><th class="px-4 py-3">Teacher</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Actions</th></tr></thead>
+                    <tbody>${teachers.map(t => `
+                        <tr>
+                            <td class="px-4 py-3">${t.User?.name || 'Unknown'}</td>
+                            <td>${t.User?.email || ''}</td>
+                            <td><button onclick="approveTeacher('${t.id}')" class="text-green-600">Approve</button></td>
+                        </tr>
+                    `).join('')}</tbody>
+                </table>
+            </div>
+        `;
     };
 }
+
 
 // Fallback for renderClassManagement
 if (typeof window.renderClassManagement !== 'function') {
