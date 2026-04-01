@@ -815,6 +815,163 @@ function renderTeacherTasks() {
     `;
 }
 
+// Add this function to get teacher's assigned class
+async function getTeacherAssignedClass() {
+    const user = getCurrentUser();
+    if (!user || user.role !== 'teacher') return null;
+    
+    try {
+        // Fetch full teacher data from API
+        const teachers = await api.admin.getTeachers();
+        const teacher = teachers.data?.find(t => t.userId == user.id || t.id == user.id);
+        
+        if (!teacher || !teacher.classTeacher) return null;
+        
+        // Find class by name
+        const classes = await api.admin.getClasses();
+        const assignedClass = classes.data?.find(c => c.name === teacher.classTeacher);
+        
+        return assignedClass;
+    } catch (error) {
+        console.error('Error fetching teacher class:', error);
+        return null;
+    }
+}
+
+// Update your renderTeacherDashboard function to use this
+async function renderTeacherDashboard() {
+    const data = dashboardData || {};
+    const user = getCurrentUser();
+    const role = getTeacherRole();
+    const teacherClass = await getTeacherAssignedClass();
+    const hasClass = teacherClass !== null;
+    const className = teacherClass?.name || 'No class assigned';
+    const studentCount = teacherClass?.studentCount || 0;
+    
+    let roleBadge = '';
+    if (role === 'class_teacher') roleBadge = '<span class="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded-full">Class Teacher</span>';
+    else if (role === 'subject_teacher') roleBadge = '<span class="ml-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">Subject Teacher</span>';
+    else if (role === 'both') roleBadge = '<span class="ml-2 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded-full">Class & Subject Teacher</span>';
+    
+    const classInfo = hasClass ? `
+        <div class="mt-3 p-3 bg-primary/10 rounded-lg inline-block">
+            <span class="text-sm font-medium">📚 Your Class: </span>
+            <span class="text-sm font-bold text-primary">${escapeHtml(className)}</span>
+            <span class="text-xs text-muted-foreground ml-2">(${studentCount} students)</span>
+        </div>
+    ` : '';
+    
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <!-- Welcome Header -->
+            <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <div class="flex items-center flex-wrap gap-2">
+                            <h2 class="text-2xl font-bold">Welcome, ${escapeHtml(user?.name || 'Teacher')}!</h2>
+                            ${roleBadge}
+                        </div>
+                        <p class="text-muted-foreground mt-1 text-sm">${getTeacherRoleDescription()}</p>
+                        ${classInfo}
+                    </div>
+                    ${hasClass ? `
+                        <button onclick="showCSVUploadModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                            <i data-lucide="upload" class="h-4 w-4"></i>
+                            Upload Students (CSV)
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            
+            <!-- Rest of your dashboard... -->
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div class="rounded-xl border bg-card p-6 card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-muted-foreground">My Students</p>
+                            <h3 class="text-2xl font-bold mt-1">${studentCount}</h3>
+                            <p class="text-xs text-muted-foreground mt-1">In ${className !== 'No class assigned' ? className : 'your class'}</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <i data-lucide="users" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="rounded-xl border bg-card p-6 card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-muted-foreground">Class Average</p>
+                            <h3 class="text-2xl font-bold mt-1">0%</h3>
+                            <p class="text-xs text-muted-foreground mt-1">No marks yet</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                            <i data-lucide="trending-up" class="h-6 w-6 text-violet-600 dark:text-violet-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border bg-card p-6 card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-muted-foreground">Attendance Today</p>
+                            <h3 class="text-2xl font-bold mt-1">0/${studentCount}</h3>
+                            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Not taken yet</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 dark:text-amber-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border bg-card p-6 card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-muted-foreground">Pending Tasks</p>
+                            <h3 class="text-2xl font-bold mt-1">0</h3>
+                            <p class="text-xs text-red-600 dark:text-red-400 mt-1">Marks to enter</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <i data-lucide="check-square" class="h-6 w-6 text-red-600 dark:text-red-400"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="grid gap-4 md:grid-cols-3">
+                ${hasClass ? `
+                    <button onclick="showDashboardSection('my-class')" class="p-4 border rounded-lg hover:bg-accent transition-colors text-left group">
+                        <i data-lucide="graduation-cap" class="h-6 w-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="font-medium">My Class Dashboard</p>
+                        <p class="text-xs text-muted-foreground">View ${escapeHtml(className)} overview and analytics</p>
+                    </button>
+                    
+                    <button onclick="showDashboardSection('marks')" class="p-4 border rounded-lg hover:bg-accent transition-colors text-left group">
+                        <i data-lucide="trending-up" class="h-6 w-6 text-purple-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="font-medium">Enter Marks</p>
+                        <p class="text-xs text-muted-foreground">Record student grades and assessments</p>
+                    </button>
+                    
+                    <button onclick="showDashboardSection('attendance')" class="p-4 border rounded-lg hover:bg-accent transition-colors text-left group">
+                        <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 mb-2 group-hover:scale-110 transition-transform"></i>
+                        <p class="font-medium">Take Attendance</p>
+                        <p class="text-xs text-muted-foreground">Mark today's attendance for ${escapeHtml(className)}</p>
+                    </button>
+                ` : `
+                    <div class="col-span-3 text-center py-8 text-muted-foreground">
+                        <i data-lucide="school" class="h-12 w-12 mx-auto mb-3 opacity-50"></i>
+                        <p>No class assigned to you yet.</p>
+                        <p class="text-sm">Please contact your school administrator to assign you as a class teacher.</p>
+                    </div>
+                `}
+            </div>
+            
+            <!-- Rest of your dashboard (messages, duty card, etc.) -->
+        </div>
+    `;
+}
+
 async function renderTeacherDuty() {
     const todayDuty = await loadTodayDuty();
     const weeklyDuty = await loadWeeklyDuty();
