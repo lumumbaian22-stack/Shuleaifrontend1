@@ -816,26 +816,16 @@ function renderTeacherTasks() {
 }
 
 // Add this function to get teacher's assigned class
-async function getTeacherAssignedClass() {
+function getTeacherAssignedClass() {
     const user = getCurrentUser();
+
     if (!user || user.role !== 'teacher') return null;
-    
-    try {
-        // Fetch full teacher data from API
-        const teachers = await api.admin.getTeachers();
-        const teacher = teachers.data?.find(t => t.userId == user.id || t.id == user.id);
-        
-        if (!teacher || !teacher.classTeacher) return null;
-        
-        // Find class by name
-        const classes = await api.admin.getClasses();
-        const assignedClass = classes.data?.find(c => c.name === teacher.classTeacher);
-        
-        return assignedClass;
-    } catch (error) {
-        console.error('Error fetching teacher class:', error);
-        return null;
-    }
+
+    return {
+        id: user.teacher?.classId || null,
+        name: user.teacher?.className || null,
+        studentCount: user.teacher?.studentCount || 0
+    };
 }
 
 // Update your renderTeacherDashboard function to use this
