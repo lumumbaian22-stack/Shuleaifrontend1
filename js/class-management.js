@@ -388,29 +388,156 @@ async function deleteClass(classId) {
     }
 }
 
+// Replace your assignClassTeacher function with this debug version
 async function assignClassTeacher(classId) {
     const select = document.getElementById(`teacher-${classId}`);
     const teacherId = select?.value;
+    const teacherName = select?.options[select.selectedIndex]?.text || 'Unknown';
 
     if (!teacherId) {
         showToast('Please select a teacher', 'error');
+        console.log('❌ No teacher selected for class:', classId);
         return;
     }
+
+    console.log('📤 Assigning teacher to class:', {
+        classId: classId,
+        teacherId: teacherId,
+        teacherName: teacherName,
+        timestamp: new Date().toISOString()
+    });
 
     showLoading();
     try {
         const response = await api.admin.assignTeacherToClass(classId, teacherId);
-        if (response.success) {
-            showToast('✅ Class teacher assigned successfully', 'success');
+        
+        console.log('📥 API Response:', response);
+        
+        if (response && response.success) {
+            showToast(`✅ Class teacher assigned successfully to ${teacherName}`, 'success');
+            
+            // Verify the assignment by fetching the class again
+            const updatedClass = await api.admin.getClassDetails(classId);
+            console.log('🔍 Verified class after assignment:', updatedClass);
+            
+            if (updatedClass.data && updatedClass.data.teacherId === parseInt(teacherId)) {
+                console.log('✅ Assignment verified in database! Teacher ID:', updatedClass.data.teacherId);
+                showToast(`✅ Verified: ${teacherName} is now the class teacher`, 'success', 5000);
+            } else {
+                console.warn('⚠️ Assignment may not have persisted. Expected teacher:', teacherId, 'Got:', updatedClass.data?.teacherId);
+            }
+            
+            // Refresh the UI
             await refreshClassesList();
             await showDashboardSection('classes');
+            
+            // Also refresh teacher's dashboard if they are the assigned teacher
+            const currentUser = getCurrentUser();
+            if (currentUser && currentUser.id == teacherId) {
+                console.log('🔄 Current user is the assigned teacher, refreshing their dashboard');
+                if (typeof showDashboardSection === 'function') {
+                    await showDashboardSection('dashboard');
+                }
+            }
+            
+            return response;
+        } else {
+            throw new Error(response?.message || 'Assignment failed - no success flag');
         }
     } catch (error) {
+        console.error('❌ Error assigning teacher:', {
+            error: error.message,
+            stack: error.stack,
+            classId: classId,
+            teacherId: teacherId
+        });
         showToast(error.message || 'Failed to assign teacher', 'error');
     } finally {
         hideLoading();
     }
 }
+
+// Add this function to debug teacher assignments
+async function checkTeacherAssignment(teacherId) {
+    console.log('🔍 Checking teacher assignment for teacher ID:', teacherId);
+    
+    showLoading();
+    try {
+        // Get teacher details
+        const teacherResponse = await api.admin.getTeachers();
+        const teacher = teacherResponse.data?.find(t => t.id == teacherId);
+        
+        if (teacher) {
+            console.log('👤 Teacher found:', {
+                id: teacher.id,
+                name: teacher.User?.name,
+                email: teacher.User?.email,
+                assignedClassId: teacher.classId,
+                assignedClass: teacher.Class?.name
+            });
+            
+            if (teacher.classId) {
+                // Get class details
+                const classResponse = await api.admin.getClassDetails(teacher.classId);
+                console.log('📚 Assigned class details:', classResponse.data);
+                
+                showToast(`✅ Teacher ${teacher.User?.name} is assigned to class: ${classResponse.data?.name || 'Unknown'}`, 'success');
+            } else {
+                console.warn('⚠️ Teacher has no class assigned');
+                showToast(`⚠️ Teacher ${teacher.User?.name} has no class assigned`, 'warning');
+            }
+        } else {
+            console.error('❌ Teacher not found with ID:', teacherId);
+            showToast('Teacher not found', 'error');
+        }
+    } catch (error) {
+        console.error('Error checking teacher assignment:', error);
+        showToast('Failed to check teacher assignment', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Add this to debug all teachers in the school
+async function listAllTeachersAndClasses() {
+    console.log('📊 Fetching all teachers and their class assignments...');
+    
+    showLoading();
+    try {
+        const response = await api.admin.getTeachers();
+        const teachers = response.data || [];
+        
+        console.log('=' .repeat(60));
+        console.log('TEACHER ASSIGNMENTS REPORT');
+        console.log('=' .repeat(60));
+        
+        teachers.forEach(teacher => {
+            const userName = teacher.User?.name || 'Unknown';
+            const classId = teacher.classId;
+            const className = teacher.Class?.name || (classId ? 'Class ID: ' + classId : 'Not assigned');
+            
+            console.log(`📌 ${userName}:`);
+            console.log(`   - Teacher ID: ${teacher.id}`);
+            console.log(`   - Email: ${teacher.User?.email}`);
+            console.log(`   - Class: ${className}`);
+            console.log(`   - Status: ${teacher.isActive ? 'Active' : 'Inactive'}`);
+            console.log('-'.repeat(40));
+        });
+        
+        console.log('=' .repeat(60));
+        
+        showToast(`Found ${teachers.length} teachers. Check console for details.`, 'info');
+    } catch (error) {
+        console.error('Error listing teachers:', error);
+        showToast('Failed to fetch teacher list', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Export these debug functions
+window.checkTeacherAssignment = checkTeacherAssignment;
+window.listAllTeachersAndClasses = listAllTeachersAndClasses;
 
 // ============ SUBJECT ASSIGNMENT ============
 
