@@ -535,9 +535,7 @@ async function listAllTeachersAndClasses() {
     }
 }
 
-// Export these debug functions
-window.checkTeacherAssignment = checkTeacherAssignment;
-window.listAllTeachersAndClasses = listAllTeachersAndClasses;
+
 
 // ============ SUBJECT ASSIGNMENT ============
 
@@ -742,3 +740,6 @@ window.escapeHtml = escapeHtml;
 window.toggleClassDetails = toggleClassDetails;
 window.refreshClassesList = refreshClassesList;
 window.renderSubjectTeachers = renderSubjectTeachers;
+// Export these debug functions
+window.checkTeacherAssignment = checkTeacherAssignment;
+window.listAllTeachersAndClasses = listAllTeachersAndClasses;
