@@ -1197,3 +1197,5 @@ window.renderAdminCustomSubjects = renderAdminCustomSubjects;
 window.addCustomSubject = addCustomSubject;
 window.removeCustomSubject = removeCustomSubject;
 window.saveAllSettings = saveAllSettings;
+window.renderHelpSection = renderHelpSection;
+window.renderAdminCalendar = renderAdminCalendar;
