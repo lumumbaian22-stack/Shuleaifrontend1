@@ -12,6 +12,13 @@ if (typeof window.loadAllTeachers !== 'function') {
     };
 }
 
+if (typeof window.renderStudentsTable !== 'function') {
+    window.renderStudentsTable = function(students) {
+        // simple fallback table
+        return `<div class="overflow-x-auto"><table class="w-full text-sm">...</table></div>`;
+    };
+}
+
 if (typeof window.loadPendingTeachers !== 'function') {
     console.warn('loadPendingTeachers not defined – using fallback');
     window.loadPendingTeachers = async function() {
@@ -68,6 +75,9 @@ if (typeof window.renderTeachersTable !== 'function') {
                                     <button onclick="editTeacher('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg">
                                         <i data-lucide="edit" class="h-4 w-4"></i>
                                     </button>
+                                    <button onclick="deleteTeacher('${teacher.id}')" class="p-2 hover:bg-red-100 rounded-lg text-red-600">
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                    </button>   
                                 </td>
                             </tr>
                         `).join('')}
@@ -357,8 +367,8 @@ async function renderAdminStudents() {
                         <p class="text-2xl font-bold text-green-600">${students.filter(s => s.status === 'active').length}</p>
                     </div>
                     <div class="rounded-xl border bg-card p-4">
-                        <p class="text-sm text-muted-foreground">Suspended</p>
-                        <p class="text-2xl font-bold text-red-600">${students.filter(s => s.status === 'suspended').length}</p>
+                        <p class="text-sm text-muted-foreground">inactive</p>
+                        <p class="text-2xl font-bold text-red-600">${students.filter(s => s.status === 'inactive').length}</p>
                     </div>
                     <div class="rounded-xl border bg-card p-4">
                         <p class="text-sm text-muted-foreground">Graduated</p>
@@ -385,7 +395,7 @@ async function renderAdminStudents() {
                                     const email = user.email || 'N/A';
                                     const status = student.status || 'active';
                                     const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
-                                                       status === 'suspended' ? 'bg-red-100 text-red-700' : 
+                                                       status === 'inactive' ? 'bg-red-100 text-red-700' : 
                                                        'bg-gray-100 text-gray-700';
                                     const initials = getInitials(name);
 
@@ -409,24 +419,24 @@ async function renderAdminStudents() {
                                             <td class="px-4 py-3">${email}</td>
                                             <td class="px-4 py-3 text-center">
                                                 <div class="flex items-center justify-center gap-2">
-                                                    <button onclick="adminviewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
+                                                    <button onclick="adminViewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
                                                         <i data-lucide="eye" class="h-4 w-4 text-blue-600"></i>
                                                     </button>
-                                                    <button onclick="admineditStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
+                                                    <button onclick="adminEditStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
                                                         <i data-lucide="edit" class="h-4 w-4 text-green-600"></i>
                                                     </button>
                                                     ${status === 'active' ? 
-                                                        `<button onclick="adminsuspendStudent('${student.id}', '${name}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
+                                                        `<button onclick="adminSuspendStudent('${student.id}', '${name}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
                                                             <i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i>
                                                         </button>` : 
-                                                        `<button onclick="adminreactivateStudent('${student.id}', '${name}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
+                                                        `<button onclick="adminReactivateStudent('${student.id}', '${name}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
                                                             <i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i>
                                                         </button>`
                                                     }
-                                                    <button onclick="admindeleteStudent('${student.id}', '${name}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
+                                                    <button onclick="adminDeleteStudent('${student.id}', '${name}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
                                                         <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
                                                     </button>
-                                                    <button onclick="admincopyToClipboard('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
+                                                    <button onclick="copyToClipboard('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
                                                         <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
                                                     </button>
                                                 </div>
@@ -1021,6 +1031,17 @@ window.editTeacher = async function(teacherId) {
         } catch (error) {
             showToast(error.message, 'error');
         }
+    }
+};
+
+window.deleteTeacher = async function(teacherId) {
+    if (!confirm('Delete this teacher? This action cannot be undone.')) return;
+    try {
+        await api.admin.deleteTeacher(teacherId);
+        showToast('Teacher deleted', 'success');
+        await renderAdminTeachers();
+    } catch (error) {
+        showToast(error.message, 'error');
     }
 };
 
