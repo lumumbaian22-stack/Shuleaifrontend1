@@ -180,13 +180,24 @@ const CURRICULUM_STRUCTURE = {
     }
 };
 
+// ============ HELPER: Normalize level for grading ============
+function normalizeLevel(level) {
+    if (level === 'both') return 'secondary';
+    return level;
+}
+
 // ============ GRADE CALCULATION ============
 function getGradeFromScore(score, curriculum, level) {
     const curriculumData = CURRICULUMS[curriculum];
     if (!curriculumData) return { grade: 'N/A', description: 'Not available' };
 
-    const gradingScale = curriculumData.grading[level] || curriculumData.grading.primary;
-    const scoreNum = parseInt(score);
+    const normalizedLevel = normalizeLevel(level);
+    const gradingScale = curriculumData.grading[normalizedLevel] || curriculumData.grading.primary;
+    const scoreNum = Number(score);
+    
+    if (isNaN(scoreNum)) {
+        return { grade: 'N/A', description: 'Invalid score' };
+    }
 
     for (const gradeInfo of gradingScale) {
         const [min, max] = gradeInfo.range.split('-').map(Number);
@@ -213,19 +224,19 @@ function updateGradingSystem(curriculum) {
 }
 
 // ============ CLASS GENERATION FROM CURRICULUM ============
-async function generateClassesFromCurriculum() {
+async function generateClassesFromCurriculum(returnOnly = false) {
     showLoading();
     try {
         const schoolResponse = await api.admin.getSchoolSettings();
         if (!schoolResponse || !schoolResponse.success) {
             showToast('Failed to load school settings', 'error');
             hideLoading();
-            return;
+            return returnOnly ? [] : undefined;
         }
 
         const schoolData = schoolResponse.data;
-        const curriculum = schoolData.curriculum || 'cbc';
-        const schoolLevel = schoolData.schoolLevel || 'both';
+        const curriculum = schoolData.system || schoolData.curriculum || 'cbc';
+        const schoolLevel = schoolData.settings?.schoolLevel || 'both';
 
         console.log('📚 REAL School Curriculum:', curriculum);
         console.log('🏫 REAL School Level:', schoolLevel);
@@ -234,12 +245,12 @@ async function generateClassesFromCurriculum() {
         if (isNaN(streamCount) || streamCount < 1) {
             showToast('Invalid stream count', 'error');
             hideLoading();
-            return;
+            return returnOnly ? [] : undefined;
         }
 
         let streamNames = [];
         if (streamCount > 1) {
-            const input = prompt(`Stream names (comma separated):\nExample: A, B, C`, 'A, B, C');
+            const input = prompt('Stream names (comma separated):\nExample: A, B, C', 'A, B, C');
             if (input) streamNames = input.split(',').map(s => s.trim());
             if (streamNames.length !== streamCount) {
                 streamNames = Array.from({ length: streamCount }, (_, i) => String.fromCharCode(65 + i));
@@ -248,7 +259,46 @@ async function generateClassesFromCurriculum() {
 
         let classesToCreate = [];
 
-        if (curriculum === 'cbc') {
+        // Use CURRICULUM_STRUCTURE for all curricula
+        const structure = CURRICULUM_STRUCTURE[curriculum];
+        if (structure) {
+            // Determine which levels to include based on schoolLevel
+            let levelsToInclude = [];
+            if (schoolLevel === 'primary') {
+                if (structure.levels.primary) levelsToInclude.push(structure.levels.primary);
+                if (structure.levels.elementary) levelsToInclude.push(structure.levels.elementary);
+                if (structure.levels.lower_primary) levelsToInclude.push(structure.levels.lower_primary);
+                if (structure.levels.upper_primary) levelsToInclude.push(structure.levels.upper_primary);
+            } else if (schoolLevel === 'secondary') {
+                if (structure.levels.secondary) levelsToInclude.push(structure.levels.secondary);
+                if (structure.levels.junior_secondary) levelsToInclude.push(structure.levels.junior_secondary);
+                if (structure.levels.senior_secondary) levelsToInclude.push(structure.levels.senior_secondary);
+                if (structure.levels.middle) levelsToInclude.push(structure.levels.middle);
+                if (structure.levels.high) levelsToInclude.push(structure.levels.high);
+                if (structure.levels.lower_secondary) levelsToInclude.push(structure.levels.lower_secondary);
+                if (structure.levels.upper_secondary) levelsToInclude.push(structure.levels.upper_secondary);
+            } else if (schoolLevel === 'both') {
+                // Include all levels
+                Object.values(structure.levels).forEach(level => levelsToInclude.push(level));
+            }
+
+            levelsToInclude.forEach(level => {
+                if (level.classes && Array.isArray(level.classes)) {
+                    level.classes.forEach(cls => {
+                        for (let s = 0; s < streamCount; s++) {
+                            const suffix = streamCount > 1 ? ` ${streamNames[s]}` : '';
+                            classesToCreate.push({
+                                name: `${cls}${suffix}`,
+                                grade: cls
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // Fallback for CBC specific if structure missing (keep original logic)
+        if (classesToCreate.length === 0 && curriculum === 'cbc') {
             if (schoolLevel === 'primary') {
                 const grades = ['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'];
                 for (const grade of grades) {
@@ -278,7 +328,12 @@ async function generateClassesFromCurriculum() {
         if (classesToCreate.length === 0) {
             showToast('No classes to generate for this school type', 'info');
             hideLoading();
-            return;
+            return returnOnly ? [] : undefined;
+        }
+
+        if (returnOnly) {
+            hideLoading();
+            return classesToCreate;
         }
 
         const existingClasses = await loadAllClasses();
@@ -291,8 +346,7 @@ async function generateClassesFromCurriculum() {
             return;
         }
 
-        const confirmMessage = `Generate ${newClasses.length} new classes?\n\n📚 School: ${schoolData.schoolName || 'Your School'}\n📖 Level: ${schoolLevel.toUpperCase()}\n📊 Streams: ${streamCount} (${streamNames.join(', ') || 'None'})\n\nProceed?`;
-
+        const confirmMessage = `Generate ${newClasses.length} new classes?\n\n📚 School: ${schoolData.name || 'Your School'}\n📖 Level: ${schoolLevel.toUpperCase()}\n📊 Streams: ${streamCount} (${streamNames.join(', ') || 'None'})\n\nProceed?`;
         if (!confirm(confirmMessage)) {
             hideLoading();
             return;
@@ -303,10 +357,16 @@ async function generateClassesFromCurriculum() {
 
         for (const classData of newClasses) {
             try {
+                // Validation
+                if (!classData.name || !classData.grade) {
+                    console.warn('Skipping invalid class:', classData);
+                    failed++;
+                    continue;
+                }
                 await api.admin.createClass({
                     name: classData.name,
                     grade: classData.grade,
-                    stream: null,
+                    stream: streamCount > 1 ? streamNames[classData.name.split(' ').pop()] || null : null,
                     academicYear: new Date().getFullYear().toString()
                 });
                 created++;
@@ -322,7 +382,7 @@ async function generateClassesFromCurriculum() {
         if (created > 0) {
             showToast(`✅ Created ${created} classes${failed > 0 ? `, ${failed} failed` : ''}`, 'success');
             await showDashboardSection('classes');
-            await updateAdminStats();
+            if (typeof updateAdminStats === 'function') await updateAdminStats();
         } else {
             showToast('Failed to create classes', 'error');
         }
@@ -331,6 +391,7 @@ async function generateClassesFromCurriculum() {
         console.error('Error:', error);
         showToast(error.message || 'Failed to generate classes', 'error');
         hideLoading();
+        if (returnOnly) return [];
     }
 }
 
@@ -382,7 +443,7 @@ function saveStreamSettings() {
 async function autoGenerateClassesOnCurriculumChange() {
     showLoading();
     try {
-        const classesToCreate = await generateClassesFromCurriculum();
+        const classesToCreate = await generateClassesFromCurriculum(true);
         const existingClasses = await loadAllClasses();
         const existingNames = new Set(existingClasses.map(c => c.name));
         const newClasses = classesToCreate.filter(c => !existingNames.has(c.name));
@@ -408,8 +469,8 @@ async function autoGenerateClassesOnCurriculumChange() {
             }
         }
         showToast(`✅ Created ${created} new classes`, 'success');
-        await refreshClassesList();
-
+        await showDashboardSection('classes');
+        if (typeof refreshClassesList === 'function') await refreshClassesList();
     } catch (error) {
         console.error('Error generating classes:', error);
         showToast('Failed to generate classes', 'error');
@@ -436,8 +497,8 @@ async function handleCurriculumChange(newCurriculum) {
         });
 
         if (response.success) {
-            schoolSettings.curriculum = newCurriculum;
-            localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+            window.schoolSettings.curriculum = newCurriculum;
+            localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
 
             if (typeof emitCurriculumUpdate === 'function') {
                 emitCurriculumUpdate(newCurriculum);
@@ -450,52 +511,23 @@ async function handleCurriculumChange(newCurriculum) {
             const updateTimestamp = new Date().toISOString();
             localStorage.setItem('curriculumUpdateTimestamp', updateTimestamp);
 
+            // Use event-based updates instead of full refreshes
+            window.dispatchEvent(new CustomEvent('curriculumChanged', {
+                detail: { curriculum: newCurriculum }
+            }));
+
+            // Minimal refresh for current user's dashboard
             if (role === 'teacher') {
-                await refreshMyStudents();
-                await loadTeacherMessages();
-                document.querySelectorAll('.student-grade').forEach(el => {
-                    const scoreEl = el.closest('tr')?.querySelector('.student-score');
-                    if (scoreEl) {
-                        const score = parseInt(scoreEl.value);
-                        if (!isNaN(score)) {
-                            const gradeInfo = getGradeFromScore(score, newCurriculum, schoolSettings.schoolLevel || 'secondary');
-                            el.textContent = gradeInfo.grade;
-                        }
-                    }
-                });
+                if (typeof refreshMyStudents === 'function') await refreshMyStudents();
             } else if (role === 'admin') {
-                await refreshStudentsList();
-                await refreshTeachersList();
-                await refreshClassesList();
-                await updateAdminStats();
-            } else if (role === 'parent') {
+                if (typeof refreshStudentsList === 'function') await refreshStudentsList();
+                if (typeof refreshTeachersList === 'function') await refreshTeachersList();
+                if (typeof refreshClassesList === 'function') await refreshClassesList();
+                if (typeof updateAdminStats === 'function') await updateAdminStats();
+            } else if (role === 'parent' && typeof refreshParentDashboard === 'function') {
                 await refreshParentDashboard();
-                document.querySelectorAll('#grades-table-body tr').forEach(row => {
-                    const scoreEl = row.querySelector('td:nth-child(2)');
-                    if (scoreEl) {
-                        const score = parseInt(scoreEl.textContent);
-                        if (!isNaN(score)) {
-                            const gradeInfo = getGradeFromScore(score, newCurriculum, schoolSettings.schoolLevel || 'secondary');
-                            const gradeCell = row.querySelector('td:nth-child(3)');
-                            if (gradeCell) {
-                                gradeCell.innerHTML = `<span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">${gradeInfo.grade}</span>`;
-                            }
-                        }
-                    }
-                });
-            } else if (role === 'student') {
+            } else if (role === 'student' && typeof refreshStudentDashboard === 'function') {
                 await refreshStudentDashboard();
-                document.querySelectorAll('#my-grades div').forEach(gradeDiv => {
-                    const scoreSpan = gradeDiv.querySelector('.font-semibold');
-                    if (scoreSpan) {
-                        const match = scoreSpan.textContent.match(/(\d+)%/);
-                        if (match) {
-                            const score = parseInt(match[1]);
-                            const gradeInfo = getGradeFromScore(score, newCurriculum, schoolSettings.schoolLevel || 'secondary');
-                            scoreSpan.textContent = `${score}% (${gradeInfo.grade})`;
-                        }
-                    }
-                });
             }
 
             const curriculumName = CURRICULUMS[newCurriculum]?.name || newCurriculum;
