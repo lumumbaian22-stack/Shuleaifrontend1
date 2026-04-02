@@ -409,24 +409,24 @@ async function renderAdminStudents() {
                                             <td class="px-4 py-3">${email}</td>
                                             <td class="px-4 py-3 text-center">
                                                 <div class="flex items-center justify-center gap-2">
-                                                    <button onclick="viewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
+                                                    <button onclick="adminviewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
                                                         <i data-lucide="eye" class="h-4 w-4 text-blue-600"></i>
                                                     </button>
-                                                    <button onclick="editStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
+                                                    <button onclick="admineditStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
                                                         <i data-lucide="edit" class="h-4 w-4 text-green-600"></i>
                                                     </button>
                                                     ${status === 'active' ? 
-                                                        `<button onclick="suspendStudent('${student.id}', '${name}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
+                                                        `<button onclick="adminsuspendStudent('${student.id}', '${name}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
                                                             <i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i>
                                                         </button>` : 
-                                                        `<button onclick="reactivateStudent('${student.id}', '${name}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
+                                                        `<button onclick="adminreactivateStudent('${student.id}', '${name}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
                                                             <i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i>
                                                         </button>`
                                                     }
-                                                    <button onclick="deleteStudent('${student.id}', '${name}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
+                                                    <button onclick="admindeleteStudent('${student.id}', '${name}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
                                                         <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
                                                     </button>
-                                                    <button onclick="copyToClipboard('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
+                                                    <button onclick="admincopyToClipboard('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
                                                         <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
                                                     </button>
                                                 </div>
@@ -990,6 +990,37 @@ window.saveAllSettings = async function() {
         showToast(error.message || 'Failed to save settings', 'error');
     } finally {
         hideLoading();
+    }
+};
+
+window.viewTeacherDetails = async function(teacherId) {
+    const teachers = await window.loadAllTeachers();
+    const teacher = teachers.find(t => t.id == teacherId);
+    if (!teacher) {
+        showToast('Teacher not found', 'error');
+        return;
+    }
+    alert(`Name: ${teacher.User?.name}\nEmail: ${teacher.User?.email}\nSubjects: ${teacher.subjects?.join(', ')}\nStatus: ${teacher.approvalStatus}`);
+};
+
+window.editTeacher = async function(teacherId) {
+    // Show a modal to edit teacher details
+    // For simplicity, prompt for new name and subjects
+    const teachers = await window.loadAllTeachers();
+    const teacher = teachers.find(t => t.id == teacherId);
+    if (!teacher) {
+        showToast('Teacher not found', 'error');
+        return;
+    }
+    const newName = prompt('Enter new name:', teacher.User?.name);
+    if (newName && newName !== teacher.User?.name) {
+        try {
+            await api.admin.updateTeacher(teacherId, { name: newName });
+            showToast('Teacher updated successfully', 'success');
+            await renderAdminTeachers(); // refresh table
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
     }
 };
 
