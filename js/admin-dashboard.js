@@ -1,16 +1,77 @@
-// ============ FALLBACK TABLE RENDERERS (in case admin-approvals.js fails) ============
+// ============ CRITICAL FALLBACKS for admin-dashboard ============
+if (typeof window.loadAllTeachers !== 'function') {
+    console.warn('loadAllTeachers not defined – using fallback');
+    window.loadAllTeachers = async function() {
+        try {
+            const response = await api.admin.getTeachers();
+            return response.data || [];
+        } catch (error) {
+            console.error('Fallback loadAllTeachers error:', error);
+            return [];
+        }
+    };
+}
+
+if (typeof window.loadPendingTeachers !== 'function') {
+    console.warn('loadPendingTeachers not defined – using fallback');
+    window.loadPendingTeachers = async function() {
+        try {
+            const response = await api.admin.getPendingApprovals();
+            return response?.data?.teachers || [];
+        } catch (error) {
+            console.error('Fallback loadPendingTeachers error:', error);
+            return [];
+        }
+    };
+}
+
 if (typeof window.renderTeachersTable !== 'function') {
     console.warn('renderTeachersTable not defined – using fallback');
     window.renderTeachersTable = function(teachers) {
         if (!teachers || teachers.length === 0) {
             return '<div class="text-center py-8 text-muted-foreground">No teachers found</div>';
         }
-        // Basic fallback table
         return `
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="bg-muted/50"><tr><th class="px-4 py-3">Name</th><th class="px-4 py-3">Email</th></tr></thead>
-                    <tbody>${teachers.map(t => `<tr><td class="px-4 py-3">${t.User?.name || 'Unknown'}</td><td>${t.User?.email || ''}</td></tr>`).join('')}</tbody>
+                    <thead class="bg-muted/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">Teacher</th>
+                            <th class="px-4 py-3 text-left font-medium">Email</th>
+                            <th class="px-4 py-3 text-left font-medium">Subjects</th>
+                            <th class="px-4 py-3 text-left font-medium">Status</th>
+                            <th class="px-4 py-3 text-right font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${teachers.map(teacher => `
+                            <tr class="hover:bg-accent/50 transition-colors">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                            <span class="font-medium text-blue-700 text-sm">${getInitials(teacher.User?.name || 'Unknown')}</span>
+                                        </div>
+                                        <span class="font-medium">${teacher.User?.name || 'Unknown'}</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">${teacher.User?.email || 'N/A'}</td>
+                                <td class="px-4 py-3">${(teacher.subjects || []).join(', ')}</td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-green-100 text-green-700">
+                                        ${teacher.approvalStatus === 'approved' ? 'Active' : 'Pending'}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <button onclick="viewTeacherDetails('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg">
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
+                                    <button onclick="editTeacher('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg">
+                                        <i data-lucide="edit" class="h-4 w-4"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
                 </table>
             </div>
         `;
@@ -26,25 +87,59 @@ if (typeof window.renderPendingTeachersTable !== 'function') {
         return `
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="bg-muted/50"><tr><th class="px-4 py-3">Teacher</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Actions</th></tr></thead>
-                    <tbody>${teachers.map(t => `
+                    <thead class="bg-muted/50">
                         <tr>
-                            <td class="px-4 py-3">${t.User?.name || 'Unknown'}</td>
-                            <td>${t.User?.email || ''}</td>
-                            <td><button onclick="approveTeacher('${t.id}')" class="text-green-600">Approve</button></td>
+                            <th class="px-4 py-3 text-left font-medium">Teacher</th>
+                            <th class="px-4 py-3 text-left font-medium">Email</th>
+                            <th class="px-4 py-3 text-left font-medium">Subjects</th>
+                            <th class="px-4 py-3 text-left font-medium">Applied</th>
+                            <th class="px-4 py-3 text-right font-medium">Actions</th>
                         </tr>
-                    `).join('')}</tbody>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${teachers.map(teacher => `
+                            <tr class="hover:bg-accent/50 transition-colors">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-8 w-8 rounded-full bg-violet-100 flex items-center justify-center">
+                                            <span class="font-medium text-violet-700 text-sm">${getInitials(teacher.User?.name || 'Unknown')}</span>
+                                        </div>
+                                        <span class="font-medium">${teacher.User?.name || 'Unknown'}</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">${teacher.User?.email || 'N/A'}</td>
+                                <td class="px-4 py-3">${(teacher.subjects || []).join(', ')}</td>
+                                <td class="px-4 py-3">${timeAgo(teacher.createdAt)}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <button onclick="approveTeacher('${teacher.id}')" class="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full hover:bg-green-200 mr-2">Approve</button>
+                                    <button onclick="rejectTeacher('${teacher.id}')" class="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-full hover:bg-red-200">Reject</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
                 </table>
             </div>
         `;
     };
 }
 
-
 // Fallback for renderClassManagement
 if (typeof window.renderClassManagement !== 'function') {
     window.renderClassManagement = async function() {
         return '<div class="text-center py-12">Class management module loading...</div>';
+    };
+}
+
+if (typeof window.loadAllStudents !== 'function') {
+    console.warn('loadAllStudents not defined – using fallback');
+    window.loadAllStudents = async function() {
+        try {
+            const response = await api.admin.getStudents();
+            return response.data || [];
+        } catch (error) {
+            console.error('Fallback loadAllStudents error:', error);
+            return [];
+        }
     };
 }
 
@@ -352,38 +447,39 @@ async function renderAdminStudents() {
 }
 
 async function renderAdminTeachers() {
-  try {
-    const teachers = await loadAllTeachers();
-    console.log('Loaded teachers:', teachers); // Debug
-    return `
-      <div class="space-y-6 animate-fade-in">
-        <h2 class="text-2xl font-bold">Teacher Management</h2>
-        <div class="rounded-xl border bg-card overflow-hidden">
-          ${renderTeachersTable(teachers)}
-        </div>
-      </div>
-    `;
-  } catch (error) {
-    console.error('Error loading teachers:', error);
-    return `<div class="text-center py-12 text-red-500">Error loading teachers: ${error.message}</div>`;
-  }
+    try {
+        const teachers = await window.loadAllTeachers();
+        console.log('Loaded teachers:', teachers);
+        const tableHtml = window.renderTeachersTable(teachers);
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">Teacher Management</h2>
+                <div class="rounded-xl border bg-card overflow-hidden">
+                    ${tableHtml}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading teachers:', error);
+        return `<div class="text-center py-12 text-red-500">Error loading teachers: ${error.message}</div>`;
+    }
 }
 
 async function renderAdminPendingTeachers() {
-  try {
-    const teachers = await loadPendingTeachers();
-    return `
-      <div class="space-y-6 animate-fade-in">
-        <h2 class="text-2xl font-bold">Pending Teacher Approvals</h2>
-        <div class="rounded-xl border bg-card overflow-hidden">
-          ${renderPendingTeachersTable(teachers)}
-        </div>
-      </div>
-    `;
-  } catch (error) {
-    console.error('Error loading pending teachers:', error);
-    return `<div class="text-center py-12 text-red-500">Error loading pending teachers: ${error.message}</div>`;
-  }
+    try {
+        const teachers = await window.loadPendingTeachers();
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">Pending Teacher Approvals</h2>
+                <div class="rounded-xl border bg-card overflow-hidden">
+                    ${window.renderPendingTeachersTable(teachers)}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading pending teachers:', error);
+        return `<div class="text-center py-12 text-red-500">Error loading pending teachers: ${error.message}</div>`;
+    }
 }
 
 async function renderAdminDuty() {
@@ -1069,140 +1165,6 @@ function createHelpArticleModal() {
 function closeHelpArticleModal() {
     const modal = document.getElementById('help-article-modal');
     if (modal) modal.classList.add('hidden');
-}
-
-// Add this to your teacher-dashboard.js
-async function getTeacherClassInfo() {
-    const user = getCurrentUser();
-    if (!user || user.role !== 'teacher') return null;
-    
-    try {
-        // First check if teacher has classId in user object
-        if (user.teacher && user.teacher.classId) {
-            const classResponse = await api.admin.getClassDetails(user.teacher.classId);
-            return classResponse.data;
-        }
-        
-        // If not, fetch from API
-        const teacherResponse = await api.admin.getTeachers();
-        const teacher = teacherResponse.data?.find(t => t.id == user.id);
-        
-        if (teacher && teacher.classId) {
-            const classResponse = await api.admin.getClassDetails(teacher.classId);
-            return classResponse.data;
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Error fetching teacher class:', error);
-        return null;
-    }
-}
-
-// Update renderTeacherDashboard to include class info
-async function renderTeacherDashboard() {
-    const data = dashboardData || {};
-    const user = getCurrentUser();
-    const role = getTeacherRole();
-    const teacherClass = await getTeacherClassInfo();
-    
-    let roleBadge = '';
-    if (role === 'class_teacher') roleBadge = '<span class="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded-full">Class Teacher</span>';
-    else if (role === 'subject_teacher') roleBadge = '<span class="ml-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">Subject Teacher</span>';
-    else if (role === 'both') roleBadge = '<span class="ml-2 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded-full">Class & Subject Teacher</span>';
-    
-    const classInfo = teacherClass ? `
-        <div class="mt-2 p-3 bg-primary/10 rounded-lg inline-block">
-            <span class="text-sm font-medium">📚 Your Class: </span>
-            <span class="text-sm font-bold text-primary">${escapeHtml(teacherClass.name)}</span>
-            <span class="text-xs text-muted-foreground ml-2">(${teacherClass.studentCount || 0} students)</span>
-        </div>
-    ` : '';
-    
-    return `
-        <div class="space-y-6 animate-fade-in">
-            <!-- Welcome Header -->
-            <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <div class="flex items-center flex-wrap gap-2">
-                            <h2 class="text-2xl font-bold">Welcome, ${escapeHtml(user?.name || 'Teacher')}!</h2>
-                            ${roleBadge}
-                        </div>
-                        <p class="text-muted-foreground mt-1 text-sm">${getTeacherRoleDescription()}</p>
-                        ${classInfo}
-                    </div>
-                    ${isClassTeacher() ? `
-                        <button onclick="showCSVUploadModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-sm">
-                            <i data-lucide="upload" class="h-4 w-4"></i>
-                            Upload Students (CSV)
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-            
-            <!-- Rest of your dashboard... -->
-        </div>
-    `;
-}
-
-// Add to admin-dashboard.js
-function renderTeacherAssignmentDebug() {
-    return `
-        <div class="rounded-xl border bg-card p-6 mt-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-semibold text-lg">🔧 Teacher Assignment Debug</h3>
-                <button onclick="listAllTeachersAndClasses()" class="px-3 py-1 bg-primary text-white rounded-lg text-sm">
-                    Refresh Data
-                </button>
-            </div>
-            <div id="teacher-assignment-list" class="space-y-2 max-h-96 overflow-y-auto">
-                <div class="text-center py-4 text-muted-foreground">Click refresh to load teacher assignments</div>
-            </div>
-            <div class="mt-4 text-xs text-muted-foreground">
-                <p>💡 Tip: Check browser console (F12) for detailed logs when assigning teachers.</p>
-            </div>
-        </div>
-    `;
-}
-
-async function loadTeacherAssignmentDebug() {
-    const container = document.getElementById('teacher-assignment-list');
-    if (!container) return;
-    
-    showLoading();
-    try {
-        const response = await api.admin.getTeachers();
-        const teachers = response.data || [];
-        
-        if (teachers.length === 0) {
-            container.innerHTML = '<div class="text-center py-4 text-muted-foreground">No teachers found</div>';
-            return;
-        }
-        
-        container.innerHTML = teachers.map(teacher => `
-            <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                <div>
-                    <p class="font-medium">${escapeHtml(teacher.User?.name || 'Unknown')}</p>
-                    <p class="text-xs text-muted-foreground">${teacher.User?.email || 'No email'}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-sm ${teacher.classId ? 'text-green-600' : 'text-yellow-600'}">
-                        ${teacher.classId ? `📚 Class: ${teacher.Class?.name || 'ID: ' + teacher.classId}` : '⚠️ No class assigned'}
-                    </p>
-                    <button onclick="checkTeacherAssignment(${teacher.id})" class="text-xs text-primary hover:underline mt-1">
-                        Verify Assignment
-                    </button>
-                </div>
-            </div>
-        `).join('');
-        
-    } catch (error) {
-        console.error('Error loading teacher assignments:', error);
-        container.innerHTML = '<div class="text-center py-4 text-red-500">Error loading teacher data</div>';
-    } finally {
-        hideLoading();
-    }
 }
 
 // ============ EXPORT FUNCTIONS ============
