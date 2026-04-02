@@ -970,9 +970,12 @@ window.addCustomSubject = function() {
     }
     
     customSubjects.push(newSubject);
-    schoolSettings.customSubjects = customSubjects;
-    localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+    // Also update the nested settings
+    if (!window.schoolSettings.settings) window.schoolSettings.settings = {};
+    window.schoolSettings.settings.customSubjects = customSubjects;
+    localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
     
+    // Update UI
     const container = document.getElementById('custom-subjects-container');
     if (container) {
         const noSubjectsMsg = document.getElementById('no-custom-subjects-message');
@@ -980,8 +983,8 @@ window.addCustomSubject = function() {
         
         const newSubjectHTML = `
             <div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border" data-subject="${newSubject}">
-                <span class="text-sm font-medium">${newSubject}</span>
-                <button onclick="removeCustomSubject('${newSubject}')" class="text-red-500 hover:text-red-700">
+                <span class="text-sm font-medium">${escapeHtml(newSubject)}</span>
+                <button onclick="removeCustomSubject('${escapeHtml(newSubject)}')" class="text-red-500 hover:text-red-700">
                     <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
@@ -998,10 +1001,12 @@ window.removeCustomSubject = function(subject) {
     if (!confirm(`Remove "${subject}" from custom subjects?`)) return;
     
     customSubjects = customSubjects.filter(s => s !== subject);
-    schoolSettings.customSubjects = customSubjects;
-    localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+    if (window.schoolSettings.settings) {
+        window.schoolSettings.settings.customSubjects = customSubjects;
+    }
+    localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
     
-    const subjectItem = document.querySelector(`.custom-subject-item[data-subject="${subject}"]`);
+    const subjectItem = document.querySelector(`.custom-subject-item[data-subject="${escapeHtml(subject)}"]`);
     if (subjectItem) subjectItem.remove();
     
     const container = document.getElementById('custom-subjects-container');
@@ -1032,19 +1037,19 @@ window.saveAllSettings = async function() {
         });
         
         if (response && response.success) {
+            // FIXED: The response.data is the updated school object
             window.schoolSettings = response.data;
-            window.customSubjects = response.data.customSubjects || [];
+            // Extract customSubjects from nested settings
+            window.customSubjects = response.data.settings?.customSubjects || [];
             localStorage.setItem('schoolSettings', JSON.stringify(response.data));
             
             const school = JSON.parse(localStorage.getItem('school') || '{}');
             school.name = schoolName;
             school.system = curriculum;
-            school.settings = response.data;
+            school.settings = response.data.settings;
             localStorage.setItem('school', JSON.stringify(school));
             
-            // Update sidebar and dashboard school name
             updateAllSchoolNameElements(schoolName);
-            
             showToast('✅ Settings saved!', 'success');
             await updateAdminStats();
         } else {
