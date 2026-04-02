@@ -13,43 +13,42 @@ let clickCount = 0;
 // Replace the loadSchoolSettings function in dashboard-core.js
 async function loadSchoolSettings() {
     try {
-        // Try to get from cache first
         const cached = localStorage.getItem('schoolSettings');
         if (cached) {
             try {
                 const parsed = JSON.parse(cached);
                 if (parsed && parsed.curriculum) {
                     window.schoolSettings = parsed;
-                    window.customSubjects = parsed.customSubjects || [];
+                    // Extract custom subjects from nested settings
+                    window.customSubjects = parsed.settings?.customSubjects || [];
                     console.log('✅ Settings loaded from cache');
                     return window.schoolSettings;
                 }
             } catch (e) {}
         }
         
-        // Try to fetch from API, but don't fail if forbidden
         try {
             const response = await api.admin.getSchoolSettings();
             if (response && response.success && response.data) {
                 window.schoolSettings = response.data;
-                window.customSubjects = response.data.customSubjects || [];
+                // FIXED: Get customSubjects from settings object
+                window.customSubjects = response.data.settings?.customSubjects || [];
                 localStorage.setItem('schoolSettings', JSON.stringify(response.data));
                 console.log('✅ School settings loaded from API');
                 return window.schoolSettings;
             }
         } catch (apiError) {
-            console.warn('⚠️ Cannot fetch school settings from API:', apiError.message);
-            // Don't throw - use defaults
+            console.warn('⚠️ Cannot fetch school settings:', apiError.message);
         }
         
-        // Use defaults if all else fails
-        console.warn('⚠️ Using default school settings');
-        window.schoolSettings = { curriculum: 'cbc', schoolLevel: 'both', customSubjects: [] };
+        // Defaults
+        window.schoolSettings = { curriculum: 'cbc', schoolLevel: 'both', settings: { customSubjects: [] } };
+        window.customSubjects = [];
         return window.schoolSettings;
-        
     } catch (error) {
         console.error('Failed to load settings:', error);
-        window.schoolSettings = { curriculum: 'cbc', schoolLevel: 'both', customSubjects: [] };
+        window.schoolSettings = { curriculum: 'cbc', schoolLevel: 'both', settings: { customSubjects: [] } };
+        window.customSubjects = [];
         return window.schoolSettings;
     }
 }
