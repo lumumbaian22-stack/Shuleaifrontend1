@@ -13,9 +13,64 @@ if (typeof window.loadAllTeachers !== 'function') {
 }
 
 if (typeof window.renderStudentsTable !== 'function') {
+    console.warn('renderStudentsTable not defined – using fallback');
     window.renderStudentsTable = function(students) {
-        // simple fallback table
-        return `<div class="overflow-x-auto"><table class="w-full text-sm">...</table></div>`;
+        if (!students || students.length === 0) {
+            return '<div class="text-center py-8 text-muted-foreground">No students found</div>';
+        }
+        return `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Student</th>
+                            <th class="px-4 py-3 text-left">ELIMUID</th>
+                            <th class="px-4 py-3 text-left">Grade</th>
+                            <th class="px-4 py-3 text-left">Status</th>
+                            <th class="px-4 py-3 text-left">Parent Email</th>
+                            <th class="px-4 py-3 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${students.map(student => {
+                            const user = student.User || {};
+                            const name = user.name || 'Unknown';
+                            const email = user.email || 'N/A';
+                            const status = student.status || 'active';
+                            const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
+                                               status === 'inactive' ? 'bg-red-100 text-red-700' : 
+                                               'bg-gray-100 text-gray-700';
+                            const initials = getInitials(name);
+                            return `
+                                <tr class="hover:bg-accent/50">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                <span class="font-medium text-blue-700 text-sm">${initials}</span>
+                                            </div>
+                                            <span class="font-medium">${escapeHtml(name)}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid || 'N/A'}</span></td>
+                                    <td class="px-4 py-3">${student.grade || 'N/A'}</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span></td>
+                                    <td class="px-4 py-3">${email}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button onclick="adminViewStudentDetails('${student.id}')" class="p-1 hover:bg-accent rounded" title="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                        <button onclick="adminEditStudent('${student.id}')" class="p-1 hover:bg-accent rounded" title="Edit"><i data-lucide="edit" class="h-4 w-4"></i></button>
+                                        ${status === 'active' ? 
+                                            `<button onclick="adminSuspendStudent('${student.id}', '${escapeHtml(name)}')" class="p-1 hover:bg-yellow-100 rounded" title="Suspend"><i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i></button>` : 
+                                            `<button onclick="adminReactivateStudent('${student.id}', '${escapeHtml(name)}')" class="p-1 hover:bg-green-100 rounded" title="Reactivate"><i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i></button>`
+                                        }
+                                        <button onclick="adminDeleteStudent('${student.id}', '${escapeHtml(name)}')" class="p-1 hover:bg-red-100 rounded" title="Delete"><i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i></button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
     };
 }
 
@@ -1000,6 +1055,81 @@ window.saveAllSettings = async function() {
         showToast(error.message || 'Failed to save settings', 'error');
     } finally {
         hideLoading();
+    }
+};
+
+// ============ ADMIN STUDENT ACTIONS ============
+// ============ ADMIN STUDENT ACTIONS ============
+window.adminViewStudentDetails = async function(studentId) {
+    try {
+        const students = await window.loadAllStudents();
+        const student = students.find(s => s.id == studentId);
+        if (!student) {
+            showToast('Student not found', 'error');
+            return;
+        }
+        const user = student.User || {};
+        alert(`Name: ${user.name}\nELIMUID: ${student.elimuid}\nGrade: ${student.grade}\nStatus: ${student.status}\nParent Email: ${user.email || 'N/A'}`);
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+window.adminEditStudent = async function(studentId) {
+    // Reuse the modal from admin-student-management.js if available
+    if (typeof editAdminStudent === 'function') {
+        editAdminStudent(studentId);
+        return;
+    }
+    // Simple prompt fallback
+    try {
+        const students = await window.loadAllStudents();
+        const student = students.find(s => s.id == studentId);
+        if (!student) {
+            showToast('Student not found', 'error');
+            return;
+        }
+        const newName = prompt('New name:', student.User?.name);
+        if (newName && newName !== student.User?.name) {
+            await api.admin.updateStudent(studentId, { name: newName });
+            showToast('Student updated', 'success');
+            await renderAdminStudents();
+        }
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+window.adminSuspendStudent = async function(studentId, studentName) {
+    if (!confirm(`Suspend ${studentName}?`)) return;
+    try {
+        await api.admin.updateStudent(studentId, { status: 'inactive' });
+        showToast(`${studentName} suspended (status set to inactive)`, 'success');
+        await renderAdminStudents();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+window.adminReactivateStudent = async function(studentId, studentName) {
+    if (!confirm(`Reactivate ${studentName}?`)) return;
+    try {
+        await api.admin.updateStudent(studentId, { status: 'active' });
+        showToast(`${studentName} reactivated`, 'success');
+        await renderAdminStudents();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+window.adminDeleteStudent = async function(studentId, studentName) {
+    if (!confirm(`Permanently delete ${studentName}? This cannot be undone.`)) return;
+    try {
+        await api.admin.deleteStudent(studentId);
+        showToast(`${studentName} deleted`, 'success');
+        await renderAdminStudents();
+    } catch (error) {
+        showToast(error.message, 'error');
     }
 };
 
