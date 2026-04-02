@@ -955,7 +955,7 @@ function renderAdminCustomSubjects() {
 
 // ============ CUSTOM SUBJECT FUNCTIONS ============
 
-window.addCustomSubject = function() {
+window.addCustomSubject = async function() {
     const newSubject = document.getElementById('new-subject-name')?.value.trim();
     if (!newSubject) {
         showToast('Please enter a subject name', 'error');
@@ -969,52 +969,92 @@ window.addCustomSubject = function() {
         return;
     }
     
-    customSubjects.push(newSubject);
-    // Also update the nested settings
-    if (!window.schoolSettings.settings) window.schoolSettings.settings = {};
-    window.schoolSettings.settings.customSubjects = customSubjects;
-    localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
+    const updatedSubjects = [...customSubjects, newSubject];
     
-    // Update UI
-    const container = document.getElementById('custom-subjects-container');
-    if (container) {
-        const noSubjectsMsg = document.getElementById('no-custom-subjects-message');
-        if (noSubjectsMsg) noSubjectsMsg.remove();
+    showLoading();
+    try {
+        // Save to backend immediately
+        const response = await api.admin.updateSchoolSettings({
+            customSubjects: updatedSubjects
+        });
         
-        const newSubjectHTML = `
-            <div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border" data-subject="${newSubject}">
-                <span class="text-sm font-medium">${escapeHtml(newSubject)}</span>
-                <button onclick="removeCustomSubject('${escapeHtml(newSubject)}')" class="text-red-500 hover:text-red-700">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', newSubjectHTML);
+        if (response && response.success) {
+            // Update local state
+            customSubjects = updatedSubjects;
+            window.customSubjects = updatedSubjects;
+            window.schoolSettings = response.data;
+            window.schoolSettings.settings = window.schoolSettings.settings || {};
+            window.schoolSettings.settings.customSubjects = updatedSubjects;
+            localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
+            
+            // Update UI
+            const container = document.getElementById('custom-subjects-container');
+            if (container) {
+                const noSubjectsMsg = document.getElementById('no-custom-subjects-message');
+                if (noSubjectsMsg) noSubjectsMsg.remove();
+                
+                const newSubjectHTML = `
+                    <div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border" data-subject="${escapeHtml(newSubject)}">
+                        <span class="text-sm font-medium">${escapeHtml(newSubject)}</span>
+                        <button onclick="removeCustomSubject('${escapeHtml(newSubject)}')" class="text-red-500 hover:text-red-700">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', newSubjectHTML);
+            }
+            
+            document.getElementById('new-subject-name').value = '';
+            showToast(`Subject "${newSubject}" added and saved`, 'success');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        } else {
+            throw new Error(response?.message || 'Failed to save to server');
+        }
+    } catch (error) {
+        console.error('Add custom subject error:', error);
+        showToast(error.message || 'Failed to add subject', 'error');
+    } finally {
+        hideLoading();
     }
-    
-    document.getElementById('new-subject-name').value = '';
-    showToast(`Subject "${newSubject}" added`, 'success');
-    if (typeof lucide !== 'undefined') lucide.createIcons();
 };
 
-window.removeCustomSubject = function(subject) {
+window.removeCustomSubject = async function(subject) {
     if (!confirm(`Remove "${subject}" from custom subjects?`)) return;
     
-    customSubjects = customSubjects.filter(s => s !== subject);
-    if (window.schoolSettings.settings) {
-        window.schoolSettings.settings.customSubjects = customSubjects;
+    const updatedSubjects = customSubjects.filter(s => s !== subject);
+    
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({
+            customSubjects: updatedSubjects
+        });
+        
+        if (response && response.success) {
+            customSubjects = updatedSubjects;
+            window.customSubjects = updatedSubjects;
+            window.schoolSettings = response.data;
+            window.schoolSettings.settings = window.schoolSettings.settings || {};
+            window.schoolSettings.settings.customSubjects = updatedSubjects;
+            localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
+            
+            const subjectItem = document.querySelector(`.custom-subject-item[data-subject="${escapeHtml(subject)}"]`);
+            if (subjectItem) subjectItem.remove();
+            
+            const container = document.getElementById('custom-subjects-container');
+            if (container && container.children.length === 0) {
+                container.innerHTML = '<p class="text-sm text-muted-foreground col-span-3 py-4 text-center bg-muted/30 rounded-lg" id="no-custom-subjects-message">No custom subjects added yet</p>';
+            }
+            
+            showToast(`Subject "${subject}" removed`, 'info');
+        } else {
+            throw new Error(response?.message || 'Failed to save to server');
+        }
+    } catch (error) {
+        console.error('Remove custom subject error:', error);
+        showToast(error.message || 'Failed to remove subject', 'error');
+    } finally {
+        hideLoading();
     }
-    localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
-    
-    const subjectItem = document.querySelector(`.custom-subject-item[data-subject="${escapeHtml(subject)}"]`);
-    if (subjectItem) subjectItem.remove();
-    
-    const container = document.getElementById('custom-subjects-container');
-    if (container && container.children.length === 0) {
-        container.innerHTML = '<p class="text-sm text-muted-foreground col-span-3 py-4 text-center bg-muted/30 rounded-lg" id="no-custom-subjects-message">No custom subjects added yet</p>';
-    }
-    
-    showToast(`Subject "${subject}" removed`, 'info');
 };
 
 window.saveAllSettings = async function() {
