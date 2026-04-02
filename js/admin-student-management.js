@@ -36,7 +36,6 @@ async function adminRefreshAdminStudentList() {
             const elimuid = student.elimuid || 'N/A';
             const grade = student.grade || 'N/A';
             const status = student.status || 'active';
-            // Use 'inactive' instead of 'suspended' because backend enum doesn't have 'suspended'
             const displayStatus = status === 'inactive' ? 'Inactive' : status;
             const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
                                status === 'inactive' ? 'bg-yellow-100 text-yellow-700' : 
@@ -133,9 +132,8 @@ function adminShowEditStudentModal(student) {
     document.getElementById('edit-student-name').value = student.User?.name || '';
     document.getElementById('edit-student-email').value = student.User?.email || '';
     document.getElementById('edit-student-grade').value = student.grade || '';
-    // Use 'inactive' instead of 'suspended'
     let statusValue = student.status || 'active';
-    if (statusValue === 'suspended') statusValue = 'inactive';
+    if (statusValue === 'inactive') statusValue = 'inactive';
     document.getElementById('edit-student-status').value = statusValue;
 
     modal.classList.remove('hidden');
@@ -223,10 +221,9 @@ async function adminSuspendStudent(studentId, studentName) {
 
     showLoading();
     try {
-        // Use 'inactive' instead of 'suspended' for backend
         const response = await api.admin.suspendStudent(studentId, { reason, status: 'inactive' });
         if (response.success) {
-            showToast(`✅ ${studentName} suspended`, 'success');
+            showToast(`✅ ${studentName} inactive`, 'success');
             await adminRefreshAdminStudentList();
         }
     } catch (error) {
