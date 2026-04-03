@@ -561,31 +561,12 @@ async function listAllTeachersAndClasses() {
 async function openSubjectAssignmentModal(classId, className) {
     showLoading();
     try {
-        const [teachers, existingAssignments, allSubjects, classes] = await Promise.all([
+        const [teachers, existingAssignments, allSubjects] = await Promise.all([
             loadAvailableTeachers(),
             loadSubjectAssignmentsForClass(classId),
-            getSchoolSubjects(),
-            loadAllClasses()
+            getSchoolSubjects()  // returns all subjects (core + custom)
         ]);
 
-        // Find the class to determine its grade level
-        const classItem = classes.find(c => c.id == classId);
-        const gradeLevel = getGradeLevel(classItem?.grade || className);
-        
-        // Filter subjects based on grade level
-        let filteredSubjects = allSubjects;
-        if (gradeLevel === 'primary') {
-            // Only show subjects suitable for primary (basic set)
-            filteredSubjects = allSubjects.filter(s => 
-                !['Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Business Studies', 'Computer Studies', 'CRE', 'IRE', 'Sociology', 'Philosophy', 'Economics', 'Psychology'].includes(s)
-            );
-        } else if (gradeLevel === 'secondary') {
-            // Exclude pre-primary / lower primary subjects
-            filteredSubjects = allSubjects.filter(s => 
-                !['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Language Activities', 'Environmental Activities', 'Psychomotor and Creative Activities'].some(ex => s.includes(ex))
-            );
-        }
-        
         const existingMap = {};
         existingAssignments.forEach(a => {
             existingMap[a.subject] = a;
@@ -604,30 +585,32 @@ async function openSubjectAssignmentModal(classId, className) {
                     <div class="border-b pb-3 flex justify-between items-center">
                         <div>
                             <h3 class="text-lg font-semibold">Assign Subject Teachers</h3>
-                            <p class="text-sm text-muted-foreground">Class: ${escapeHtml(className)} (${gradeLevel})</p>
+                            <p class="text-sm text-muted-foreground">Class: ${escapeHtml(className)}</p>
+                            <p class="text-xs text-muted-foreground mt-1">All school subjects are listed below. Assign teachers to subjects your class offers.</p>
                         </div>
                         <button onclick="closeSubjectAssignmentModal()" class="p-2 hover:bg-accent rounded-lg">
                             <i data-lucide="x" class="h-5 w-5"></i>
                         </button>
                     </div>
 
-                    <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
+                    <div class="overflow-x-auto max-h-[60vh] overflow-y-auto border rounded-lg">
                         <table class="w-full text-sm">
                             <thead class="bg-muted/50 sticky top-0">
-                                发展
-                                    <th class="px-4 py-3 text-left font-medium">Subject</th>
-                                    <th class="px-4 py-3 text-left font-medium">Teacher</th>
-                                    <th class="px-4 py-3 text-center font-medium">Action</th>
-                                </thead>
+                                <tr>
+                                    <th class="px-4 py-3 text-left font-medium border-b">Subject</th>
+                                    <th class="px-4 py-3 text-left font-medium border-b">Teacher</th>
+                                    <th class="px-4 py-3 text-center font-medium border-b">Action</th>
+                                </tr>
+                            </thead>
                             <tbody class="divide-y">
-                                ${filteredSubjects.map(subject => {
+                                ${allSubjects.map(subject => {
                                     const existing = existingMap[subject];
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3 font-medium">${escapeHtml(subject)}</td>
+                                            <td class="px-4 py-3 font-medium border-r">${escapeHtml(subject)}</td>
                                             <td class="px-4 py-3">
                                                 <select id="subject-teacher-${subject.replace(/\s/g, '_')}" 
-                                                        class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                                        class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                                                     <option value="">-- Select Teacher --</option>
                                                     ${teachers.map(t => `
                                                         <option value="${t.id}" ${existing?.teacherId === t.id ? 'selected' : ''}>
@@ -639,17 +622,17 @@ async function openSubjectAssignmentModal(classId, className) {
                                             </td>
                                             <td class="px-4 py-3 text-center">
                                                 <button onclick="saveSubjectAssignment(${classId}, '${subject.replace(/'/g, "\\'")}')" 
-                                                        class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90">
+                                                        class="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors">
                                                     ${existing ? 'Update' : 'Assign'}
                                                 </button>
                                                 ${existing ? `
                                                     <button onclick="removeSubjectAssignment('${existing.id}', ${classId})" 
-                                                            class="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200">
+                                                            class="ml-2 px-4 py-2 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors">
                                                         Remove
                                                     </button>
                                                 ` : ''}
                                             </td>
-                                        </table>
+                                        </tr>
                                     `;
                                 }).join('')}
                             </tbody>
