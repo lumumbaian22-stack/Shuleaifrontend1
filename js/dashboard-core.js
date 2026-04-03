@@ -30,7 +30,7 @@ async function loadSchoolSettings() {
         try {
             const response = await api.admin.getSchoolSettings();
             if (response && response.success && response.data) {
-                window.schoolSettings = response.data;
+                window.schoolSettings.schoolName = response.data.name;
                 // FIXED: Get customSubjects from settings object
                 window.customSubjects = response.data.settings?.customSubjects || [];
                 localStorage.setItem('schoolSettings', JSON.stringify(response.data));
