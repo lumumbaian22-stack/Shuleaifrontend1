@@ -1,3 +1,10 @@
+async function refreshClassManagementIfVisible() {
+    if (window.currentSection === 'classes' && typeof refreshClassesList === 'function') {
+        await refreshClassesList();
+        await showDashboardSection('classes');
+    }
+}
+
 // ============ CRITICAL FALLBACKS for admin-dashboard ============
 if (typeof window.loadAllTeachers !== 'function') {
     console.warn('loadAllTeachers not defined – using fallback');
@@ -979,6 +986,7 @@ window.addCustomSubject = async function() {
             showToast(`Subject "${newSubject}" added`, 'success');
         } else {
             throw new Error(response?.message || 'Save failed');
+            await refreshClassManagementIfVisible();
         }
     } catch (error) {
         showToast(error.message, 'error');
@@ -1003,6 +1011,7 @@ window.removeCustomSubject = async function(subject) {
             
             await showDashboardSection('custom-subjects');
             showToast(`Subject "${subject}" removed`, 'info');
+            await refreshClassManagementIfVisible();
         } else {
             throw new Error(response?.message || 'Save failed');
         }
