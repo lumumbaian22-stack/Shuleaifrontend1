@@ -37,6 +37,9 @@ async function getSchoolSubjects() {
     const curriculum = window.schoolSettings?.curriculum || 'cbc';
     const schoolLevel = window.schoolSettings?.schoolLevel || 'both';
 
+    // ✅ FIX: Read custom subjects from nested settings
+    const customSubjects = window.schoolSettings?.settings?.customSubjects || window.customSubjects || [];
+
     const subjectsByCurriculum = {
         'cbc': {
             pre_primary: ['Language Activities', 'Mathematics Activities', 'Environmental Activities', 'Psychomotor and Creative Activities', 'Religious Education'],
@@ -96,8 +99,23 @@ async function getSchoolSubjects() {
         }
     }
 
-    const customSubjects = window.schoolSettings?.customSubjects || [];
-    return [...new Set([...subjects, ...customSubjects])];
+    // Merge and deduplicate
+    const allSubjects = [...new Set([...subjects, ...customSubjects])];
+    return allSubjects;
+}
+
+function getGradeLevel(gradeName) {
+    const primaryKeywords = ['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Standard', 'Primary'];
+    const secondaryKeywords = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'Form', 'Secondary', 'High School'];
+    
+    const lower = gradeName.toLowerCase();
+    if (primaryKeywords.some(k => lower.includes(k.toLowerCase()))) {
+        return 'primary';
+    }
+    if (secondaryKeywords.some(k => lower.includes(k.toLowerCase()))) {
+        return 'secondary';
+    }
+    return window.schoolSettings?.schoolLevel || 'both';
 }
 
 // ============ RENDER CLASS MANAGEMENT PAGE ============
@@ -542,12 +560,31 @@ async function listAllTeachersAndClasses() {
 async function openSubjectAssignmentModal(classId, className) {
     showLoading();
     try {
-        const [teachers, existingAssignments, allSubjects] = await Promise.all([
+        const [teachers, existingAssignments, allSubjects, classes] = await Promise.all([
             loadAvailableTeachers(),
             loadSubjectAssignmentsForClass(classId),
-            getSchoolSubjects()
+            getSchoolSubjects(),
+            loadAllClasses()
         ]);
 
+        // Find the class to determine its grade level
+        const classItem = classes.find(c => c.id == classId);
+        const gradeLevel = getGradeLevel(classItem?.grade || className);
+        
+        // Filter subjects based on grade level
+        let filteredSubjects = allSubjects;
+        if (gradeLevel === 'primary') {
+            // Only show subjects suitable for primary (basic set)
+            filteredSubjects = allSubjects.filter(s => 
+                !['Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Business Studies', 'Computer Studies', 'CRE', 'IRE', 'Sociology', 'Philosophy', 'Economics', 'Psychology'].includes(s)
+            );
+        } else if (gradeLevel === 'secondary') {
+            // Exclude pre-primary / lower primary subjects
+            filteredSubjects = allSubjects.filter(s => 
+                !['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Language Activities', 'Environmental Activities', 'Psychomotor and Creative Activities'].some(ex => s.includes(ex))
+            );
+        }
+        
         const existingMap = {};
         existingAssignments.forEach(a => {
             existingMap[a.subject] = a;
@@ -566,7 +603,7 @@ async function openSubjectAssignmentModal(classId, className) {
                     <div class="border-b pb-3 flex justify-between items-center">
                         <div>
                             <h3 class="text-lg font-semibold">Assign Subject Teachers</h3>
-                            <p class="text-sm text-muted-foreground">Class: ${escapeHtml(className)}</p>
+                            <p class="text-sm text-muted-foreground">Class: ${escapeHtml(className)} (${gradeLevel})</p>
                         </div>
                         <button onclick="closeSubjectAssignmentModal()" class="p-2 hover:bg-accent rounded-lg">
                             <i data-lucide="x" class="h-5 w-5"></i>
@@ -582,7 +619,7 @@ async function openSubjectAssignmentModal(classId, className) {
                                     <th class="px-4 py-3 text-center font-medium">Action</th>
                                 </thead>
                             <tbody class="divide-y">
-                                ${allSubjects.map(subject => {
+                                ${filteredSubjects.map(subject => {
                                     const existing = existingMap[subject];
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
@@ -611,11 +648,11 @@ async function openSubjectAssignmentModal(classId, className) {
                                                     </button>
                                                 ` : ''}
                                             </td>
-                                        </tr>
+                                        </table>
                                     `;
                                 }).join('')}
                             </tbody>
-                         </table>
+                        </table>
                     </div>
 
                     <div class="flex justify-end gap-2 pt-4 border-t">
