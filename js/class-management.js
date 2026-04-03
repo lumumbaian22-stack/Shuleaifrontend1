@@ -267,6 +267,7 @@ async function refreshClassesList() {
 }
 
 async function renderClassManagement() {
+    await loadSchoolSettings();
     try {
         const [classes, teachers] = await Promise.all([
             loadAllClasses(),
