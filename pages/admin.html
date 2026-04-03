@@ -148,20 +148,21 @@
 
 <!-- Student Details Modal -->
 <div id="student-details-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailsModal()"></div>
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeStudentDetailsModal()"></div>
     <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
-        <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold">Student Details</h3>
-                <button onclick="closeStudentDetailsModal()" class="p-2 hover:bg-accent rounded-lg">
-                    <i data-lucide="x" class="h-5 w-5"></i>
-                </button>
+        <div class="rounded-2xl border bg-card shadow-2xl animate-fade-in overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-teal-600 px-6 py-4 text-white">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-semibold">Student Details</h3>
+                    <button onclick="closeStudentDetailsModal()" class="text-white hover:text-gray-200">
+                        <i data-lucide="x" class="h-5 w-5"></i>
+                    </button>
+                </div>
             </div>
-            <div class="modal-content space-y-4">
-                <!-- Content will be filled dynamically -->
-            </div>
-            <div class="flex justify-end gap-2 mt-6 pt-4 border-t">
-                <button onclick="closeStudentDetailsModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Close</button>
+            <div id="student-details-content" class="p-6 space-y-4"></div>
+            <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                <button onclick="closeStudentDetailsModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                <button onclick="editStudentFromModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Edit Student</button>
             </div>
         </div>
     </div>
@@ -169,37 +170,64 @@
 
 <!-- Edit Student Modal -->
 <div id="edit-student-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/50" onclick="closeEditStudentModal()"></div>
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEditStudentModal()"></div>
     <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
-        <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
-            <h3 class="text-lg font-semibold mb-4">Edit Student</h3>
-            <input type="hidden" id="edit-student-id">
-            <div class="space-y-4">
+        <div class="rounded-2xl border bg-card shadow-2xl animate-fade-in overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-teal-600 px-6 py-4 text-white">
+                <h3 class="text-xl font-semibold">Edit Student</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="edit-student-id">
                 <div>
                     <label class="block text-sm font-medium mb-1">Full Name</label>
-                    <input type="text" id="edit-student-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="text" id="edit-student-name" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email" id="edit-student-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="email" id="edit-student-email" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Grade/Class</label>
-                    <input type="text" id="edit-student-grade" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="text" id="edit-student-grade" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Status</label>
-                    <select id="edit-student-status" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <select id="edit-student-status" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
                         <option value="graduated">Graduated</option>
+                        <option value="transferred">Transferred</option>
                     </select>
                 </div>
             </div>
-            <div class="flex justify-end gap-2 mt-6">
-                <button onclick="closeEditStudentModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Cancel</button>
-                <button onclick="handleUpdateStudent()" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Update Student</button>
+            <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                <button onclick="closeEditStudentModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
+                <button onclick="saveStudentEdit()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Teacher Details Modal -->
+<div id="teacher-details-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeTeacherDetailsModal()"></div>
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+        <div class="rounded-2xl border bg-card shadow-2xl animate-fade-in overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-semibold">Teacher Details</h3>
+                    <button onclick="closeTeacherDetailsModal()" class="text-white hover:text-gray-200">
+                        <i data-lucide="x" class="h-5 w-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="teacher-details-content" class="p-6 space-y-4">
+                <!-- Dynamic content -->
+            </div>
+            <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                <button onclick="closeTeacherDetailsModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                <button onclick="editTeacherFromModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Edit Teacher</button>
             </div>
         </div>
     </div>
@@ -207,32 +235,34 @@
 
 <!-- Edit Teacher Modal -->
 <div id="edit-teacher-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/50" onclick="closeEditTeacherModal()"></div>
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEditTeacherModal()"></div>
     <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
-        <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
-            <h3 class="text-lg font-semibold mb-4">Edit Teacher</h3>
-            <input type="hidden" id="edit-teacher-id">
-            <div class="space-y-4">
+        <div class="rounded-2xl border bg-card shadow-2xl animate-fade-in overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
+                <h3 class="text-xl font-semibold">Edit Teacher</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="edit-teacher-id">
                 <div>
                     <label class="block text-sm font-medium mb-1">Full Name</label>
-                    <input type="text" id="edit-teacher-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="text" id="edit-teacher-name" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email" id="edit-teacher-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="email" id="edit-teacher-email" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1">Subjects</label>
-                    <input type="text" id="edit-teacher-subjects" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <label class="block text-sm font-medium mb-1">Subjects (comma separated)</label>
+                    <input type="text" id="edit-teacher-subjects" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Department</label>
-                    <input type="text" id="edit-teacher-department" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="text" id="edit-teacher-department" class="w-full rounded-lg border border-input bg-background px-3 py-2">
                 </div>
             </div>
-            <div class="flex justify-end gap-2 mt-6">
-                <button onclick="closeEditTeacherModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Cancel</button>
-                <button onclick="handleUpdateTeacher()" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Update Teacher</button>
+            <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                <button onclick="closeEditTeacherModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
+                <button onclick="saveTeacherEdit()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save Changes</button>
             </div>
         </div>
     </div>
