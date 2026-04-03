@@ -255,6 +255,12 @@ window.handleGenerateDutyRoster = async function() {
     
     showLoading();
     try {
+        // Ensure user is defined – get from localStorage if needed
+        const user = getCurrentUser();
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
+        
         const response = await api.admin.generateDutyRoster(startDate, endDate);
         
         if (response.success) {
@@ -262,9 +268,13 @@ window.handleGenerateDutyRoster = async function() {
             if (response.data.understaffed?.length > 0) {
                 showToast(`⚠️ ${response.data.understaffed.length} understaffed slots detected`, 'warning');
             }
+            // Refresh the duty section to show new data
             await showDashboardSection('duty');
+        } else {
+            throw new Error(response.message || 'Generation failed');
         }
     } catch (error) {
+        console.error('Generate roster error:', error);
         showToast(error.message || 'Failed to generate duty roster', 'error');
     } finally {
         hideLoading();
