@@ -984,9 +984,9 @@ window.addCustomSubject = async function() {
             // Refresh UI
             await showDashboardSection('custom-subjects');
             showToast(`Subject "${newSubject}" added`, 'success');
+            await refreshClassManagementIfVisible();
         } else {
             throw new Error(response?.message || 'Save failed');
-            await refreshClassManagementIfVisible();
         }
     } catch (error) {
         showToast(error.message, 'error');
