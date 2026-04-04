@@ -9,9 +9,6 @@ function getTeacherRole() {
     return 'subject_teacher';
 }
 
-    return user.teacher.type;
-}
-
 function isClassTeacher() {
     const role = getTeacherRole();
     return role === 'class_teacher' || role === 'both';
