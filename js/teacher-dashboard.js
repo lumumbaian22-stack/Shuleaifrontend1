@@ -128,6 +128,9 @@ function renderTeacherDashboard() {
     else if (role === 'subject_teacher') roleBadge = '<span class="ml-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">Subject Teacher</span>';
     else if (role === 'both') roleBadge = '<span class="ml-2 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded-full">Class & Subject Teacher</span>';
     
+    const studentCount = data.students?.length || 0;
+    const subjectCount = data.subjects?.length || 0;
+    
     return `
         <div class="space-y-6 animate-fade-in">
             <!-- Welcome Header -->
@@ -155,47 +158,40 @@ function renderTeacherDashboard() {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-muted-foreground">My Students</p>
-                            <h3 class="text-2xl font-bold mt-1" id="my-students-count">${data.students?.length || 0}</h3>
-                            <p class="text-xs text-muted-foreground mt-1">Across ${data.classes?.length || 1} class(es)</p>
+                            <h3 class="text-2xl font-bold mt-1">${studentCount}</h3>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                             <i data-lucide="users" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i>
                         </div>
                     </div>
                 </div>
-
                 <div class="rounded-xl border bg-card p-6 card-hover">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-muted-foreground">My Subjects</p>
-                            <h3 class="text-2xl font-bold mt-1" id="my-subjects-count">${data.subjects?.length || 0}</h3>
-                            <p class="text-xs text-muted-foreground mt-1">Assigned to teach</p>
+                            <h3 class="text-2xl font-bold mt-1">${subjectCount}</h3>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
                             <i data-lucide="book-open" class="h-6 w-6 text-violet-600 dark:text-violet-400"></i>
                         </div>
                     </div>
                 </div>
-
                 <div class="rounded-xl border bg-card p-6 card-hover">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-muted-foreground">Attendance Today</p>
-                            <h3 class="text-2xl font-bold mt-1" id="attendance-today">0/0</h3>
-                            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Not taken yet</p>
+                            <h3 class="text-2xl font-bold mt-1">0/${studentCount}</h3>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                             <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 dark:text-amber-400"></i>
                         </div>
                     </div>
                 </div>
-
                 <div class="rounded-xl border bg-card p-6 card-hover">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-muted-foreground">Pending Tasks</p>
-                            <h3 class="text-2xl font-bold mt-1" id="pending-tasks">0</h3>
-                            <p class="text-xs text-red-600 dark:text-red-400 mt-1">Marks to enter</p>
+                            <h3 class="text-2xl font-bold mt-1">0</h3>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                             <i data-lucide="check-square" class="h-6 w-6 text-red-600 dark:text-red-400"></i>
@@ -204,35 +200,24 @@ function renderTeacherDashboard() {
                 </div>
             </div>
 
-            <!-- Quick Actions based on Role -->
-            <div class="grid gap-4 md:grid-cols-3">
-                ${isClassTeacher() ? `
-                    <button onclick="showDashboardSection('my-class')" class="p-4 border rounded-lg hover:bg-accent transition-colors text-left group">
-                        <i data-lucide="graduation-cap" class="h-6 w-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform"></i>
-                        <p class="font-medium">My Class Dashboard</p>
-                        <p class="text-xs text-muted-foreground">View class overview and analytics</p>
-                    </button>
-                ` : ''}
-                
-                ${isSubjectTeacher() ? `
-                    <button onclick="showDashboardSection('my-subjects')" class="p-4 border rounded-lg hover:bg-accent transition-colors text-left group">
-                        <i data-lucide="book-open" class="h-6 w-6 text-green-600 mb-2 group-hover:scale-110 transition-transform"></i>
-                        <p class="font-medium">My Subjects</p>
-                        <p class="text-xs text-muted-foreground">View subjects and classes you teach</p>
-                    </button>
-                ` : ''}
-                
-                <button onclick="showDashboardSection('marks')" class="p-4 border rounded-lg hover:bg-accent transition-colors text-left group">
-                    <i data-lucide="trending-up" class="h-6 w-6 text-purple-600 mb-2 group-hover:scale-110 transition-transform"></i>
-                    <p class="font-medium">Enter Marks</p>
-                    <p class="text-xs text-muted-foreground">Record student grades and assessments</p>
-                </button>
-                
-                <button onclick="showDashboardSection('attendance')" class="p-4 border rounded-lg hover:bg-accent transition-colors text-left group">
-                    <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 mb-2 group-hover:scale-110 transition-transform"></i>
-                    <p class="font-medium">Take Attendance</p>
-                    <p class="text-xs text-muted-foreground">Mark today's attendance</p>
-                </button>
+            <!-- Charts Row -->
+            <div class="grid gap-4 lg:grid-cols-2">
+                <div class="rounded-xl border bg-card p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold">Subject Performance</h3>
+                    </div>
+                    <div class="chart-container h-64">
+                        <canvas id="teacher-subjectChart"></canvas>
+                    </div>
+                </div>
+                <div class="rounded-xl border bg-card p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold">Attendance Trend</h3>
+                    </div>
+                    <div class="chart-container h-64">
+                        <canvas id="teacher-attendanceChart"></canvas>
+                    </div>
+                </div>
             </div>
 
             <!-- Parent Messages Inbox -->
@@ -282,8 +267,6 @@ function renderTeacherDashboard() {
         </div>
     `;
 }
-
-
 
 // ============ TEACHER CLASS DASHBOARD ============
 
