@@ -119,15 +119,23 @@ if (typeof window.renderTeachersTable !== 'function') {
                                 <td class="px-4 py-3">${teacher.User?.email || 'N/A'}</td>
                                 <td class="px-4 py-3">${(teacher.subjects || []).join(', ')}</td>
                                 <td class="px-4 py-3">
-                                    <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-green-100 text-green-700">
-                                        ${teacher.approvalStatus === 'approved' ? 'Active' : 'Pending'}
+                                    <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${teacher.isActive === false ? 'bg-red-100 text-red-700' : (teacher.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700')}">
+                                        ${teacher.isActive === false ? 'Suspended' : (teacher.approvalStatus === 'approved' ? 'Active' : 'Pending')}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <button onclick="viewTeacherDetails('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg" title="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
-                                    <button onclick="editTeacher('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit"><i data-lucide="edit" class="h-4 w-4"></i></button>
-                                    <button onclick="suspendTeacher('${teacher.id}', '${escapeHtml(teacher.User?.name || 'Unknown')}')" class="p-2 hover:bg-yellow-100 rounded-lg text-yellow-600" title="Suspend"><i data-lucide="pause-circle" class="h-4 w-4"></i></button>
-                                    <button onclick="deleteTeacher('${teacher.id}')" class="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Delete"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                                    <button onclick="viewTeacherDetails('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg" title="View">
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
+                                    <button onclick="editTeacher('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
+                                        <i data-lucide="edit" class="h-4 w-4"></i>
+                                    </button>
+                                    <button onclick="suspendTeacher('${teacher.id}', '${escapeHtml(teacher.User?.name || 'Unknown')}')" class="p-2 hover:bg-yellow-100 rounded-lg text-yellow-600" title="Suspend">
+                                        <i data-lucide="pause-circle" class="h-4 w-4"></i>
+                                    </button>
+                                    <button onclick="deleteTeacher('${teacher.id}')" class="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Delete">
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                    </button>   
                                 </td>
                             </tr>
                         `).join('')}
