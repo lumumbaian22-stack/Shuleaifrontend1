@@ -131,6 +131,17 @@ function renderTeacherDashboard() {
     const studentCount = data.students?.length || 0;
     const subjectCount = data.subjects?.length || 0;
     
+    // Schedule chart initialization after DOM is ready
+    setTimeout(() => {
+        if (typeof initTeacherCharts === 'function') {
+            initTeacherCharts(data);
+        } else if (typeof window.initTeacherCharts === 'function') {
+            window.initTeacherCharts(data);
+        } else {
+            console.warn('initTeacherCharts not available yet');
+        }
+    }, 100);
+    
     return `
         <div class="space-y-6 animate-fade-in">
             <!-- Welcome Header -->
