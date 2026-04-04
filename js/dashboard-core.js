@@ -268,14 +268,45 @@ async function showDashboardSection(section) {
 async function renderDashboardSection(role, section) {
     switch(role) {
         case 'superadmin':
+            if (typeof renderSuperAdminSection !== 'function') {
+                console.error('renderSuperAdminSection missing');
+                return '<div class="text-center py-12 text-red-500">Error: Super Admin module not loaded</div>';
+            }
             return await renderSuperAdminSection(section);
         case 'admin':
+            if (typeof renderAdminSection !== 'function') {
+                console.error('renderAdminSection missing');
+                return '<div class="text-center py-12 text-red-500">Error: Admin module not loaded</div>';
+            }
             return await renderAdminSection(section);
         case 'teacher':
+            // Ensure renderTeacherSection exists, if not, define a simple fallback
+            if (typeof renderTeacherSection !== 'function') {
+                console.warn('renderTeacherSection missing – using built-in fallback');
+                // Simple teacher dashboard fallback
+                return `
+                    <div class="space-y-6 animate-fade-in">
+                        <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50">
+                            <h2 class="text-2xl font-bold">Teacher Dashboard</h2>
+                            <p class="text-muted-foreground">Welcome, ${escapeHtml(getCurrentUser()?.name || 'Teacher')}</p>
+                            <p class="text-sm text-yellow-600 mt-2">⚠️ Dashboard module not fully loaded. Please refresh the page.</p>
+                            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Refresh Page</button>
+                        </div>
+                    </div>
+                `;
+            }
             return await renderTeacherSection(section);
         case 'parent':
+            if (typeof renderParentSection !== 'function') {
+                console.error('renderParentSection missing');
+                return '<div class="text-center py-12 text-red-500">Error: Parent module not loaded</div>';
+            }
             return await renderParentSection(section);
         case 'student':
+            if (typeof renderStudentSection !== 'function') {
+                console.error('renderStudentSection missing');
+                return '<div class="text-center py-12 text-red-500">Error: Student module not loaded</div>';
+            }
             return await renderStudentSection(section);
         default:
             return '<div class="text-center py-12">Invalid role</div>';
