@@ -1087,7 +1087,6 @@ window.saveAllSettings = async function() {
 };
 
 // ============ ADMIN STUDENT ACTIONS ============
-let currentStudentId = null;
 
 window.adminViewStudentDetails = async function(studentId) {
     const students = await window.loadAllStudents();
@@ -1096,65 +1095,131 @@ window.adminViewStudentDetails = async function(studentId) {
         showToast('Student not found', 'error');
         return;
     }
-    currentStudentId = student.id;
+    
+    // Check if modal exists; if not, create it dynamically
+    let modal = document.getElementById('student-details-modal');
+    if (!modal) {
+        // Create modal on the fly
+        const modalHTML = `
+            <div id="student-details-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailsModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-xl border bg-card p-6 shadow-xl">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold">Student Details</h3>
+                            <button onclick="closeStudentDetailsModal()" class="p-2 hover:bg-accent rounded-lg">
+                                <i data-lucide="x" class="h-5 w-5"></i>
+                            </button>
+                        </div>
+                        <div id="student-details-content" class="space-y-4"></div>
+                        <div class="flex justify-end gap-2 mt-4 pt-4 border-t">
+                            <button onclick="closeStudentDetailsModal()" class="px-4 py-2 border rounded-lg">Close</button>
+                            <button onclick="editStudentFromModal()" class="px-4 py-2 bg-primary text-white rounded-lg">Edit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        modal = document.getElementById('student-details-modal');
+    }
+    
     const content = document.getElementById('student-details-content');
-    content.innerHTML = `
-        <div class="flex items-center gap-4 pb-4 border-b">
-            <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                <span class="text-2xl font-bold text-green-600">${getInitials(student.User?.name)}</span>
+    if (content) {
+        content.innerHTML = `
+            <div class="flex items-center gap-4">
+                <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-green-600">${getInitials(student.User?.name)}</span>
+                </div>
+                <div>
+                    <p class="text-lg font-semibold">${escapeHtml(student.User?.name)}</p>
+                    <p class="text-sm text-muted-foreground">${escapeHtml(student.User?.email || 'No email')}</p>
+                </div>
             </div>
-            <div>
-                <p class="text-lg font-semibold">${escapeHtml(student.User?.name)}</p>
-                <p class="text-sm text-muted-foreground">${escapeHtml(student.User?.email || 'No email')}</p>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><span class="font-medium">ELIMUID:</span> ${student.elimuid || 'N/A'}</div>
+                <div><span class="font-medium">Grade:</span> ${student.grade || 'N/A'}</div>
+                <div><span class="font-medium">Status:</span> ${student.status || 'active'}</div>
+                <div><span class="font-medium">Enrolled:</span> ${new Date(student.createdAt).toLocaleDateString()}</div>
             </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 text-sm">
-            <div><span class="font-medium">ELIMUID:</span> ${student.elimuid || 'N/A'}</div>
-            <div><span class="font-medium">Grade:</span> ${student.grade || 'N/A'}</div>
-            <div><span class="font-medium">Status:</span> <span class="px-2 py-0.5 rounded-full text-xs ${student.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${student.status}</span></div>
-            <div><span class="font-medium">Enrolled:</span> ${new Date(student.createdAt).toLocaleDateString()}</div>
-        </div>
-    `;
-    document.getElementById('student-details-modal').classList.remove('hidden');
-    lucide.createIcons();
-};
-
-window.closeStudentDetailsModal = function() {
-    document.getElementById('student-details-modal').classList.add('hidden');
-};
-
-window.editStudentFromModal = function() {
-    closeStudentDetailsModal();
-    adminEditStudent(currentStudentId);
+        `;
+    }
+    
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
 };
 
 window.adminEditStudent = async function(studentId) {
     const students = await window.loadAllStudents();
     const student = students.find(s => s.id == studentId);
     if (!student) return;
+    
+    let modal = document.getElementById('edit-student-modal');
+    if (!modal) {
+        const modalHTML = `
+            <div id="edit-student-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50" onclick="closeEditStudentModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-xl border bg-card p-6 shadow-xl">
+                        <h3 class="text-lg font-semibold mb-4">Edit Student</h3>
+                        <input type="hidden" id="edit-student-id">
+                        <div class="space-y-4">
+                            <input type="text" id="edit-student-name" placeholder="Full Name" class="w-full rounded-lg border p-2">
+                            <input type="email" id="edit-student-email" placeholder="Email" class="w-full rounded-lg border p-2">
+                            <input type="text" id="edit-student-grade" placeholder="Grade" class="w-full rounded-lg border p-2">
+                            <select id="edit-student-status" class="w-full rounded-lg border p-2">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="graduated">Graduated</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-end gap-2 mt-6">
+                            <button onclick="closeEditStudentModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
+                            <button onclick="saveStudentEdit()" class="px-4 py-2 bg-primary text-white rounded-lg">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        modal = document.getElementById('edit-student-modal');
+    }
+    
     document.getElementById('edit-student-id').value = student.id;
     document.getElementById('edit-student-name').value = student.User?.name || '';
     document.getElementById('edit-student-email').value = student.User?.email || '';
     document.getElementById('edit-student-grade').value = student.grade || '';
     document.getElementById('edit-student-status').value = student.status || 'active';
-    document.getElementById('edit-student-modal').classList.remove('hidden');
+    modal.classList.remove('hidden');
+};
+
+// Also define close and save functions if missing
+window.closeStudentDetailsModal = function() {
+    const modal = document.getElementById('student-details-modal');
+    if (modal) modal.classList.add('hidden');
 };
 
 window.closeEditStudentModal = function() {
-    document.getElementById('edit-student-modal').classList.add('hidden');
+    const modal = document.getElementById('edit-student-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.editStudentFromModal = function() {
+    const studentId = document.getElementById('edit-student-id')?.value;
+    if (studentId) closeStudentDetailsModal(); adminEditStudent(studentId);
 };
 
 window.saveStudentEdit = async function() {
-    const studentId = document.getElementById('edit-student-id').value;
-    const name = document.getElementById('edit-student-name').value;
-    const email = document.getElementById('edit-student-email').value;
-    const grade = document.getElementById('edit-student-grade').value;
-    const status = document.getElementById('edit-student-status').value;
-    
+    const studentId = document.getElementById('edit-student-id')?.value;
+    const name = document.getElementById('edit-student-name')?.value;
+    const email = document.getElementById('edit-student-email')?.value;
+    const grade = document.getElementById('edit-student-grade')?.value;
+    const status = document.getElementById('edit-student-status')?.value;
+    if (!studentId) return;
     showLoading();
     try {
         await api.admin.updateStudent(studentId, { name, email, grade, status });
-        showToast('Student updated successfully', 'success');
+        showToast('Student updated', 'success');
         closeEditStudentModal();
         await renderAdminStudents();
     } catch (error) {
@@ -1465,6 +1530,236 @@ function closeHelpArticleModal() {
     const modal = document.getElementById('help-article-modal');
     if (modal) modal.classList.add('hidden');
 }
+
+// ============ DYNAMIC MODAL CREATION (Fixes null errors) ============
+
+function ensureStudentModals() {
+    if (!document.getElementById('student-details-modal')) {
+        const modalHTML = `
+            <div id="student-details-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeStudentDetailsModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-green-600 to-teal-600 px-6 py-4 text-white flex justify-between items-center">
+                            <h3 class="text-xl font-semibold">Student Details</h3>
+                            <button onclick="closeStudentDetailsModal()" class="text-white hover:text-gray-200"><i data-lucide="x" class="h-5 w-5"></i></button>
+                        </div>
+                        <div id="student-details-content" class="p-6 space-y-4"></div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeStudentDetailsModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                            <button onclick="editStudentFromModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Edit Student</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="edit-student-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEditStudentModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-green-600 to-teal-600 px-6 py-4 text-white">
+                            <h3 class="text-xl font-semibold">Edit Student</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <input type="hidden" id="edit-student-id">
+                            <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="edit-student-name" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" id="edit-student-email" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Grade</label><input type="text" id="edit-student-grade" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Status</label>
+                                <select id="edit-student-status" class="w-full rounded-lg border p-2">
+                                    <option value="active">Active</option><option value="inactive">Inactive</option>
+                                    <option value="graduated">Graduated</option><option value="transferred">Transferred</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeEditStudentModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
+                            <button onclick="saveStudentEdit()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+}
+
+function ensureTeacherModals() {
+    if (!document.getElementById('teacher-details-modal')) {
+        const modalHTML = `
+            <div id="teacher-details-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeTeacherDetailsModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex justify-between items-center">
+                            <h3 class="text-xl font-semibold">Teacher Details</h3>
+                            <button onclick="closeTeacherDetailsModal()" class="text-white hover:text-gray-200"><i data-lucide="x" class="h-5 w-5"></i></button>
+                        </div>
+                        <div id="teacher-details-content" class="p-6 space-y-4"></div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeTeacherDetailsModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                            <button onclick="editTeacherFromModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Edit Teacher</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="edit-teacher-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEditTeacherModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
+                            <h3 class="text-xl font-semibold">Edit Teacher</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <input type="hidden" id="edit-teacher-id">
+                            <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="edit-teacher-name" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" id="edit-teacher-email" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Subjects (comma)</label><input type="text" id="edit-teacher-subjects" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Department</label><input type="text" id="edit-teacher-department" class="w-full rounded-lg border p-2"></div>
+                        </div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeEditTeacherModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
+                            <button onclick="saveTeacherEdit()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+}
+
+// Override the existing student view/edit functions with safe versions
+window.adminViewStudentDetails = async function(studentId) {
+    ensureStudentModals();
+    const students = await window.loadAllStudents();
+    const student = students.find(s => s.id == studentId);
+    if (!student) { showToast('Student not found', 'error'); return; }
+    const content = document.getElementById('student-details-content');
+    content.innerHTML = `
+        <div class="flex items-center gap-4 pb-4 border-b">
+            <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                <span class="text-2xl font-bold text-green-600">${getInitials(student.User?.name)}</span>
+            </div>
+            <div><p class="text-lg font-semibold">${escapeHtml(student.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(student.User?.email || 'No email')}</p></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><span class="font-medium">ELIMUID:</span> ${student.elimuid || 'N/A'}</div>
+            <div><span class="font-medium">Grade:</span> ${student.grade || 'N/A'}</div>
+            <div><span class="font-medium">Status:</span> <span class="px-2 py-0.5 rounded-full text-xs ${student.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${student.status}</span></div>
+            <div><span class="font-medium">Enrolled:</span> ${new Date(student.createdAt).toLocaleDateString()}</div>
+        </div>
+    `;
+    document.getElementById('student-details-modal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+};
+
+window.adminEditStudent = async function(studentId) {
+    ensureStudentModals();
+    const students = await window.loadAllStudents();
+    const student = students.find(s => s.id == studentId);
+    if (!student) return;
+    document.getElementById('edit-student-id').value = student.id;
+    document.getElementById('edit-student-name').value = student.User?.name || '';
+    document.getElementById('edit-student-email').value = student.User?.email || '';
+    document.getElementById('edit-student-grade').value = student.grade || '';
+    document.getElementById('edit-student-status').value = student.status || 'active';
+    document.getElementById('edit-student-modal').classList.remove('hidden');
+};
+
+// Teacher view/edit with safety
+window.viewTeacherDetails = async function(teacherId) {
+    ensureTeacherModals();
+    const teachers = await window.loadAllTeachers();
+    const teacher = teachers.find(t => t.id == teacherId);
+    if (!teacher) { showToast('Teacher not found', 'error'); return; }
+    const content = document.getElementById('teacher-details-content');
+    content.innerHTML = `
+        <div class="flex items-center gap-4 pb-4 border-b">
+            <div class="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                <span class="text-2xl font-bold text-blue-600">${getInitials(teacher.User?.name)}</span>
+            </div>
+            <div><p class="text-lg font-semibold">${escapeHtml(teacher.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(teacher.User?.email)}</p></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><span class="font-medium">Employee ID:</span> ${teacher.employeeId || 'N/A'}</div>
+            <div><span class="font-medium">Department:</span> ${teacher.department || 'N/A'}</div>
+            <div><span class="font-medium">Subjects:</span> ${teacher.subjects?.join(', ') || 'None'}</div>
+            <div><span class="font-medium">Class Teacher:</span> ${teacher.classTeacher || 'No'}</div>
+            <div><span class="font-medium">Status:</span> <span class="px-2 py-0.5 rounded-full text-xs ${teacher.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${teacher.approvalStatus}</span></div>
+            <div><span class="font-medium">Joined:</span> ${new Date(teacher.dateJoined).toLocaleDateString()}</div>
+        </div>
+    `;
+    document.getElementById('teacher-details-modal').classList.remove('hidden');
+    lucide.createIcons();
+};
+
+window.editTeacher = async function(teacherId) {
+    ensureTeacherModals();
+    const teachers = await window.loadAllTeachers();
+    const teacher = teachers.find(t => t.id == teacherId);
+    if (!teacher) return;
+    document.getElementById('edit-teacher-id').value = teacher.id;
+    document.getElementById('edit-teacher-name').value = teacher.User?.name || '';
+    document.getElementById('edit-teacher-email').value = teacher.User?.email || '';
+    document.getElementById('edit-teacher-subjects').value = (teacher.subjects || []).join(', ');
+    document.getElementById('edit-teacher-department').value = teacher.department || '';
+    document.getElementById('edit-teacher-modal').classList.remove('hidden');
+};
+
+// Suspend teacher function
+window.suspendTeacher = async function(teacherId, teacherName) {
+    if (!confirm(`⚠️ Suspend ${teacherName}? This teacher will no longer be able to log in.`)) return;
+    showLoading();
+    try {
+        await api.admin.updateTeacher(teacherId, { isActive: false });
+        showToast(`${teacherName} suspended`, 'success');
+        await renderAdminTeachers();
+    } catch (error) {
+        showToast(error.message || 'Failed to suspend teacher', 'error');
+    } finally { hideLoading(); }
+};
+
+// Add missing close functions if not already present
+window.closeStudentDetailsModal = function() { const m = document.getElementById('student-details-modal'); if(m) m.classList.add('hidden'); };
+window.closeEditStudentModal = function() { const m = document.getElementById('edit-student-modal'); if(m) m.classList.add('hidden'); };
+window.editStudentFromModal = function() { const id = document.getElementById('edit-student-id')?.value; if(id) { closeStudentDetailsModal(); adminEditStudent(id); } };
+window.saveStudentEdit = async function() {
+    const id = document.getElementById('edit-student-id')?.value;
+    if(!id) return;
+    showLoading();
+    try {
+        await api.admin.updateStudent(id, {
+            name: document.getElementById('edit-student-name').value,
+            email: document.getElementById('edit-student-email').value,
+            grade: document.getElementById('edit-student-grade').value,
+            status: document.getElementById('edit-student-status').value
+        });
+        showToast('Student updated', 'success');
+        closeEditStudentModal();
+        await renderAdminStudents();
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+};
+
+window.closeTeacherDetailsModal = function() { const m = document.getElementById('teacher-details-modal'); if(m) m.classList.add('hidden'); };
+window.closeEditTeacherModal = function() { const m = document.getElementById('edit-teacher-modal'); if(m) m.classList.add('hidden'); };
+window.editTeacherFromModal = function() { const id = document.getElementById('edit-teacher-id')?.value; if(id) { closeTeacherDetailsModal(); editTeacher(id); } };
+window.saveTeacherEdit = async function() {
+    const id = document.getElementById('edit-teacher-id')?.value;
+    if(!id) return;
+    const subjects = document.getElementById('edit-teacher-subjects').value.split(',').map(s=>s.trim()).filter(s=>s);
+    showLoading();
+    try {
+        await api.admin.updateTeacher(id, {
+            name: document.getElementById('edit-teacher-name').value,
+            email: document.getElementById('edit-teacher-email').value,
+            subjects: subjects,
+            department: document.getElementById('edit-teacher-department').value
+        });
+        showToast('Teacher updated', 'success');
+        closeEditTeacherModal();
+        await renderAdminTeachers();
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+};
 
 // ============ EXPORT FUNCTIONS ============
 window.renderAdminSection = renderAdminSection;
