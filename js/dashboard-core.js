@@ -143,9 +143,10 @@ async function showDashboard(role) {
         } else if (role === 'teacher') {
             const [students, todayDuty] = await Promise.all([
                 api.teacher.getMyStudents().catch(err => ({ data: [] })),
+                api.teacher.getMySubjects().catch(() => ({ data: [] })),
                 api.duty.getTodayDuty().catch(err => ({ data: {} }))
             ]);
-            dashboardData = { students: students.data, todayDuty: todayDuty.data };
+            dashboardData = { students: students.data, subjects: subjects.data, todayDuty: todayDuty.data };
         } else if (role === 'parent') {
             const children = await api.parent.getChildren().catch(err => ({ data: [] }));
             let childSummary = null;
