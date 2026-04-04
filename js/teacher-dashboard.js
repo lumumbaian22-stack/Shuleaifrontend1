@@ -1131,12 +1131,18 @@ async function handleChangePassword() {
 }
 
 // ============ EXPORT ============
-
 window.renderTeacherSection = renderTeacherSection;
 window.renderTeacherDashboard = renderTeacherDashboard;
 window.renderTeacherClassDashboard = renderTeacherClassDashboard;
+window.renderTeacherTasks = renderTeacherTasks;
+window.renderTeacherDuty = renderTeacherDuty;
+window.renderTeacherDutyPreferences = renderTeacherDutyPreferences;
+window.renderTeacherChat = renderTeacherChat;
 window.renderTeacherSubjects = renderTeacherSubjects;
 window.renderTeacherMarksEntry = renderTeacherMarksEntry;
+window.renderTeacherStudents = renderTeacherStudents;
+window.renderTeacherAttendance = renderTeacherAttendance;
+window.renderUserSettings = renderUserSettings;
 window.openMarksEntry = openMarksEntry;
 window.closeMarksEntryModal = closeMarksEntryModal;
 window.saveAllMarks = saveAllMarks;
