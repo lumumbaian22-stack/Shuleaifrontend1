@@ -1130,7 +1130,7 @@ async function handleChangePassword() {
 }
 
 // ============ EXPORT ============
-window.renderTeacherSection = renderTeacherSection;
+
 window.renderTeacherDashboard = renderTeacherDashboard;
 window.renderTeacherClassDashboard = renderTeacherClassDashboard;
 window.renderTeacherTasks = renderTeacherTasks;
@@ -1152,3 +1152,4 @@ window.isSubjectTeacher = isSubjectTeacher;
 window.calculateClassAverage = calculateClassAverage;
 window.calculateClassAttendance = calculateClassAttendance;
 window.getTopPerformer = getTopPerformer;
+window.renderTeacherSection = renderTeacherSection;
