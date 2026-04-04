@@ -425,7 +425,8 @@ window.suspendTeacher = async function(teacherId, teacherName) {
     if (!confirm(`⚠️ Suspend ${teacherName}? This teacher will no longer be able to log in.`)) return;
     showLoading();
     try {
-        await api.admin.updateTeacher(teacherId, { isActive: false });
+        // Change approvalStatus to 'suspended' or 'rejected'
+        await api.admin.updateTeacher(teacherId, { approvalStatus: 'suspended', isActive: false });
         showToast(`${teacherName} suspended`, 'success');
         await renderAdminTeachers();
     } catch (error) {
@@ -571,18 +572,109 @@ function renderAdminDashboard() {
 
 async function renderAdminStudents() {
     try {
-        const students = await window.loadAllStudents();
+        const students = await loadAllStudents();
+
         return `
             <div class="space-y-6 animate-fade-in">
-                <div class="flex justify-between items-center"><h2 class="text-2xl font-bold">Student Management</h2><button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2"><i data-lucide="plus" class="h-4 w-4"></i> Add Student</button></div>
-                <div class="grid gap-4 md:grid-cols-4">
-                    <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Total Students</p><p class="text-2xl font-bold">${students.length}</p></div>
-                    <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Active</p><p class="text-2xl font-bold text-green-600">${students.filter(s => s.status === 'active').length}</p></div>
-                    <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Inactive</p><p class="text-2xl font-bold text-red-600">${students.filter(s => s.status === 'inactive').length}</p></div>
-                    <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Graduated</p><p class="text-2xl font-bold text-blue-600">${students.filter(s => s.status === 'graduated').length}</p></div>
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Student Management</h2>
+                    <button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        Add Student
+                    </button>
                 </div>
+
+                <div class="grid gap-4 md:grid-cols-4">
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">Total Students</p>
+                        <p class="text-2xl font-bold">${students.length}</p>
+                    </div>
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">Active</p>
+                        <p class="text-2xl font-bold text-green-600">${students.filter(s => s.status === 'active').length}</p>
+                    </div>
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">inactive</p>
+                        <p class="text-2xl font-bold text-red-600">${students.filter(s => s.status === 'inactive').length}</p>
+                    </div>
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">Graduated</p>
+                        <p class="text-2xl font-bold text-blue-600">${students.filter(s => s.status === 'graduated').length}</p>
+                    </div>
+                </div>
+
                 <div class="rounded-xl border bg-card overflow-hidden">
-                    <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-left">Grade</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Parent Email</th><th class="px-4 py-3 text-center">Actions</th></tr></thead><tbody class="divide-y" id="students-table-body">${window.renderStudentsTable(students)}</tbody></table></div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-muted/50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left font-medium">Student</th>
+                                    <th class="px-4 py-3 text-left font-medium">ELIMUID</th>
+                                    <th class="px-4 py-3 text-left font-medium">Grade</th>
+                                    <th class="px-4 py-3 text-left font-medium">Status</th>
+                                    <th class="px-4 py-3 text-left font-medium">Parent Email</th>
+                                    <th class="px-4 py-3 text-center font-medium">Actions</th>
+                                 </thead>
+                            <tbody class="divide-y" id="students-table-body">
+                                ${students.map(student => {
+                                    const user = student.User || {};
+                                    const name = user.name || 'Unknown';
+                                    const email = user.email || 'N/A';
+                                    const status = student.status || 'active';
+                                    const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
+                                                       status === 'inactive' ? 'bg-red-100 text-red-700' : 
+                                                       'bg-gray-100 text-gray-700';
+                                    const initials = getInitials(name);
+
+                                    return `
+                                        <tr class="hover:bg-accent/50 transition-colors">
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                        <span class="font-medium text-blue-700 text-sm">${initials}</span>
+                                                    </div>
+                                                    <span class="font-medium">${name}</span>
+                                                </div>
+                                              </td>
+                                            <td class="px-4 py-3">
+                                                <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid || 'N/A'}</span>
+                                              </td>
+                                            <td class="px-4 py-3">${student.grade || 'N/A'}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span>
+                                              </td>
+                                            <td class="px-4 py-3">${email}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <button onclick="adminViewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
+                                                        <i data-lucide="eye" class="h-4 w-4 text-blue-600"></i>
+                                                    </button>
+                                                    <button onclick="adminEditStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
+                                                        <i data-lucide="edit" class="h-4 w-4 text-green-600"></i>
+                                                    </button>
+                                                    ${status === 'active' ? 
+                                                        `<button onclick="adminSuspendStudent('${student.id}', '${name}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
+                                                            <i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i>
+                                                        </button>` : 
+                                                        `<button onclick="adminReactivateStudent('${student.id}', '${name}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
+                                                            <i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i>
+                                                        </button>`
+                                                    }
+                                                    <button onclick="adminDeleteStudent('${student.id}', '${name}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
+                                                        <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
+                                                    </button>
+                                                    <button onclick="copyToClipboard('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
+                                                        <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
+                                                    </button>
+                                                </div>
+                                              </td>
+                                          </tr>
+                                    `;
+                                }).join('')}
+                                ${students.length === 0 ? '<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No students found</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         `;
