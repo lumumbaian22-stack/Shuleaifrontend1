@@ -10,7 +10,6 @@ let schoolUpdateCallbacks = [];
 let clickCount = 0;
 
 // ============ SCHOOL SETTINGS ============
-// Replace the loadSchoolSettings function in dashboard-core.js
 async function loadSchoolSettings() {
     try {
         const cached = localStorage.getItem('schoolSettings');
@@ -19,7 +18,6 @@ async function loadSchoolSettings() {
                 const parsed = JSON.parse(cached);
                 if (parsed && parsed.curriculum) {
                     window.schoolSettings = parsed;
-                    // Extract custom subjects from nested settings
                     window.customSubjects = parsed.settings?.customSubjects || [];
                     console.log('✅ Settings loaded from cache');
                     return window.schoolSettings;
@@ -31,7 +29,6 @@ async function loadSchoolSettings() {
             const response = await api.admin.getSchoolSettings();
             if (response && response.success && response.data) {
                 window.schoolSettings.schoolName = response.data.name;
-                // FIXED: Get customSubjects from settings object
                 window.customSubjects = response.data.settings?.customSubjects || [];
                 localStorage.setItem('schoolSettings', JSON.stringify(response.data));
                 console.log('✅ School settings loaded from API');
@@ -41,7 +38,6 @@ async function loadSchoolSettings() {
             console.warn('⚠️ Cannot fetch school settings:', apiError.message);
         }
         
-        // Defaults
         window.schoolSettings = { curriculum: 'cbc', schoolLevel: 'both', settings: { customSubjects: [] } };
         window.customSubjects = [];
         return window.schoolSettings;
@@ -73,12 +69,8 @@ async function showDashboard(role) {
     console.log('🔵 showDashboard called with role:', role);
 
     if (!role) {
-        if (typeof getCurrentRole === 'function') {
-            role = getCurrentRole();
-        }
-        if (!role) {
-            role = localStorage.getItem('userRole');
-        }
+        if (typeof getCurrentRole === 'function') role = getCurrentRole();
+        if (!role) role = localStorage.getItem('userRole');
         if (!role) {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             role = user.role;
@@ -239,10 +231,17 @@ async function showDashboardSection(section) {
 
         updateSidebarActiveState(section);
 
+        // Initialize charts if needed
         if (section === 'dashboard' || section === 'analytics') {
             setTimeout(() => {
                 if (currentRole === 'admin') {
                     if (typeof initAdminCharts === 'function') initAdminCharts();
+                } else if (currentRole === 'teacher') {
+                    if (typeof initTeacherCharts === 'function') {
+                        // Teacher charts will be created inside the teacher dashboard HTML
+                        // The dashboardData already contains students and subjects
+                        initTeacherCharts(dashboardData);
+                    }
                 }
                 if (typeof initRoleCharts === 'function') {
                     initRoleCharts(currentRole, dashboardData);
@@ -280,10 +279,8 @@ async function renderDashboardSection(role, section) {
             }
             return await renderAdminSection(section);
         case 'teacher':
-            // Ensure renderTeacherSection exists, if not, define a simple fallback
             if (typeof renderTeacherSection !== 'function') {
                 console.warn('renderTeacherSection missing – using built-in fallback');
-                // Simple teacher dashboard fallback
                 return `
                     <div class="space-y-6 animate-fade-in">
                         <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50">
