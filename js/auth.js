@@ -2,6 +2,16 @@
 let currentUser = null;
 let currentSchool = null;
 
+// Helper: Merge teacher profile into user object
+function mergeTeacherProfile(userData, profile) {
+    if (profile && userData.role === 'teacher') {
+        userData.teacher = profile;
+        // Also set classTeacher at root level for easier access
+        if (profile.classTeacher) userData.classTeacher = profile.classTeacher;
+    }
+    return userData;
+}
+
 // Check if user is authenticated on page load
 async function checkAuth() {
     const token = localStorage.getItem('authToken');
@@ -9,10 +19,17 @@ async function checkAuth() {
     
     try {
         const response = await api.auth.getMe();
-        currentUser = response.data.user;
+        if (!response.success) throw new Error('Auth failed');
+        
+        let userData = response.data.user;
+        const profile = response.data.profile;
+        
+        // Merge teacher profile if applicable
+        userData = mergeTeacherProfile(userData, profile);
+        
+        currentUser = userData;
         currentSchool = response.data.school;
         
-        // Save everything including role
         localStorage.setItem('user', JSON.stringify(currentUser));
         localStorage.setItem('school', JSON.stringify(currentSchool));
         localStorage.setItem('userRole', currentUser.role);
@@ -33,6 +50,7 @@ async function checkAuth() {
 async function superAdminLogin(email, password, secretKey) {
     try {
         const response = await api.auth.superAdminLogin(email, password, secretKey);
+        if (!response.success) throw new Error(response.message);
         
         authToken = response.data.token;
         currentUser = response.data.user;
@@ -68,31 +86,22 @@ async function checkAdminStatusAfterApproval() {
         console.log('User isActive:', user.isActive);
         console.log('User role:', user.role);
         
-        // If user is admin and school is active, but user is inactive
         if (user.role === 'admin' && user.isActive === false) {
             const school = getCurrentSchool();
             console.log('School status:', school?.status);
             
             if (school && school.status === 'active') {
-                // Try to refresh user data
                 const response = await api.auth.getMe();
-                if (response && response.data && response.data.user) {
-                    const updatedUser = response.data.user;
-                    console.log('Updated user from API:', updatedUser);
-                    
-                    if (updatedUser.isActive === true) {
-                        localStorage.setItem('user', JSON.stringify(updatedUser));
-                        localStorage.setItem('userRole', updatedUser.role);
-                        currentUser = updatedUser;
+                if (response.success) {
+                    const refreshedUser = response.data.user;
+                    if (refreshedUser.isActive === true) {
+                        localStorage.setItem('user', JSON.stringify(refreshedUser));
+                        localStorage.setItem('userRole', refreshedUser.role);
+                        currentUser = refreshedUser;
                         console.log('✅ Admin account activated successfully');
                         return true;
-                    } else {
-                        console.log('⚠️ Admin account still inactive in API');
-                        return false;
                     }
                 }
-            } else {
-                console.log('School status is not active:', school?.status);
             }
         }
         return false;
@@ -122,7 +131,6 @@ async function parentSignup(parentData) {
             phone: parentData.phone,
             studentElimuid: parentData.studentElimuid
         });
-        
         return response;
     } catch (error) {
         throw error;
@@ -133,6 +141,7 @@ async function parentSignup(parentData) {
 async function studentLogin(elimuid, password) {
     try {
         const response = await api.auth.studentLogin(elimuid, password);
+        if (!response.success) throw new Error(response.message);
         
         authToken = response.data.token;
         currentUser = response.data.user;
@@ -153,27 +162,27 @@ async function login(email, password, role) {
         console.log('🔐 Attempting login for:', email, 'role:', role);
         
         const response = await api.auth.login(email, password, role);
+        if (!response.success) throw new Error(response.message);
         
-        console.log('Login response:', response);
+        let userData = response.data.user;
+        const profile = response.data.profile;
         
-        if (!response || !response.success) {
-            throw new Error(response?.message || 'Login failed');
-        }
+        // Merge teacher profile into user object
+        userData = mergeTeacherProfile(userData, profile);
         
         authToken = response.data.token;
-        currentUser = response.data.user;
+        currentUser = userData;
         currentSchool = response.data.school;
         
         console.log('User from login:', currentUser);
-        console.log('User isActive:', currentUser.isActive);
+        console.log('User teacher classTeacher:', currentUser.teacher?.classTeacher);
         console.log('School status:', currentSchool?.status);
         
-        // CHECK: If user is admin but inactive, but school is active
+        // Handle inactive admin but active school
         if (currentUser.role === 'admin' && currentUser.isActive === false && currentSchool?.status === 'active') {
             console.log('⚠️ Admin account inactive but school is active - attempting refresh...');
-            // Try to refresh user data
             const meResponse = await api.auth.getMe();
-            if (meResponse && meResponse.data && meResponse.data.user) {
+            if (meResponse && meResponse.success && meResponse.data.user) {
                 const refreshedUser = meResponse.data.user;
                 if (refreshedUser.isActive === true) {
                     currentUser = refreshedUser;
@@ -182,7 +191,6 @@ async function login(email, password, role) {
             }
         }
         
-        // Final check: If admin and still inactive, show error
         if (currentUser.role === 'admin' && currentUser.isActive === false) {
             console.error('❌ Admin account is still inactive');
             throw new Error('Your account is pending approval. Please wait for the super admin to approve your school.');
