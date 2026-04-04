@@ -1,27 +1,13 @@
 function getTeacherRole() {
     const user = getCurrentUser();
-
-    if (!user || user.role !== 'teacher') {
-        console.warn('⚠️ No valid teacher user found');
-        return 'subject_teacher';
-    }
-
-    // Ensure teacher object exists
-    if (!user.teacher) {
-        console.warn('⚠️ Missing teacher object, fixing...');
-        user.teacher = {
-            type: 'subject_teacher',
-            subjects: []
-        };
-        saveUser(user);
-    }
-
-    // Ensure type exists
-    if (!user.teacher.type) {
-        console.warn('⚠️ Missing teacher.type, defaulting to subject_teacher');
-        user.teacher.type = 'subject_teacher';
-        saveUser(user);
-    }
+    if (!user || user.role !== 'teacher') return 'subject_teacher';
+    if (!user.teacher) user.teacher = {};
+    // If type is set, use it
+    if (user.teacher.type) return user.teacher.type;
+    // Fallback: if classTeacher exists, assume class teacher
+    if (user.teacher.classTeacher) return 'class_teacher';
+    return 'subject_teacher';
+}
 
     return user.teacher.type;
 }
