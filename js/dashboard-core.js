@@ -75,16 +75,13 @@ async function showDashboard(role) {
     if (!role) {
         if (typeof getCurrentRole === 'function') {
             role = getCurrentRole();
-            console.log('Role from getCurrentRole():', role);
         }
         if (!role) {
             role = localStorage.getItem('userRole');
-            console.log('Role from localStorage:', role);
         }
         if (!role) {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             role = user.role;
-            console.log('Role from user object:', role);
         }
         if (!role) {
             try {
@@ -93,25 +90,21 @@ async function showDashboard(role) {
                     role = response.data.user.role;
                     localStorage.setItem('userRole', role);
                     localStorage.setItem('user', JSON.stringify(response.data.user));
-                    console.log('Role from API:', role);
                 }
             } catch (error) {
                 console.error('Failed to fetch user from API:', error);
             }
         }
         if (!role) {
-            console.error('❌ No role found after all attempts, redirecting to login');
+            console.error('❌ No role found after all attempts');
             showToast('Session expired. Please log in again.', 'error');
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
+            setTimeout(() => { window.location.href = '/'; }, 2000);
             return;
         }
     }
 
     localStorage.setItem('userRole', role);
     currentRole = role;
-    console.log('✅ Final role set to:', role);
 
     const landingPage = document.getElementById('landing-page');
     const dashboardContainer = document.getElementById('dashboard-container');
@@ -122,7 +115,21 @@ async function showDashboard(role) {
         dashboardContainer.setAttribute('data-current-role', role);
     }
 
-    await loadSchoolSettings();
+    // Only load school settings for admin and superadmin
+    if (role === 'admin' || role === 'superadmin') {
+        await loadSchoolSettings();
+    } else {
+        const cached = localStorage.getItem('schoolSettings');
+        if (cached) {
+            try {
+                schoolSettings = JSON.parse(cached);
+                customSubjects = schoolSettings.settings?.customSubjects || [];
+            } catch(e) {}
+        } else {
+            schoolSettings = { curriculum: 'cbc', schoolLevel: 'both', settings: { customSubjects: [] } };
+            customSubjects = [];
+        }
+    }
 
     showLoading();
     try {
@@ -141,9 +148,9 @@ async function showDashboard(role) {
             ]);
             dashboardData = { teachers: teachers.data, students: students.data, pendingTeachers: pendingTeachers.data?.teachers || [] };
         } else if (role === 'teacher') {
-            const [students, todayDuty] = await Promise.all([
+            const [students, subjects, todayDuty] = await Promise.all([
                 api.teacher.getMyStudents().catch(err => ({ data: [] })),
-                api.teacher.getMySubjects().catch(() => ({ data: [] })),
+                api.teacher.getMySubjects().catch(err => ({ data: [] })),
                 api.duty.getTodayDuty().catch(err => ({ data: {} }))
             ]);
             dashboardData = { students: students.data, subjects: subjects.data, todayDuty: todayDuty.data };
@@ -163,9 +170,7 @@ async function showDashboard(role) {
         } else {
             console.error('Unknown role:', role);
             showToast('Invalid user role', 'error');
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
+            setTimeout(() => { window.location.href = '/'; }, 2000);
             return;
         }
 
