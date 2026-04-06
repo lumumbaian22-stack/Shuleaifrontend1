@@ -774,7 +774,7 @@ async function renderAdminTeacherWorkload() {
 function renderAdminSettings() {
     const curriculum = schoolSettings.curriculum || 'cbc';
     const schoolLevel = schoolSettings.schoolLevel || 'secondary';
-    const curriculumInfo = CURRICULUMS[curriculum];
+    const curriculumInfo = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) ? window.CURRICULUMS[curriculum] : { subjects: { secondary: [] } };
     const levelInfo = curriculumInfo?.levels[schoolLevel] || [];
     const subjectInfo = curriculumInfo?.subjects[schoolLevel] || [];
     return `
@@ -793,7 +793,7 @@ function renderAdminSettings() {
 function renderAdminCustomSubjects() {
     const curriculum = window.schoolSettings?.curriculum || 'cbc';
     const schoolLevel = window.schoolSettings?.schoolLevel || 'secondary';
-    const curriculumInfo = CURRICULUMS[curriculum];
+    const curriculumInfo = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) ? window.CURRICULUMS[curriculum] : { subjects: { secondary: [] } };
     const subjectInfo = curriculumInfo?.subjects[schoolLevel] || [];
     return `
         <div class="space-y-6 animate-fade-in">
