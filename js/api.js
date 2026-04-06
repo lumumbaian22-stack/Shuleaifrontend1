@@ -369,6 +369,17 @@ const teacherAPI = {
     uploadMarksCSV: (formData) => 
         uploadFile('/api/teacher/upload/marks', formData),
     getConversations: () => apiRequest('/api/teacher/conversations'),
+    getStaffMembers: () => apiRequest('/api/teacher/staff-members'),
+    getStaffConversations: () => apiRequest('/api/teacher/chat/conversations'),
+    getGroupMessages: () => apiRequest('/api/teacher/chat/group-messages'),
+    getPrivateMessages: (otherUserId) => apiRequest(`/api/teacher/chat/messages/${otherUserId}`),
+    sendGroupMessage: (data) => apiRequest('/api/teacher/group-message', { method: 'POST', body: JSON.stringify(data) }),
+    sendPrivateMessage: (data) => apiRequest('/api/teacher/private-message', { method: 'POST', body: JSON.stringify(data) }),
+    getParentMessages: (parentId) => apiRequest(`/api/teacher/messages/${parentId}`),
+    replyToParent: (data) => apiRequest('/api/teacher/reply', { method: 'POST', body: JSON.stringify(data) }),
+    getPerformanceData: () => apiRequest('/api/teacher/performance'),
+    getMyAssignments: () => apiRequest('/api/teacher/my-assignments'),
+    getParentConversations: () => apiRequest('/api/teacher/conversations'),
     getMessages: (otherUserId) => apiRequest(`/api/teacher/messages/${otherUserId}`),
     markMessagesAsRead: (otherUserId) => 
         apiRequest(`/api/teacher/messages/read/${otherUserId}`, { method: 'PUT' }),
@@ -579,6 +590,21 @@ async function uploadFile(endpoint, file, onProgress) {
         xhr.send(formData);
     });
 }
+
+const helpAPI = {
+  getArticles: (role) => apiRequest(`/api/help/articles?role=${role}`),
+  search: (query) => apiRequest(`/api/help/search?q=${query}`)
+};
+window.api.help = helpAPI;
+
+const tasksAPI = {
+  getTasks: () => apiRequest('/api/tasks'),
+  createTask: (data) => apiRequest('/api/tasks', { method: 'POST', body: JSON.stringify(data) }),
+  updateTask: (taskId, data) => apiRequest(`/api/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTask: (taskId) => apiRequest(`/api/tasks/${taskId}`, { method: 'DELETE' }),
+  completeTask: (taskId) => apiRequest(`/api/tasks/${taskId}/complete`, { method: 'POST' })
+};
+window.api.tasks = tasksAPI;
 
 // ============ SINGLE EXPORT STATEMENT ============
 window.api = {
