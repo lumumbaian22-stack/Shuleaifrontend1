@@ -591,12 +591,13 @@ async function uploadFile(endpoint, file, onProgress) {
     });
 }
 
+// ============ HELP API ============
 const helpAPI = {
   getArticles: (role) => apiRequest(`/api/help/articles?role=${role}`),
   search: (query) => apiRequest(`/api/help/search?q=${query}`)
 };
-window.api.help = helpAPI;
 
+// ============ TASKS API ============
 const tasksAPI = {
   getTasks: () => apiRequest('/api/tasks'),
   createTask: (data) => apiRequest('/api/tasks', { method: 'POST', body: JSON.stringify(data) }),
@@ -604,7 +605,6 @@ const tasksAPI = {
   deleteTask: (taskId) => apiRequest(`/api/tasks/${taskId}`, { method: 'DELETE' }),
   completeTask: (taskId) => apiRequest(`/api/tasks/${taskId}/complete`, { method: 'POST' })
 };
-window.api.tasks = tasksAPI;
 
 // ============ SINGLE EXPORT STATEMENT ============
 window.api = {
@@ -619,7 +619,9 @@ window.api = {
     upload: uploadAPI,
     public: publicAPI,
     school: schoolAPI,
-    user: userAPI
+    user: userAPI,
+    help: helpAPI,      // added
+    tasks: tasksAPI     // added
 };
 
 // Legacy support
