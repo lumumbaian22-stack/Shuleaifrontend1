@@ -87,7 +87,13 @@ function connectWebSocket() {
     // Curriculum updates
     socket.on('curriculum-updated', (data) => {
         console.log('🔔 Curriculum updated:', data);
-        handleCurriculumUpdate(data);
+        const schoolSettings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+        schoolSettings.curriculum = data.curriculum;
+        localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+        if (typeof showDashboardSection === 'function') {
+             showDashboardSection(window.currentSection || 'dashboard');
+           }
+           showToast(`Curriculum changed to ${data.curriculumName}`, 'info');
     });
     
     // Class assignment updates
