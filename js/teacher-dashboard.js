@@ -1,12 +1,11 @@
 function getTeacherRole() {
-    const user = getCurrentUser();
-    if (!user || user.role !== 'teacher') return 'subject_teacher';
-    if (!user.teacher) user.teacher = {};
-    // If type is set, use it
-    if (user.teacher.type) return user.teacher.type;
-    // Fallback: if classTeacher exists, assume class teacher
-    if (user.teacher.classTeacher) return 'class_teacher';
-    return 'subject_teacher';
+  const user = getCurrentUser();
+  if (!user || user.role !== 'teacher') return 'subject_teacher';
+  // Check if teacher is class teacher via classTeacher field (from backend)
+  if (user.classTeacher) return 'class_teacher';
+  if (user.teacher && user.teacher.classTeacher) return 'class_teacher';
+  if (user.teacher && user.teacher.classId) return 'class_teacher';
+  return 'subject_teacher';
 }
 
 function isClassTeacher() {
@@ -848,21 +847,26 @@ function renderTeacherTasks() {
 
 // Add this function to get teacher's assigned class
 function getTeacherAssignedClass() {
-    const user = getCurrentUser();
-
-    if (!user || user.role !== 'teacher') return null;
-
-    // Ensure teacher object exists
-    if (!user.teacher) {
-        user.teacher = {};
-        saveUser(user);
-    }
-
+  const user = getCurrentUser();
+  if (!user || user.role !== 'teacher') return null;
+  if (!user.teacher) user.teacher = {};
+  // First try to get from teacher.classId (set by backend)
+  if (user.teacher.classId) {
     return {
-        id: user.teacher?.classId || null,
-        name: user.teacher?.className || null,
-        studentCount: user.teacher?.studentCount || 0
+      id: user.teacher.classId,
+      name: user.teacher.className || 'Assigned Class',
+      studentCount: user.teacher.studentCount || 0
     };
+  }
+  // Fallback to classTeacher field
+  if (user.classTeacher) {
+    return {
+      id: null,
+      name: user.classTeacher,
+      studentCount: 0
+    };
+  }
+  return null;
 }
 
 // Update your renderTeacherDashboard function to use this
