@@ -108,85 +108,64 @@ async function initAdminCharts() {
 }
 
 async function initTeacherCharts(data) {
-    // Subject Performance Chart (bar chart)
-    const subjectCtx = document.getElementById('teacher-subjectChart');
-    if (subjectCtx) {
-        if (window.charts.teacherSubject) window.charts.teacherSubject.destroy();
+    const perfCtx = document.getElementById('teacher-performanceChart');
+    const gradeCtx = document.getElementById('teacher-gradeChart');
+    
+    try {
+        const response = await api.teacher.getPerformanceData();
+        const perf = response.data;
         
-        // Aggregate subject averages from student records
-        const subjectScores = {};
-        if (data.students && data.students.length) {
-            for (const student of data.students) {
-                if (student.records && student.records.length) {
-                    student.records.forEach(record => {
-                        if (!subjectScores[record.subject]) subjectScores[record.subject] = [];
-                        subjectScores[record.subject].push(record.score);
-                    });
-                }
-            }
-        }
-        const subjectLabels = Object.keys(subjectScores);
-        const subjectAverages = subjectLabels.map(sub => 
-            subjectScores[sub].reduce((a,b) => a+b, 0) / subjectScores[sub].length
-        );
-        
-        if (subjectLabels.length === 0) {
-            subjectCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No grade data available</p></div>';
-        } else {
-            window.charts.teacherSubject = new Chart(subjectCtx, {
-                type: 'bar',
+        // Subject performance (line chart)
+        if (perfCtx) {
+            if (window.charts.teacherPerf) window.charts.teacherPerf.destroy();
+            window.charts.teacherPerf = new Chart(perfCtx, {
+                type: 'line',
                 data: {
-                    labels: subjectLabels,
+                    labels: perf.subjectAverages.map(s => s.subject) || ['No data'],
                     datasets: [{
                         label: 'Average Score (%)',
-                        data: subjectAverages,
-                        backgroundColor: '#8b5cf6',
+                        data: perf.subjectAverages.map(s => s.average) || [0],
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, max: 100 } }
+                }
+            });
+        }
+        
+        // Attendance trend (bar chart)
+        if (gradeCtx) {
+            if (window.charts.teacherGrade) window.charts.teacherGrade.destroy();
+            window.charts.teacherGrade = new Chart(gradeCtx, {
+                type: 'bar',
+                data: {
+                    labels: perf.attendanceTrend.map(a => moment(a.date).format('MMM D')),
+                    datasets: [{
+                        label: 'Attendance Rate (%)',
+                        data: perf.attendanceTrend.map(a => a.rate),
+                        backgroundColor: '#3b82f6',
                         borderRadius: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.05)' } } }
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, max: 100 } }
                 }
             });
         }
-    }
-    
-    // Attendance Trend Chart (line chart)
-    const attendanceCtx = document.getElementById('teacher-attendanceChart');
-    if (attendanceCtx) {
-        if (window.charts.teacherAttendance) window.charts.teacherAttendance.destroy();
-        
-        // Generate last 7 days attendance data (mock for now – you can replace with real API data)
-        const dates = [];
-        const attendanceRates = [];
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            dates.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-            attendanceRates.push(Math.floor(Math.random() * 30) + 70); // placeholder 70-100%
-        }
-        
-        window.charts.teacherAttendance = new Chart(attendanceCtx, {
-            type: 'line',
-            data: {
-                labels: dates,
-                datasets: [{
-                    label: 'Attendance Rate (%)',
-                    data: attendanceRates,
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.05)' } } }
-            }
-        });
+    } catch (error) {
+        console.error('Teacher chart error:', error);
+        if (perfCtx) perfCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-red-500">Failed to load data</p></div>';
+        if (gradeCtx) gradeCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-red-500">Failed to load data</p></div>';
     }
 }
 
