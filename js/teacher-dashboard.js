@@ -1,4 +1,4 @@
-// teacher-dashboard.js - Complete functional version
+// teacher-dashboard.js - Complete functional version with all fixes
 
 // ============ ROLE DETECTION ============
 function getTeacherRole() {
@@ -54,6 +54,7 @@ async function renderTeacherSection(section) {
       case 'duty-preferences': return renderTeacherDutyPreferences();
       case 'staff-chat': return await renderStaffChat();
       case 'parent-chat': return await renderParentChat();
+      case 'settings': return await renderTeacherSettings();
       case 'help': return await renderHelpSection('teacher');
       case 'profile': return await renderProfileSection();
       default: return await renderTeacherDashboard();
@@ -64,17 +65,16 @@ async function renderTeacherSection(section) {
   }
 }
 
-// ============ DASHBOARD WITH REAL DATA AND CHARTS ============
+// ============ DASHBOARD WITH REAL DATA AND CHARTS (NO QUICK ACTION BUTTONS) ============
 async function renderTeacherDashboard() {
   const user = getCurrentUser();
   const role = getTeacherRole();
   const teacherClass = getTeacherAssignedClass();
   const hasClass = teacherClass !== null;
   const className = teacherClass?.name || 'No class assigned';
-  const studentCount = teacherClass?.studentCount || 0;
-
+  
   // Load real stats
-  let stats = { studentCount, classAverage: 0, attendanceToday: '0/0', pendingTasks: 0 };
+  let stats = { studentCount: 0, classAverage: 0, attendanceToday: '0/0', pendingTasks: 0 };
   let performanceData = { subjectAverages: [], attendanceTrend: [] };
   try {
     const statsRes = await api.teacher.getTeacherStats();
@@ -83,7 +83,6 @@ async function renderTeacherDashboard() {
     if (perfRes.success) performanceData = perfRes.data;
   } catch(e) { console.error(e); }
 
-  // Render HTML
   const html = `
     <div class="space-y-6 animate-fade-in">
       <!-- Welcome Header -->
@@ -95,7 +94,7 @@ async function renderTeacherDashboard() {
               <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">${role === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}</span>
             </div>
             <p class="text-muted-foreground mt-1 text-sm">${getTeacherRoleDescription()}</p>
-            ${hasClass ? `<div class="mt-3 p-3 bg-primary/10 rounded-lg inline-block"><span class="text-sm font-medium">📚 Your Class: </span><span class="text-sm font-bold text-primary">${escapeHtml(className)}</span> <span class="text-xs text-muted-foreground ml-2">(${studentCount} students)</span></div>` : ''}
+            ${hasClass ? `<div class="mt-3 p-3 bg-primary/10 rounded-lg inline-block"><span class="text-sm font-medium">📚 Your Class: </span><span class="text-sm font-bold text-primary">${escapeHtml(className)}</span> <span class="text-xs text-muted-foreground ml-2">(${stats.studentCount} students)</span></div>` : ''}
           </div>
           ${isClassTeacher() ? `<button onclick="showCSVUploadModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 shadow-sm"><i data-lucide="upload" class="h-4 w-4"></i> Upload Students (CSV)</button>` : ''}
         </div>
@@ -107,17 +106,6 @@ async function renderTeacherDashboard() {
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Class Average</p><h3 class="text-2xl font-bold mt-1">${stats.classAverage || 0}%</h3></div><div class="h-12 w-12 rounded-lg bg-violet-100 flex items-center justify-center"><i data-lucide="trending-up" class="h-6 w-6 text-violet-600"></i></div></div></div>
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Attendance Today</p><h3 class="text-2xl font-bold mt-1">${stats.attendanceToday || '0/0'}</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i></div></div></div>
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Pending Tasks</p><h3 class="text-2xl font-bold mt-1">${stats.pendingTasks || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center"><i data-lucide="check-square" class="h-6 w-6 text-red-600"></i></div></div></div>
-      </div>
-
-      <!-- Quick Actions Card (separate from dashboard) -->
-      <div class="rounded-xl border bg-card p-6">
-        <h3 class="font-semibold mb-4">Quick Actions</h3>
-        <div class="grid gap-4 md:grid-cols-4">
-          ${isClassTeacher() ? `<button onclick="showDashboardSection('students')" class="p-3 border rounded-lg hover:bg-accent text-left"><i data-lucide="users" class="h-5 w-5 text-blue-600 mb-2"></i><p class="font-medium">My Students</p></button>` : ''}
-          <button onclick="showDashboardSection('attendance')" class="p-3 border rounded-lg hover:bg-accent text-left"><i data-lucide="calendar-check" class="h-5 w-5 text-green-600 mb-2"></i><p class="font-medium">Take Attendance</p></button>
-          <button onclick="showDashboardSection('grades')" class="p-3 border rounded-lg hover:bg-accent text-left"><i data-lucide="trending-up" class="h-5 w-5 text-purple-600 mb-2"></i><p class="font-medium">Enter Marks</p></button>
-          <button onclick="showDashboardSection('tasks')" class="p-3 border rounded-lg hover:bg-accent text-left"><i data-lucide="check-square" class="h-5 w-5 text-amber-600 mb-2"></i><p class="font-medium">My Tasks</p></button>
-        </div>
       </div>
 
       <!-- Charts Row -->
@@ -142,7 +130,7 @@ async function renderTeacherDashboard() {
   setTimeout(() => {
     const perfCtx = document.getElementById('teacher-performanceChart');
     const gradeCtx = document.getElementById('teacher-gradeChart');
-    if (perfCtx && performanceData.subjectAverages.length) {
+    if (perfCtx && performanceData.subjectAverages && performanceData.subjectAverages.length) {
       if (window.teacherPerfChart) window.teacherPerfChart.destroy();
       window.teacherPerfChart = new Chart(perfCtx, {
         type: 'line',
@@ -152,8 +140,10 @@ async function renderTeacherDashboard() {
         },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }
       });
+    } else if (perfCtx) {
+      perfCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No performance data yet</p></div>';
     }
-    if (gradeCtx && performanceData.attendanceTrend.length) {
+    if (gradeCtx && performanceData.attendanceTrend && performanceData.attendanceTrend.length) {
       if (window.teacherGradeChart) window.teacherGradeChart.destroy();
       window.teacherGradeChart = new Chart(gradeCtx, {
         type: 'bar',
@@ -163,6 +153,8 @@ async function renderTeacherDashboard() {
         },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }
       });
+    } else if (gradeCtx) {
+      gradeCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No attendance data yet</p></div>';
     }
     loadTodayDuty();
     loadTeacherMessages();
@@ -171,7 +163,7 @@ async function renderTeacherDashboard() {
   return html;
 }
 
-// ============ TEACHER STUDENTS (real data) ============
+// ============ TEACHER STUDENTS ============
 async function renderTeacherStudents() {
   const students = await loadMyStudents();
   return renderStudentsTable(students);
@@ -190,13 +182,13 @@ function renderStudentsTable(students) {
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-left">Grade</th><th class="px-4 py-3 text-center">Attendance</th><th class="px-4 py-3 text-center">Average</th><th class="px-4 py-3 text-right">Actions</th></tr></thead>
-        <tbody class="divide-y">${students.map(s => `<tr><td class="px-4 py-3">${escapeHtml(s.User?.name)}</td><td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${s.elimuid}</span></td><td class="px-4 py-3">${s.grade}</td><td class="px-4 py-3 text-center">${s.attendance || 95}%</td><td class="px-4 py-3 text-center">${s.average || 0}%</td><td class="px-4 py-3 text-right"><button onclick="viewStudentDetails('${s.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button><button onclick="copyToClipboard('${s.elimuid}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button></td></tr>`).join('')}</tbody>
-      </table>
+        <tbody class="divide-y">${students.map(s => `<tr class="hover:bg-accent/50"><td class="px-4 py-3">${escapeHtml(s.User?.name)}</td><td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${s.elimuid}</span></td><td class="px-4 py-3">${s.grade}</td><td class="px-4 py-3 text-center">${s.attendance || 95}%</td><td class="px-4 py-3 text-center">${s.average || 0}%</td><td class="px-4 py-3 text-right"><button onclick="viewStudentDetails('${s.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button><button onclick="copyToClipboard('${s.elimuid}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button></td></tr>`).join('')}</tbody>
+       </table>
     </div>
   `;
 }
 
-// ============ ATTENDANCE (real) ============
+// ============ ATTENDANCE ============
 async function renderTeacherAttendance() {
   const students = await loadMyStudents();
   if (!students.length) return '<div class="text-center py-12">No students in your class</div>';
@@ -226,14 +218,16 @@ async function saveAttendance() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
-// ============ MARKS ENTRY (real) ============
+// ============ MARKS ENTRY ============
 async function renderTeacherMarksEntry() {
-  const assignments = [];
-  const teacher = await api.teacher.getMyAssignments();
-  if (teacher.data) {
-    if (teacher.data.classTeacher) assignments.push({ type: 'class', id: teacher.data.classTeacher.id, name: teacher.data.classTeacher.name, subject: 'All Subjects' });
-    for (const sub of teacher.data.subjects) assignments.push({ type: 'subject', id: sub.classId, name: sub.className, subject: sub.subject });
-  }
+  let assignments = [];
+  try {
+    const teacher = await api.teacher.getMyAssignments();
+    if (teacher.data) {
+      if (teacher.data.classTeacher) assignments.push({ type: 'class', id: teacher.data.classTeacher.id, name: teacher.data.classTeacher.name, subject: 'All Subjects' });
+      for (const sub of teacher.data.subjects) assignments.push({ type: 'subject', id: sub.classId, name: sub.className, subject: sub.subject });
+    }
+  } catch(e) { console.error(e); }
   if (!assignments.length) return '<div class="text-center py-12">No classes or subjects assigned</div>';
   let html = `<div class="space-y-6"><h2 class="text-2xl font-bold">Enter Marks</h2><div class="grid gap-4 md:grid-cols-3">`;
   for (const a of assignments) {
@@ -309,7 +303,7 @@ async function saveAllMarks() {
   hideLoading();
 }
 
-// ============ TASKS (real API) ============
+// ============ TASKS ============
 async function renderTeacherTasks() {
   let tasks = [];
   try {
@@ -366,9 +360,43 @@ async function deleteTask(taskId) {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
-// ============ DUTY PREFERENCES (real) ============
+// ============ DUTY MANAGEMENT ============
+async function renderTeacherDuty() {
+  let weeklyDuty = [];
+  let todayDuty = null;
+  try {
+    const res = await api.duty.getWeeklyDuty();
+    weeklyDuty = res.data || [];
+    const todayRes = await api.duty.getTodayDuty();
+    todayDuty = todayRes.data;
+  } catch(e) { console.error(e); }
+  const user = getCurrentUser();
+  const myDuties = weeklyDuty.filter(day => day.duties?.some(d => d.teacherId === user?.id));
+  return `
+    <div class="space-y-6"><h2 class="text-2xl font-bold">My Duty Schedule</h2>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">This Week's Duty</h3><div class="space-y-3">
+        ${myDuties.length ? myDuties.map(day => `<div class="p-3 bg-muted/30 rounded-lg"><p class="font-medium">${day.dayName} (${day.date})</p>${day.duties.filter(d => d.teacherId === user?.id).map(d => `<div class="flex justify-between text-sm"><span>${d.area}</span><span>${d.timeSlot?.start} - ${d.timeSlot?.end}</span></div>`).join('')}</div>`).join('') : '<p class="text-center text-muted-foreground">No duty assigned this week</p>'}
+      </div><button onclick="showDashboardSection('duty-preferences')" class="mt-4 w-full py-2 border rounded-lg hover:bg-accent">Set Preferences</button></div>
+      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Request Duty Swap</h3><div class="space-y-3"><input type="date" id="swap-date" class="w-full rounded-lg border p-2"><textarea id="swap-reason" rows="2" class="w-full rounded-lg border p-2" placeholder="Reason for swap"></textarea><button onclick="submitSwapRequest()" class="w-full bg-primary text-white py-2 rounded-lg">Submit Request</button></div></div>
+    </div></div>
+  `;
+}
+async function submitSwapRequest() {
+  const date = document.getElementById('swap-date')?.value;
+  const reason = document.getElementById('swap-reason')?.value;
+  if (!date || !reason) { showToast('Please fill all fields', 'error'); return; }
+  showLoading();
+  try {
+    await api.duty.requestSwap({ dutyDate: date, reason });
+    showToast('Swap request sent to admin', 'success');
+    document.getElementById('swap-date').value = '';
+    document.getElementById('swap-reason').value = '';
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+// ============ DUTY PREFERENCES ============
 function renderTeacherDutyPreferences() {
-  let pref = {};
   return `<div class="space-y-6"><h2 class="text-2xl font-bold">Duty Preferences</h2><div class="rounded-xl border bg-card p-6 max-w-2xl mx-auto"><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">Preferred Days</label><div class="flex flex-wrap gap-3" id="pref-days">${['Monday','Tuesday','Wednesday','Thursday','Friday'].map(d => `<label class="flex items-center gap-2"><input type="checkbox" value="${d.toLowerCase()}" class="pref-day"> <span>${d}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Preferred Areas</label><div class="flex flex-wrap gap-3" id="pref-areas">${['morning','lunch','afternoon','whole_day'].map(a => `<label class="flex items-center gap-2"><input type="checkbox" value="${a}" class="pref-area"> <span>${a}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Max Duties Per Week</label><input type="number" id="max-duties" value="3" min="1" max="5" class="w-full rounded-lg border p-2"></div><div><label class="block text-sm font-medium mb-1">Blackout Dates</label><div class="flex gap-2"><input type="date" id="blackout-date" class="flex-1 rounded-lg border p-2"><button onclick="addBlackoutDate()" class="px-3 py-2 bg-primary text-white rounded-lg">Add</button></div><div id="blackout-dates-list" class="mt-2 space-y-1"></div></div><button onclick="saveDutyPreferences()" class="w-full bg-primary text-white py-2 rounded-lg">Save Preferences</button></div></div></div>`;
 }
 window.addBlackoutDate = function() {
@@ -394,10 +422,13 @@ window.saveDutyPreferences = async function() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 };
 
-// ============ STAFF CHAT (real WebSocket) ============
+// ============ STAFF CHAT ============
 async function renderStaffChat() {
-  const teachers = await loadStaffMembers();
-  const conversations = await loadStaffConversations();
+  let teachers = [];
+  try {
+    const res = await api.teacher.getStaffMembers();
+    teachers = res.data || [];
+  } catch(e) { console.error(e); }
   return `
     <div class="max-w-6xl mx-auto space-y-6"><div class="grid grid-cols-4 gap-4 h-[700px]">
       <div class="col-span-1 rounded-xl border bg-card overflow-hidden flex flex-col"><div class="p-4 border-b"><h3 class="font-semibold">Staff Chat</h3></div><div class="flex-1 overflow-y-auto p-2"><div class="space-y-1"><button onclick="switchStaffChat('group')" class="w-full text-left p-3 rounded-lg hover:bg-accent" id="staff-chat-group-btn"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users" class="h-4 w-4 text-primary"></i></div><div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div></div></button><div class="pt-2 mt-2 border-t"><p class="text-xs font-medium text-muted-foreground px-3 mb-2">TEACHERS</p><div id="staff-list">${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}')" class="w-full text-left p-3 rounded-lg hover:bg-accent staff-chat-private-btn" data-id="${t.id}"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><span class="font-medium text-blue-700 text-sm">${getInitials(t.name)}</span></div><div><p class="font-medium">${escapeHtml(t.name)}</p><p class="text-xs text-muted-foreground">${t.role}</p></div></div></button>`).join('')}</div></div></div></div></div>
@@ -405,32 +436,21 @@ async function renderStaffChat() {
     </div></div>
   `;
 }
-async function loadStaffMembers() {
-  try {
-    const res = await api.teacher.getStaffMembers();
-    return res.data || [];
-  } catch(e) { return []; }
-}
-async function loadStaffConversations() {
-  try {
-    const res = await api.teacher.getStaffConversations();
-    return res.data || [];
-  } catch(e) { return []; }
-}
 let currentStaffChatType = 'group';
 let currentStaffChatPartner = null;
 async function switchStaffChat(type, partnerId = null) {
   currentStaffChatType = type; currentStaffChatPartner = partnerId;
-  document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerId ? 'Teacher' : ''}`;
-  // Load messages
+  document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with Teacher`;
   let messages = [];
-  if (type === 'group') {
-    const res = await api.teacher.getGroupMessages();
-    messages = res.data || [];
-  } else if (partnerId) {
-    const res = await api.teacher.getPrivateMessages(partnerId);
-    messages = res.data || [];
-  }
+  try {
+    if (type === 'group') {
+      const res = await api.teacher.getGroupMessages();
+      messages = res.data || [];
+    } else if (partnerId) {
+      const res = await api.teacher.getPrivateMessages(partnerId);
+      messages = res.data || [];
+    }
+  } catch(e) { console.error(e); }
   const container = document.getElementById('staff-chat-messages');
   container.innerHTML = messages.map(msg => `<div class="flex ${msg.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}"><div class="${msg.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${escapeHtml(msg.content)}</p><p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p></div></div>`).join('') || '<div class="text-center text-muted-foreground">No messages yet</div>';
   container.scrollTop = container.scrollHeight;
@@ -439,38 +459,41 @@ async function sendStaffMessage() {
   const input = document.getElementById('staff-chat-input');
   const content = input?.value.trim();
   if (!content) return;
-  if (currentStaffChatType === 'group') {
-    await api.teacher.sendGroupMessage({ content });
-  } else if (currentStaffChatPartner) {
-    await api.teacher.sendPrivateMessage({ receiverId: currentStaffChatPartner, content });
-  }
-  input.value = '';
-  await switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+  try {
+    if (currentStaffChatType === 'group') {
+      await api.teacher.sendGroupMessage({ content });
+    } else if (currentStaffChatPartner) {
+      await api.teacher.sendPrivateMessage({ receiverId: currentStaffChatPartner, content });
+    }
+    input.value = '';
+    await switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+  } catch(e) { showToast(e.message, 'error'); }
 }
 
-// ============ PARENT CHAT (class teacher only) ============
+// ============ PARENT CHAT ============
 async function renderParentChat() {
   if (!isClassTeacher()) return '<div class="text-center py-12">Only class teachers can view parent messages</div>';
-  const conversations = await loadTeacherParentConversations();
+  let conversations = [];
+  try {
+    const res = await api.teacher.getParentConversations();
+    conversations = res.data || [];
+  } catch(e) { console.error(e); }
   return `
     <div class="max-w-4xl mx-auto space-y-6"><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Parent Messages</h3></div><div class="divide-y" id="parent-conversations-list">${conversations.map(conv => `<div class="p-4 hover:bg-accent cursor-pointer" onclick="openParentConversation('${conv.userId}')"><div class="flex justify-between"><div><p class="font-medium">${escapeHtml(conv.userName)}</p><p class="text-xs text-muted-foreground">${conv.studentName ? `about ${conv.studentName}` : ''}</p><p class="text-sm mt-1">${conv.lastMessage?.substring(0,50)}</p></div><div class="text-right"><p class="text-xs">${timeAgo(conv.lastMessageTime)}</p>${conv.unreadCount ? `<span class="bg-red-500 text-white text-xs rounded-full px-2 py-1">${conv.unreadCount}</span>` : ''}</div></div></div>`).join('')}</div></div></div>
   `;
 }
-async function loadTeacherParentConversations() {
-  try {
-    const res = await api.teacher.getParentConversations();
-    return res.data || [];
-  } catch(e) { return []; }
-}
 async function openParentConversation(parentId) {
-  const messages = await api.teacher.getParentMessages(parentId);
-  // Show modal with chat
+  let messages = [];
+  try {
+    const res = await api.teacher.getParentMessages(parentId);
+    messages = res.data || [];
+  } catch(e) { console.error(e); }
   let modal = document.getElementById('parent-chat-modal');
   if (!modal) { createParentChatModal(); modal = document.getElementById('parent-chat-modal'); }
   const modalContent = modal.querySelector('.modal-content');
-  modalContent.innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeParentChatModal()" class="p-1"><i data-lucide="x"></i></button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="parent-chat-msgs">${messages.data.map(m => `<div class="flex ${m.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}"><div class="${m.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${escapeHtml(m.content)}</p><p class="text-xs mt-1">${timeAgo(m.createdAt)}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2"><button onclick="sendParentReply('${parentId}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
+  modalContent.innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeParentChatModal()" class="p-1"><i data-lucide="x"></i></button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="parent-chat-msgs">${messages.map(m => `<div class="flex ${m.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}"><div class="${m.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${escapeHtml(m.content)}</p><p class="text-xs mt-1">${timeAgo(m.createdAt)}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2"><button onclick="sendParentReply('${parentId}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
   modal.classList.remove('hidden');
-  lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 }
 function createParentChatModal() {
   const html = `<div id="parent-chat-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeParentChatModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl p-4"><div class="rounded-xl border bg-card p-6 shadow-xl"><div class="modal-content"></div></div></div></div>`;
@@ -480,9 +503,38 @@ function closeParentChatModal() { const m = document.getElementById('parent-chat
 async function sendParentReply(parentId) {
   const message = document.getElementById('parent-reply-input')?.value;
   if (!message) return;
-  await api.teacher.replyToParent({ parentId, message });
-  document.getElementById('parent-reply-input').value = '';
-  await openParentConversation(parentId);
+  try {
+    await api.teacher.replyToParent({ parentId, message });
+    document.getElementById('parent-reply-input').value = '';
+    await openParentConversation(parentId);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ============ SETTINGS ============
+async function renderTeacherSettings() {
+  const user = getCurrentUser();
+  return `
+    <div class="space-y-6 max-w-4xl mx-auto"><div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-4">Teacher Settings</h2>
+    <div class="space-y-4"><div class="border-t pt-4"><h3 class="font-semibold mb-2">Profile Information</h3><p class="text-sm">Name: ${escapeHtml(user?.name || 'N/A')}</p><p class="text-sm">Email: ${escapeHtml(user?.email || 'N/A')}</p><p class="text-sm">Role: ${user?.role}</p></div>
+    <div class="border-t pt-4"><h3 class="font-semibold mb-2">Class Information</h3><p class="text-sm">Assigned Class: ${getTeacherAssignedClass()?.name || 'None'}</p><p class="text-sm">Teacher Type: ${getTeacherRole()}</p></div>
+    <div class="border-t pt-4"><h3 class="font-semibold mb-2">Change Password</h3><div class="space-y-3"><input type="password" id="current-password" placeholder="Current Password" class="w-full rounded-lg border p-2"><input type="password" id="new-password" placeholder="New Password" class="w-full rounded-lg border p-2"><input type="password" id="confirm-password" placeholder="Confirm Password" class="w-full rounded-lg border p-2"><button onclick="handleChangePassword()" class="px-4 py-2 bg-primary text-white rounded-lg">Update Password</button></div></div></div></div></div>
+  `;
+}
+async function handleChangePassword() {
+  const current = document.getElementById('current-password')?.value;
+  const newPwd = document.getElementById('new-password')?.value;
+  const confirm = document.getElementById('confirm-password')?.value;
+  if (!current || !newPwd || !confirm) { showToast('Please fill all fields', 'error'); return; }
+  if (newPwd !== confirm) { showToast('Passwords do not match', 'error'); return; }
+  if (newPwd.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
+  showLoading();
+  try {
+    await api.auth.changePassword(current, newPwd);
+    showToast('Password changed', 'success');
+    document.getElementById('current-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
 // ============ HELP SECTION ============
@@ -510,7 +562,6 @@ window.showHelpArticleDetail = function(title, content) {
 // ============ PROFILE SECTION ============
 async function renderProfileSection() {
   const user = getCurrentUser();
-  const stats = await loadUserStats();
   return `
     <div class="space-y-6 max-w-4xl mx-auto"><div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white"><div class="flex items-center gap-6"><div class="h-24 w-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl font-bold">${getInitials(user.name)}</div><div><h2 class="text-3xl font-bold">${user.name}</h2><p class="text-white/80 capitalize">${user.role}</p></div></div></div>
     <div class="grid gap-4 md:grid-cols-3"><div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Member Since</p><p class="text-lg font-semibold">${formatDate(user.createdAt)}</p></div><div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Last Login</p><p class="text-lg font-semibold">${user.lastLogin ? timeAgo(user.lastLogin) : 'N/A'}</p></div><div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Account Status</p><p class="text-lg font-semibold text-green-600">Active</p></div></div>
@@ -519,9 +570,6 @@ async function renderProfileSection() {
     <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold text-lg mb-4">Preferences</h3><div class="space-y-4"><div class="flex justify-between items-center"><div><p class="font-medium">Email Notifications</p></div><button onclick="togglePreference('email')" id="pref-email" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-primary"><span class="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white"></span></button></div><div class="flex justify-between items-center"><div><p class="font-medium">Push Notifications</p></div><button onclick="togglePreference('push')" id="pref-push" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-primary"><span class="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white"></span></button></div><div class="flex justify-between items-center"><div><p class="font-medium">Dark Mode</p></div><button onclick="toggleTheme()" id="pref-darkmode" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-primary"><span class="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white"></span></button></div></div></div>
     <div class="rounded-xl border border-red-200 bg-red-50 p-6"><h3 class="font-semibold text-lg mb-4 text-red-700">Account Actions</h3><div class="flex gap-3"><button onclick="downloadMyData()" class="px-4 py-2 border rounded-lg">Download My Data</button><button onclick="deactivateAccount()" class="px-4 py-2 border border-red-300 text-red-600 rounded-lg">Deactivate Account</button></div></div></div>
   `;
-}
-async function loadUserStats() {
-  try { const res = await api.user.getMyStats(); return res.data || {}; } catch(e) { return {}; }
 }
 async function updateProfile(event) {
   event.preventDefault();
@@ -618,21 +666,53 @@ async function handleCheckOut() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
-// ============ PARENT MESSAGES ============
+// ============ PARENT MESSAGES INBOX ============
 async function loadTeacherMessages() {
   try {
     const res = await api.teacher.getParentConversations();
     const convos = res.data || [];
     const container = document.getElementById('teacher-messages-list');
     const badge = document.getElementById('teacher-message-count-badge');
+    if (!container) return;
     let totalUnread = 0;
     if (!convos.length) { container.innerHTML = '<div class="text-center py-8 text-muted-foreground">No parent messages</div>'; return; }
     container.innerHTML = convos.map(c => {
       totalUnread += c.unreadCount || 0;
-      return `<div class="p-3 border rounded-lg hover:bg-accent cursor-pointer" onclick="openParentConversation('${c.userId}')"><div class="flex justify-between"><div><p class="font-medium">${c.userName}</p><p class="text-xs text-muted-foreground">${c.studentName ? `about ${c.studentName}` : ''}</p><p class="text-sm mt-1">${c.lastMessage?.substring(0,50)}</p></div><div class="text-right"><p class="text-xs">${timeAgo(c.lastMessageTime)}</p>${c.unreadCount ? `<span class="bg-red-500 text-white text-xs rounded-full px-2 py-1">${c.unreadCount}</span>` : ''}</div></div></div>`;
+      return `<div class="p-3 border rounded-lg hover:bg-accent cursor-pointer" onclick="openParentConversation('${c.userId}')"><div class="flex justify-between"><div><p class="font-medium">${escapeHtml(c.userName)}</p><p class="text-xs text-muted-foreground">${c.studentName ? `about ${c.studentName}` : ''}</p><p class="text-sm mt-1">${c.lastMessage?.substring(0,50)}</p></div><div class="text-right"><p class="text-xs">${timeAgo(c.lastMessageTime)}</p>${c.unreadCount ? `<span class="bg-red-500 text-white text-xs rounded-full px-2 py-1">${c.unreadCount}</span>` : ''}</div></div></div>`;
     }).join('');
     if (badge) badge.textContent = totalUnread;
   } catch(e) { console.error(e); }
+}
+
+// ============ UTILITIES ============
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+function getInitials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+}
+function timeAgo(timestamp) {
+  if (!timestamp) return 'N/A';
+  const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+  const intervals = { year: 31536000, month: 2592000, week: 604800, day: 86400, hour: 3600, minute: 60 };
+  for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+    const interval = Math.floor(seconds / secondsInUnit);
+    if (interval >= 1) return `${interval} ${unit}${interval === 1 ? '' : 's'} ago`;
+  }
+  return 'just now';
+}
+function formatDate(dateString) {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function copyToClipboard(text) {
+  if (!text) return;
+  navigator.clipboard.writeText(text);
+  showToast('Copied to clipboard', 'success');
 }
 
 // ============ EXPORTS ============
@@ -660,3 +740,15 @@ window.sendStaffMessage = sendStaffMessage;
 window.openParentConversation = openParentConversation;
 window.sendParentReply = sendParentReply;
 window.closeParentChatModal = closeParentChatModal;
+window.renderTeacherSettings = renderTeacherSettings;
+window.handleChangePassword = handleChangePassword;
+window.renderHelpSection = renderHelpSection;
+window.renderProfileSection = renderProfileSection;
+window.updateProfile = updateProfile;
+window.updatePassword = updatePassword;
+window.togglePreference = togglePreference;
+window.downloadMyData = downloadMyData;
+window.deactivateAccount = deactivateAccount;
+window.addBlackoutDate = addBlackoutDate;
+window.saveDutyPreferences = saveDutyPreferences;
+window.submitSwapRequest = submitSwapRequest;
