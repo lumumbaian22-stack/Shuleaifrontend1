@@ -218,7 +218,7 @@ function renderTeacherDashboard() {
                         <h3 class="font-semibold">Subject Performance</h3>
                     </div>
                     <div class="chart-container h-64">
-                        <canvas id="teacher-subjectChart"></canvas>
+                        <canvas id="teacher-performanceChart"></canvas>
                     </div>
                 </div>
                 <div class="rounded-xl border bg-card p-6">
@@ -226,7 +226,7 @@ function renderTeacherDashboard() {
                         <h3 class="font-semibold">Attendance Trend</h3>
                     </div>
                     <div class="chart-container h-64">
-                        <canvas id="teacher-attendanceChart"></canvas>
+                        <canvas id="teacher-gradeChart"></canvas>
                     </div>
                 </div>
             </div>
