@@ -4,9 +4,12 @@
 function getTeacherRole() {
   const user = getCurrentUser();
   if (!user || user.role !== 'teacher') return 'subject_teacher';
+  // Check if teacher has a class assigned via classId (most reliable)
+  if (user.teacher && user.teacher.classId) return 'class_teacher';
+  if (user.classId) return 'class_teacher';
+  // Fallback to string (legacy)
   if (user.classTeacher) return 'class_teacher';
   if (user.teacher && user.teacher.classTeacher) return 'class_teacher';
-  if (user.teacher && user.teacher.classId) return 'class_teacher';
   return 'subject_teacher';
 }
 
@@ -219,25 +222,62 @@ async function saveAttendance() {
 // ============ MARKS ENTRY ============
 async function renderTeacherMarksEntry() {
   let assignments = [];
+  let teacherInfo = {};
   try {
     const teacher = await api.teacher.getMyAssignments();
     if (teacher.data) {
+      teacherInfo = teacher.data;
       if (teacher.data.classTeacher) assignments.push({ type: 'class', id: teacher.data.classTeacher.id, name: teacher.data.classTeacher.name, subject: 'All Subjects' });
-      for (const sub of teacher.data.subjects) assignments.push({ type: 'subject', id: sub.classId, name: sub.className, subject: sub.subject });
+      for (const sub of (teacher.data.subjects || [])) assignments.push({ type: 'subject', id: sub.classId, name: sub.className, subject: sub.subject });
     }
   } catch(e) { console.error(e); }
   if (!assignments.length) return '<div class="text-center py-12">No classes or subjects assigned</div>';
-  let html = `<div class="space-y-6"><h2 class="text-2xl font-bold">Enter Marks</h2><div class="grid gap-4 md:grid-cols-3">`;
+
+  const currentYear = new Date().getFullYear();
+  const terms = ['Term 1', 'Term 2', 'Term 3'];
+  const years = [currentYear - 1, currentYear, currentYear + 1];
+
+  let html = `
+    <div class="space-y-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">Enter Marks</h2>
+        <div class="flex gap-3">
+          <select id="marks-term" class="rounded-lg border p-2 bg-background">
+            ${terms.map(t => `<option value="${t}" ${t === 'Term 1' ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+          <select id="marks-year" class="rounded-lg border p-2 bg-background">
+            ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="bg-muted/30 p-3 rounded-lg text-sm">
+        <p><span class="font-medium">Teacher:</span> ${escapeHtml(teacherInfo.teacherName || getCurrentUser()?.name)}</p>
+        <p><span class="font-medium">Department:</span> ${escapeHtml(teacherInfo.department || 'N/A')}</p>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3">
+  `;
   for (const a of assignments) {
-    html += `<div class="rounded-xl border bg-card p-5 cursor-pointer hover:shadow-md" onclick="openMarksEntry('${a.subject}', '${a.id}', '${a.name}')"><div class="flex items-center gap-3 mb-3"><div class="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><i data-lucide="book" class="h-6 w-6 text-primary"></i></div><div><p class="font-semibold">${escapeHtml(a.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(a.subject)}</p></div></div><button class="w-full py-2 text-sm bg-primary text-white rounded-lg">Enter Marks</button></div>`;
+    html += `
+      <div class="rounded-xl border bg-card p-5 cursor-pointer hover:shadow-md" onclick="openMarksEntry('${a.subject}', '${a.id}', '${a.name}')">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><i data-lucide="book" class="h-6 w-6 text-primary"></i></div>
+          <div><p class="font-semibold">${escapeHtml(a.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(a.subject)}</p></div>
+        </div>
+        <button class="w-full py-2 text-sm bg-primary text-white rounded-lg">Enter Marks</button>
+      </div>
+    `;
   }
   html += `</div></div>`;
   return html;
 }
 
 let currentMarksClassId = null, currentMarksSubject = null, currentMarksStudents = [];
+let currentMarksTerm = 'Term 1', currentMarksYear = new Date().getFullYear();
 async function openMarksEntry(subject, classId, className) {
-  currentMarksSubject = subject; currentMarksClassId = classId;
+  currentMarksSubject = subject;
+  currentMarksClassId = classId;
+  currentMarksTerm = document.getElementById('marks-term')?.value || 'Term 1';
+  currentMarksYear = document.getElementById('marks-year')?.value || new Date().getFullYear();
   showLoading();
   try {
     const res = await api.teacher.getClassStudents(classId);
@@ -353,9 +393,6 @@ async function saveAllMarks() {
   const assessmentType = document.getElementById('assessment-type')?.value;
   const assessmentName = document.getElementById('assessment-name')?.value;
   const assessmentDate = document.getElementById('assessment-date')?.value;
-  const term = document.getElementById('assessment-term')?.value;
-  const year = parseInt(document.getElementById('assessment-year')?.value);
-  
   if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
   showLoading();
   let saved = 0, failed = 0;
@@ -363,15 +400,15 @@ async function saveAllMarks() {
     const score = parseFloat(document.getElementById(`score-${student.id}`)?.value);
     if (!isNaN(score) && score>=0 && score<=100) {
       try {
-        await api.teacher.enterMarks({ 
-          studentId: student.id, 
-          subject: currentMarksSubject, 
-          assessmentType, 
-          assessmentName, 
-          score, 
+        await api.teacher.enterMarks({
+          studentId: student.id,
+          subject: currentMarksSubject,
+          assessmentType,
+          assessmentName,
+          score,
           date: assessmentDate,
-          term,
-          year
+          term: currentMarksTerm,
+          year: currentMarksYear
         });
         saved++;
       } catch(e) { failed++; }
@@ -379,7 +416,6 @@ async function saveAllMarks() {
   }
   showToast(`Saved ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
   closeMarksEntryModal();
-  if (typeof refreshMyStudents === 'function') refreshMyStudents();
   hideLoading();
 }
 
