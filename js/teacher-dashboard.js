@@ -422,30 +422,53 @@ window.saveDutyPreferences = async function() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 };
 
-// ============ STAFF CHAT (fully functional) ============
+// ============ STAFF CHAT ============
 let currentStaffChatType = 'group';
 let currentStaffChatPartner = null;
-let staffMessagesCache = [];
 
 async function renderStaffChat() {
   const teachers = await loadStaffMembers();
   return `
-    <div class="max-w-6xl mx-auto"><div class="grid grid-cols-4 gap-4 h-[700px]">
-      <div class="col-span-1 rounded-xl border bg-card overflow-hidden flex flex-col">
-        <div class="p-4 border-b"><h3 class="font-semibold">Staff Chat</h3></div>
-        <div class="flex-1 overflow-y-auto p-2">
-          <button onclick="switchStaffChat('group')" class="w-full text-left p-3 rounded-lg hover:bg-accent mb-2" id="staff-chat-group-btn">
-            <div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users"></i></div><div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div></div>
-          </button>
-          <div class="pt-2 mt-2 border-t"><p class="text-xs font-medium px-3 mb-2">TEACHERS</p><div id="staff-list">${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent" data-id="${t.id}"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><span class="font-medium text-blue-700 text-sm">${getInitials(t.name)}</span></div><div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}</div></div>
+    <div class="max-w-6xl mx-auto">
+      <div class="grid grid-cols-4 gap-4 h-[700px]">
+        <div class="col-span-1 rounded-xl border bg-card overflow-hidden flex flex-col">
+          <div class="p-4 border-b"><h3 class="font-semibold">Staff Chat</h3></div>
+          <div class="flex-1 overflow-y-auto p-2">
+            <button onclick="switchStaffChat('group')" class="w-full text-left p-3 rounded-lg hover:bg-accent mb-2">
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users"></i></div>
+                <div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div>
+              </div>
+            </button>
+            <div class="pt-2 mt-2 border-t">
+              <p class="text-xs font-medium px-3 mb-2">TEACHERS</p>
+              <div id="staff-list">
+                ${teachers.map(t => `
+                  <button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent">
+                    <div class="flex items-center gap-3">
+                      <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span class="font-medium text-blue-700 text-sm">${getInitials(t.name)}</span>
+                      </div>
+                      <div><p class="font-medium">${escapeHtml(t.name)}</p></div>
+                    </div>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-span-3 rounded-xl border bg-card flex flex-col">
+          <div class="p-4 border-b"><h3 class="font-semibold" id="staff-chat-title">Staff Room</h3></div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-4" id="staff-chat-messages"></div>
+          <div class="p-4 border-t">
+            <div class="flex gap-2">
+              <input type="text" id="staff-chat-input" placeholder="Type your message..." class="flex-1 rounded-lg border bg-background px-4 py-3">
+              <button onclick="sendStaffMessage()" class="px-6 py-3 bg-primary text-white rounded-lg">Send</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="col-span-3 rounded-xl border bg-card flex flex-col">
-        <div class="p-4 border-b"><h3 class="font-semibold" id="staff-chat-title">Staff Room</h3></div>
-        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="staff-chat-messages"></div>
-        <div class="p-4 border-t"><div class="flex gap-2"><input type="text" id="staff-chat-input" placeholder="Type your message..." class="flex-1 rounded-lg border bg-background px-4 py-3"><button onclick="sendStaffMessage()" class="px-6 py-3 bg-primary text-white rounded-lg">Send</button></div></div>
-      </div>
-    </div></div>
+    </div>
   `;
 }
 
@@ -488,7 +511,7 @@ async function sendStaffMessage() {
     await api.teacher.sendPrivateMessage({ receiverId: currentStaffChatPartner, content });
   }
   input.value = '';
-  await switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+  await switchStaffChat(currentStaffChatType, currentStaffChatPartner, currentStaffChatPartner ? 'Teacher' : '');
 }
 
 
