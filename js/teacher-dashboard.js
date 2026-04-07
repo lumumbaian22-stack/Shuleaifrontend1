@@ -422,53 +422,75 @@ window.saveDutyPreferences = async function() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 };
 
-// ============ STAFF CHAT ============
+// ============ STAFF CHAT (fully functional) ============
+let currentStaffChatType = 'group';
+let currentStaffChatPartner = null;
+let staffMessagesCache = [];
+
 async function renderStaffChat() {
-  let teachers = [];
-  try {
-    const res = await api.teacher.getStaffMembers();
-    teachers = res.data || [];
-  } catch(e) { console.error(e); }
+  const teachers = await loadStaffMembers();
   return `
-    <div class="max-w-6xl mx-auto space-y-6"><div class="grid grid-cols-4 gap-4 h-[700px]">
-      <div class="col-span-1 rounded-xl border bg-card overflow-hidden flex flex-col"><div class="p-4 border-b"><h3 class="font-semibold">Staff Chat</h3></div><div class="flex-1 overflow-y-auto p-2"><div class="space-y-1"><button onclick="switchStaffChat('group')" class="w-full text-left p-3 rounded-lg hover:bg-accent" id="staff-chat-group-btn"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users" class="h-4 w-4 text-primary"></i></div><div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div></div></button><div class="pt-2 mt-2 border-t"><p class="text-xs font-medium text-muted-foreground px-3 mb-2">TEACHERS</p><div id="staff-list">${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}')" class="w-full text-left p-3 rounded-lg hover:bg-accent staff-chat-private-btn" data-id="${t.id}"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><span class="font-medium text-blue-700 text-sm">${getInitials(t.name)}</span></div><div><p class="font-medium">${escapeHtml(t.name)}</p><p class="text-xs text-muted-foreground">${t.role}</p></div></div></button>`).join('')}</div></div></div></div></div>
-      <div class="col-span-3 rounded-xl border bg-card flex flex-col"><div class="p-4 border-b"><h3 class="font-semibold" id="staff-chat-title">Staff Room</h3></div><div class="flex-1 overflow-y-auto p-4 space-y-4" id="staff-chat-messages"></div><div class="p-4 border-t"><div class="flex gap-2"><input type="text" id="staff-chat-input" placeholder="Type your message..." class="flex-1 rounded-lg border bg-background px-4 py-3 text-sm"><button onclick="sendStaffMessage()" class="px-6 py-3 bg-primary text-white rounded-lg">Send</button></div></div></div>
+    <div class="max-w-6xl mx-auto"><div class="grid grid-cols-4 gap-4 h-[700px]">
+      <div class="col-span-1 rounded-xl border bg-card overflow-hidden flex flex-col">
+        <div class="p-4 border-b"><h3 class="font-semibold">Staff Chat</h3></div>
+        <div class="flex-1 overflow-y-auto p-2">
+          <button onclick="switchStaffChat('group')" class="w-full text-left p-3 rounded-lg hover:bg-accent mb-2" id="staff-chat-group-btn">
+            <div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users"></i></div><div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div></div>
+          </button>
+          <div class="pt-2 mt-2 border-t"><p class="text-xs font-medium px-3 mb-2">TEACHERS</p><div id="staff-list">${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent" data-id="${t.id}"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><span class="font-medium text-blue-700 text-sm">${getInitials(t.name)}</span></div><div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}</div></div>
+        </div>
+      </div>
+      <div class="col-span-3 rounded-xl border bg-card flex flex-col">
+        <div class="p-4 border-b"><h3 class="font-semibold" id="staff-chat-title">Staff Room</h3></div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="staff-chat-messages"></div>
+        <div class="p-4 border-t"><div class="flex gap-2"><input type="text" id="staff-chat-input" placeholder="Type your message..." class="flex-1 rounded-lg border bg-background px-4 py-3"><button onclick="sendStaffMessage()" class="px-6 py-3 bg-primary text-white rounded-lg">Send</button></div></div>
+      </div>
     </div></div>
   `;
 }
-let currentStaffChatType = 'group';
-let currentStaffChatPartner = null;
-async function switchStaffChat(type, partnerId = null) {
-  currentStaffChatType = type; currentStaffChatPartner = partnerId;
-  document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with Teacher`;
+
+async function loadStaffMembers() {
+  try { const res = await api.teacher.getStaffMembers(); return res.data || []; } catch(e) { return []; }
+}
+
+async function switchStaffChat(type, partnerId = null, partnerName = '') {
+  currentStaffChatType = type;
+  currentStaffChatPartner = partnerId;
+  document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerName}`;
+  
   let messages = [];
-  try {
-    if (type === 'group') {
-      const res = await api.teacher.getGroupMessages();
-      messages = res.data || [];
-    } else if (partnerId) {
-      const res = await api.teacher.getPrivateMessages(partnerId);
-      messages = res.data || [];
-    }
-  } catch(e) { console.error(e); }
+  if (type === 'group') {
+    try { const res = await api.teacher.getGroupMessages(); messages = res.data || []; } catch(e) { console.error(e); }
+  } else if (partnerId) {
+    try { const res = await api.teacher.getPrivateMessages(partnerId); messages = res.data || []; } catch(e) { console.error(e); }
+  }
   const container = document.getElementById('staff-chat-messages');
-  container.innerHTML = messages.map(msg => `<div class="flex ${msg.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}"><div class="${msg.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${escapeHtml(msg.content)}</p><p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p></div></div>`).join('') || '<div class="text-center text-muted-foreground">No messages yet</div>';
+  const user = getCurrentUser();
+  container.innerHTML = messages.map(msg => `
+    <div class="flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}">
+      <div class="${msg.senderId === user.id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+        ${msg.senderId !== user.id ? `<p class="text-xs font-medium text-muted-foreground">${msg.Sender?.name || 'Unknown'}</p>` : ''}
+        <p class="text-sm">${escapeHtml(msg.content)}</p>
+        <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+      </div>
+    </div>
+  `).join('') || '<div class="text-center text-muted-foreground">No messages yet</div>';
   container.scrollTop = container.scrollHeight;
 }
+
 async function sendStaffMessage() {
   const input = document.getElementById('staff-chat-input');
   const content = input?.value.trim();
   if (!content) return;
-  try {
-    if (currentStaffChatType === 'group') {
-      await api.teacher.sendGroupMessage({ content });
-    } else if (currentStaffChatPartner) {
-      await api.teacher.sendPrivateMessage({ receiverId: currentStaffChatPartner, content });
-    }
-    input.value = '';
-    await switchStaffChat(currentStaffChatType, currentStaffChatPartner);
-  } catch(e) { showToast(e.message, 'error'); }
+  if (currentStaffChatType === 'group') {
+    await api.teacher.sendGroupMessage({ content });
+  } else if (currentStaffChatPartner) {
+    await api.teacher.sendPrivateMessage({ receiverId: currentStaffChatPartner, content });
+  }
+  input.value = '';
+  await switchStaffChat(currentStaffChatType, currentStaffChatPartner);
 }
+
 
 // ============ PARENT CHAT ============
 async function renderParentChat() {
