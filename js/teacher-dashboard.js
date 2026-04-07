@@ -253,13 +253,82 @@ function showMarksEntryModal(className) {
   const modalContent = modal.querySelector('.modal-content');
   const assessmentTypes = ['test', 'exam', 'assignment', 'project', 'quiz'];
   const today = new Date().toISOString().split('T')[0];
+  const currentYear = new Date().getFullYear();
+  const terms = ['Term 1', 'Term 2', 'Term 3'];
+  
   modalContent.innerHTML = `
-    <div class="space-y-4"><div class="border-b pb-3 flex justify-between items-center"><div><h3 class="text-lg font-semibold">Enter Marks</h3><p class="text-sm text-muted-foreground">${escapeHtml(className)} - ${escapeHtml(currentMarksSubject)}</p></div><button onclick="closeMarksEntryModal()" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="x" class="h-5 w-5"></i></button></div>
-    <div class="flex flex-wrap gap-3"><select id="assessment-type" class="rounded-lg border p-2 bg-background">${assessmentTypes.map(t => `<option value="${t}">${t}</option>`).join('')}</select><input type="text" id="assessment-name" placeholder="Assessment Name" class="flex-1 rounded-lg border p-2 bg-background"><input type="date" id="assessment-date" value="${today}" class="rounded-lg border p-2 bg-background"></div>
-    <div class="overflow-x-auto max-h-[55vh] overflow-y-auto border rounded-lg"><table class="w-full text-sm"><thead class="bg-muted/50 sticky top-0"><tr><th class="px-4 py-2 text-left">Student</th><th class="px-4 py-2 text-left">ELIMUID</th><th class="px-4 py-2 text-center w-32">Score (%)</th><th class="px-4 py-2 text-center w-24">Grade</th></tr></thead><tbody class="divide-y">
-    ${currentMarksStudents.map(s => `<tr><td class="px-4 py-2">${escapeHtml(s.User?.name)}</td><td class="px-4 py-2">${s.elimuid}</td><td class="px-4 py-2 text-center"><input type="number" id="score-${s.id}" class="score-input w-24 rounded border px-2 py-1 text-center bg-background" min="0" max="100" step="0.5" onchange="updateGradeDisplayForStudent('${s.id}')"></td><td class="px-4 py-2 text-center"><span id="grade-${s.id}" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full">-</span></td></tr>`).join('')}
-    </tbody></table></div>
-    <div class="flex justify-end gap-3 pt-4 border-t"><button onclick="closeMarksEntryModal()" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="saveAllMarks()" class="px-4 py-2 bg-primary text-white rounded-lg">Save All Marks</button></div></div>`;
+    <div class="space-y-4">
+      <div class="border-b pb-3 flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-semibold">Enter Marks</h3>
+          <p class="text-sm text-muted-foreground">Class: ${escapeHtml(className)} | Subject: ${escapeHtml(currentMarksSubject)}</p>
+          <p class="text-xs text-muted-foreground">Teacher: ${escapeHtml(getCurrentUser()?.name)}</p>
+        </div>
+        <button onclick="closeMarksEntryModal()" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="x" class="h-5 w-5"></i></button>
+      </div>
+      
+      <div class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[150px]">
+          <label class="block text-xs font-medium mb-1">Assessment Type</label>
+          <select id="assessment-type" class="w-full rounded-lg border p-2 bg-background">
+            ${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-xs font-medium mb-1">Assessment Name</label>
+          <input type="text" id="assessment-name" placeholder="e.g., Mid-term Exam, Week 3 Test" class="w-full rounded-lg border p-2 bg-background">
+        </div>
+        <div class="w-[130px]">
+          <label class="block text-xs font-medium mb-1">Term</label>
+          <select id="assessment-term" class="w-full rounded-lg border p-2 bg-background">
+            ${terms.map(t => `<option value="${t}" ${t === 'Term 1' ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="w-[130px]">
+          <label class="block text-xs font-medium mb-1">Year</label>
+          <select id="assessment-year" class="w-full rounded-lg border p-2 bg-background">
+            ${[currentYear - 1, currentYear, currentYear + 1].map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+          </select>
+        </div>
+        <div class="w-[150px]">
+          <label class="block text-xs font-medium mb-1">Date</label>
+          <input type="date" id="assessment-date" value="${today}" class="w-full rounded-lg border p-2 bg-background">
+        </div>
+      </div>
+      
+      <div class="overflow-x-auto max-h-[55vh] overflow-y-auto border rounded-lg">
+        <table class="w-full text-sm">
+          <thead class="bg-muted/50 sticky top-0">
+            <tr>
+              <th class="px-4 py-2 text-left">Student</th>
+              <th class="px-4 py-2 text-left">ELIMUID</th>
+              <th class="px-4 py-2 text-center w-32">Score (%)</th>
+              <th class="px-4 py-2 text-center w-24">Grade</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${currentMarksStudents.map(s => `
+              <tr>
+                <td class="px-4 py-2">${escapeHtml(s.User?.name)}</td>
+                <td class="px-4 py-2">${s.elimuid}</td>
+                <td class="px-4 py-2 text-center">
+                  <input type="number" id="score-${s.id}" class="score-input w-24 rounded border px-2 py-1 text-center bg-background" min="0" max="100" step="0.5" onchange="updateGradeDisplayForStudent('${s.id}')">
+                </td>
+                <td class="px-4 py-2 text-center">
+                  <span id="grade-${s.id}" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full">-</span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="flex justify-end gap-3 pt-4 border-t">
+        <button onclick="closeMarksEntryModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
+        <button onclick="saveAllMarks()" class="px-4 py-2 bg-primary text-white rounded-lg">Save All Marks</button>
+      </div>
+    </div>
+  `;
   modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
@@ -279,10 +348,14 @@ window.updateGradeDisplayForStudent = function(studentId) {
     gradeSpan.className = `px-2 py-1 bg-${color}-100 dark:bg-${color}-900/30 text-${color}-700 dark:text-${color}-400 text-xs rounded-full`;
   } else { gradeSpan.textContent = '-'; gradeSpan.className = 'px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full'; }
 };
+
 async function saveAllMarks() {
   const assessmentType = document.getElementById('assessment-type')?.value;
   const assessmentName = document.getElementById('assessment-name')?.value;
   const assessmentDate = document.getElementById('assessment-date')?.value;
+  const term = document.getElementById('assessment-term')?.value;
+  const year = parseInt(document.getElementById('assessment-year')?.value);
+  
   if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
   showLoading();
   let saved = 0, failed = 0;
@@ -290,14 +363,22 @@ async function saveAllMarks() {
     const score = parseFloat(document.getElementById(`score-${student.id}`)?.value);
     if (!isNaN(score) && score>=0 && score<=100) {
       try {
-        await api.teacher.enterMarks({ studentId: student.id, subject: currentMarksSubject, assessmentType, assessmentName, score, date: assessmentDate });
+        await api.teacher.enterMarks({ 
+          studentId: student.id, 
+          subject: currentMarksSubject, 
+          assessmentType, 
+          assessmentName, 
+          score, 
+          date: assessmentDate,
+          term,
+          year
+        });
         saved++;
       } catch(e) { failed++; }
     }
   }
   showToast(`Saved ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
   closeMarksEntryModal();
-  // Refresh the students list if needed (without calling undefined function)
   if (typeof refreshMyStudents === 'function') refreshMyStudents();
   hideLoading();
 }
