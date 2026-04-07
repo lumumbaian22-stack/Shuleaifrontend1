@@ -366,13 +366,12 @@ const teacherAPI = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    uploadMarksCSV: (formData) => 
-        uploadFile('/api/teacher/upload/marks', formData),
+    uploadMarksCSV: (formData) => uploadFile('/api/teacher/upload/marks', formData),
     getConversations: () => apiRequest('/api/teacher/conversations'),
     getStaffMembers: () => apiRequest('/api/teacher/staff-members'),
     getStaffConversations: () => apiRequest('/api/teacher/chat/conversations'),
     getGroupMessages: () => apiRequest('/api/teacher/chat/group-messages'),
-    getPrivateMessages: (otherUserId) => apiRequest(`/api/teacher/private-messages/${otherUserId}`),
+    getPrivateMessages: (otherUserId) => apiRequest(`/api/teacher/chat/messages/${otherUserId}`),
     sendGroupMessage: (data) => apiRequest('/api/teacher/group-message', { method: 'POST', body: JSON.stringify(data) }),
     sendPrivateMessage: (data) => apiRequest('/api/teacher/private-message', { method: 'POST', body: JSON.stringify(data) }),
     getParentMessages: (parentId) => apiRequest(`/api/teacher/messages/${parentId}`),
@@ -381,15 +380,8 @@ const teacherAPI = {
     getMyAssignments: () => apiRequest('/api/teacher/my-assignments'),
     getParentConversations: () => apiRequest('/api/teacher/conversations'),
     getMessages: (otherUserId) => apiRequest(`/api/teacher/messages/${otherUserId}`),
-    markMessagesAsRead: (otherUserId) => 
-        apiRequest(`/api/teacher/messages/read/${otherUserId}`, { method: 'PUT' }),
-    replyToParent: (data) => 
-        apiRequest('/api/teacher/reply', {
-            method: 'POST',
-            body: JSON.stringify(data)
-        }),
-    deleteStudent: (studentId) => 
-        apiRequest(`/api/teacher/students/${studentId}`, { method: 'DELETE' }),
+    markMessagesAsRead: (otherUserId) => apiRequest(`/api/teacher/messages/read/${otherUserId}`, { method: 'PUT' }),
+    deleteStudent: (studentId) => apiRequest(`/api/teacher/students/${studentId}`, { method: 'DELETE' }),
     getClassStudents: (classId) => apiRequest(`/api/teacher/classes/${classId}/students`),
     getMyClass: () => apiRequest('/api/teacher/my-class'),
     getMySubjects: () => apiRequest('/api/teacher/my-subjects'),
