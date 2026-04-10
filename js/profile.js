@@ -1,4 +1,4 @@
-// profile.js - Profile section (must be exported)
+// profile.js - Profile section with profile picture upload
 
 async function renderProfileSection() {
     const user = getCurrentUser();
@@ -6,15 +6,25 @@ async function renderProfileSection() {
 
     const stats = await loadUserStats(user.role);
 
+    // Profile picture preview URL
+    const profileImageUrl = user.profileImage ? user.profileImage : '';
+
     return `
         <div class="space-y-6 animate-fade-in max-w-4xl mx-auto">
-            <!-- Profile Header -->
+            <!-- Profile Header with Picture Upload -->
             <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
                 <div class="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10"></div>
                 <div class="absolute bottom-0 left-0 -mb-10 -ml-10 h-40 w-40 rounded-full bg-black/10"></div>
                 <div class="relative z-10 flex items-center gap-6">
-                    <div class="h-24 w-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl font-bold border-4 border-white shadow-xl">
-                        ${getInitials(user.name)}
+                    <!-- Profile Picture with Upload -->
+                    <div class="relative">
+                        <div class="h-24 w-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl font-bold border-4 border-white shadow-xl overflow-hidden">
+                            ${profileImageUrl ? `<img src="${profileImageUrl}" alt="Profile" class="h-full w-full object-cover">` : `<span>${getInitials(user.name)}</span>`}
+                        </div>
+                        <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer hover:bg-primary/90 transition-colors">
+                            <i data-lucide="camera" class="h-4 w-4"></i>
+                            <input type="file" id="profile-picture-input" accept="image/*" class="hidden" onchange="uploadProfilePicture(this.files[0])">
+                        </label>
                     </div>
                     <div>
                         <h2 class="text-3xl font-bold">${user.name}</h2>
@@ -42,6 +52,9 @@ async function renderProfileSection() {
                     <p class="text-lg font-semibold text-green-600">${user.isActive ? 'Active' : 'Inactive'}</p>
                 </div>
             </div>
+
+            // ... (rest of the existing content remains exactly the same)
+            // I will now include the full original content after the profile header
 
             <!-- Profile Information Form -->
             <div class="rounded-xl border bg-card p-6">
@@ -305,6 +318,39 @@ async function loadUserStats(role) {
     }
 }
 
+// Profile picture upload function
+async function uploadProfilePicture(file) {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('picture', file);
+    const token = localStorage.getItem('authToken');
+    showLoading();
+    try {
+        const response = await fetch('/api/user/profile-picture', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+            // Update local user data with new profile image URL
+            const user = getCurrentUser();
+            user.profileImage = data.data.profileImage;
+            localStorage.setItem('user', JSON.stringify(user));
+            // Refresh profile section to show updated image
+            await showDashboardSection('profile');
+            showToast('Profile picture updated successfully', 'success');
+        } else {
+            throw new Error(data.message || 'Upload failed');
+        }
+    } catch (error) {
+        console.error('Profile picture upload error:', error);
+        showToast(error.message || 'Failed to upload profile picture', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 // Export
 window.renderProfileSection = renderProfileSection;
 window.updateProfile = updateProfile;
@@ -313,3 +359,4 @@ window.togglePreference = togglePreference;
 window.downloadMyData = downloadMyData;
 window.deactivateAccount = deactivateAccount;
 window.loadUserStats = loadUserStats;
+window.uploadProfilePicture = uploadProfilePicture;
