@@ -616,6 +616,13 @@ window.api = {
     tasks: tasksAPI     // added
 };
 
+async function markAsRead(notificationId) {
+  try {
+    await apiRequest(`/api/alerts/${notificationId}/read`, { method: 'PUT' });
+    await loadNotifications();
+  } catch(e) { console.error(e); }
+}
+
 // Legacy support
 window.apiRequest = apiRequest;
 window.uploadFile = uploadFile;
