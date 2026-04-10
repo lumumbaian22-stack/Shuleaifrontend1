@@ -150,6 +150,24 @@ function viewAllNotifications() {
   if (panel) panel.classList.add('hidden');
 }
 
+async function viewAllNotifications() {
+  await loadNotifications();
+  // Show a modal or a full page with list
+  let modal = document.getElementById('all-notifications-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'all-notifications-modal';
+    modal.className = 'fixed inset-0 z-50 hidden bg-black/50 flex items-center justify-center';
+    modal.innerHTML = `<div class="bg-card rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto p-4"><div class="flex justify-between items-center border-b pb-2"><h3 class="font-bold">All Notifications</h3><button onclick="closeAllNotificationsModal()">✖</button></div><div id="all-notifications-list" class="mt-4 space-y-2"></div></div>`;
+    document.body.appendChild(modal);
+  }
+  const listDiv = document.getElementById('all-notifications-list');
+  listDiv.innerHTML = notifications.map(n => `<div class="p-3 border rounded ${!n.read ? 'bg-primary/5' : ''}"><p class="font-medium">${n.title}</p><p class="text-sm">${n.message}</p><p class="text-xs text-muted-foreground">${timeAgo(n.timestamp)}</p></div>`).join('');
+  modal.classList.remove('hidden');
+}
+window.viewAllNotifications = viewAllNotifications;
+window.closeAllNotificationsModal = () => document.getElementById('all-notifications-modal')?.classList.add('hidden');
+
 // WebSocket integration: listen for real-time alerts
 function initNotificationWebSocket() {
   if (window.socket) {
