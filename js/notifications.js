@@ -7,16 +7,8 @@ let notificationSocket = null;
 // Load notifications from backend
 async function loadNotifications() {
   try {
-    // Assuming there is an endpoint to fetch user's alerts
-    // If not, we'll use a generic endpoint. For now, we'll use the existing Alert model via a new route.
-    // Since no such endpoint exists, we'll create a fallback: listen to WebSocket and store locally.
-    // For production, add GET /api/alerts endpoint.
-    const stored = localStorage.getItem(`notifications_${getCurrentUser()?.id}`);
-    if (stored) {
-      notifications = JSON.parse(stored);
-    } else {
-      notifications = [];
-    }
+    const res = await api.user.getAlerts(); // you'll need to add this to api.js
+    notifications = res.data || [];
     updateUnreadCount();
     renderNotificationsPanel();
     return notifications;
