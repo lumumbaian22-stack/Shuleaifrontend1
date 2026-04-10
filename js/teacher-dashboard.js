@@ -1,5 +1,7 @@
 // teacher-dashboard.js - Complete functional version with dark mode support
 
+let replyingTo = null;
+
 // ============ ROLE DETECTION ============
 function getTeacherRole() {
   const user = getCurrentUser();
