@@ -608,11 +608,13 @@ async function switchStaffChat(type, partnerId = null, partnerName = '') {
   const container = document.getElementById('staff-chat-messages');
   const user = getCurrentUser();
   container.innerHTML = messages.map(msg => `
-    <div class="flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}">
-      <div class="${msg.senderId === user.id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
-        ${msg.senderId !== user.id ? `<p class="text-xs font-medium text-muted-foreground">${msg.Sender?.name || 'Unknown'}</p>` : ''}
+    <div class="flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'} group">
+      <div class="${msg.senderId === user.id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%] relative">
+        ${msg.replyToMessageId ? `<div class="text-xs border-l-2 border-primary pl-2 mb-1 italic text-muted-foreground">Replying to: ${msg.replyToMessageId}</div>` : ''}
+        ${msg.senderId !== user.id ? `<p class="text-xs font-medium text-muted-foreground">${msg.Sender?.name}</p>` : ''}
         <p class="text-sm">${escapeHtml(msg.content)}</p>
         <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+        <button onclick="setReplyTo(${msg.id}, '${escapeHtml(msg.content)}')" class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-primary text-white rounded-full p-1 text-xs">↩️</button>
       </div>
     </div>
   `).join('') || '<div class="text-center text-muted-foreground">No messages yet</div>';
@@ -623,10 +625,15 @@ async function sendStaffMessage() {
   const input = document.getElementById('staff-chat-input');
   const content = input?.value.trim();
   if (!content) return;
+  const data = { content };
+  if (replyingTo) {
+    data.replyToId = replyingTo.id;
+    cancelReply();
+  }
   if (currentStaffChatType === 'group') {
-    await api.teacher.sendGroupMessage({ content });
+    await api.teacher.sendGroupMessage(data);
   } else if (currentStaffChatPartner) {
-    await api.teacher.sendPrivateMessage({ receiverId: currentStaffChatPartner, content });
+    await api.teacher.sendPrivateMessage({ ...data, receiverId: currentStaffChatPartner });
   }
   input.value = '';
   await switchStaffChat(currentStaffChatType, currentStaffChatPartner);
@@ -875,6 +882,25 @@ function copyToClipboard(text) {
   if (!text) return;
   navigator.clipboard.writeText(text);
   showToast('Copied to clipboard', 'success');
+}
+
+function setReplyTo(messageId, contentPreview) {
+  replyingTo = { id: messageId, content: contentPreview };
+  let previewDiv = document.getElementById('reply-preview');
+  if (!previewDiv) {
+    previewDiv = document.createElement('div');
+    previewDiv.id = 'reply-preview';
+    previewDiv.className = 'text-xs bg-muted p-2 rounded-lg mb-2 flex justify-between items-center';
+    const inputContainer = document.getElementById('staff-chat-input').parentElement;
+    inputContainer.insertBefore(previewDiv, inputContainer.firstChild);
+  }
+  previewDiv.innerHTML = `<span>Replying to: ${escapeHtml(contentPreview)}</span><button onclick="cancelReply()" class="text-red-500">✖</button>`;
+}
+
+function cancelReply() {
+  replyingTo = null;
+  const preview = document.getElementById('reply-preview');
+  if (preview) preview.remove();
 }
 
 // ============ EXPORTS ============
