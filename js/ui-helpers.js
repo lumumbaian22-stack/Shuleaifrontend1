@@ -90,6 +90,21 @@ function toggleNotifications() {
     }
 }
 
+let popupInterval = null;
+function startSmartPopups() {
+  if (popupInterval) clearInterval(popupInterval);
+  popupInterval = setInterval(() => {
+    const messages = [
+      "Did you know? You can upload students via CSV!",
+      "Reminder: Duty check-in is available 15 minutes before start.",
+      "Tip: Use the AI Tutor for extra help."
+    ];
+    const random = messages[Math.floor(Math.random() * messages.length)];
+    showToast(random, 'info', 5000);
+  }, 60000); // every minute
+}
+// Call startSmartPopups() after login.
+
 // Add search functionality
 window.searchContent = function() {
     const searchInput = document.getElementById('global-search');
