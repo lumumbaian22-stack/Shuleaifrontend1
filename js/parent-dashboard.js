@@ -234,6 +234,9 @@ async function renderParentDashboard() {
                         </table>
                     </div>
                 </div>
+
+                <div id="home-tasks-container" class="rounded-xl border bg-card p-6">${await renderHomeTasks()}
+                </div>
                 
                 <div class="rounded-xl border bg-card p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -764,33 +767,33 @@ async function upgradePlan(planId) {
     }
 }
 
+// Home Tasks Section
 async function renderHomeTasks() {
   const childId = dashboardData.selectedChildId;
-  if (!childId) return '<div>Select a child first</div>';
-  const tasks = await apiRequest(`/api/home-tasks/today?studentId=${childId}`);
+  if (!childId) return '<div class="text-center py-4">Select a child first</div>';
+  const res = await apiRequest(`/api/home-tasks/today?studentId=${childId}`);
+  const tasks = res.data;
+  if (!tasks.length) return '<div class="text-center py-4">No tasks for today – check back tomorrow!</div>';
   return `
     <div class="space-y-4">
-      <h3 class="font-semibold">Today’s Learning Tasks</h3>
-      ${tasks.data.map(task => `
+      <h3 class="font-semibold text-lg">Today’s Learning Tasks</h3>
+      ${tasks.map(task => `
         <div class="border rounded-lg p-4 bg-card">
-          <div class="flex justify-between">
+          <div class="flex justify-between items-start">
             <div>
               <span class="text-xs px-2 py-1 rounded-full bg-primary/10">${task.type}</span>
-              <h4 class="font-medium mt-1">${task.title}</h4>
-              <p class="text-sm text-muted-foreground mt-1">⏱️ ${task.estimatedMinutes} min</p>
+              <h4 class="font-medium mt-1">${escapeHtml(task.title)}</h4>
+              <p class="text-sm text-muted-foreground mt-1">⏱️ ${task.estimatedMinutes} min | ⭐ ${task.points} points</p>
             </div>
-            <div class="text-right">
-              <span class="text-yellow-500">⭐ ${task.points}</span>
-            </div>
+            <button onclick="toggleTaskInstructions(${task.id})" class="text-primary text-sm">Show</button>
           </div>
-          <button onclick="toggleTaskInstructions(${task.id})" class="text-sm text-primary mt-2">Show instructions</button>
-          <div id="task-instr-${task.id}" class="hidden mt-2 text-sm bg-muted p-2 rounded">
-            <p>${task.instructions}</p>
-            ${task.materials ? `<p class="mt-1 text-xs">📦 Materials: ${task.materials}</p>` : ''}
-            <div class="flex gap-2 mt-2">
-              <button onclick="completeTask(${task.id}, 'easy')" class="px-3 py-1 bg-green-100 rounded">😊 Easy</button>
-              <button onclick="completeTask(${task.id}, 'ok')" class="px-3 py-1 bg-yellow-100 rounded">😐 Okay</button>
-              <button onclick="completeTask(${task.id}, 'hard')" class="px-3 py-1 bg-red-100 rounded">😓 Hard</button>
+          <div id="task-instr-${task.id}" class="hidden mt-2 text-sm bg-muted p-3 rounded">
+            <p>${escapeHtml(task.instructions)}</p>
+            ${task.materials ? `<p class="mt-1 text-xs">📦 Materials: ${escapeHtml(task.materials)}</p>` : ''}
+            <div class="flex gap-2 mt-3">
+              <button onclick="completeTask(${task.id}, 'easy')" class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">😊 Easy</button>
+              <button onclick="completeTask(${task.id}, 'ok')" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">😐 Okay</button>
+              <button onclick="completeTask(${task.id}, 'hard')" class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">😓 Hard</button>
             </div>
           </div>
         </div>
@@ -798,6 +801,25 @@ async function renderHomeTasks() {
     </div>
   `;
 }
+window.toggleTaskInstructions = function(taskId) {
+  const el = document.getElementById(`task-instr-${taskId}`);
+  if (el) el.classList.toggle('hidden');
+};
+window.completeTask = async function(taskId, difficulty) {
+  try {
+    await apiRequest(`/api/home-tasks/${taskId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ parentFeedback: { difficulty } })
+    });
+    showToast('Task completed! Points awarded.', 'success');
+    // Refresh the tasks section
+    const container = document.getElementById('home-tasks-container');
+    if (container) container.innerHTML = await renderHomeTasks();
+    if (window.lucide) lucide.createIcons();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+};
 
 async function showStudentDetails(studentId) {
   const student = await apiRequest(`/api/admin/students/${studentId}`);
