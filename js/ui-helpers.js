@@ -61,9 +61,29 @@ function toggleSwitch(btn) {
 }
 
 function toggleTheme() {
-    document.documentElement.classList.toggle('dark');
-    localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    if (typeof updateChartTheme === 'function') updateChartTheme();
+  const isDark = document.documentElement.classList.contains('dark');
+  if (isDark) {
+    document.documentElement.classList.remove('dark');
+  } else {
+    document.documentElement.classList.add('dark');
+  }
+  // Update the dark mode toggle button UI if it exists
+  const darkModeBtn = document.getElementById('pref-darkmode');
+  if (darkModeBtn) {
+    const newDarkMode = document.documentElement.classList.contains('dark');
+    if (newDarkMode) {
+      darkModeBtn.classList.remove('bg-muted');
+      darkModeBtn.classList.add('bg-primary');
+      darkModeBtn.querySelector('span').classList.remove('translate-x-1');
+      darkModeBtn.querySelector('span').classList.add('translate-x-6');
+    } else {
+      darkModeBtn.classList.remove('bg-primary');
+      darkModeBtn.classList.add('bg-muted');
+      darkModeBtn.querySelector('span').classList.remove('translate-x-6');
+      darkModeBtn.querySelector('span').classList.add('translate-x-1');
+    }
+  }
+  if (typeof updateChartTheme === 'function') updateChartTheme();
 }
 
 function toggleMobileSidebar() {
