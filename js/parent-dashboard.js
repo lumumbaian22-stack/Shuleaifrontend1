@@ -764,6 +764,48 @@ async function upgradePlan(planId) {
     }
 }
 
+async function renderHomeTasks() {
+  const childId = dashboardData.selectedChildId;
+  if (!childId) return '<div>Select a child first</div>';
+  const tasks = await apiRequest(`/api/home-tasks/today?studentId=${childId}`);
+  return `
+    <div class="space-y-4">
+      <h3 class="font-semibold">Today’s Learning Tasks</h3>
+      ${tasks.data.map(task => `
+        <div class="border rounded-lg p-4 bg-card">
+          <div class="flex justify-between">
+            <div>
+              <span class="text-xs px-2 py-1 rounded-full bg-primary/10">${task.type}</span>
+              <h4 class="font-medium mt-1">${task.title}</h4>
+              <p class="text-sm text-muted-foreground mt-1">⏱️ ${task.estimatedMinutes} min</p>
+            </div>
+            <div class="text-right">
+              <span class="text-yellow-500">⭐ ${task.points}</span>
+            </div>
+          </div>
+          <button onclick="toggleTaskInstructions(${task.id})" class="text-sm text-primary mt-2">Show instructions</button>
+          <div id="task-instr-${task.id}" class="hidden mt-2 text-sm bg-muted p-2 rounded">
+            <p>${task.instructions}</p>
+            ${task.materials ? `<p class="mt-1 text-xs">📦 Materials: ${task.materials}</p>` : ''}
+            <div class="flex gap-2 mt-2">
+              <button onclick="completeTask(${task.id}, 'easy')" class="px-3 py-1 bg-green-100 rounded">😊 Easy</button>
+              <button onclick="completeTask(${task.id}, 'ok')" class="px-3 py-1 bg-yellow-100 rounded">😐 Okay</button>
+              <button onclick="completeTask(${task.id}, 'hard')" class="px-3 py-1 bg-red-100 rounded">😓 Hard</button>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function showStudentDetails(studentId) {
+  const student = await apiRequest(`/api/admin/students/${studentId}`);
+  const analytics = await apiRequest(`/api/analytics/student/${studentId}`);
+  // Show modal with grades chart, attendance, competency, report absence button
+  // Use Chart.js to render line chart for grades over time
+}
+
 async function sendParentMessage() {
     const selectedChildId = dashboardData?.selectedChildId;
 
