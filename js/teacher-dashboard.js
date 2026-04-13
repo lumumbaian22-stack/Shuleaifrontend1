@@ -185,6 +185,7 @@ function renderStudentsTable(students) {
   return `
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
+        <button onclick="showStudentDetails('${student.id}')" class="p-1 hover:bg-accent rounded">Details</button>
         <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-left">Grade</th><th class="px-4 py-3 text-center">Attendance</th><th class="px-4 py-3 text-center">Average</th><th class="px-4 py-3 text-right">Actions</th></tr></thead>
         <tbody class="divide-y">${students.map(s => `<tr class="hover:bg-accent/50"><td class="px-4 py-3">${escapeHtml(s.User?.name)}</td><td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${s.elimuid}</span></td><td class="px-4 py-3">${s.grade}</td><td class="px-4 py-3 text-center">${s.attendance || 95}%</td><td class="px-4 py-3 text-center">${s.average || 0}%</td><td class="px-4 py-3 text-right"><button onclick="viewStudentDetails('${s.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button><button onclick="copyToClipboard('${s.elimuid}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button></td></tr>`).join('')}</tbody>
       </table>
@@ -533,6 +534,52 @@ async function deleteTask(taskId) {
     await showDashboardSection('tasks');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
+
+// Student detail modal
+async function showStudentDetails(studentId) {
+  try {
+    const student = await apiRequest(`/api/admin/students/${studentId}`);
+    const analytics = await apiRequest(`/api/analytics/student/${studentId}`);
+    // Build modal HTML with grades chart, attendance, competency, report absence button
+    const modalHtml = `
+      <div class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h3 class="text-xl font-bold">${escapeHtml(student.data.User.name)}</h3>
+          <button onclick="closeStudentModal()" class="text-muted-foreground">✖</button>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><span class="font-medium">ELIMUID:</span> ${student.data.elimuid}</div>
+          <div><span class="font-medium">Grade:</span> ${student.data.grade}</div>
+        </div>
+        <div class="border-t pt-2">
+          <h4 class="font-semibold">Performance Trend</h4>
+          <canvas id="student-grade-chart" height="200"></canvas>
+        </div>
+        <div class="border-t pt-2">
+          <h4 class="font-semibold">Attendance</h4>
+          <div id="student-attendance-calendar"></div>
+        </div>
+        <div class="border-t pt-2">
+          <h4 class="font-semibold">Competency Progress</h4>
+          <div id="student-competency-radar"></div>
+        </div>
+        <button onclick="reportAbsenceForStudent(${studentId})" class="w-full bg-red-500 text-white py-2 rounded">Report Absence</button>
+      </div>
+    `;
+    showModal('Student Details', modalHtml);
+    // Initialize charts with analytics data
+    new Chart(document.getElementById('student-grade-chart'), {
+      type: 'line',
+      data: { labels: analytics.data.records.map(r => r.date), datasets: [{ label: 'Score', data: analytics.data.records.map(r => r.score) }] }
+    });
+  } catch(e) { showToast(e.message, 'error'); }
+}
+window.reportAbsenceForStudent = async function(studentId) {
+  const reason = prompt('Reason for absence:');
+  if (!reason) return;
+  await apiRequest('/api/parent/report-absence', { method: 'POST', body: JSON.stringify({ studentId, date: new Date().toISOString().split('T')[0], reason }) });
+  showToast('Absence reported to parent', 'success');
+};
 
 // ============ DUTY MANAGEMENT ============
 async function renderTeacherDuty() {
