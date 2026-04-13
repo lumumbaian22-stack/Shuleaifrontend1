@@ -6,15 +6,40 @@ async function renderParentSection(section) {
             return await renderParentDashboard();
         case 'progress':
             return await renderParentProgress();
+        case 'competency':
+            return await renderParentCompetency();    
         case 'payments':
             return await renderParentPayments();
         case 'chat':
             return await renderParentChat();
         case 'settings':
-            return renderUserSettings('parent');
+            return await renderProfileSection();
         default:
             return await renderParentDashboard();
     }
+}
+
+async function renderParentCompetency() {
+  const selectedChildId = dashboardData.selectedChildId;
+  const progress = await apiRequest(`/api/cbe/student-progress/${selectedChildId}`);
+  // Group by competency
+  const compMap = {};
+  progress.data.forEach(p => {
+    const comp = p.LearningOutcome.Competency;
+    if (!compMap[comp.id]) compMap[comp.id] = { name: comp.name, levels: [] };
+    compMap[comp.id].levels.push(p.level);
+  });
+  const chartData = Object.values(compMap).map(comp => ({
+    competency: comp.name,
+    averageLevel: comp.levels.reduce((sum, l) => sum + (l === 'EE' ? 4 : l === 'ME' ? 3 : l === 'AE' ? 2 : 1), 0) / comp.levels.length
+  }));
+  // Render a bar chart (you can use Chart.js)
+  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Competency Progress</h2><canvas id="parent-competency-chart" height="300"></canvas><script>
+    new Chart(document.getElementById('parent-competency-chart'), {
+      type: 'bar',
+      data: { labels: ${JSON.stringify(chartData.map(c => c.competency))}, datasets: [{ label: 'Average Level (1-4)', data: ${JSON.stringify(chartData.map(c => c.averageLevel))}, backgroundColor: '#3b82f6' }] }
+    });
+  </script></div>`;
 }
 
 async function renderParentDashboard() {
@@ -520,7 +545,8 @@ async function renderParentChat() {
                           (dashboardData?.children && dashboardData.children[0]?.User);
     const childName = selectedChild?.name || 'your child';
     const classTeacher = dashboardData?.selectedChild?.classTeacher;
-    const messages = JSON.parse(localStorage.getItem('parent_messages') || '[]');
+    const conversations = await api.parent.getConversations();
+    const messages = conversations.data?.[0]?.messages || [];
 
     return `
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
