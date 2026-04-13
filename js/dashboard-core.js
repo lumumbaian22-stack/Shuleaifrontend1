@@ -29,6 +29,7 @@ async function loadSchoolSettings() {
             const response = await api.admin.getSchoolSettings();
             if (response && response.success && response.data) {
                 window.schoolSettings.schoolName = response.data.name;
+                 window.schoolSettings.curriculum = response.data.system;
                 window.customSubjects = response.data.settings?.customSubjects || [];
                 localStorage.setItem('schoolSettings', JSON.stringify(response.data));
                 console.log('✅ School settings loaded from API');
