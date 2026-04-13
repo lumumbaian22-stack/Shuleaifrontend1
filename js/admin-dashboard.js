@@ -862,7 +862,7 @@ window.saveAllSettings = async function() {
     if (!schoolName) { showToast('School name is required', 'error'); return; }
     showLoading();
     try {
-        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, schoolLevel, customSubjects: customSubjects || [] });
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, schoolLevel, customSubjects });;
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];
