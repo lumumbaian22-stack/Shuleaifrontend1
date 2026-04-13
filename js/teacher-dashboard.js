@@ -51,6 +51,7 @@ async function renderTeacherSection(section) {
   try {
     switch(section) {
       case 'dashboard': return await renderTeacherDashboard();
+      case 'competency': return await renderTeacherCompetency();
       case 'students': return isClassTeacher() ? await renderTeacherStudents() : '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><p>Only Class Teachers can manage students.</p></div>';
       case 'attendance': return await renderTeacherAttendance();
       case 'grades': return await renderTeacherMarksEntry();
@@ -219,6 +220,61 @@ async function saveAttendance() {
     for (const data of attendanceData) await api.teacher.takeAttendance(data);
     showToast('Attendance saved', 'success');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+async function renderTeacherCompetency() {
+  const [heatmapData, belowExpectation, insights] = await Promise.all([
+    apiRequest('/api/cbe/class-heatmap'),
+    apiRequest('/api/cbe/below-expectation'),
+    apiRequest('/api/cbe/auto-insights')
+  ]);
+  return `
+    <div class="space-y-6">
+      <h2 class="text-2xl font-bold">Competency Dashboard</h2>
+      <div class="grid gap-4 lg:grid-cols-2">
+        <!-- Heatmap -->
+        <div class="rounded-xl border bg-card p-4 overflow-x-auto">
+          <h3 class="font-semibold mb-3">Class Competency Heatmap</h3>
+          <table class="text-sm min-w-[500px]">
+            <thead><tr><th>Student</th>${heatmapData.data.outcomes.map(o => `<th class="px-2">${o.code}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${heatmapData.data.heatmap.map(row => `
+                <tr>
+                  <td class="font-medium">${row.studentName}</td>
+                  ${row.outcomes.map(out => `<td class="text-center px-2 ${getLevelColor(out.level)}">${out.level}</td>`).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <!-- Below Expectation List -->
+        <div class="rounded-xl border bg-card p-4">
+          <h3 class="font-semibold mb-3">Students Below Expectation</h3>
+          ${belowExpectation.data.map(s => `
+            <div class="border-b py-2">
+              <p class="font-medium">${s.studentName}</p>
+              <ul class="text-sm text-muted-foreground">
+                ${s.weakAreas.map(w => `<li>⚠️ ${w.competency} – ${w.outcome.substring(0,50)} (${w.level})</li>`).join('')}
+              </ul>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <!-- Auto Insights -->
+      <div class="rounded-xl border bg-card p-4">
+        <h3 class="font-semibold mb-2">Auto Insights</h3>
+        <ul class="space-y-1">
+          ${insights.data.map(i => `<li class="text-sm">🔍 ${i.message}</li>`).join('')}
+        </ul>
+      </div>
+    </div>
+  `;
+}
+function getLevelColor(level) {
+  if (level === 'EE') return 'bg-green-100 text-green-800';
+  if (level === 'ME') return 'bg-blue-100 text-blue-800';
+  if (level === 'AE') return 'bg-yellow-100 text-yellow-800';
+  return 'bg-red-100 text-red-800';
 }
 
 // ============ MARKS ENTRY ============
@@ -731,15 +787,93 @@ window.showHelpArticleDetail = function(title, content) {
 // ============ PROFILE SECTION ============
 async function renderProfileSection() {
   const user = getCurrentUser();
+  const emailPref = user.preferences?.email !== false;
+  const pushPref = user.preferences?.push !== false;
+  const darkModePref = document.documentElement.classList.contains('dark');
+
   return `
-    <div class="space-y-6 max-w-4xl mx-auto"><div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white"><div class="flex items-center gap-6"><div class="h-24 w-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl font-bold">${getInitials(user.name)}</div><div><h2 class="text-3xl font-bold">${user.name}</h2><p class="text-white/80 capitalize">${user.role}</p></div></div></div>
-    <div class="grid gap-4 md:grid-cols-3"><div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Member Since</p><p class="text-lg font-semibold">${formatDate(user.createdAt)}</p></div><div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Last Login</p><p class="text-lg font-semibold">${user.lastLogin ? timeAgo(user.lastLogin) : 'N/A'}</p></div><div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Account Status</p><p class="text-lg font-semibold text-green-600">Active</p></div></div>
-    <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold text-lg mb-4">Profile Information</h3><form id="profile-form" onsubmit="updateProfile(event)" class="space-y-4"><div class="grid gap-4 md:grid-cols-2"><div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" name="name" value="${user.name}" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text-sm font-medium mb-1">Email</label><input type="email" name="email" value="${user.email || ''}" class="w-full rounded-lg border p-2 bg-background"></div></div><div><label class="block text-sm font-medium mb-1">Phone</label><input type="tel" name="phone" value="${user.phone || ''}" class="w-full rounded-lg border p-2 bg-background"></div><div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Profile</button></div></form></div>
-    <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold text-lg mb-4">Change Password</h3><form id="password-form" onsubmit="updatePassword(event)" class="space-y-4"><div><label class="block text-sm font-medium mb-1">Current Password</label><input type="password" id="current-password" required class="w-full rounded-lg border p-2 bg-background"></div><div class="grid gap-4 md:grid-cols-2"><div><label class="block text-sm font-medium mb-1">New Password</label><input type="password" id="new-password" required minlength="8" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text-sm font-medium mb-1">Confirm Password</label><input type="password" id="confirm-password" required class="w-full rounded-lg border p-2 bg-background"></div></div><div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Password</button></div></form></div>
-    <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold text-lg mb-4">Preferences</h3><div class="space-y-4"><div class="flex justify-between items-center"><div><p class="font-medium">Email Notifications</p></div><button onclick="togglePreference('email')" id="pref-email" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-primary"><span class="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white"></span></button></div><div class="flex justify-between items-center"><div><p class="font-medium">Push Notifications</p></div><button onclick="togglePreference('push')" id="pref-push" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-primary"><span class="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white"></span></button></div><div class="flex justify-between items-center"><div><p class="font-medium">Dark Mode</p></div><button onclick="toggleTheme()" id="pref-darkmode" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-primary"><span class="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white"></span></button></div></div></div>
-    <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6"><h3 class="font-semibold text-lg mb-4 text-red-700 dark:text-red-400">Account Actions</h3><div class="flex gap-3"><button onclick="downloadMyData()" class="px-4 py-2 border rounded-lg">Download My Data</button><button onclick="deactivateAccount()" class="px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg">Deactivate Account</button></div></div></div>
+    <div class="space-y-6 max-w-4xl mx-auto">
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
+        <div class="flex items-center gap-6">
+          <div class="relative">
+            <img id="profile-preview" src="${user.profileImage || ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
+            <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer">
+              <i data-lucide="camera" class="h-4 w-4"></i>
+              <input type="file" id="profile-picture-input" accept="image/*" class="hidden" onchange="uploadProfilePicture(this.files[0])">
+            </label>
+          </div>
+          <div>
+            <h2 class="text-3xl font-bold">${user.name}</h2>
+            <p class="text-white/80 capitalize">${user.role}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Member Since</p><p class="text-lg font-semibold">${formatDate(user.createdAt)}</p></div>
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Last Login</p><p class="text-lg font-semibold">${user.lastLogin ? timeAgo(user.lastLogin) : 'N/A'}</p></div>
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Account Status</p><p class="text-lg font-semibold text-green-600">Active</p></div>
+      </div>
+
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Profile Information</h3>
+        <form id="profile-form" onsubmit="updateProfile(event)" class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" name="name" value="${user.name}" class="w-full rounded-lg border p-2 bg-background"></div>
+            <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" name="email" value="${user.email || ''}" class="w-full rounded-lg border p-2 bg-background"></div>
+          </div>
+          <div><label class="block text-sm font-medium mb-1">Phone</label><input type="tel" name="phone" value="${user.phone || ''}" class="w-full rounded-lg border p-2 bg-background"></div>
+          <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Profile</button></div>
+        </form>
+      </div>
+
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Change Password</h3>
+        <form id="password-form" onsubmit="updatePassword(event)" class="space-y-4">
+          <div><label class="block text-sm font-medium mb-1">Current Password</label><input type="password" id="current-password" required class="w-full rounded-lg border p-2 bg-background"></div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div><label class="block text-sm font-medium mb-1">New Password</label><input type="password" id="new-password" required minlength="8" class="w-full rounded-lg border p-2 bg-background"></div>
+            <div><label class="block text-sm font-medium mb-1">Confirm Password</label><input type="password" id="confirm-password" required class="w-full rounded-lg border p-2 bg-background"></div>
+          </div>
+          <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Password</button></div>
+        </form>
+      </div>
+
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Preferences</h3>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <div><p class="font-medium">Email Notifications</p></div>
+            <button onclick="togglePreference('email')" id="pref-email" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPref ? 'bg-primary' : 'bg-muted'}">
+              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailPref ? 'translate-x-6' : 'translate-x-1'}"></span>
+            </button>
+          </div>
+          <div class="flex justify-between items-center">
+            <div><p class="font-medium">Push Notifications</p></div>
+            <button onclick="togglePreference('push')" id="pref-push" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushPref ? 'bg-primary' : 'bg-muted'}">
+              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushPref ? 'translate-x-6' : 'translate-x-1'}"></span>
+            </button>
+          </div>
+          <div class="flex justify-between items-center">
+            <div><p class="font-medium">Dark Mode</p></div>
+            <button onclick="toggleTheme()" id="pref-darkmode" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${darkModePref ? 'bg-primary' : 'bg-muted'}">
+              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkModePref ? 'translate-x-6' : 'translate-x-1'}"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
+        <h3 class="font-semibold text-lg mb-4 text-red-700 dark:text-red-400">Account Actions</h3>
+        <div class="flex gap-3">
+          <button onclick="downloadMyData()" class="px-4 py-2 border rounded-lg">Download My Data</button>
+          <button onclick="deactivateAccount()" class="px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg">Deactivate Account</button>
+        </div>
+      </div>
+    </div>
   `;
 }
+
 async function updateProfile(event) {
   event.preventDefault();
   const formData = new FormData(event.target);
@@ -778,6 +912,22 @@ async function togglePreference(key) {
     await api.user.updatePreferences(prefs);
     user.preferences = prefs;
     localStorage.setItem('user', JSON.stringify(user));
+    // Update the toggle button UI
+    const btn = document.getElementById(`pref-${key}`);
+    if (btn) {
+      const isOn = prefs[key];
+      if (isOn) {
+        btn.classList.remove('bg-muted');
+        btn.classList.add('bg-primary');
+        btn.querySelector('span').classList.remove('translate-x-1');
+        btn.querySelector('span').classList.add('translate-x-6');
+      } else {
+        btn.classList.remove('bg-primary');
+        btn.classList.add('bg-muted');
+        btn.querySelector('span').classList.remove('translate-x-6');
+        btn.querySelector('span').classList.add('translate-x-1');
+      }
+    }
     showToast('Preference updated', 'success');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
@@ -801,6 +951,35 @@ async function deactivateAccount() {
     showToast('Account deactivated. Logging out...', 'info');
     setTimeout(() => logout(), 2000);
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+async function uploadProfilePicture(file) {
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('picture', file);
+  showLoading();
+  try {
+    const response = await fetch('/api/user/profile-picture', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      body: formData
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('profile-preview').src = data.data.profileImage;
+      // Update local user object
+      const user = getCurrentUser();
+      user.profileImage = data.data.profileImage;
+      localStorage.setItem('user', JSON.stringify(user));
+      showToast('Profile picture updated', 'success');
+    } else {
+      throw new Error(data.message);
+    }
+  } catch (error) {
+    showToast(error.message || 'Upload failed', 'error');
+  } finally {
+    hideLoading();
+  }
 }
 
 // ============ DUTY CARD HELPERS ============
@@ -935,6 +1114,7 @@ window.renderProfileSection = renderProfileSection;
 window.updateProfile = updateProfile;
 window.updatePassword = updatePassword;
 window.togglePreference = togglePreference;
+window.uploadProfilePicture = uploadProfilePicture;
 window.downloadMyData = downloadMyData;
 window.deactivateAccount = deactivateAccount;
 window.addBlackoutDate = addBlackoutDate;
