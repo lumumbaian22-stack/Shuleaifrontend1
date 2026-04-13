@@ -772,8 +772,8 @@ async function renderAdminTeacherWorkload() {
 }
 
 function renderAdminSettings() {
-    const curriculum = schoolSettings.curriculum || 'cbc';
-    const schoolLevel = schoolSettings.schoolLevel || 'secondary';
+    const curriculum = schoolSettings.curriculum || schoolSettings.system || 'cbc';
+    const schoolLevel = schoolSettings.settings?.schoolLevel || 'secondary';
     const curriculumInfo = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) ? window.CURRICULUMS[curriculum] : { subjects: { secondary: [] } };
     const levelInfo = curriculumInfo?.levels[schoolLevel] || [];
     const subjectInfo = curriculumInfo?.subjects[schoolLevel] || [];
