@@ -862,11 +862,22 @@ window.saveAllSettings = async function() {
     if (!schoolName) { showToast('School name is required', 'error'); return; }
     showLoading();
     try {
-        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, schoolLevel, customSubjects });;
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, schoolLevel, customSubjects: customSubjects || [] });
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];
             localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            
+            // === ADD THIS BLOCK ===
+            const freshSettings = await api.admin.getSchoolSettings();
+            if (freshSettings && freshSettings.success) {
+                window.schoolSettings = freshSettings.data;
+                window.schoolSettings.curriculum = freshSettings.data.system;
+                window.customSubjects = freshSettings.data.settings?.customSubjects || [];
+                localStorage.setItem('schoolSettings', JSON.stringify(freshSettings.data));
+            }
+            // === END ADD ===
+            
             const school = JSON.parse(localStorage.getItem('school') || '{}');
             school.name = schoolName;
             school.system = curriculum;
@@ -881,7 +892,9 @@ window.saveAllSettings = async function() {
     } catch (error) {
         console.error('Save error:', error);
         showToast(error.message || 'Failed to save settings', 'error');
-    } finally { hideLoading(); }
+    } finally {
+        hideLoading();
+    }
 };
 
 // ============ HELP SECTION ============
