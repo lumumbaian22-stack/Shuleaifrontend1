@@ -246,54 +246,23 @@ async function renderStudentAttendance() {
     }
 }
 
-function renderStudentChat() {
-    const school = getCurrentSchool();
-    return `
-        <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold">Study Groups</h2>
-                <div class="text-sm text-muted-foreground">
-                    ${school?.name || 'Your School'}
-                </div>
-            </div>
-            <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
-                <div class="flex justify-between items-center mb-4 pb-2 border-b">
-                    <div class="flex items-center gap-3">
-                        <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
-                            <i data-lucide="message-circle" class="h-5 w-5 text-white"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold">Grade 10 Math Study Group</h3>
-                            <p class="text-xs text-muted-foreground">5 members online</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="chat-messages-container">
-                    <div class="flex justify-start">
-                        <div class="chat-bubble-received max-w-[70%]">
-                            <p class="text-sm font-medium">Alex</p>
-                            <p class="text-sm">Can anyone help with quadratic equations?</p>
-                            <p class="text-xs text-muted-foreground mt-1">2 min ago</p>
-                        </div>
-                    </div>
-                    <div class="flex justify-end">
-                        <div class="chat-bubble-sent max-w-[70%]">
-                            <p class="text-sm font-medium">You</p>
-                            <p class="text-sm">Sure! Use the formula x = [-b ± √(b²-4ac)]/2a</p>
-                            <p class="text-xs text-muted-foreground mt-1">1 min ago</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <input type="text" id="chat-message-input" placeholder="Type a message..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                    <button onclick="sendStudentMessage()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
-                        <i data-lucide="send" class="h-4 w-4"></i>
-                        Send
-                    </button>
-                </div>
-            </div>
+async function renderStudentChat() {
+  const messages = await apiRequest('/api/student/group-messages');
+  return `
+    <div class="h-96 overflow-y-auto border rounded p-4" id="student-chat-messages">
+      ${messages.data.map(msg => `
+        <div class="mb-3">
+          <strong>${msg.Sender.name}:</strong> ${msg.content}
+          ${msg.replyToMessageId ? `<div class="text-xs text-muted-foreground">↩️ Replying to a message</div>` : ''}
+          <button onclick="replyToMessage(${msg.id})" class="text-xs text-primary ml-2">Reply</button>
         </div>
-    `;
+      `).join('')}
+    </div>
+    <div class="mt-3 flex gap-2">
+      <input type="text" id="chat-input" class="flex-1 border rounded p-2" placeholder="Type a message...">
+      <button onclick="sendStudentMessage()" class="bg-primary text-white px-4 py-2 rounded">Send</button>
+    </div>
+  `;
 }
 
 function renderStudentAITutor() {
