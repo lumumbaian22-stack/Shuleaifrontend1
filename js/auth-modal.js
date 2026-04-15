@@ -15,7 +15,6 @@ function openAuthModal(role, mode) {
 }
 
 function getAuthForm(role, mode) {
-    // Logo HTML that appears at the top of EVERY auth form
     const logoHtml = `
         <div class="flex justify-center mb-6">
             <img src="assets/logo-light.png" alt="Logo" class="h-16 w-16 object-contain block dark:hidden">
@@ -57,6 +56,7 @@ function getAuthForm(role, mode) {
             </div>
         `;
     } else {
+        // Signup forms with Terms & Privacy checkboxes
         if (role === 'admin') {
             return logoHtml + `
                 <div class="space-y-4">
@@ -103,6 +103,13 @@ function getAuthForm(role, mode) {
                             Your school will be pending approval. You'll receive a short code for teachers to use.
                         </p>
                     </div>
+                    <div class="flex items-start gap-2 mt-4">
+                        <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
+                        <label for="auth-terms" class="text-xs text-muted-foreground">
+                            I agree to the <a href="#" onclick="showTerms()" class="text-primary hover:underline">Terms of Service</a> and 
+                            <a href="#" onclick="showPrivacy()" class="text-primary hover:underline">Privacy Policy</a>.
+                        </label>
+                    </div>
                 </div>
             `;
         } else if (role === 'teacher') {
@@ -142,6 +149,13 @@ function getAuthForm(role, mode) {
                         <label class="block text-sm font-medium mb-1">Password</label>
                         <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
+                    <div class="flex items-start gap-2 mt-4">
+                        <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
+                        <label for="auth-terms" class="text-xs text-muted-foreground">
+                            I agree to the <a href="#" onclick="showTerms()" class="text-primary hover:underline">Terms of Service</a> and 
+                            <a href="#" onclick="showPrivacy()" class="text-primary hover:underline">Privacy Policy</a>.
+                        </label>
+                    </div>
                 </div>
             `;
         } else if (role === 'parent') {
@@ -167,6 +181,13 @@ function getAuthForm(role, mode) {
                         <label class="block text-sm font-medium mb-1">Password</label>
                         <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
+                    <div class="flex items-start gap-2 mt-4">
+                        <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
+                        <label for="auth-terms" class="text-xs text-muted-foreground">
+                            I agree to the <a href="#" onclick="showTerms()" class="text-primary hover:underline">Terms of Service</a> and 
+                            <a href="#" onclick="showPrivacy()" class="text-primary hover:underline">Privacy Policy</a>.
+                        </label>
+                    </div>
                 </div>
             `;
         }
@@ -174,7 +195,6 @@ function getAuthForm(role, mode) {
     return '';
 }
 
-// The rest of your functions remain the same...
 async function verifySchoolCodeInput() {
     const code = document.getElementById('auth-school-code')?.value;
     if (!code) {
@@ -258,6 +278,14 @@ async function handleAuthSubmit() {
             closeAuthModal();
 
         } else {
+            // Signup flows
+            const termsChecked = document.getElementById('auth-terms')?.checked;
+            if (!termsChecked) {
+                showToast('You must accept the Terms of Service and Privacy Policy', 'error');
+                hideLoading();
+                return;
+            }
+
             if (role === 'admin') {
                 const adminData = {
                     name: document.getElementById('auth-name')?.value,
@@ -276,6 +304,8 @@ async function handleAuthSubmit() {
                 }
 
                 const response = await adminSignup(adminData);
+                // Record consent
+                await api.consent.accept(true, true);
                 showToast(response.message, 'success');
 
                 if (response.data) {
@@ -312,6 +342,7 @@ async function handleAuthSubmit() {
                 }
 
                 const response = await teacherSignup(teacherData);
+                await api.consent.accept(true, true);
                 showToast(response.message, 'success');
                 closeAuthModal();
 
@@ -331,6 +362,7 @@ async function handleAuthSubmit() {
                 }
 
                 const response = await parentSignup(parentData);
+                await api.consent.accept(true, true);
                 showToast(response.message, 'success');
                 closeAuthModal();
             }
@@ -508,6 +540,15 @@ function showStudentHelp() {
     showToast('Contact your teacher to reset your password or get your ELIMUID', 'info', 5000);
 }
 
+// Terms and Privacy placeholders (you can implement actual modals later)
+function showTerms() {
+    alert('Terms of Service: By using ShuleAI, you agree to our terms...');
+}
+
+function showPrivacy() {
+    alert('Privacy Policy: We protect your data...');
+}
+
 window.openAuthModal = openAuthModal;
 window.closeAuthModal = closeAuthModal;
 window.handleAuthSubmit = handleAuthSubmit;
@@ -517,3 +558,5 @@ window.handleStudentLogin = handleStudentLogin;
 window.showFirstTimePasswordModal = showFirstTimePasswordModal;
 window.handleFirstPasswordChange = handleFirstPasswordChange;
 window.showStudentHelp = showStudentHelp;
+window.showTerms = showTerms;
+window.showPrivacy = showPrivacy;
