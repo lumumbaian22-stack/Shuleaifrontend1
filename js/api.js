@@ -10,70 +10,46 @@ let rateLimitUntil = null;
 
 // API request wrapper with authentication
 async function apiRequest(endpoint, options = {}) {
-    if (rateLimitUntil && new Date() < rateLimitUntil) {
-        const waitSeconds = Math.ceil((rateLimitUntil - new Date()) / 1000);
-        throw new Error(`Rate limited. Please wait ${waitSeconds} seconds before trying again.`);
-    }
-    
     const url = `${API_BASE_URL}${endpoint}`;
-    
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers
     };
-    
     if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
     }
-    
-    const config = {
-        ...options,
-        headers,
-        credentials: 'include'
-    };
-    
+
     try {
-        const response = await fetch(url, config);
-        
+        const response = await fetch(url, { ...options, headers });
+
         if (response.status === 429) {
-            let retryAfter = 60;
-            const retryAfterHeader = response.headers.get('Retry-After');
-            if (retryAfterHeader) {
-                retryAfter = parseInt(retryAfterHeader) || 60;
-            }
-            rateLimitUntil = new Date(Date.now() + (retryAfter * 1000));
-            throw new Error(`Too many login attempts. Please wait ${retryAfter} seconds before trying again.`);
+            const retryAfter = response.headers.get('Retry-After') || 60;
+            throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
         }
-        
-        const text = await response.text();
+
+        const contentType = response.headers.get('content-type');
         let data;
-        try {
-            data = text ? JSON.parse(text) : {};
-        } catch (e) {
-            console.error('Failed to parse response:', text);
-            throw new Error(`Server error: ${text.substring(0, 100)}`);
-        }
         
-        if (response.status === 401 && refreshToken) {
-            const refreshed = await refreshAuthToken();
-            if (refreshed) {
-                headers['Authorization'] = `Bearer ${authToken}`;
-                const retryResponse = await fetch(url, {
-                    ...options,
-                    headers
-                });
-                return handleResponse(retryResponse);
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            // If the response is HTML (error page), extract a useful message
+            if (text.includes('<html')) {
+                console.error('Server returned HTML error page');
+                throw new Error(`Server error (${response.status}): Please check the server logs.`);
             }
+            throw new Error(`Unexpected response: ${text.substring(0, 100)}`);
         }
-        
+
         if (!response.ok) {
-            throw new Error(data.message || 'API request failed');
+            throw new Error(data?.message || data?.error || `Request failed with status ${response.status}`);
         }
-        
+
         return data;
     } catch (error) {
         console.error('API Request failed:', error);
-        throw error;
+        throw new Error(error.message || 'Network error');
     }
 }
 
