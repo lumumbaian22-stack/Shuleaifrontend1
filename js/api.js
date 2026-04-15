@@ -178,6 +178,7 @@ const authAPI = {
 // ============ SUPER ADMIN ENDPOINTS ============
 const superAdminAPI = {
     getOverview: () => apiRequest('/api/super-admin/overview'),
+        getAlerts: () => apiRequest('/api/user/alerts'),
     getSchools: () => apiRequest('/api/super-admin/schools'),
     getPendingSchools: () => apiRequest('/api/super-admin/pending-schools'),
     getSuspendedSchools: () => apiRequest('/api/super-admin/suspended-schools'),
