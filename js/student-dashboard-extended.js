@@ -31,7 +31,7 @@ async function renderStudentDashboard() {
             <div class="space-y-6 animate-fade-in">
                 <!-- School Name Header -->
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-                    <h2 id="student-school-name" class="text-xl font-semibold">${school?.name || 'Your School'}</h2>
+                    <h2 id="student-school-name" class="text-xl font-semibold">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</h2>
                     <p class="text-sm text-muted-foreground">Welcome back, ${user?.name || 'Student'}</p>
                 </div>
                 
@@ -117,8 +117,7 @@ async function renderStudentGrades() {
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">My Grades</h2>
-                    <div class="text-sm text-muted-foreground">
-                        ${school?.name || 'Your School'}
+                    <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
                     </div>
                 </div>
                 <div class="rounded-xl border bg-card overflow-hidden">
@@ -180,8 +179,7 @@ async function renderStudentAttendance() {
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">My Attendance</h2>
-                    <div class="text-sm text-muted-foreground">
-                        ${school?.name || 'Your School'}
+                    <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
                     </div>
                 </div>
                 <div class="rounded-xl border bg-card p-6">
@@ -273,8 +271,7 @@ function renderStudentAITutor() {
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold">AI Tutor</h2>
-                <div class="text-sm text-muted-foreground">
-                    ${school?.name || 'Your School'}
+                <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
                 </div>
             </div>
             <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
@@ -313,8 +310,7 @@ function renderStudentSchedule() {
         <div class="space-y-6 animate-fade-in">
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold">My Schedule</h2>
-                <div class="text-sm text-muted-foreground" id="schedule-school-name">
-                    ${school?.name || 'Your School'}
+                <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
                 </div>
             </div>
             <div class="rounded-xl border bg-card p-6">
