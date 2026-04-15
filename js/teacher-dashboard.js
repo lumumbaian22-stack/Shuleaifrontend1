@@ -177,20 +177,54 @@ async function loadMyStudents() {
   try {
     const response = await api.teacher.getMyStudents();
     return response.data || [];
-  } catch(e) { console.error(e); return []; }
+  } catch(e) {
+    console.error(e);
+    return [];
+  }
 }
 
 function renderStudentsTable(students) {
-  if (!students.length) return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
-  return `
+  if (!students || students.length === 0) {
+    return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
+  }
+  let html = `
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
-        <button onclick="showStudentDetails('${student.id}')" class="p-1 hover:bg-accent rounded">Details</button>
-        <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-left">Grade</th><th class="px-4 py-3 text-center">Attendance</th><th class="px-4 py-3 text-center">Average</th><th class="px-4 py-3 text-right">Actions</th></tr></thead>
-        <tbody class="divide-y">${students.map(s => `<tr class="hover:bg-accent/50"><td class="px-4 py-3">${escapeHtml(s.User?.name)}</td><td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${s.elimuid}</span></td><td class="px-4 py-3">${s.grade}</td><td class="px-4 py-3 text-center">${s.attendance || 95}%</td><td class="px-4 py-3 text-center">${s.average || 0}%</td><td class="px-4 py-3 text-right"><button onclick="viewStudentDetails('${s.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button><button onclick="copyToClipboard('${s.elimuid}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button></td></tr>`).join('')}</tbody>
-      </table>
-    </div>
+        <thead class="bg-muted/50">
+          <tr>
+            <th class="px-4 py-3 text-left">Student</th>
+            <th class="px-4 py-3 text-left">ELIMUID</th>
+            <th class="px-4 py-3 text-left">Grade</th>
+            <th class="px-4 py-3 text-center">Attendance</th>
+            <th class="px-4 py-3 text-center">Average</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y">
   `;
+  for (const s of students) {
+    const user = s.User || {};
+    const name = user.name || 'Unknown';
+    const elimuid = s.elimuid || 'N/A';
+    const grade = s.grade || 'N/A';
+    const attendance = s.attendance || 95;
+    const average = s.average || 0;
+    html += `
+      <tr class="hover:bg-accent/50">
+        <td class="px-4 py-3">${escapeHtml(name)}</td>
+        <td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${elimuid}</span></td>
+        <td class="px-4 py-3">${grade}</td>
+        <td class="px-4 py-3 text-center">${attendance}%</td>
+        <td class="px-4 py-3 text-center">${average}%</td>
+        <td class="px-4 py-3 text-right">
+          <button onclick="viewStudentDetails('${s.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye"></i></button>
+          <button onclick="copyToClipboard('${elimuid}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy"></i></button>
+        </td>
+      </tr>
+    `;
+  }
+  html += `</tbody></table></div>`;
+  return html;
 }
 
 // ============ ATTENDANCE ============
