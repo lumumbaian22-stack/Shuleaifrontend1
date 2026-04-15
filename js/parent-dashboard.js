@@ -771,7 +771,7 @@ async function upgradePlan(planId) {
 async function renderHomeTasks() {
   const childId = dashboardData.selectedChildId;
   if (!childId) return '<div class="text-center py-4">Select a child first</div>';
-  const res = await apiRequest(`/api/home-tasks/today?studentId=${childId}`);
+  //const res = await apiRequest(`/api/home-tasks/today?studentId=${childId}`);
   const tasks = res.data;
   if (!tasks.length) return '<div class="text-center py-4">No tasks for today – check back tomorrow!</div>';
   return `
