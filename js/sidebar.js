@@ -9,9 +9,8 @@ function updateSidebar(role) {
     const schoolNameSpan = document.getElementById('sidebar-school-name');
     const school = getCurrentSchool();
     
-    if (schoolNameSpan && school && school.name) {
+    if (schoolNameSpan && school && school.status === 'active' && school.name) {
         schoolNameSpan.textContent = school.name;
-        console.log('Sidebar school name updated to:', school.name);
     } else if (schoolNameSpan) {
         schoolNameSpan.textContent = 'ShuleAI';
     }
