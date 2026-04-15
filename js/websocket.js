@@ -39,6 +39,48 @@ function connectWebSocket() {
             socket.emit('join-school', user.schoolCode);
         }
     });
+
+    socket.on('school-approved', (data) => {
+        console.log('🔔 School approved:', data);
+        const currentUser = getCurrentUser();
+        if (currentUser && currentUser.schoolCode === data.schoolId) {
+            // Update localStorage with active school
+            const school = { 
+                schoolId: data.schoolId,
+                name: data.schoolName,
+                shortCode: data.shortCode,
+                status: 'active'
+            };
+            localStorage.setItem('school', JSON.stringify(school));
+            // Update UI
+            updateSidebarSchoolName(data.schoolName);
+            updateAllSchoolNameElements(data.schoolName);
+            showToast(`School "${data.schoolName}" has been approved!`, 'success');
+            // Refresh current section
+            if (typeof showDashboardSection === 'function') {
+                showDashboardSection(window.currentSection || 'dashboard');
+            }
+        }
+    });
+
+    // School name changed
+    socket.on('school-name-changed', (data) => {
+        console.log('🔔 School name changed:', data);
+        const currentSchool = getCurrentSchool();
+        if (currentSchool && currentSchool.schoolId === data.schoolId) {
+            // Update localStorage
+            currentSchool.name = data.newName;
+            localStorage.setItem('school', JSON.stringify(currentSchool));
+            // Update UI
+            updateSidebarSchoolName(data.newName);
+            updateAllSchoolNameElements(data.newName);
+            showToast(`School name updated to "${data.newName}"`, 'info');
+            // Refresh current section
+            if (typeof showDashboardSection === 'function') {
+                showDashboardSection(window.currentSection || 'dashboard');
+            }
+        }
+    });
     
     socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error);
