@@ -10,7 +10,6 @@ let rateLimitUntil = null;
 
 // API request wrapper with authentication
 async function apiRequest(endpoint, options = {}) {
-    // Check if we're in rate limit cooldown
     if (rateLimitUntil && new Date() < rateLimitUntil) {
         const waitSeconds = Math.ceil((rateLimitUntil - new Date()) / 1000);
         throw new Error(`Rate limited. Please wait ${waitSeconds} seconds before trying again.`);
@@ -36,22 +35,16 @@ async function apiRequest(endpoint, options = {}) {
     try {
         const response = await fetch(url, config);
         
-        // Handle rate limiting (429)
         if (response.status === 429) {
-            // Try to get retry-after header
-            let retryAfter = 60; // default 60 seconds
+            let retryAfter = 60;
             const retryAfterHeader = response.headers.get('Retry-After');
             if (retryAfterHeader) {
                 retryAfter = parseInt(retryAfterHeader) || 60;
             }
-            
-            // Set cooldown
             rateLimitUntil = new Date(Date.now() + (retryAfter * 1000));
-            
             throw new Error(`Too many login attempts. Please wait ${retryAfter} seconds before trying again.`);
         }
         
-        // Handle empty responses
         const text = await response.text();
         let data;
         try {
@@ -61,7 +54,6 @@ async function apiRequest(endpoint, options = {}) {
             throw new Error(`Server error: ${text.substring(0, 100)}`);
         }
         
-        // Handle token refresh
         if (response.status === 401 && refreshToken) {
             const refreshed = await refreshAuthToken();
             if (refreshed) {
@@ -178,7 +170,6 @@ const authAPI = {
 // ============ SUPER ADMIN ENDPOINTS ============
 const superAdminAPI = {
     getOverview: () => apiRequest('/api/super-admin/overview'),
-        getAlerts: () => apiRequest('/api/user/alerts'),
     getSchools: () => apiRequest('/api/super-admin/schools'),
     getPendingSchools: () => apiRequest('/api/super-admin/pending-schools'),
     getSuspendedSchools: () => apiRequest('/api/super-admin/suspended-schools'),
@@ -544,7 +535,23 @@ const userAPI = {
         apiRequest('/api/user/deactivate', {
             method: 'POST',
             body: JSON.stringify({ reason })
-        })
+        }),
+    getAlerts: () => apiRequest('/api/user/alerts')
+};
+
+// ============ CONSENT ENDPOINTS ============
+const consentAPI = {
+    getStatus: () => apiRequest('/api/consent/status'),
+    accept: (termsAccepted, privacyAccepted) => apiRequest('/api/consent/accept', {
+        method: 'POST',
+        body: JSON.stringify({ termsAccepted, privacyAccepted })
+    }),
+    getDPAStatus: () => apiRequest('/api/consent/dpa/status'),
+    acceptDPA: () => apiRequest('/api/consent/dpa/accept', { method: 'POST' }),
+    giveParentalConsent: (studentId) => apiRequest('/api/consent/parental-consent', {
+        method: 'POST',
+        body: JSON.stringify({ studentId })
+    })
 };
 
 // File upload helper
@@ -587,7 +594,7 @@ async function uploadFile(endpoint, file, onProgress) {
 // ============ HELP API ============
 const helpAPI = {
   getArticles: (role) => apiRequest(`/api/help/articles?role=${role}`),
-  search: (query) => apiRequest(`/api/help/search?q=${query}`)
+  search: (query) => apiRequest(`/api/08/search?q=${query}`)
 };
 
 // ============ TASKS API ============
@@ -613,8 +620,9 @@ window.api = {
     public: publicAPI,
     school: schoolAPI,
     user: userAPI,
-    help: helpAPI,      // added
-    tasks: tasksAPI     // added
+    help: helpAPI,
+    tasks: tasksAPI,
+    consent: consentAPI
 };
 
 async function markAsRead(notificationId) {
