@@ -471,15 +471,27 @@ function createMarksEntryModal() {
   document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 function closeMarksEntryModal() { const m = document.getElementById('marks-entry-modal'); if(m) m.classList.add('hidden'); currentMarksStudents = []; }
+
 window.updateGradeDisplayForStudent = function(studentId) {
   const score = parseFloat(document.getElementById(`score-${studentId}`)?.value);
   const gradeSpan = document.getElementById(`grade-${studentId}`);
-  if (!isNaN(score) && score>=0 && score<=100) {
-    let grade = ''; let color = 'gray';
-    if(score>=80){grade='A';color='green'} else if(score>=75){grade='A-';color='green'} else if(score>=70){grade='B+';color='blue'} else if(score>=65){grade='B';color='blue'} else if(score>=60){grade='B-';color='blue'} else if(score>=55){grade='C+';color='yellow'} else if(score>=50){grade='C';color='yellow'} else if(score>=45){grade='C-';color='yellow'} else if(score>=40){grade='D+';color='orange'} else if(score>=35){grade='D';color='orange'} else if(score>=30){grade='D-';color='orange'} else {grade='E';color='red'}
+  if (!isNaN(score) && score >= 0 && score <= 100) {
+    const curriculum = window.schoolSettings?.curriculum || 'cbc';
+    const level = window.schoolSettings?.schoolLevel || 'secondary';
+    const gradeInfo = getGradeFromScore(score, curriculum, level);
+    const grade = gradeInfo.grade;
+    let color = 'gray';
+    if (grade === 'A' || grade === 'A*' || grade === 'EE') color = 'green';
+    else if (grade.startsWith('B') || grade === 'ME') color = 'blue';
+    else if (grade.startsWith('C') || grade === 'AE') color = 'yellow';
+    else if (grade.startsWith('D')) color = 'orange';
+    else if (grade === 'E' || grade === 'BE' || grade === 'U' || grade === 'F') color = 'red';
     gradeSpan.textContent = grade;
     gradeSpan.className = `px-2 py-1 bg-${color}-100 dark:bg-${color}-900/30 text-${color}-700 dark:text-${color}-400 text-xs rounded-full`;
-  } else { gradeSpan.textContent = '-'; gradeSpan.className = 'px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full'; }
+  } else {
+    gradeSpan.textContent = '-';
+    gradeSpan.className = 'px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full';
+  }
 };
 
 async function saveAllMarks() {
