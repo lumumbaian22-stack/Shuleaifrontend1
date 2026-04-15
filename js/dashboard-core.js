@@ -29,7 +29,7 @@ async function loadSchoolSettings() {
             const response = await api.admin.getSchoolSettings();
             if (response && response.success && response.data) {
                 window.schoolSettings.schoolName = response.data.name;
-                 window.schoolSettings.curriculum = response.data.system;
+                window.schoolSettings.curriculum = response.data.system;
                 window.customSubjects = response.data.settings?.customSubjects || [];
                 localStorage.setItem('schoolSettings', JSON.stringify(response.data));
                 console.log('✅ School settings loaded from API');
@@ -63,6 +63,111 @@ async function saveSchoolSettings(settings) {
     } catch (error) {
         showToast('Failed to save settings', 'error');
     }
+}
+
+// ============ CONSENT CHECK ============
+async function checkConsentAndDPA() {
+    try {
+        const consentStatus = await api.consent.getStatus();
+        const consent = consentStatus.data;
+        if (!consent || !consent.termsAccepted || !consent.privacyAccepted) {
+            showTermsModal();
+            return false;
+        }
+        
+        const user = getCurrentUser();
+        if (user.role === 'admin') {
+            const dpaStatus = await api.consent.getDPAStatus();
+            if (!dpaStatus.data?.accepted) {
+                showDPAModal();
+                return false;
+            }
+        }
+        return true;
+    } catch (error) {
+        console.error('Consent check error:', error);
+        // If consent endpoints not yet deployed, allow access but log
+        return true;
+    }
+}
+
+function showTermsModal() {
+    // Simple modal for terms acceptance
+    const modal = document.getElementById('auth-modal');
+    const titleEl = document.getElementById('auth-modal-title');
+    const contentEl = document.getElementById('auth-modal-content');
+    if (!modal) return;
+    
+    titleEl.textContent = 'Accept Terms';
+    contentEl.innerHTML = `
+        <div class="space-y-4">
+            <p class="text-sm">Please accept the Terms of Service and Privacy Policy to continue.</p>
+            <div class="flex items-start gap-2">
+                <input type="checkbox" id="modal-terms" class="mt-1 rounded">
+                <label for="modal-terms" class="text-xs">I accept the Terms of Service and Privacy Policy</label>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="logout()" class="px-4 py-2 border rounded-lg">Logout</button>
+                <button onclick="submitTermsAcceptance()" class="px-4 py-2 bg-primary text-white rounded-lg">Continue</button>
+            </div>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+    window.submitTermsAcceptance = async function() {
+        if (!document.getElementById('modal-terms').checked) {
+            showToast('You must accept the terms', 'error');
+            return;
+        }
+        showLoading();
+        try {
+            await api.consent.accept(true, true);
+            modal.classList.add('hidden');
+            await showDashboard(currentRole);
+        } catch (e) {
+            showToast('Failed to record consent', 'error');
+        } finally {
+            hideLoading();
+        }
+    };
+}
+
+function showDPAModal() {
+    const modal = document.getElementById('auth-modal');
+    const titleEl = document.getElementById('auth-modal-title');
+    const contentEl = document.getElementById('auth-modal-content');
+    if (!modal) return;
+    
+    titleEl.textContent = 'Data Processing Agreement';
+    contentEl.innerHTML = `
+        <div class="space-y-4">
+            <p class="text-sm">As a school administrator, you must accept the Data Processing Agreement (DPA) to manage student data.</p>
+            <div class="flex items-start gap-2">
+                <input type="checkbox" id="modal-dpa" class="mt-1 rounded">
+                <label for="modal-dpa" class="text-xs">I have read and accept the Data Processing Agreement</label>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="logout()" class="px-4 py-2 border rounded-lg">Logout</button>
+                <button onclick="submitDPAAcceptance()" class="px-4 py-2 bg-primary text-white rounded-lg">Accept DPA</button>
+            </div>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+    window.submitDPAAcceptance = async function() {
+        if (!document.getElementById('modal-dpa').checked) {
+            showToast('You must accept the DPA', 'error');
+            return;
+        }
+        showLoading();
+        try {
+            await api.consent.acceptDPA();
+            modal.classList.add('hidden');
+            await showDashboard(currentRole);
+        } catch (e) {
+            showToast('Failed to record DPA acceptance', 'error');
+        } finally {
+            hideLoading();
+        }
+    };
 }
 
 // ============ DASHBOARD RENDERING ============
@@ -99,6 +204,10 @@ async function showDashboard(role) {
     localStorage.setItem('userRole', role);
     currentRole = role;
 
+    // Check consent before showing dashboard
+    const canProceed = await checkConsentAndDPA();
+    if (!canProceed) return;
+
     const landingPage = document.getElementById('landing-page');
     const dashboardContainer = document.getElementById('dashboard-container');
 
@@ -108,7 +217,6 @@ async function showDashboard(role) {
         dashboardContainer.setAttribute('data-current-role', role);
     }
 
-    // Only load school settings for admin and superadmin
     if (role === 'admin' || role === 'superadmin') {
         await loadSchoolSettings();
     } else {
@@ -232,15 +340,12 @@ async function showDashboardSection(section) {
 
         updateSidebarActiveState(section);
 
-        // Initialize charts if needed
         if (section === 'dashboard' || section === 'analytics') {
             setTimeout(() => {
                 if (currentRole === 'admin') {
                     if (typeof initAdminCharts === 'function') initAdminCharts();
                 } else if (currentRole === 'teacher') {
                     if (typeof initTeacherCharts === 'function') {
-                        // Teacher charts will be created inside the teacher dashboard HTML
-                        // The dashboardData already contains students and subjects
                         initTeacherCharts(dashboardData);
                     }
                 }
@@ -339,7 +444,6 @@ function setupSectionListeners(role, section) {
     }
 }
 
-// ============ ADMIN STATS ============
 async function updateAdminStats() {
     try {
         const [students, teachers, classes] = await Promise.all([
@@ -361,13 +465,11 @@ async function updateAdminStats() {
         if (classEl) classEl.textContent = classCount;
 
         console.log('📊 Stats updated:', { studentCount, teacherCount, classCount });
-
     } catch (error) {
         console.error('Stats error:', error);
     }
 }
 
-// ============ REGISTER SCHOOL UPDATE CALLBACK ============
 function onSchoolUpdate(callback) {
     if (typeof callback === 'function') {
         schoolUpdateCallbacks.push(callback);
@@ -390,3 +492,4 @@ window.showDashboardSection = showDashboardSection;
 window.renderDashboardSection = renderDashboardSection;
 window.updateAdminStats = updateAdminStats;
 window.onSchoolUpdate = onSchoolUpdate;
+window.checkConsentAndDPA = checkConsentAndDPA;
