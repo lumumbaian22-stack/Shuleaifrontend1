@@ -31,7 +31,13 @@ async function checkAuth() {
         currentSchool = response.data.school;
         
         localStorage.setItem('user', JSON.stringify(currentUser));
-        localStorage.setItem('school', JSON.stringify(currentSchool));
+
+        if (currentSchool && currentSchool.status === 'active') {
+            localStorage.setItem('school', JSON.stringify(currentSchool));
+            } else {
+                localStorage.removeItem('school');
+                }
+
         localStorage.setItem('userRole', currentUser.role);
         
         return true;
@@ -51,6 +57,7 @@ async function superAdminLogin(email, password, secretKey) {
     try {
         const response = await api.auth.superAdminLogin(email, password, secretKey);
         if (!response.success) throw new Error(response.message);
+        
         
         authToken = response.data.token;
         currentUser = response.data.user;
@@ -258,7 +265,20 @@ function getCurrentUser() {
 
 // Get current school
 function getCurrentSchool() {
-    return currentSchool || JSON.parse(localStorage.getItem('school') || '{}');
+  try {
+    const schoolStr = localStorage.getItem('school');
+    if (!schoolStr) return null;
+    const school = JSON.parse(schoolStr);
+    // Only return if school is active
+    if (school.status !== 'active') {
+      localStorage.removeItem('school');
+      return null;
+    }
+    return school;
+  } catch (error) {
+    console.error('Error parsing school:', error);
+    return null;
+  }
 }
 
 // Get current user role
