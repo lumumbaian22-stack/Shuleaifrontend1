@@ -229,6 +229,8 @@ function renderClassesList(classes, teachers) {
                                 class="p-2 border rounded-lg hover:bg-red-100 text-red-600">
                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                         </button>
+                        <button onclick="saveAllSubjectAssignments(${classId})" class="mt-4 w-full bg-primary text-white py-2 rounded-lg">Save All Assignments</button>
+                        </button>
                     </div>
                 </div>
                 
