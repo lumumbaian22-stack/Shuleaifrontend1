@@ -570,7 +570,7 @@ async function uploadFile(endpoint, file, onProgress) {
 // ============ HELP API ============
 const helpAPI = {
   getArticles: (role) => apiRequest(`/api/help/articles?role=${role}`),
-  search: (query) => apiRequest(`/api/08/search?q=${query}`)
+  search: (query) => apiRequest(`/api/help/search?q=${query}`)
 };
 
 // ============ TASKS API ============
@@ -598,7 +598,19 @@ window.api = {
     user: userAPI,
     help: helpAPI,
     tasks: tasksAPI,
-    consent: consentAPI
+    consent: consentAPI,
+
+    homeTasks: {
+        getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),
+        complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
+    },
+
+    subscription: {
+        getPlans: () => apiRequest('/api/subscription/plans'),
+        getMyStatus: () => apiRequest('/api/subscription/my-status'),
+        upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) })
+    }
+
 };
 
 async function markAsRead(notificationId) {
