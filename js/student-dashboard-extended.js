@@ -244,24 +244,86 @@ async function renderStudentAttendance() {
     }
 }
 
-async function renderStudentChat() {
-  const messages = await apiRequest('/api/student/group-messages');
+let studentReplyTo = null;
+
+function renderStudentChat() {
   return `
-    <div class="h-96 overflow-y-auto border rounded p-4" id="student-chat-messages">
-      ${messages.data.map(msg => `
-        <div class="mb-3">
-          <strong>${msg.Sender.name}:</strong> ${msg.content}
-          ${msg.replyToMessageId ? `<div class="text-xs text-muted-foreground">↩️ Replying to a message</div>` : ''}
-          <button onclick="replyToMessage(${msg.id})" class="text-xs text-primary ml-2">Reply</button>
-        </div>
-      `).join('')}
-    </div>
-    <div class="mt-3 flex gap-2">
-      <input type="text" id="chat-input" class="flex-1 border rounded p-2" placeholder="Type a message...">
-      <button onclick="sendStudentMessage()" class="bg-primary text-white px-4 py-2 rounded">Send</button>
+    <div class="max-w-4xl mx-auto h-[600px] flex flex-col">
+      <div class="flex-1 overflow-y-auto p-4 space-y-3" id="student-chat-messages">
+        <div class="text-center text-muted-foreground py-8">Loading messages...</div>
+      </div>
+      <div id="reply-preview" class="hidden text-xs bg-muted p-2 rounded-lg mb-2 flex justify-between items-center">
+        <span id="reply-preview-text"></span>
+        <button onclick="cancelStudentReply()" class="text-red-500">✖</button>
+      </div>
+      <div class="flex gap-2 p-4 border-t">
+        <input type="text" id="student-chat-input" placeholder="Type a message..." class="flex-1 rounded-lg border p-2 bg-background">
+        <button onclick="sendStudentChatMessage()" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button>
+      </div>
     </div>
   `;
 }
+
+async function loadStudentChatMessages() {
+  const container = document.getElementById('student-chat-messages');
+  if (!container) return;
+  try {
+    const res = await api.student.getGroupMessages();
+    const messages = res.data || [];
+    const currentUser = getCurrentUser();
+
+    container.innerHTML = messages.map(msg => {
+      const isSent = msg.senderId === currentUser.id;
+      return `
+        <div class="flex ${isSent ? 'justify-end' : 'justify-start'} group relative">
+          <div class="${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+            ${msg.replyToMessageId ? `<div class="text-xs border-l-2 border-primary pl-2 mb-1 italic text-muted-foreground">Replying to a message</div>` : ''}
+            ${!isSent ? `<p class="text-xs font-medium">${escapeHtml(msg.Sender?.name)}</p>` : ''}
+            <p class="text-sm">${escapeHtml(msg.content)}</p>
+            <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+          </div>
+          <button onclick="setStudentReply(${msg.id}, '${escapeHtml(msg.content.substring(0, 30))}')" class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-primary text-white rounded-full p-1 text-xs">↩️</button>
+        </div>
+      `;
+    }).join('') || '<div class="text-center text-muted-foreground py-8">No messages yet</div>';
+
+    container.scrollTop = container.scrollHeight;
+  } catch (e) {
+    container.innerHTML = '<div class="text-red-500 text-center py-8">Failed to load messages</div>';
+  }
+}
+
+function setStudentReply(messageId, contentPreview) {
+  studentReplyTo = { id: messageId, content: contentPreview };
+  document.getElementById('reply-preview-text').textContent = `Replying to: ${contentPreview}...`;
+  document.getElementById('reply-preview').classList.remove('hidden');
+}
+
+function cancelStudentReply() {
+  studentReplyTo = null;
+  document.getElementById('reply-preview').classList.add('hidden');
+}
+
+async function sendStudentChatMessage() {
+  const input = document.getElementById('student-chat-input');
+  const content = input.value.trim();
+  if (!content) return;
+
+  const data = { content };
+  if (studentReplyTo) {
+    data.replyToId = studentReplyTo.id;
+  }
+
+  try {
+    await api.student.sendGroupMessage(data);
+    input.value = '';
+    cancelStudentReply();
+    await loadStudentChatMessages();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
 
 function renderStudentAITutor() {
     const curriculum = schoolSettings.curriculum || 'cbc';
@@ -437,3 +499,7 @@ window.renderStudentAITutor = renderStudentAITutor;
 window.renderStudentSchedule = renderStudentSchedule;
 window.sendStudentMessage = sendStudentMessage;
 window.askAITutor = askAITutor;
+window.setStudentReply = setStudentReply;
+window.cancelStudentReply = cancelStudentReply;
+window.sendStudentChatMessage = sendStudentChatMessage;
+window.loadStudentChatMessages = loadStudentChatMessages;
