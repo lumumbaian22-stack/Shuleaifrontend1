@@ -1,5 +1,24 @@
 // student-dashboard-extended.js - Student dashboard rendering with dynamic school name
 
+// Fallback helpers (if not globally defined)
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function timeAgo(timestamp) {
+    if (!timestamp) return 'N/A';
+    const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+}
+
+
 async function renderStudentSection(section) {
     switch(section) {
         case 'dashboard':
@@ -26,6 +45,8 @@ async function renderStudentDashboard() {
         const data = dashboardData || {};
         const user = getCurrentUser();
         const school = getCurrentSchool();
+        const average = data.stats?.averageScore || data.averageScore || 0;
+        const attendanceRate = data.stats?.attendanceRate || data.attendanceRate || 0;
 
         return `
             <div class="space-y-6 animate-fade-in">
@@ -51,7 +72,7 @@ async function renderStudentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">Class Average</p>
-                                <h3 class="text-2xl font-bold mt-1" id="class-average-student">82%</h3>
+                                <h3 class="text-2xl font-bold mt-1" id="class-average-student">${average}%</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
                                 <i data-lucide="trending-up" class="h-6 w-6 text-green-600"></i>
@@ -62,7 +83,7 @@ async function renderStudentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">My Attendance</p>
-                                <h3 class="text-2xl font-bold mt-1" id="student-attendance">95%</h3>
+                                <h3 class="text-2xl font-bold mt-1" id="student-attendance">${attendanceRate}%</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
                                 <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i>
@@ -112,13 +133,13 @@ async function renderStudentGrades() {
     try {
         const data = dashboardData || {};
         const school = getCurrentSchool();
-        
+        const grades = data.grades || [];
+
         return `
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">My Grades</h2>
                     <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
-                    </div>
                 </div>
                 <div class="rounded-xl border bg-card overflow-hidden">
                     <div class="overflow-x-auto">
@@ -130,35 +151,31 @@ async function renderStudentGrades() {
                                     <th class="px-4 py-3 text-center font-medium">Score</th>
                                     <th class="px-4 py-3 text-center font-medium">Grade</th>
                                     <th class="px-4 py-3 text-left font-medium">Date</th>
-                                 </thead>
+                                </tr>
+                            </thead>
                             <tbody class="divide-y" id="grades-table-body">
-                                <tr class="hover:bg-accent/50 transition-colors">
-                                    <td class="px-4 py-3 font-medium">Mathematics</td>
-                                    <td class="px-4 py-3">Mid-term Exam</td>
-                                    <td class="px-4 py-3 text-center">85%</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">A-</span>
-                                    </td>
-                                    <td class="px-4 py-3">Mar 15, 2024</td>
-                                </tr>
-                                <tr class="hover:bg-accent/50 transition-colors">
-                                    <td class="px-4 py-3 font-medium">English</td>
-                                    <td class="px-4 py-3">Essay</td>
-                                    <td class="px-4 py-3 text-center">78%</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">B+</span>
-                                    </td>
-                                    <td class="px-4 py-3">Mar 14, 2024</td>
-                                </tr>
-                                <tr class="hover:bg-accent/50 transition-colors">
-                                    <td class="px-4 py-3 font-medium">Science</td>
-                                    <td class="px-4 py-3">Lab Report</td>
-                                    <td class="px-4 py-3 text-center">92%</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">A</span>
-                                    </td>
-                                    <td class="px-4 py-3">Mar 12, 2024</td>
-                                </tr>
+                                ${grades.length > 0 ? grades.map(record => {
+                                    const score = record.score || 0;
+                                    const grade = record.grade || 'N/A';
+                                    const gradeClass = getGradeColorClass(grade);
+                                    return `
+                                        <tr class="hover:bg-accent/50 transition-colors">
+                                            <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
+                                            <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
+                                            <td class="px-4 py-3 text-center">${score}%</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">${grade}</span>
+                                            </td>
+                                            <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
+                                        </tr>
+                                    `;
+                                }).join('') : `
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">
+                                            No grades recorded yet
+                                        </td>
+                                    </tr>
+                                `}
                             </tbody>
                         </table>
                     </div>
@@ -170,31 +187,57 @@ async function renderStudentGrades() {
     }
 }
 
+function getGradeColorClass(grade) {
+    if (!grade) return 'bg-gray-100 text-gray-700';
+    const firstChar = grade.charAt(0).toUpperCase();
+    if (firstChar === 'A' || grade === 'EE') return 'bg-green-100 text-green-700';
+    if (firstChar === 'B' || grade === 'ME') return 'bg-blue-100 text-blue-700';
+    if (firstChar === 'C' || grade === 'AE') return 'bg-yellow-100 text-yellow-700';
+    if (firstChar === 'D') return 'bg-orange-100 text-orange-700';
+    return 'bg-red-100 text-red-700';
+}
+
+function getAttendanceStatusClass(status) {
+    switch (status) {
+        case 'present': return 'bg-green-100 text-green-700';
+        case 'absent': return 'bg-red-100 text-red-700';
+        case 'late': return 'bg-yellow-100 text-yellow-700';
+        case 'sick': return 'bg-purple-100 text-purple-700';
+        default: return 'bg-gray-100 text-gray-700';
+    }
+}
+
 async function renderStudentAttendance() {
     try {
         const data = dashboardData || {};
         const school = getCurrentSchool();
+        const attendanceRecords = data.attendance || [];
         
+        // Calculate summary stats
+        const total = attendanceRecords.length;
+        const present = attendanceRecords.filter(a => a.status === 'present').length;
+        const absent = attendanceRecords.filter(a => a.status === 'absent').length;
+        const late = attendanceRecords.filter(a => a.status === 'late').length;
+
         return `
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">My Attendance</h2>
                     <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
-                    </div>
                 </div>
                 <div class="rounded-xl border bg-card p-6">
                     <div class="grid gap-4 md:grid-cols-3">
                         <div class="text-center p-4">
                             <p class="text-sm text-muted-foreground">Present</p>
-                            <p class="text-3xl font-bold text-green-600">42</p>
+                            <p class="text-3xl font-bold text-green-600">${present}</p>
                         </div>
                         <div class="text-center p-4">
                             <p class="text-sm text-muted-foreground">Absent</p>
-                            <p class="text-3xl font-bold text-red-600">2</p>
+                            <p class="text-3xl font-bold text-red-600">${absent}</p>
                         </div>
                         <div class="text-center p-4">
                             <p class="text-sm text-muted-foreground">Late</p>
-                            <p class="text-3xl font-bold text-yellow-600">1</p>
+                            <p class="text-3xl font-bold text-yellow-600">${late}</p>
                         </div>
                     </div>
                 </div>
@@ -205,34 +248,32 @@ async function renderStudentAttendance() {
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead class="bg-muted/50">
-                                 <tr>
+                                <tr>
                                     <th class="px-4 py-3 text-left font-medium">Date</th>
                                     <th class="px-4 py-3 text-left font-medium">Status</th>
                                     <th class="px-4 py-3 text-left font-medium">Reason</th>
-                                 </tr>
+                                </tr>
                             </thead>
                             <tbody class="divide-y" id="attendance-history-body">
-                                <tr class="hover:bg-accent/50 transition-colors">
-                                    <td class="px-4 py-3">Mar 15, 2024</td>
-                                    <td class="px-4 py-3">
-                                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">present</span>
-                                    </td>
-                                    <td class="px-4 py-3">-</td>
-                                </tr>
-                                <tr class="hover:bg-accent/50 transition-colors">
-                                    <td class="px-4 py-3">Mar 14, 2024</td>
-                                    <td class="px-4 py-3">
-                                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">present</span>
-                                    </td>
-                                    <td class="px-4 py-3">-</td>
-                                </tr>
-                                <tr class="hover:bg-accent/50 transition-colors">
-                                    <td class="px-4 py-3">Mar 13, 2024</td>
-                                    <td class="px-4 py-3">
-                                        <span class="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full">absent</span>
-                                    </td>
-                                    <td class="px-4 py-3">Sick</td>
-                                </tr>
+                                ${attendanceRecords.length > 0 ? attendanceRecords.slice(0, 20).map(record => {
+                                    const status = record.status || 'unknown';
+                                    const statusClass = getAttendanceStatusClass(status);
+                                    return `
+                                        <tr class="hover:bg-accent/50 transition-colors">
+                                            <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span>
+                                            </td>
+                                            <td class="px-4 py-3">${escapeHtml(record.reason || '-')}</td>
+                                        </tr>
+                                    `;
+                                }).join('') : `
+                                    <tr>
+                                        <td colspan="3" class="px-4 py-8 text-center text-muted-foreground">
+                                            No attendance records yet
+                                        </td>
+                                    </tr>
+                                `}
                             </tbody>
                         </table>
                     </div>
@@ -334,7 +375,6 @@ function renderStudentAITutor() {
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold">AI Tutor</h2>
                 <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
-                </div>
             </div>
             <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
                 <div class="flex items-center gap-3 mb-4 pb-2 border-b">
@@ -373,7 +413,6 @@ function renderStudentSchedule() {
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold">My Schedule</h2>
                 <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
-                </div>
             </div>
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold mb-4">Today's Classes</h3>
