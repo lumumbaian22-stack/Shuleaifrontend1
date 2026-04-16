@@ -1,4 +1,4 @@
-// helpers.js - Common utility functions
+// helpers.js - Common utility functions (consolidated)
 
 function getInitials(name) {
     if (!name) return '?';
@@ -26,55 +26,6 @@ function timeAgo(timestamp) {
     }
     return 'just now';
 }
-
-// Add this to helpers.js - Permanent user save function
-// Add to helpers.js - Permanent user save function
-function saveUser(userData) {
-    if (!userData) return;
-    
-    // Ensure teacher structure is always correct
-    if (userData.role === 'teacher') {
-        userData.teacher = userData.teacher || {};
-        userData.teacher.type = userData.teacher.type || 'subject_teacher';
-        userData.teacher.subjects = userData.teacher.subjects || [];
-        userData.teacher.classId = userData.teacher.classId || null;
-        userData.teacher.className = userData.teacher.className || null;
-        userData.teacher.studentCount = userData.teacher.studentCount || 0;
-    }
-    
-    // Also ensure admin structure
-    if (userData.role === 'admin') {
-        userData.admin = userData.admin || {};
-    }
-    
-    localStorage.setItem('user', JSON.stringify(userData));
-    return userData;
-}
-
-// Override getCurrentUser to ensure structure is always valid
-const originalGetCurrentUser = window.getCurrentUser || function() {
-    try {
-        const userStr = localStorage.getItem('user');
-        return userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-        return null;
-    }
-};
-
-window.getCurrentUser = function() {
-    const user = originalGetCurrentUser();
-    if (user && user.role === 'teacher') {
-        if (!user.teacher) {
-            user.teacher = { type: 'subject_teacher', subjects: [], classId: null, className: null, studentCount: 0 };
-            saveUser(user);
-        }
-        if (!user.teacher.type) {
-            user.teacher.type = 'subject_teacher';
-            saveUser(user);
-        }
-    }
-    return user;
-};
 
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
@@ -130,44 +81,42 @@ function getCurrentRole() {
     return localStorage.getItem('userRole');
 }
 
-// Global function to update all school name elements across the entire app
+function saveUser(userData) {
+    if (!userData) return;
+    if (userData.role === 'teacher') {
+        userData.teacher = userData.teacher || {};
+        userData.teacher.type = userData.teacher.type || 'subject_teacher';
+        userData.teacher.subjects = userData.teacher.subjects || [];
+        userData.teacher.classId = userData.teacher.classId || null;
+        userData.teacher.className = userData.teacher.className || null;
+        userData.teacher.studentCount = userData.teacher.studentCount || 0;
+    }
+    if (userData.role === 'admin') {
+        userData.admin = userData.admin || {};
+    }
+    localStorage.setItem('user', JSON.stringify(userData));
+    return userData;
+}
+
 function updateAllSchoolNameElements(newName) {
     console.log('Updating all school name elements to:', newName);
-    
-    // Update sidebar
     const sidebarSchoolName = document.getElementById('sidebar-school-name');
     if (sidebarSchoolName) sidebarSchoolName.textContent = newName;
-    
-    // Update admin dashboard
     const adminSchoolName = document.getElementById('dashboard-school-name');
     if (adminSchoolName) adminSchoolName.textContent = newName;
-    
-    // Update teacher dashboard
     const teacherSchoolName = document.getElementById('teacher-school-name');
     if (teacherSchoolName) teacherSchoolName.textContent = newName;
-    
-    // Update parent dashboard
     const parentSchoolName = document.getElementById('parent-school-name');
     if (parentSchoolName) parentSchoolName.textContent = newName;
-    
-    // Update student dashboard
     const studentSchoolName = document.getElementById('student-school-name');
     if (studentSchoolName) studentSchoolName.textContent = newName;
-    
-    // Update any elements with class .school-name
     document.querySelectorAll('.school-name, .school-name-display, [data-school-name]').forEach(el => {
         el.textContent = newName;
     });
-    
-    // Update the main school name in admin dashboard card (fallback)
     const adminCardSchoolName = document.querySelector('.rounded-xl.border.bg-card.p-6 h2.text-2xl.font-bold');
     if (adminCardSchoolName) adminCardSchoolName.textContent = newName;
-    
-    // Update profile section if visible
     const profileSchoolName = document.querySelector('#profile-section .school-name');
     if (profileSchoolName) profileSchoolName.textContent = newName;
-    
-    // Force a re-render of the current section to catch any dynamically loaded elements
     setTimeout(() => {
         if (typeof showDashboardSection === 'function' && window.currentSection) {
             showDashboardSection(window.currentSection);
