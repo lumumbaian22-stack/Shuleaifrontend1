@@ -1175,7 +1175,184 @@ function cancelReply() {
   if (preview) preview.remove();
 }
 
+// ============ STUDENT DETAIL MODAL ============
+
+let currentStudentId = null;
+
+async function viewStudentDetails(studentId) {
+  currentStudentId = studentId;
+  showLoading();
+  try {
+    const [studentRes, analyticsRes] = await Promise.all([
+      api.admin.getStudentDetails(studentId),
+      api.analytics.getStudentAnalytics(studentId)
+    ]);
+
+    const student = studentRes.data;
+    const analytics = analyticsRes.data;
+
+    showStudentDetailModal(student, analytics);
+  } catch (error) {
+    showToast('Failed to load student details', 'error');
+    console.error(error);
+  } finally {
+    hideLoading();
+  }
+}
+
+function showStudentDetailModal(student, analytics) {
+  let modal = document.getElementById('student-detail-modal');
+  if (!modal) {
+    createStudentDetailModal();
+    modal = document.getElementById('student-detail-modal');
+  }
+
+  const user = student.User || {};
+  const grades = analytics.records || [];
+  const attendance = analytics.attendance || { rate: 0, present: 0, absent: 0, late: 0, total: 0 };
+  const competencyLevels = analytics.competencyLevels || [];
+
+  const modalContent = modal.querySelector('.modal-content');
+  modalContent.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex items-center gap-4 pb-4 border-b">
+        <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+          <span class="text-2xl font-bold text-green-600">${getInitials(user.name)}</span>
+        </div>
+        <div>
+          <h3 class="text-xl font-semibold">${escapeHtml(user.name)}</h3>
+          <p class="text-sm text-muted-foreground">${escapeHtml(user.email || 'No email')} • ${student.elimuid}</p>
+          <p class="text-sm">Grade: ${student.grade || 'N/A'}</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="p-3 bg-muted/30 rounded-lg">
+          <p class="text-xs text-muted-foreground">Average Score</p>
+          <p class="text-2xl font-bold text-primary">${analytics.overallAverage || 0}%</p>
+        </div>
+        <div class="p-3 bg-muted/30 rounded-lg">
+          <p class="text-xs text-muted-foreground">Attendance Rate</p>
+          <p class="text-2xl font-bold ${attendance.rate >= 80 ? 'text-green-600' : 'text-yellow-600'}">${attendance.rate}%</p>
+        </div>
+        <div class="p-3 bg-muted/30 rounded-lg">
+          <p class="text-xs text-muted-foreground">Competency</p>
+          <p class="text-2xl font-bold text-purple-600">${analytics.grade || 'N/A'}</p>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="font-medium mb-2">Recent Grades</h4>
+        <div class="chart-container h-40">
+          <canvas id="student-grades-chart"></canvas>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="font-medium mb-2">Attendance Summary</h4>
+        <div class="flex gap-2 text-sm">
+          <span class="px-2 py-1 bg-green-100 text-green-700 rounded">Present: ${attendance.present}</span>
+          <span class="px-2 py-1 bg-red-100 text-red-700 rounded">Absent: ${attendance.absent}</span>
+          <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Late: ${attendance.late}</span>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="font-medium mb-2">Competency Progress</h4>
+        <div class="space-y-2">
+          ${competencyLevels.slice(0, 5).map(c => `
+            <div class="flex justify-between items-center">
+              <span class="text-sm">${escapeHtml(c.competency)}</span>
+              <span class="px-2 py-0.5 text-xs rounded-full ${getLevelColorClass(c.level)}">${c.level}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-4 border-t">
+        <button onclick="closeStudentDetailModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+        <button onclick="reportAbsenceForStudent('${student.id}')" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Report Absence</button>
+        <button onclick="openMessageParent('${student.id}')" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Message Parent</button>
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+
+  setTimeout(() => {
+    const ctx = document.getElementById('student-grades-chart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: grades.slice(0, 10).map(g => g.date ? new Date(g.date).toLocaleDateString() : ''),
+          datasets: [{
+            label: 'Score',
+            data: grades.slice(0, 10).map(g => g.score),
+            borderColor: '#3b82f6',
+            tension: 0.3
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+    if (window.lucide) lucide.createIcons();
+  }, 100);
+}
+
+function createStudentDetailModal() {
+  const html = `
+    <div id="student-detail-modal" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailModal()"></div>
+      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4">
+        <div class="rounded-xl border bg-card p-6 shadow-xl">
+          <div class="modal-content"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeStudentDetailModal() {
+  const modal = document.getElementById('student-detail-modal');
+  if (modal) modal.classList.add('hidden');
+  currentStudentId = null;
+}
+
+async function reportAbsenceForStudent(studentId) {
+  const reason = prompt('Enter reason for absence:');
+  if (!reason) return;
+  showLoading();
+  try {
+    await api.parent.reportAbsence({ studentId, date: new Date().toISOString().split('T')[0], reason });
+    showToast('Absence reported', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+function openMessageParent(studentId) {
+  // Open parent chat modal for this student's parent
+  showToast('Opening message to parent...', 'info');
+  // Implementation depends on existing parent chat
+}
+
+function getLevelColorClass(level) {
+  if (level === 'EE' || level === 'A') return 'bg-green-100 text-green-700';
+  if (level === 'ME' || level === 'B') return 'bg-blue-100 text-blue-700';
+  if (level === 'AE' || level === 'C') return 'bg-yellow-100 text-yellow-700';
+  return 'bg-red-100 text-red-700';
+}
+
+
 // ============ EXPORTS ============
+window.viewStudentDetails = viewStudentDetails;
+window.closeStudentDetailModal = closeStudentDetailModal;
+window.reportAbsenceForStudent = reportAbsenceForStudent;
+window.openMessageParent = openMessageParent;
 window.renderTeacherSection = renderTeacherSection;
 window.renderTeacherDashboard = renderTeacherDashboard;
 window.loadMyStudents = loadMyStudents;
