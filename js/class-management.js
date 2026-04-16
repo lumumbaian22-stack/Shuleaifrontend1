@@ -229,8 +229,6 @@ function renderClassesList(classes, teachers) {
                                 class="p-2 border rounded-lg hover:bg-red-100 text-red-600">
                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                         </button>
-                        <button onclick="saveAllSubjectAssignments(${cls.id})" class="mt-4 w-full bg-primary text-white py-2 rounded-lg">
-                        </button>
                     </div>
                 </div>
                 
@@ -643,6 +641,7 @@ async function openSubjectAssignmentModal(classId, className) {
 
                     <div class="flex justify-end gap-2 pt-4 border-t">
                         <button onclick="closeSubjectAssignmentModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                        <button onclick="saveAllSubjectAssignments(${classId})" class="mt-4 w-full bg-primary text-white py-2 rounded-lg">Save All Assignments</button>
                     </div>
                 </div>
             `;
@@ -714,6 +713,41 @@ async function saveSubjectAssignment(classId, subject) {
     }
 }
 
+async function saveAllSubjectAssignments(classId) {
+  const modal = document.getElementById('subject-assignment-modal');
+  if (!modal) return;
+
+  const selects = modal.querySelectorAll('select[id^="subject-teacher-"]');
+  const assignments = [];
+  const promises = [];
+
+  selects.forEach(select => {
+    const teacherId = select.value;
+    if (!teacherId) return;
+
+    const subject = select.id.replace('subject-teacher-', '').replace(/_/g, ' ');
+    assignments.push({ teacherId, subject });
+  });
+
+  if (assignments.length === 0) {
+    showToast('No assignments to save', 'info');
+    return;
+  }
+
+  showLoading();
+  try {
+    await api.admin.batchAssignSubjects({ classId: parseInt(classId), assignments });
+    showToast(`✅ Saved ${assignments.length} subject assignments`, 'success');
+    closeSubjectAssignmentModal();
+    await refreshClassesList();
+    await showDashboardSection('classes');
+  } catch (error) {
+    showToast(error.message || 'Failed to save assignments', 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
 async function removeSubjectAssignment(assignmentId, classId) {
     if (!confirm('Remove this teacher from this subject? This action can be undone later.')) return;
 
@@ -763,6 +797,6 @@ window.escapeHtml = escapeHtml;
 window.toggleClassDetails = toggleClassDetails;
 window.refreshClassesList = refreshClassesList;
 window.renderSubjectTeachers = renderSubjectTeachers;
-// Export these debug functions
+window.saveAllSubjectAssignments = saveAllSubjectAssignments;
 window.checkTeacherAssignment = checkTeacherAssignment;
 window.listAllTeachersAndClasses = listAllTeachersAndClasses;
