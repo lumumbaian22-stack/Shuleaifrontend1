@@ -53,8 +53,6 @@ async function renderProfileSection() {
                 </div>
             </div>
 
-            // ... (rest of the existing content remains exactly the same)
-            // I will now include the full original content after the profile header
 
             <!-- Profile Information Form -->
             <div class="rounded-xl border bg-card p-6">
