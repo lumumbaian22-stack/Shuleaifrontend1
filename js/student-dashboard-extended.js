@@ -34,7 +34,7 @@ async function renderStudentSection(section) {
         case 'schedule':
             return renderStudentSchedule();
         case 'settings':
-            return renderUserSettings('student');
+            return await renderProfileSection();
         default:
             return await renderStudentDashboard();
     }
@@ -47,6 +47,7 @@ async function renderStudentDashboard() {
         const school = getCurrentSchool();
         const average = data.stats?.averageScore || data.averageScore || 0;
         const attendanceRate = data.stats?.attendanceRate || data.attendanceRate || 0;
+        const studentPoints = data.student?.points || user?.points || 0; // Get points from data or user
 
         return `
             <div class="space-y-6 animate-fade-in">
@@ -71,6 +72,18 @@ async function renderStudentDashboard() {
                     <div class="rounded-xl border bg-card p-6 card-hover">
                         <div class="flex items-center justify-between">
                             <div>
+                                <p class="text-sm font-medium text-muted-foreground">My Points</p>
+                                <h3 class="text-2xl font-bold mt-1" id="student-points">${studentPoints}</h3>
+                                <p class="text-xs text-muted-foreground mt-1">Earned from tasks</p>
+                            </div>
+                            <div class="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
+                                <i data-lucide="star" class="h-6 w-6 text-yellow-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border bg-card p-6 card-hover">
+                        <div class="flex items-center justify-between">
+                            <div>
                                 <p class="text-sm font-medium text-muted-foreground">Class Average</p>
                                 <h3 class="text-2xl font-bold mt-1" id="class-average-student">${average}%</h3>
                             </div>
@@ -87,17 +100,6 @@ async function renderStudentDashboard() {
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
                                 <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="rounded-xl border bg-card p-6 card-hover">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-muted-foreground">Study Groups</p>
-                                <h3 class="text-2xl font-bold mt-1" id="study-groups-count">3</h3>
-                            </div>
-                            <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                                <i data-lucide="message-circle" class="h-6 w-6 text-blue-600"></i>
                             </div>
                         </div>
                     </div>
