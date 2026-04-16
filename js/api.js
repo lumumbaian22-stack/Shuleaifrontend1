@@ -360,6 +360,7 @@ const teacherAPI = {
 // ============ PARENT ENDPOINTS ============
 const parentAPI = {
     getChildren: () => apiRequest('/api/parent/children'),
+    getChildTodayAttendance: (studentId) => apiRequest(`/api/parent/child/${studentId}/attendance/today`),
     getChildSummary: (studentId) => 
         apiRequest(`/api/parent/child/${studentId}/summary`),
     reportAbsence: (data) => 
@@ -570,7 +571,7 @@ async function uploadFile(endpoint, file, onProgress) {
 // ============ HELP API ============
 const helpAPI = {
   getArticles: (role) => apiRequest(`/api/help/articles?role=${role}`),
-  search: (query) => apiRequest(`/api/help/search?q=${query}`)
+  search: (query) => apiRequest(`/api/08/search?q=${query}`)
 };
 
 // ============ TASKS API ============
