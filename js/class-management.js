@@ -639,7 +639,7 @@ async function openSubjectAssignmentModal(classId, className) {
                         </table>
                     </div>
 
-                    <div class="flex justify-end gap-2 pt-4 border-t">
+                    <div class="flex gap-2 pt-4 border-t">
                         <button onclick="closeSubjectAssignmentModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
                         <button onclick="saveAllSubjectAssignments(${classId})" class="mt-4 w-full bg-primary text-white py-2 rounded-lg">Save All Assignments</button>
                     </div>
