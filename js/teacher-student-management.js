@@ -1,6 +1,6 @@
-// teacher-student-management.js - COMPLETE FIXED VERSION
+// teacher-student-management.js - COMPLETE MERGED VERSION
 
-// ============ LOAD FUNCTIONS ============
+// ============ LOAD TEACHER'S STUDENTS ============
 
 async function loadMyStudents() {
     try {
@@ -18,162 +18,104 @@ async function loadMyStudents() {
     }
 }
 
-async function deleteStudent(studentId, studentName) {
-    if (!confirm(`⚠️ Are you sure you want to remove ${studentName} from your class? This action cannot be undone.`)) {
+// ============ REFRESH TEACHER STUDENT TABLE ============
+
+async function refreshTeacherStudentList() {
+    const container = document.getElementById('teacher-students-table-body');
+    if (!container) {
+        console.warn('⚠️ Teacher student table container not found - using fallback');
+        const fallback = document.getElementById('my-students-table') || 
+                        document.querySelector('table tbody');
+        if (fallback) {
+            await refreshWithFallback(fallback);
+        }
         return;
     }
     
-    showLoading();
     try {
-        const response = await api.teacher.deleteStudent(studentId);
+        container.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center">Loading...</td></tr>';
         
-        if (response.success) {
-            showToast(`✅ ${studentName} removed from class`, 'success');
-            await refreshMyStudents();
-        }
-    } catch (error) {
-        if (error.message.includes('403')) {
-            showToast('You do not have permission to delete students. Only admins can perform this action.', 'error');
-        } else {
-            showToast(error.message || 'Failed to delete student', 'error');
-        }
-    } finally {
-        hideLoading();
-    }
-}
-
-// ============ STUDENT DETAILS ============
-
-async function viewStudentDetails(studentId) {
-    showLoading();
-    try {
         const students = await loadMyStudents();
-        const student = students.find(s => s.id == studentId);
         
-        if (!student) {
-            showToast('Student not found', 'error');
+        if (!students || students.length === 0) {
+            container.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No students in your class yet</td></tr>';
             return;
         }
         
-        showStudentDetailsModal(student);
-    } catch (error) {
-        console.error('Error viewing student:', error);
-        showToast('Failed to load student details', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-function showStudentDetailsModal(student) {
-    let modal = document.getElementById('student-details-modal');
-    
-    if (!modal) {
-        createStudentDetailsModal();
-        modal = document.getElementById('student-details-modal');
-    }
-    
-    const modalContent = modal.querySelector('.modal-content');
-    if (modalContent) {
-        modalContent.innerHTML = getStudentDetailsHTML(student);
-    }
-    
-    modal.classList.remove('hidden');
-    
-    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-        lucide.createIcons();
-    }
-}
-
-function createStudentDetailsModal() {
-    const modalHTML = `
-        <div id="student-details-modal" class="fixed inset-0 z-50 hidden">
-            <div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailsModal()"></div>
-            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
-                <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold">Student Details</h3>
-                        <button onclick="closeStudentDetailsModal()" class="p-2 hover:bg-accent rounded-lg">
-                            <i data-lucide="x" class="h-5 w-5"></i>
+        let html = '';
+        students.forEach(student => {
+            const user = student.User || {};
+            const name = user.name || 'Unknown';
+            const grade = student.grade || 'N/A';
+            const elimuid = student.elimuid || 'N/A';
+            const attendance = student.attendance || 95;
+            const average = student.average || 0;
+            
+            const avgClass = average > 80 ? 'text-green-600' : 
+                            average > 60 ? 'text-yellow-600' : 'text-red-600';
+            
+            html += `
+                <tr class="hover:bg-accent/50 transition-colors">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-3">
+                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                <span class="font-medium text-blue-700 text-sm">${getInitials(name)}</span>
+                            </div>
+                            <span class="font-medium">${escapeHtml(name)}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">${escapeHtml(grade)}</td>
+                    <td class="px-4 py-3">
+                        <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(elimuid)}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <div class="h-2 w-16 rounded-full bg-muted overflow-hidden">
+                                <div class="h-full w-[${attendance}%] bg-green-500 rounded-full"></div>
+                            </div>
+                            <span class="text-xs">${attendance}%</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="font-semibold ${avgClass}">${average}%</span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="viewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg">
+                            <i data-lucide="eye" class="h-4 w-4"></i>
                         </button>
-                    </div>
-                    <div class="modal-content space-y-4">
-                        <!-- Content will be filled dynamically -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+                        <button onclick="copyElimuid('${elimuid}')" class="p-2 hover:bg-accent rounded-lg">
+                            <i data-lucide="copy" class="h-4 w-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        container.innerHTML = html;
+        
+        const countEl = document.getElementById('my-students-count');
+        if (countEl) countEl.textContent = students.length;
+        
+        if (window.lucide) lucide.createIcons();
+        
+    } catch (error) {
+        console.error('Error refreshing teacher student list:', error);
+        container.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">Error loading students</td></tr>';
+    }
 }
 
-function getStudentDetailsHTML(student) {
-    const user = student.User || {};
-    
-    return `
-        <div class="space-y-4">
-            <div class="flex items-center gap-4">
-                <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                    <span class="font-medium text-green-700 text-xl">${getInitials(user.name)}</span>
-                </div>
-                <div>
-                    <h4 class="font-medium text-lg">${user.name || 'N/A'}</h4>
-                    <p class="text-sm text-muted-foreground">${user.email || 'No email'}</p>
-                </div>
-            </div>
-            
-            <div class="border-t pt-4">
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                        <p class="text-muted-foreground">ELIMUID</p>
-                        <p class="font-mono text-xs bg-muted px-2 py-1 rounded inline-block">${student.elimuid || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <p class="text-muted-foreground">Grade</p>
-                        <p class="font-medium">${student.grade || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <p class="text-muted-foreground">Gender</p>
-                        <p class="font-medium">${student.gender || 'Not specified'}</p>
-                    </div>
-                    <div>
-                        <p class="text-muted-foreground">Date of Birth</p>
-                        <p class="font-medium">${student.dateOfBirth ? formatDate(student.dateOfBirth) : 'Not specified'}</p>
-                    </div>
-                    <div>
-                        <p class="text-muted-foreground">Status</p>
-                        <p><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(student.status)}">
-                            ${student.status || 'active'}
-                        </span></p>
-                    </div>
-                    <div>
-                        <p class="text-muted-foreground">Enrolled</p>
-                        <p class="font-medium">${student.enrollmentDate ? formatDate(student.enrollmentDate) : 'N/A'}</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="border-t pt-4">
-                <h4 class="font-medium mb-2">Parent Information</h4>
-                ${student.parentEmail ? 
-                    `<p class="text-sm">Parent Email: ${student.parentEmail}</p>` : 
-                    '<p class="text-sm text-muted-foreground">No parent email provided</p>'}
-            </div>
-            
-            <div class="flex justify-end gap-2 pt-4 border-t">
-                <button onclick="closeStudentDetailsModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Close</button>
-                <button onclick="copyToClipboard('${student.elimuid}')" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
-                    <i data-lucide="copy" class="h-4 w-4"></i>
-                    Copy ELIMUID
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-function closeStudentDetailsModal() {
-    const modal = document.getElementById('student-details-modal');
-    if (modal) {
-        modal.classList.add('hidden');
+async function refreshWithFallback(container) {
+    try {
+        const students = await loadMyStudents();
+        if (!students || students.length === 0) {
+            container.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center">No students</td></tr>';
+            return;
+        }
+        container.innerHTML = students.map(s => `
+            <tr><td>${escapeHtml(s.User?.name)}</td><td>${escapeHtml(s.elimuid)}</td></tr>
+        `).join('');
+    } catch (e) {
+        console.error('Fallback failed:', e);
     }
 }
 
@@ -181,15 +123,11 @@ function closeStudentDetailsModal() {
 
 function showAddStudentModal() {
     let modal = document.getElementById('add-student-modal');
-    
     if (!modal) {
         createAddStudentModal();
         modal = document.getElementById('add-student-modal');
     }
-    
-    if (modal) {
-        modal.classList.remove('hidden');
-    }
+    if (modal) modal.classList.remove('hidden');
 }
 
 function createAddStudentModal() {
@@ -282,7 +220,166 @@ async function addStudent(studentData) {
     }
 }
 
-// ============ REFRESH STUDENTS ============
+// ============ VIEW STUDENT DETAILS ============
+
+async function viewStudentDetails(studentId) {
+    showLoading();
+    try {
+        const students = await loadMyStudents();
+        const student = students.find(s => s.id == studentId);
+        
+        if (!student) {
+            showToast('Student not found', 'error');
+            return;
+        }
+        
+        showStudentDetailsModal(student);
+    } catch (error) {
+        console.error('Error viewing student:', error);
+        showToast('Failed to load student details', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function showStudentDetailsModal(student) {
+    let modal = document.getElementById('student-details-modal');
+    
+    if (!modal) {
+        createStudentDetailsModal();
+        modal = document.getElementById('student-details-modal');
+    }
+    
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.innerHTML = getStudentDetailsHTML(student);
+    }
+    
+    modal.classList.remove('hidden');
+    
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+    }
+}
+
+function createStudentDetailsModal() {
+    const modalHTML = `
+        <div id="student-details-modal" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailsModal()"></div>
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Student Details</h3>
+                        <button onclick="closeStudentDetailsModal()" class="p-2 hover:bg-accent rounded-lg">
+                            <i data-lucide="x" class="h-5 w-5"></i>
+                        </button>
+                    </div>
+                    <div class="modal-content space-y-4">
+                        <!-- Content will be filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function getStudentDetailsHTML(student) {
+    const user = student.User || {};
+    
+    return `
+        <div class="space-y-4">
+            <div class="flex items-center gap-4">
+                <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <span class="font-medium text-green-700 text-xl">${getInitials(user.name)}</span>
+                </div>
+                <div>
+                    <h4 class="font-medium text-lg">${escapeHtml(user.name) || 'N/A'}</h4>
+                    <p class="text-sm text-muted-foreground">${escapeHtml(user.email) || 'No email'}</p>
+                </div>
+            </div>
+            
+            <div class="border-t pt-4">
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p class="text-muted-foreground">ELIMUID</p>
+                        <p class="font-mono text-xs bg-muted px-2 py-1 rounded inline-block">${escapeHtml(student.elimuid) || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="text-muted-foreground">Grade</p>
+                        <p class="font-medium">${escapeHtml(student.grade) || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="text-muted-foreground">Gender</p>
+                        <p class="font-medium">${escapeHtml(student.gender) || 'Not specified'}</p>
+                    </div>
+                    <div>
+                        <p class="text-muted-foreground">Date of Birth</p>
+                        <p class="font-medium">${student.dateOfBirth ? formatDate(student.dateOfBirth) : 'Not specified'}</p>
+                    </div>
+                    <div>
+                        <p class="text-muted-foreground">Status</p>
+                        <p><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(student.status)}">
+                            ${escapeHtml(student.status) || 'active'}
+                        </span></p>
+                    </div>
+                    <div>
+                        <p class="text-muted-foreground">Enrolled</p>
+                        <p class="font-medium">${student.enrollmentDate ? formatDate(student.enrollmentDate) : 'N/A'}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t pt-4">
+                <h4 class="font-medium mb-2">Parent Information</h4>
+                ${student.parentEmail ? 
+                    `<p class="text-sm">Parent Email: ${escapeHtml(student.parentEmail)}</p>` : 
+                    '<p class="text-sm text-muted-foreground">No parent email provided</p>'}
+            </div>
+            
+            <div class="flex justify-end gap-2 pt-4 border-t">
+                <button onclick="closeStudentDetailsModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Close</button>
+                <button onclick="copyToClipboard('${escapeHtml(student.elimuid)}')" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                    <i data-lucide="copy" class="h-4 w-4"></i>
+                    Copy ELIMUID
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function closeStudentDetailsModal() {
+    const modal = document.getElementById('student-details-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// ============ DELETE STUDENT ============
+
+async function deleteStudent(studentId, studentName) {
+    if (!confirm(`⚠️ Are you sure you want to remove ${studentName} from your class? This action cannot be undone.`)) {
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await api.teacher.deleteStudent(studentId);
+        
+        if (response.success) {
+            showToast(`✅ ${studentName} removed from class`, 'success');
+            await refreshMyStudents();
+        }
+    } catch (error) {
+        if (error.message.includes('403')) {
+            showToast('You do not have permission to delete students. Only admins can perform this action.', 'error');
+        } else {
+            showToast(error.message || 'Failed to delete student', 'error');
+        }
+    } finally {
+        hideLoading();
+    }
+}
+
+// ============ REFRESH MY STUDENTS ============
 
 async function refreshMyStudents() {
     const container = document.getElementById('my-students-table');
@@ -305,9 +402,7 @@ async function refreshMyStudents() {
 
 function updateStats(students) {
     const countElement = document.getElementById('my-students-count');
-    if (countElement) {
-        countElement.textContent = students ? students.length : 0;
-    }
+    if (countElement) countElement.textContent = students ? students.length : 0;
     
     const classesElement = document.getElementById('my-classes-count');
     if (classesElement && students) {
@@ -357,12 +452,12 @@ function renderStudentsTable(students) {
                                         <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                                             <span class="font-medium text-blue-700 text-sm">${getInitials(user.name)}</span>
                                         </div>
-                                        <span class="font-medium">${user.name || 'Unknown'}</span>
+                                        <span class="font-medium">${escapeHtml(user.name) || 'Unknown'}</span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3">${student.grade || 'N/A'}</td>
+                                <td class="px-4 py-3">${escapeHtml(student.grade) || 'N/A'}</td>
                                 <td class="px-4 py-3">
-                                    <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid || 'N/A'}</span>
+                                    <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(student.elimuid) || 'N/A'}</span>
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-2">
@@ -377,18 +472,18 @@ function renderStudentsTable(students) {
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusColor}">
-                                        ${status}
+                                        ${escapeHtml(status)}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-1">
-                                        <button onclick="copyToClipboard('${student.elimuid}')" class="p-2 hover:bg-accent rounded-lg" title="Copy ELIMUID">
+                                        <button onclick="copyToClipboard('${escapeHtml(student.elimuid)}')" class="p-2 hover:bg-accent rounded-lg" title="Copy ELIMUID">
                                             <i data-lucide="copy" class="h-4 w-4"></i>
                                         </button>
                                         <button onclick="viewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
-                                        <button onclick="deleteStudent('${student.id}', '${user.name || 'Unknown'}')" 
+                                        <button onclick="deleteStudent('${student.id}', '${escapeHtml(user.name) || 'Unknown'}')" 
                                                 class="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Delete Student">
                                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                                         </button>
@@ -401,32 +496,6 @@ function renderStudentsTable(students) {
             </table>
         </div>
     `;
-}
-
-// ============ DELETE STUDENT ============
-
-async function deleteStudent(studentId, studentName) {
-    if (!confirm(`⚠️ Are you sure you want to remove ${studentName} from your class? This action cannot be undone.`)) {
-        return;
-    }
-    
-    showLoading();
-    try {
-        const response = await api.teacher.deleteStudent(studentId);
-        
-        if (response.success) {
-            showToast(`✅ ${studentName} removed from class`, 'success');
-            await refreshMyStudents();
-        }
-    } catch (error) {
-        if (error.message.includes('403')) {
-            showToast('You do not have permission to delete students. Only admins can perform this action.', 'error');
-        } else {
-            showToast(error.message || 'Failed to delete student', 'error');
-        }
-    } finally {
-        hideLoading();
-    }
 }
 
 // ============ UTILITY FUNCTIONS ============
@@ -614,8 +683,8 @@ async function loadTeacherMessages() {
                          onclick="openTeacherConversation('${conv.userId}')">
                         <div class="flex justify-between items-start">
                             <div>
-                                <p class="font-medium">${conv.userName || 'Parent'}</p>
-                                <p class="text-xs text-muted-foreground">${conv.studentName ? `about ${conv.studentName}` : ''}</p>
+                                <p class="font-medium">${escapeHtml(conv.userName) || 'Parent'}</p>
+                                <p class="text-xs text-muted-foreground">${conv.studentName ? `about ${escapeHtml(conv.studentName)}` : ''}</p>
                                 <p class="text-sm mt-1">${conv.lastMessage?.substring(0, 50) || ''}${conv.lastMessage?.length > 50 ? '...' : ''}</p>
                             </div>
                             <div class="text-right">
@@ -665,6 +734,7 @@ async function uploadMarksCSV(file, onProgress) {
 
 window.loadMyStudents = loadMyStudents;
 window.refreshMyStudents = refreshMyStudents;
+window.refreshTeacherStudentList = refreshTeacherStudentList;
 window.showAddStudentModal = showAddStudentModal;
 window.closeAddStudentModal = closeAddStudentModal;
 window.handleAddStudentModal = handleAddStudentModal;
