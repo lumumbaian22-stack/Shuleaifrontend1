@@ -402,6 +402,7 @@ const parentAPI = {
 const studentAPI = {
     getGrades: () => apiRequest('/api/student/grades'),
     getAttendance: () => apiRequest('/api/student/attendance'),
+    sendGroupMessage: (data) => apiRequest('/api/student/group-message', { method: 'POST', body: JSON.stringify(data) }),
     getMaterials: () => apiRequest('/api/student/materials'),
     sendMessage: (receiverId, content) => 
         apiRequest('/api/student/message', {
