@@ -623,12 +623,12 @@ async function openSubjectAssignmentModal(classId, className) {
                                                 </select>
                                             </td>
                                             <td class="px-4 py-3 text-center">
-                                                <button onclick="saveSubjectAssignment(${cls.id}, '${subject.replace(/'/g, "\\'")}')" 
+                                                <button onclick="saveSubjectAssignment(${classId}, '${subject.replace(/'/g, "\\'")}')"
                                                         class="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors">
                                                     ${existing ? 'Update' : 'Assign'}
                                                 </button>
                                                 ${existing ? `
-                                                    <button onclick="removeSubjectAssignment('${existing.id}', ${cls.id})" 
+                                                    <button onclick="removeSubjectAssignment('${existing.id}', ${classId})" 
                                                             class="ml-2 px-4 py-2 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors">
                                                         Remove
                                                     </button>
