@@ -187,6 +187,32 @@ async function renderParentDashboard() {
                         </div>
                     </div>
                 </div>
+
+                <!-- Alerts Panel -->
+                <div class="rounded-xl border bg-card p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold">Recent Alerts</h3>
+                        <button onclick="loadParentAlerts()" class="text-sm text-primary hover:underline">Refresh</button>
+                    </div>
+                    <div id="parent-alerts-container" class="space-y-2 max-h-64 overflow-y-auto">
+                        <div class="text-center text-muted-foreground py-4">Loading alerts...</div>
+                    </div>
+                </div>
+
+                <!-- Live Attendance -->
+                <div class="rounded-xl border bg-card p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold">Today's Attendance</h3>
+                        <span class="text-xs text-muted-foreground" id="attendance-date"></span>
+                    </div>
+                    <div id="live-attendance-status" class="text-center py-4">
+                        <div class="text-muted-foreground">Loading...</div>
+                    </div>
+                    <div class="mt-3">
+                        <h4 class="text-sm font-medium mb-2">This Week</h4>
+                        <div id="weekly-attendance-calendar" class="flex gap-1"></div>
+                    </div>
+                </div>
                 
                 <div class="rounded-xl border bg-card overflow-hidden">
                     <div class="p-4 border-b">
@@ -260,6 +286,15 @@ async function renderParentDashboard() {
         }
 
         html += `</div>`;
+
+        // Load alerts and live attendance after DOM is updated
+        setTimeout(() => {
+            if (selectedChildId) {
+                loadParentAlerts();
+                loadLiveAttendance();
+            }
+        }, 200);
+
         return html;
 
     } catch (error) {
@@ -887,7 +922,78 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+async function loadParentAlerts() {
+  const container = document.getElementById('parent-alerts-container');
+  if (!container) return;
+  try {
+    const res = await api.user.getAlerts();
+    const alerts = res.data || [];
+    if (alerts.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted-foreground py-4">No alerts</div>';
+      return;
+    }
+    container.innerHTML = alerts.slice(0, 5).map(alert => `
+      <div class="p-3 border rounded-lg ${!alert.isRead ? 'bg-primary/5' : ''}">
+        <p class="font-medium text-sm">${escapeHtml(alert.title)}</p>
+        <p class="text-xs text-muted-foreground">${escapeHtml(alert.message)}</p>
+        <p class="text-xs text-muted-foreground mt-1">${timeAgo(alert.createdAt)}</p>
+      </div>
+    `).join('');
+  } catch (e) {
+    container.innerHTML = '<div class="text-red-500">Failed to load alerts</div>';
+  }
+}
+
+async function loadLiveAttendance() {
+  const childId = dashboardData.selectedChildId;
+  if (!childId) return;
+
+  const statusDiv = document.getElementById('live-attendance-status');
+  const dateSpan = document.getElementById('attendance-date');
+  const calendarDiv = document.getElementById('weekly-attendance-calendar');
+
+  try {
+    const res = await api.parent.getChildTodayAttendance(childId);
+    const data = res.data || { status: 'not_recorded' };
+    const today = new Date();
+
+    dateSpan.textContent = today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+    if (data.status === 'present') {
+      statusDiv.innerHTML = `<div class="text-green-600"><i data-lucide="check-circle" class="h-8 w-8 mx-auto"></i><p class="font-medium mt-2">Present</p><p class="text-xs">Checked in at ${data.timeIn || 'N/A'}</p></div>`;
+    } else if (data.status === 'absent') {
+      statusDiv.innerHTML = `<div class="text-red-600"><i data-lucide="x-circle" class="h-8 w-8 mx-auto"></i><p class="font-medium mt-2">Absent</p><p class="text-xs">Reason: ${data.reason || 'Not provided'}</p></div>`;
+    } else if (data.status === 'late') {
+      statusDiv.innerHTML = `<div class="text-yellow-600"><i data-lucide="clock" class="h-8 w-8 mx-auto"></i><p class="font-medium mt-2">Late</p></div>`;
+    } else {
+      statusDiv.innerHTML = `<div class="text-muted-foreground"><i data-lucide="minus-circle" class="h-8 w-8 mx-auto"></i><p class="font-medium mt-2">Not Recorded</p></div>`;
+    }
+
+    // Weekly calendar (simplified)
+    const weekDays = ['M', 'T', 'W', 'T', 'F'];
+    const todayIndex = (today.getDay() + 6) % 7; // Monday = 0
+    calendarDiv.innerHTML = weekDays.map((day, i) => {
+      const isToday = i === todayIndex;
+      const bgClass = isToday ? 'bg-primary' : (i < todayIndex ? 'bg-green-500' : 'bg-gray-300');
+      return `<div class="flex-1 h-2 ${bgClass} rounded"></div>`;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+  } catch (e) {
+    console.error('Failed to load attendance', e);
+  }
+}
+
+// Call these in renderParentDashboard after rendering
+setTimeout(() => {
+  loadParentAlerts();
+  loadLiveAttendance();
+}, 200);
+
+
 // ============ EXPORT FUNCTIONS ============
+window.loadParentAlerts = loadParentAlerts;
+window.loadLiveAttendance = loadLiveAttendance;
 window.selectChild = selectChild;
 window.reportAbsence = reportAbsence;
 window.processPayment = processPayment;
