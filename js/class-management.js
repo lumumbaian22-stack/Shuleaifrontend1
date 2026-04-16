@@ -229,7 +229,7 @@ function renderClassesList(classes, teachers) {
                                 class="p-2 border rounded-lg hover:bg-red-100 text-red-600">
                             <i data-lucide="trash-2" class="h-4 w-4"></i>
                         </button>
-                        <button onclick="saveAllSubjectAssignments(${classId})" class="mt-4 w-full bg-primary text-white py-2 rounded-lg">Save All Assignments</button>
+                        <button onclick="saveAllSubjectAssignments(${cls.id})" class="mt-4 w-full bg-primary text-white py-2 rounded-lg">
                         </button>
                     </div>
                 </div>
@@ -623,12 +623,12 @@ async function openSubjectAssignmentModal(classId, className) {
                                                 </select>
                                             </td>
                                             <td class="px-4 py-3 text-center">
-                                                <button onclick="saveSubjectAssignment(${classId}, '${subject.replace(/'/g, "\\'")}')" 
+                                                <button onclick="saveSubjectAssignment(${cls.id}, '${subject.replace(/'/g, "\\'")}')" 
                                                         class="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors">
                                                     ${existing ? 'Update' : 'Assign'}
                                                 </button>
                                                 ${existing ? `
-                                                    <button onclick="removeSubjectAssignment('${existing.id}', ${classId})" 
+                                                    <button onclick="removeSubjectAssignment('${existing.id}', ${cls.id})" 
                                                             class="ml-2 px-4 py-2 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors">
                                                         Remove
                                                     </button>
