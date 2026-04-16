@@ -5,9 +5,6 @@ const API_BASE_URL = 'https://shuleaibackend-32h1.onrender.com';
 let authToken = localStorage.getItem('authToken');
 let refreshToken = localStorage.getItem('refreshToken');
 
-// Track rate limit state
-let rateLimitUntil = null;
-
 // API request wrapper with authentication
 async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -34,7 +31,6 @@ async function apiRequest(endpoint, options = {}) {
             data = await response.json();
         } else {
             const text = await response.text();
-            // If the response is HTML (error page), extract a useful message
             if (text.includes('<html')) {
                 console.error('Server returned HTML error page');
                 throw new Error(`Server error (${response.status}): Please check the server logs.`);
@@ -197,7 +193,22 @@ const superAdminAPI = {
     getRequestHistory: () => apiRequest('/api/super-admin/requests/history'),
     getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats`),
     getGrowthData: () => apiRequest('/api/super-admin/growth-data'),
-    getSchoolDistribution: () => apiRequest('/api/super-admin/school-distribution')
+    getSchoolDistribution: () => apiRequest('/api/super-admin/school-distribution'),
+    getPlatformSettings: () => apiRequest('/api/super-admin/platform-settings'),
+    updatePlatformSettings: (data) => 
+        apiRequest('/api/super-admin/platform-settings', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        }),
+    resetPlatformSettings: () => apiRequest('/api/super-admin/settings/reset', { method: 'POST' }),
+    runSystemBackup: () => apiRequest('/api/super-admin/backup', { method: 'POST' }),
+    clearPlatformCache: () => apiRequest('/api/super-admin/cache/clear', { method: 'POST' }),
+    exportPlatformData: () => apiRequest('/api/super-admin/export'),
+    // Aliases for frontend calls
+    exportData: function() { return this.exportPlatformData(); },
+    clearCache: function() { return this.clearPlatformCache(); },
+    runBackup: function() { return this.runSystemBackup(); },
+    resetSettings: function() { return this.resetPlatformSettings(); }
 };
 
 // ============ ADMIN ENDPOINTS ============
@@ -572,7 +583,7 @@ async function uploadFile(endpoint, file, onProgress) {
 // ============ HELP API ============
 const helpAPI = {
   getArticles: (role) => apiRequest(`/api/help/articles?role=${role}`),
-  search: (query) => apiRequest(`/api/08/search?q=${query}`)
+  search: (query) => apiRequest(`/api/help/search?q=${query}`)
 };
 
 // ============ TASKS API ============
