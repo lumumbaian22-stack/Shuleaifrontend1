@@ -18,7 +18,6 @@ function timeAgo(timestamp) {
     return `${days} day${days > 1 ? 's' : ''} ago`;
 }
 
-
 async function renderStudentSection(section) {
     switch(section) {
         case 'dashboard':
@@ -33,8 +32,11 @@ async function renderStudentSection(section) {
             return renderStudentAITutor();
         case 'schedule':
             return renderStudentSchedule();
+        case 'help':
+            return renderHelpSection();          // <-- ADDED
         case 'settings':
-            return await renderProfileSection();
+        case 'profile':
+            return await renderProfileSection(); // <-- CHANGED from renderUserSettings
         default:
             return await renderStudentDashboard();
     }
@@ -47,7 +49,7 @@ async function renderStudentDashboard() {
         const school = getCurrentSchool();
         const average = data.stats?.averageScore || data.averageScore || 0;
         const attendanceRate = data.stats?.attendanceRate || data.attendanceRate || 0;
-        const studentPoints = data.student?.points || user?.points || 0; // Get points from data or user
+        const studentPoints = data.student?.points || user?.points || 0;
 
         return `
             <div class="space-y-6 animate-fade-in">
@@ -57,6 +59,7 @@ async function renderStudentDashboard() {
                     <p class="text-sm text-muted-foreground">Welcome back, ${user?.name || 'Student'}</p>
                 </div>
                 
+                <!-- Stats Grid -->
                 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <div class="rounded-xl border bg-card p-6 card-hover">
                         <div class="flex items-center justify-between">
@@ -104,6 +107,8 @@ async function renderStudentDashboard() {
                         </div>
                     </div>
                 </div>
+
+                <!-- Quick Actions -->
                 <div class="grid gap-4 md:grid-cols-2">
                     <button onclick="showDashboardSection('chat')" class="p-6 border rounded-lg hover:bg-accent transition-colors text-left flex items-center gap-4">
                         <div class="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -124,12 +129,84 @@ async function renderStudentDashboard() {
                         </div>
                     </button>
                 </div>
+
+                <!-- Study Progress Chart -->
+                <div class="rounded-xl border bg-card p-6">
+                    <h3 class="font-semibold mb-4">My Progress</h3>
+                    <div class="chart-container h-64">
+                        <canvas id="student-gradeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Gamified Home Tasks Section -->
+                <div class="rounded-xl border bg-card p-6" id="student-home-tasks-container">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold flex items-center gap-2">
+                            <i data-lucide="star" class="h-5 w-5 text-yellow-500"></i>
+                            Today's Learning Tasks
+                        </h3>
+                        <span class="text-xs text-muted-foreground">Complete to earn points</span>
+                    </div>
+                    <div id="student-home-tasks-list">
+                        <div class="text-center text-muted-foreground py-4">
+                            <i data-lucide="loader-2" class="h-6 w-6 animate-spin mx-auto mb-2"></i>
+                            Loading tasks...
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
     } catch (error) {
         return `<div class="text-center py-12 text-red-500">Error loading dashboard: ${error.message}</div>`;
     }
 }
+
+async function loadStudentHomeTasks() {
+    const container = document.getElementById('student-home-tasks-list');
+    if (!container) return;
+    try {
+        // Student's own tasks – using student ID from current user
+        const user = getCurrentUser();
+        const studentId = user?.id; // or fetch student profile ID if needed
+        const res = await api.homeTasks.getToday(studentId);
+        const tasks = res.data || [];
+        if (tasks.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted-foreground py-4">No tasks for today – check back later!</div>';
+            return;
+        }
+        container.innerHTML = tasks.map(task => `
+            <div class="border rounded-lg p-4 mb-3 hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">${escapeHtml(task.type)}</span>
+                            <span class="text-xs text-muted-foreground">⭐ ${task.points} points</span>
+                            <span class="text-xs text-muted-foreground">⏱️ ${task.estimatedMinutes} min</span>
+                        </div>
+                        <h4 class="font-medium">${escapeHtml(task.title)}</h4>
+                        <p class="text-sm text-muted-foreground mt-1">${escapeHtml(task.instructions)}</p>
+                        ${task.materials ? `<p class="text-xs text-muted-foreground mt-2">📦 Materials: ${escapeHtml(task.materials)}</p>` : ''}
+                    </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                    <button onclick="markTaskComplete(${task.id})" class="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 transition-colors">
+                        Mark Complete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        if (window.lucide) lucide.createIcons();
+    } catch (e) {
+        console.error('Failed to load home tasks:', e);
+        container.innerHTML = '<div class="text-center text-red-500 py-4">Failed to load tasks</div>';
+    }
+}
+
+setTimeout(() => {
+    loadStudentHomeTasks();
+    if (typeof initStudentCharts === 'function') initStudentCharts(dashboardData);
+}, 200);
+
 
 async function renderStudentGrades() {
     try {
@@ -206,6 +283,26 @@ function getAttendanceStatusClass(status) {
         case 'late': return 'bg-yellow-100 text-yellow-700';
         case 'sick': return 'bg-purple-100 text-purple-700';
         default: return 'bg-gray-100 text-gray-700';
+    }
+}
+
+async function markTaskComplete(taskId) {
+    showLoading();
+    try {
+        await api.homeTasks.complete(taskId, {});
+        showToast('✅ Task completed! Points awarded.', 'success');
+        await loadStudentHomeTasks();
+        // Refresh points display
+        const user = getCurrentUser();
+        const statsRes = await api.user.getMyStats();
+        if (statsRes.data) {
+            const pointsEl = document.getElementById('student-points');
+            if (pointsEl) pointsEl.textContent = statsRes.data.points || 0;
+        }
+    } catch (e) {
+        showToast(e.message || 'Failed to complete task', 'error');
+    } finally {
+        hideLoading();
     }
 }
 
@@ -538,6 +635,8 @@ window.renderStudentAttendance = renderStudentAttendance;
 window.renderStudentChat = renderStudentChat;
 window.renderStudentAITutor = renderStudentAITutor;
 window.renderStudentSchedule = renderStudentSchedule;
+window.loadStudentHomeTasks = loadStudentHomeTasks;
+window.markTaskComplete = markTaskComplete;
 window.sendStudentMessage = sendStudentMessage;
 window.askAITutor = askAITutor;
 window.setStudentReply = setStudentReply;
