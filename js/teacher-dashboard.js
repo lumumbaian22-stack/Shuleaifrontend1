@@ -1,15 +1,16 @@
-// teacher-dashboard.js - Complete functional version with dark mode support
-
+// teacher-dashboard.js - COMPLETE CORRECTED VERSION
 let replyingTo = null;
+let currentStaffChatType = 'group';
+let currentStaffChatPartner = null;
+let currentMarksClassId = null, currentMarksSubject = null, currentMarksStudents = [];
+let currentMarksTerm = 'Term 1', currentMarksYear = new Date().getFullYear();
 
 // ============ ROLE DETECTION ============
 function getTeacherRole() {
   const user = getCurrentUser();
   if (!user || user.role !== 'teacher') return 'subject_teacher';
-  // Check if teacher has a class assigned via classId (most reliable)
   if (user.teacher && user.teacher.classId) return 'class_teacher';
   if (user.classId) return 'class_teacher';
-  // Fallback to string (legacy)
   if (user.classTeacher) return 'class_teacher';
   if (user.teacher && user.teacher.classTeacher) return 'class_teacher';
   return 'subject_teacher';
@@ -29,7 +30,6 @@ function getTeacherRoleDescription() {
   const role = getTeacherRole();
   if (role === 'class_teacher') return 'You are the Class Teacher. You can manage students, upload via CSV, and enter marks for all subjects in your class.';
   if (role === 'subject_teacher') return 'You are a Subject Teacher. You can enter marks for your assigned subjects and classes.';
-  if (role === 'both') return 'You are both a Class Teacher and Subject Teacher. You have full access.';
   return 'Manage your classes, students, and grades.';
 }
 
@@ -71,7 +71,7 @@ async function renderTeacherSection(section) {
   }
 }
 
-// ============ DASHBOARD WITH REAL DATA AND CHARTS ============
+// ============ DASHBOARD ============
 async function renderTeacherDashboard() {
   const user = getCurrentUser();
   const role = getTeacherRole();
@@ -90,7 +90,6 @@ async function renderTeacherDashboard() {
 
   const html = `
     <div class="space-y-6 animate-fade-in">
-      <!-- Welcome Header -->
       <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -105,7 +104,6 @@ async function renderTeacherDashboard() {
         </div>
       </div>
 
-      <!-- Stats Grid -->
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">My Students</p><h3 class="text-2xl font-bold mt-1">${stats.studentCount || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><i data-lucide="users" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i></div></div></div>
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Class Average</p><h3 class="text-2xl font-bold mt-1">${stats.classAverage || 0}%</h3></div><div class="h-12 w-12 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><i data-lucide="trending-up" class="h-6 w-6 text-violet-600 dark:text-violet-400"></i></div></div></div>
@@ -113,20 +111,17 @@ async function renderTeacherDashboard() {
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Pending Tasks</p><h3 class="text-2xl font-bold mt-1">${stats.pendingTasks || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><i data-lucide="check-square" class="h-6 w-6 text-red-600 dark:text-red-400"></i></div></div></div>
       </div>
 
-      <!-- Charts Row -->
       <div class="grid gap-4 lg:grid-cols-2">
         <div class="rounded-xl border bg-card p-6"><div class="flex justify-between items-center mb-4"><h3 class="font-semibold">Subject Performance</h3></div><div class="chart-container h-64"><canvas id="teacher-performanceChart"></canvas></div></div>
         <div class="rounded-xl border bg-card p-6"><div class="flex justify-between items-center mb-4"><h3 class="font-semibold">Attendance Trend (Last 7 days)</h3></div><div class="chart-container h-64"><canvas id="teacher-gradeChart"></canvas></div></div>
       </div>
 
-      <!-- Parent Messages Inbox -->
       <div class="rounded-xl border bg-card p-6">
         <div class="flex justify-between items-center mb-4"><div class="flex items-center gap-2"><i data-lucide="message-circle" class="h-5 w-5 text-primary"></i><h3 class="font-semibold text-lg">Parent Messages</h3></div><span class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium" id="teacher-message-count-badge">0</span></div>
         <div id="teacher-messages-list" class="space-y-2 max-h-96 overflow-y-auto"><div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-12 w-12 mx-auto mb-3 opacity-50"></i><p>Loading messages...</p></div></div>
         <button onclick="loadTeacherMessages()" class="mt-4 w-full py-2 text-sm border rounded-lg hover:bg-accent flex items-center justify-center gap-2"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Refresh Messages</button>
       </div>
 
-      <!-- Duty Card -->
       <div class="rounded-xl border bg-card p-6" id="duty-card"><div class="flex justify-between items-start"><div><h3 class="font-semibold">Today's Duty</h3><p class="text-sm text-muted-foreground" id="duty-location">Loading...</p></div><span class="duty-status px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-full" id="duty-status">Not Checked In</span></div><div class="mt-4 flex gap-3"><button onclick="handleCheckIn()" class="flex-1 bg-primary text-primary-foreground py-2 rounded-lg" id="check-in-btn">Check In</button><button onclick="handleCheckOut()" class="flex-1 border bg-background py-2 rounded-lg" id="check-out-btn" disabled>Check Out</button></div><div class="mt-3 text-xs text-muted-foreground">Last duty rating: <span id="last-rating">4.5</span>/5</div></div>
     </div>
   `;
@@ -167,7 +162,17 @@ async function renderTeacherDashboard() {
   return html;
 }
 
-// ============ TEACHER STUDENTS ============
+// ============ TEACHER STUDENTS (CORRECTED - NO DUPLICATES) ============
+async function loadMyStudents() {
+  try {
+    const response = await api.teacher.getMyStudents();
+    return response.data || { students: [], isClassTeacher: false, subjects: [] };
+  } catch(e) {
+    console.error(e);
+    return { students: [], isClassTeacher: false, subjects: [] };
+  }
+}
+
 async function renderTeacherStudents() {
     const data = await loadMyStudents();
     const students = data.students || [];
@@ -269,71 +274,21 @@ function getGradeColorClass(grade) {
     return 'bg-red-100 text-red-700';
 }
 
-async function loadMyStudents() {
-  try {
-    const response = await api.teacher.getMyStudents();
-    return response.data || [];
-  } catch(e) {
-    console.error(e);
-    return [];
-  }
-}
-
-function renderStudentsTable(students) {
-  if (!students || students.length === 0) {
-    return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
-  }
-  let html = `
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-muted/50">
-          <tr>
-            <th class="px-4 py-3 text-left">Student</th>
-            <th class="px-4 py-3 text-left">ELIMUID</th>
-            <th class="px-4 py-3 text-left">Grade</th>
-            <th class="px-4 py-3 text-center">Attendance</th>
-            <th class="px-4 py-3 text-center">Average</th>
-            <th class="px-4 py-3 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y">
-  `;
-  for (const s of students) {
-    const user = s.User || {};
-    const name = user.name || 'Unknown';
-    const elimuid = s.elimuid || 'N/A';
-    const grade = s.grade || 'N/A';
-    const attendance = s.attendance || 95;
-    const average = s.average || 0;
-    html += `
-      <tr class="hover:bg-accent/50">
-        <td class="px-4 py-3">${escapeHtml(name)}</td>
-        <td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${elimuid}</span></td>
-        <td class="px-4 py-3">${grade}</td>
-        <td class="px-4 py-3 text-center">${attendance}%</td>
-        <td class="px-4 py-3 text-center">${average}%</td>
-        <td class="px-4 py-3 text-right">
-          <button onclick="viewStudentDetails('${s.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye"></i></button>
-          <button onclick="copyToClipboard('${elimuid}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy"></i></button>
-        </td>
-      </tr>
-    `;
-  }
-  html += `</tbody></table></div>`;
-  return html;
-}
-
-// ============ ATTENDANCE ============
+// ============ ATTENDANCE (FIXED ENDPOINT) ============
 async function renderTeacherAttendance() {
     const data = await loadMyStudents();
     const students = data.students || [];
     if (!students.length) return '<div class="text-center py-12">No students in your class</div>';
     const today = new Date().toISOString().split('T')[0];
     
-    // Fetch existing attendance for today
-    const attendanceRes = await api.teacher.getAttendanceForDate(today).catch(() => ({ data: [] }));
+    // Fetch existing attendance for today using the correct endpoint
+    const attendanceRes = await api.teacher.getAttendanceForDate ? 
+        await api.teacher.getAttendanceForDate(today).catch(() => ({ data: [] })) : 
+        { data: [] };
     const attendanceMap = {};
-    attendanceRes.data.forEach(a => { attendanceMap[a.studentId] = a; });
+    if (attendanceRes.data) {
+        attendanceRes.data.forEach(a => { attendanceMap[a.studentId] = a; });
+    }
 
     let html = `<div class="space-y-6"><h2 class="text-2xl font-bold">Take Attendance - ${today}</h2>`;
     html += `<div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b flex justify-end"><button onclick="saveAttendance()" class="px-4 py-2 bg-primary text-white rounded-lg">Save Attendance</button></div>`;
@@ -379,6 +334,7 @@ async function saveAttendance() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
+// ============ COMPETENCY ============
 async function renderTeacherCompetency() {
   const [heatmapData, belowExpectation, insights] = await Promise.all([
     apiRequest('/api/cbe/class-heatmap'),
@@ -389,7 +345,6 @@ async function renderTeacherCompetency() {
     <div class="space-y-6">
       <h2 class="text-2xl font-bold">Competency Dashboard</h2>
       <div class="grid gap-4 lg:grid-cols-2">
-        <!-- Heatmap -->
         <div class="rounded-xl border bg-card p-4 overflow-x-auto">
           <h3 class="font-semibold mb-3">Class Competency Heatmap</h3>
           <table class="text-sm min-w-[500px]">
@@ -404,7 +359,6 @@ async function renderTeacherCompetency() {
             </tbody>
           </table>
         </div>
-        <!-- Below Expectation List -->
         <div class="rounded-xl border bg-card p-4">
           <h3 class="font-semibold mb-3">Students Below Expectation</h3>
           ${belowExpectation.data.map(s => `
@@ -417,7 +371,6 @@ async function renderTeacherCompetency() {
           `).join('')}
         </div>
       </div>
-      <!-- Auto Insights -->
       <div class="rounded-xl border bg-card p-4">
         <h3 class="font-semibold mb-2">Auto Insights</h3>
         <ul class="space-y-1">
@@ -486,8 +439,6 @@ async function renderTeacherMarksEntry() {
   return html;
 }
 
-let currentMarksClassId = null, currentMarksSubject = null, currentMarksStudents = [];
-let currentMarksTerm = 'Term 1', currentMarksYear = new Date().getFullYear();
 async function openMarksEntry(subject, classId, className) {
   currentMarksSubject = subject;
   currentMarksClassId = classId;
@@ -508,7 +459,6 @@ function showMarksEntryModal(className) {
   const modalContent = modal.querySelector('.modal-content');
   const assessmentTypes = ['test', 'exam', 'assignment', 'project', 'quiz'];
   const today = new Date().toISOString().split('T')[0];
-  const currentYear = new Date().getFullYear();
   const terms = ['Term 1', 'Term 2', 'Term 3'];
   
   modalContent.innerHTML = `
@@ -523,55 +473,23 @@ function showMarksEntryModal(className) {
       </div>
       
       <div class="flex flex-wrap gap-3 items-end">
-        <div class="flex-1 min-w-[150px]">
-          <label class="block text-xs font-medium mb-1">Assessment Type</label>
-          <select id="assessment-type" class="w-full rounded-lg border p-2 bg-background">
-            ${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="flex-1 min-w-[200px]">
-          <label class="block text-xs font-medium mb-1">Assessment Name</label>
-          <input type="text" id="assessment-name" placeholder="e.g., Mid-term Exam, Week 3 Test" class="w-full rounded-lg border p-2 bg-background">
-        </div>
-        <div class="w-[130px]">
-          <label class="block text-xs font-medium mb-1">Term</label>
-          <select id="assessment-term" class="w-full rounded-lg border p-2 bg-background">
-            ${terms.map(t => `<option value="${t}" ${t === 'Term 1' ? 'selected' : ''}>${t}</option>`).join('')}
-          </select>
-        </div>
-        <div class="w-[130px]">
-          <label class="block text-xs font-medium mb-1">Year</label>
-          <select id="assessment-year" class="w-full rounded-lg border p-2 bg-background">
-            ${[currentYear - 1, currentYear, currentYear + 1].map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
-          </select>
-        </div>
-        <div class="w-[150px]">
-          <label class="block text-xs font-medium mb-1">Date</label>
-          <input type="date" id="assessment-date" value="${today}" class="w-full rounded-lg border p-2 bg-background">
-        </div>
+        <div class="flex-1 min-w-[150px]"><label class="block text-xs font-medium mb-1">Assessment Type</label><select id="assessment-type" class="w-full rounded-lg border p-2 bg-background">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select></div>
+        <div class="flex-1 min-w-[200px]"><label class="block text-xs font-medium mb-1">Assessment Name</label><input type="text" id="assessment-name" placeholder="e.g., Mid-term Exam" class="w-full rounded-lg border p-2 bg-background"></div>
+        <div class="w-[130px]"><label class="block text-xs font-medium mb-1">Term</label><select id="assessment-term" class="w-full rounded-lg border p-2 bg-background">${terms.map(t => `<option value="${t}" ${t === 'Term 1' ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div class="w-[130px]"><label class="block text-xs font-medium mb-1">Year</label><select id="assessment-year" class="w-full rounded-lg border p-2 bg-background">${[new Date().getFullYear()-1, new Date().getFullYear(), new Date().getFullYear()+1].map(y => `<option value="${y}" ${y === new Date().getFullYear() ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
+        <div class="w-[150px]"><label class="block text-xs font-medium mb-1">Date</label><input type="date" id="assessment-date" value="${today}" class="w-full rounded-lg border p-2 bg-background"></div>
       </div>
       
       <div class="overflow-x-auto max-h-[55vh] overflow-y-auto border rounded-lg">
         <table class="w-full text-sm">
-          <thead class="bg-muted/50 sticky top-0">
-            <tr>
-              <th class="px-4 py-2 text-left">Student</th>
-              <th class="px-4 py-2 text-left">ELIMUID</th>
-              <th class="px-4 py-2 text-center w-32">Score (%)</th>
-              <th class="px-4 py-2 text-center w-24">Grade</th>
-            </tr>
-          </thead>
+          <thead class="bg-muted/50 sticky top-0"><tr><th class="px-4 py-2 text-left">Student</th><th class="px-4 py-2 text-left">ELIMUID</th><th class="px-4 py-2 text-center w-32">Score (%)</th><th class="px-4 py-2 text-center w-24">Grade</th></tr></thead>
           <tbody class="divide-y">
             ${currentMarksStudents.map(s => `
               <tr>
                 <td class="px-4 py-2">${escapeHtml(s.User?.name)}</td>
                 <td class="px-4 py-2">${s.elimuid}</td>
-                <td class="px-4 py-2 text-center">
-                  <input type="number" id="score-${s.id}" class="score-input w-24 rounded border px-2 py-1 text-center bg-background" min="0" max="100" step="0.5" onchange="updateGradeDisplayForStudent('${s.id}')">
-                </td>
-                <td class="px-4 py-2 text-center">
-                  <span id="grade-${s.id}" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full">-</span>
-                </td>
+                <td class="px-4 py-2 text-center"><input type="number" id="score-${s.id}" class="score-input w-24 rounded border px-2 py-1 text-center bg-background" min="0" max="100" step="0.5" onchange="updateGradeDisplayForStudent('${s.id}')"></td>
+                <td class="px-4 py-2 text-center"><span id="grade-${s.id}" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full">-</span></td>
               </tr>
             `).join('')}
           </tbody>
@@ -646,17 +564,6 @@ async function saveAllMarks() {
   hideLoading();
 }
 
-async function deleteMessage(messageId, deleteFor) {
-    if (!confirm(`Delete this message ${deleteFor === 'everyone' ? 'for everyone' : 'for yourself'}?`)) return;
-    try {
-        await api.teacher.deleteMessage(messageId, deleteFor);
-        // Refresh chat
-        switchStaffChat(currentStaffChatType, currentStaffChatPartner);
-    } catch (e) {
-        showToast('Failed to delete message', 'error');
-    }
-}
-
 // ============ TASKS ============
 async function renderTeacherTasks() {
   let tasks = [];
@@ -669,7 +576,7 @@ async function renderTeacherTasks() {
   return `
     <div class="space-y-6"><div class="flex justify-between items-center"><h2 class="text-2xl font-bold">My Tasks</h2><button onclick="showAddTaskModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ New Task</button></div>
     <div class="grid gap-4 md:grid-cols-2">
-      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Pending (${pending.length})</h3><div class="space-y-2" id="pending-tasks-list">${pending.map(t => `<div class="flex items-center gap-3 p-3 hover:bg-accent/50 rounded-lg"><input type="checkbox" onchange="completeTask('${t.id}')" class="rounded"><div class="flex-1"><p class="font-medium">${escapeHtml(t.title)}</p><p class="text-sm text-muted-foreground">Due: ${t.dueDate ? formatDate(t.dueDate) : 'No date'}</p></div><span class="px-2 py-1 bg-${t.priority === 'high' ? 'red' : t.priority === 'medium' ? 'yellow' : 'green'}-100 dark:bg-${t.priority === 'high' ? 'red' : t.priority === 'medium' ? 'yellow' : 'green'}-900/30 text-${t.priority === 'high' ? 'red' : t.priority === 'medium' ? 'yellow' : 'green'}-700 dark:text-${t.priority === 'high' ? 'red' : t.priority === 'medium' ? 'yellow' : 'green'}-400 text-xs rounded-full">${t.priority}</span><button onclick="deleteTask('${t.id}')" class="text-red-600"><i data-lucide="trash-2" class="h-4 w-4"></i></button></div>`).join('')}</div></div>
+      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Pending (${pending.length})</h3><div class="space-y-2" id="pending-tasks-list">${pending.map(t => `<div class="flex items-center gap-3 p-3 hover:bg-accent/50 rounded-lg"><input type="checkbox" onchange="completeTask('${t.id}')" class="rounded"><div class="flex-1"><p class="font-medium">${escapeHtml(t.title)}</p><p class="text-sm text-muted-foreground">Due: ${t.dueDate ? formatDate(t.dueDate) : 'No date'}</p></div><span class="px-2 py-1 bg-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-100 dark:bg-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-900/30 text-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-700 dark:text-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-400 text-xs rounded-full">${t.priority}</span><button onclick="deleteTask('${t.id}')" class="text-red-600"><i data-lucide="trash-2" class="h-4 w-4"></i></button></div>`).join('')}</div></div>
       <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Completed (${completed.length})</h3><div class="space-y-2">${completed.map(t => `<div class="flex items-center gap-3 p-3 hover:bg-accent/50 rounded-lg"><input type="checkbox" checked disabled class="rounded"><div class="flex-1"><p class="font-medium line-through">${escapeHtml(t.title)}</p><p class="text-sm text-muted-foreground">Completed ${t.completedAt ? timeAgo(t.completedAt) : ''}</p></div></div>`).join('')}</div></div>
     </div></div>
   `;
@@ -714,70 +621,6 @@ async function deleteTask(taskId) {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
-function renderMessageBubble(msg, isSent) {
-    return `
-        <div class="flex ${isSent ? 'justify-end' : 'justify-start'} group relative">
-            <div class="${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
-                ${!isSent ? `<p class="text-xs font-medium">${escapeHtml(msg.Sender?.name)}</p>` : ''}
-                <p class="text-sm">${msg.deleted ? '[This message was deleted]' : escapeHtml(msg.content)}</p>
-                <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
-            </div>
-            ${!msg.deleted ? `
-            <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 flex gap-1">
-                <button onclick="deleteMessage(${msg.id}, 'everyone')" class="bg-red-500 text-white rounded-full p-1 text-xs" title="Delete for everyone">🗑️</button>
-                <button onclick="deleteMessage(${msg.id}, 'me')" class="bg-gray-500 text-white rounded-full p-1 text-xs" title="Delete for me">👤</button>
-            </div>
-            ` : ''}
-        </div>
-    `;
-}
-
-// Student detail modal
-async function showStudentDetails(studentId) {
-  try {
-    const student = await apiRequest(`/api/admin/students/${studentId}`);
-    const analytics = await apiRequest(`/api/analytics/student/${studentId}`);
-    // Build modal HTML with grades chart, attendance, competency, report absence button
-    const modalHtml = `
-      <div class="space-y-4">
-        <div class="flex justify-between items-center">
-          <h3 class="text-xl font-bold">${escapeHtml(student.data.User.name)}</h3>
-          <button onclick="closeStudentModal()" class="text-muted-foreground">✖</button>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div><span class="font-medium">ELIMUID:</span> ${student.data.elimuid}</div>
-          <div><span class="font-medium">Grade:</span> ${student.data.grade}</div>
-        </div>
-        <div class="border-t pt-2">
-          <h4 class="font-semibold">Performance Trend</h4>
-          <canvas id="student-grade-chart" height="200"></canvas>
-        </div>
-        <div class="border-t pt-2">
-          <h4 class="font-semibold">Attendance</h4>
-          <div id="student-attendance-calendar"></div>
-        </div>
-        <div class="border-t pt-2">
-          <h4 class="font-semibold">Competency Progress</h4>
-          <div id="student-competency-radar"></div>
-        </div>
-        <button onclick="reportAbsenceForStudent(${studentId})" class="w-full bg-red-500 text-white py-2 rounded">Report Absence</button>
-      </div>
-    `;
-    showModal('Student Details', modalHtml);
-    // Initialize charts with analytics data
-    new Chart(document.getElementById('student-grade-chart'), {
-      type: 'line',
-      data: { labels: analytics.data.records.map(r => r.date), datasets: [{ label: 'Score', data: analytics.data.records.map(r => r.score) }] }
-    });
-  } catch(e) { showToast(e.message, 'error'); }
-}
-window.reportAbsenceForStudent = async function(studentId) {
-  const reason = prompt('Reason for absence:');
-  if (!reason) return;
-  await apiRequest('/api/parent/report-absence', { method: 'POST', body: JSON.stringify({ studentId, date: new Date().toISOString().split('T')[0], reason }) });
-  showToast('Absence reported to parent', 'success');
-};
-
 // ============ DUTY MANAGEMENT ============
 async function renderTeacherDuty() {
   let weeklyDuty = [];
@@ -813,9 +656,8 @@ async function submitSwapRequest() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
-// ============ DUTY PREFERENCES ============
 function renderTeacherDutyPreferences() {
-  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Duty Preferences</h2><div class="rounded-xl border bg-card p-6 max-w-2xl mx-auto"><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">Preferred Days</label><div class="flex flex-wrap gap-3" id="pref-days">${['Monday','Tuesday','Wednesday','Thursday','Friday'].map(d => `<label class="flex items-center gap-2"><input type="checkbox" value="${d.toLowerCase()}" class="pref-day"> <span>${d}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Preferred Areas</label><div class="flex flex-wrap gap-3" id="pref-areas">${['morning','lunch','afternoon','whole_day'].map(a => `<label class="flex items-center gap-2"><input type="checkbox" value="${a}" class="pref-area"> <span>${a}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Max Duties Per Week</label><input type="number" id="max-duties" value="3" min="1" max="5" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text-sm font-medium mb-1">Blackout Dates</label><div class="flex gap-2"><input type="date" id="blackout-date" class="flex-1 rounded-lg border p-2 bg-background"><button onclick="addBlackoutDate()" class="px-3 py-2 bg-primary text-white rounded-lg">Add</button></div><div id="blackout-dates-list" class="mt-2 space-y-1"></div></div><button onclick="saveDutyPreferences()" class="w-full bg-primary text-white py-2 rounded-lg">Save Preferences</button></div></div></div>`;
+  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Duty Preferences</h2><div class="rounded-xl border bg-card p-6 max-w-2xl mx-auto"><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">Preferred Days</label><div class="flex flex-wrap gap-3" id="pref-days">${['Monday','Tuesday','Wednesday','Thursday','Friday'].map(d => `<label class="flex items-center gap-2"><input type="checkbox" value="${d.toLowerCase()}" class="pref-day"> <span>${d}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Preferred Areas</label><div class="flex flex-wrap gap-3" id="pref-areas">${['morning','lunch','afternoon','whole_day'].map(a => `<label class="flex items-center gap-2"><input type="checkbox" value="${a}" class="pref-area"> <span>${a}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Max Duties Per Week</label><input type="number" id="max-duties" value="3" min="1" max="5" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text14 font-medium mb-1">Blackout Dates</label><div class="flex gap-2"><input type="date" id="blackout-date" class="flex-1 rounded-lg border p-2 bg-background"><button onclick="addBlackoutDate()" class="px-3 py-2 bg-primary text-white rounded-lg">Add</button></div><div id="blackout-dates-list" class="mt-2 space-y-1"></div></div><button onclick="saveDutyPreferences()" class="w-full bg-primary text-white py-2 rounded-lg">Save Preferences</button></div></div></div>`;
 }
 window.addBlackoutDate = function() {
   const date = document.getElementById('blackout-date')?.value;
@@ -840,10 +682,7 @@ window.saveDutyPreferences = async function() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 };
 
-// ============ STAFF CHAT (FULLY FUNCTIONAL) ============
-let currentStaffChatType = 'group';
-let currentStaffChatPartner = null;
-
+// ============ STAFF CHAT ============
 async function renderStaffChat() {
   const teachers = await loadStaffMembers();
   return `
@@ -853,24 +692,11 @@ async function renderStaffChat() {
           <div class="p-4 border-b"><h3 class="font-semibold">Staff Chat</h3></div>
           <div class="flex-1 overflow-y-auto p-2">
             <button onclick="switchStaffChat('group')" class="w-full text-left p-3 rounded-lg hover:bg-accent mb-2">
-              <div class="flex items-center gap-3">
-                <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users"></i></div>
-                <div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div>
-              </div>
+              <div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users"></i></div><div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div></div>
             </button>
-            <div class="pt-2 mt-2 border-t">
-              <p class="text-xs font-medium px-3 mb-2">TEACHERS</p>
+            <div class="pt-2 mt-2 border-t"><p class="text-xs font-medium px-3 mb-2">TEACHERS</p>
               <div id="staff-list">
-                ${teachers.map(t => `
-                  <button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent">
-                    <div class="flex items-center gap-3">
-                      <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                        <span class="font-medium text-blue-700 dark:text-blue-400 text-sm">${getInitials(t.name)}</span>
-                      </div>
-                      <div><p class="font-medium">${escapeHtml(t.name)}</p></div>
-                    </div>
-                  </button>
-                `).join('')}
+                ${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><span class="font-medium text-blue-700 dark:text-blue-400 text-sm">${getInitials(t.name)}</span></div><div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}
               </div>
             </div>
           </div>
@@ -878,27 +704,19 @@ async function renderStaffChat() {
         <div class="col-span-3 rounded-xl border bg-card flex flex-col">
           <div class="p-4 border-b"><h3 class="font-semibold" id="staff-chat-title">Staff Room</h3></div>
           <div class="flex-1 overflow-y-auto p-4 space-y-4" id="staff-chat-messages"></div>
-          <div class="p-4 border-t">
-            <div class="flex gap-2">
-              <input type="text" id="staff-chat-input" placeholder="Type your message..." class="flex-1 rounded-lg border bg-background px-4 py-3">
-              <button onclick="sendStaffMessage()" class="px-6 py-3 bg-primary text-white rounded-lg">Send</button>
-            </div>
-          </div>
+          <div class="p-4 border-t"><div class="flex gap-2"><input type="text" id="staff-chat-input" placeholder="Type your message..." class="flex-1 rounded-lg border bg-background px-4 py-3"><button onclick="sendStaffMessage()" class="px-6 py-3 bg-primary text-white rounded-lg">Send</button></div></div>
         </div>
       </div>
     </div>
   `;
 }
-
 async function loadStaffMembers() {
   try { const res = await api.teacher.getStaffMembers(); return res.data || []; } catch(e) { return []; }
 }
-
 async function switchStaffChat(type, partnerId = null, partnerName = '') {
   currentStaffChatType = type;
   currentStaffChatPartner = partnerId;
   document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerName}`;
-  
   let messages = [];
   if (type === 'group') {
     try { const res = await api.teacher.getGroupMessages(); messages = res.data || []; } catch(e) { console.error(e); }
@@ -907,29 +725,42 @@ async function switchStaffChat(type, partnerId = null, partnerName = '') {
   }
   const container = document.getElementById('staff-chat-messages');
   const user = getCurrentUser();
-  container.innerHTML = messages.map(msg => `
-    <div class="flex ${msg.senderId === user.id ? 'justify-end' : 'justify-start'} group">
-      <div class="${msg.senderId === user.id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%] relative">
-        ${msg.replyToMessageId ? `<div class="text-xs border-l-2 border-primary pl-2 mb-1 italic text-muted-foreground">Replying to: ${msg.replyToMessageId}</div>` : ''}
-        ${msg.senderId !== user.id ? `<p class="text-xs font-medium text-muted-foreground">${msg.Sender?.name}</p>` : ''}
-        <p class="text-sm">${escapeHtml(msg.content)}</p>
-        <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
-        <button onclick="setReplyTo(${msg.id}, '${escapeHtml(msg.content)}')" class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-primary text-white rounded-full p-1 text-xs">↩️</button>
-      </div>
-    </div>
-  `).join('') || '<div class="text-center text-muted-foreground">No messages yet</div>';
+  container.innerHTML = messages.map(msg => renderMessageBubble(msg, msg.senderId === user.id)).join('') || '<div class="text-center text-muted-foreground">No messages yet</div>';
   container.scrollTop = container.scrollHeight;
 }
-
+function renderMessageBubble(msg, isSent) {
+    const deleted = msg.metadata?.deleted || msg.content === '[This message was deleted]';
+    return `
+        <div class="flex ${isSent ? 'justify-end' : 'justify-start'} group relative">
+            <div class="${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+                ${!isSent ? `<p class="text-xs font-medium">${escapeHtml(msg.Sender?.name)}</p>` : ''}
+                <p class="text-sm">${deleted ? '[This message was deleted]' : escapeHtml(msg.content)}</p>
+                <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+            </div>
+            ${!deleted ? `
+            <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                <button onclick="deleteMessage(${msg.id}, 'everyone')" class="bg-red-500 text-white rounded-full p-1 text-xs" title="Delete for everyone">🗑️</button>
+                <button onclick="deleteMessage(${msg.id}, 'me')" class="bg-gray-500 text-white rounded-full p-1 text-xs" title="Delete for me">👤</button>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+async function deleteMessage(messageId, deleteFor) {
+    if (!confirm(`Delete this message ${deleteFor === 'everyone' ? 'for everyone' : 'for yourself'}?`)) return;
+    try {
+        await api.teacher.deleteMessage(messageId, deleteFor);
+        switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+    } catch (e) {
+        showToast('Failed to delete message', 'error');
+    }
+}
 async function sendStaffMessage() {
   const input = document.getElementById('staff-chat-input');
   const content = input?.value.trim();
   if (!content) return;
   const data = { content };
-  if (replyingTo) {
-    data.replyToId = replyingTo.id;
-    cancelReply();
-  }
+  if (replyingTo) { data.replyToId = replyingTo.id; cancelReply(); }
   if (currentStaffChatType === 'group') {
     await api.teacher.sendGroupMessage(data);
   } else if (currentStaffChatPartner) {
@@ -979,7 +810,7 @@ async function sendParentReply(parentId) {
   } catch(e) { showToast(e.message, 'error'); }
 }
 
-// ============ SETTINGS ============
+// ============ SETTINGS & HELP ============
 async function renderTeacherSettings() {
   const user = getCurrentUser();
   return `
@@ -1005,8 +836,6 @@ async function handleChangePassword() {
     document.getElementById('confirm-password').value = '';
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
-
-// ============ HELP SECTION ============
 async function renderHelpSection(role) {
   let articles = [];
   try {
@@ -1021,8 +850,9 @@ async function renderHelpSection(role) {
 }
 window.searchHelpArticles = function() {
   const term = document.getElementById('help-search')?.value.toLowerCase();
-  const articles = document.querySelectorAll('.help-article');
-  articles.forEach(a => { a.style.display = a.innerText.toLowerCase().includes(term) ? 'block' : 'none'; });
+  document.querySelectorAll('#help-articles-container > div').forEach(a => {
+    a.style.display = a.textContent.toLowerCase().includes(term) ? 'block' : 'none';
+  });
 };
 window.showHelpArticleDetail = function(title, content) {
   alert(`${title}\n\n${content}`);
@@ -1034,90 +864,53 @@ async function renderProfileSection() {
   const emailPref = user.preferences?.email !== false;
   const pushPref = user.preferences?.push !== false;
   const darkModePref = document.documentElement.classList.contains('dark');
-
   return `
     <div class="space-y-6 max-w-4xl mx-auto">
       <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
         <div class="flex items-center gap-6">
           <div class="relative">
             <img id="profile-preview" src="${user.profileImage || ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
-            <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer">
-              <i data-lucide="camera" class="h-4 w-4"></i>
-              <input type="file" id="profile-picture-input" accept="image/*" class="hidden" onchange="uploadProfilePicture(this.files[0])">
-            </label>
+            <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer"><i data-lucide="camera" class="h-4 w-4"></i><input type="file" id="profile-picture-input" accept="image/*" class="hidden" onchange="uploadProfilePicture(this.files[0])"></label>
           </div>
-          <div>
-            <h2 class="text-3xl font-bold">${user.name}</h2>
-            <p class="text-white/80 capitalize">${user.role}</p>
-          </div>
+          <div><h2 class="text-3xl font-bold">${user.name}</h2><p class="text-white/80 capitalize">${user.role}</p></div>
         </div>
       </div>
-
       <div class="grid gap-4 md:grid-cols-3">
         <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Member Since</p><p class="text-lg font-semibold">${formatDate(user.createdAt)}</p></div>
         <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Last Login</p><p class="text-lg font-semibold">${user.lastLogin ? timeAgo(user.lastLogin) : 'N/A'}</p></div>
         <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Account Status</p><p class="text-lg font-semibold text-green-600">Active</p></div>
       </div>
-
       <div class="rounded-xl border bg-card p-6">
         <h3 class="font-semibold text-lg mb-4">Profile Information</h3>
         <form id="profile-form" onsubmit="updateProfile(event)" class="space-y-4">
-          <div class="grid gap-4 md:grid-cols-2">
-            <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" name="name" value="${user.name}" class="w-full rounded-lg border p-2 bg-background"></div>
-            <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" name="email" value="${user.email || ''}" class="w-full rounded-lg border p-2 bg-background"></div>
-          </div>
+          <div class="grid gap-4 md:grid-cols-2"><div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" name="name" value="${user.name}" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text-sm font-medium mb-1">Email</label><input type="email" name="email" value="${user.email || ''}" class="w-full rounded-lg border p-2 bg-background"></div></div>
           <div><label class="block text-sm font-medium mb-1">Phone</label><input type="tel" name="phone" value="${user.phone || ''}" class="w-full rounded-lg border p-2 bg-background"></div>
           <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Profile</button></div>
         </form>
       </div>
-
       <div class="rounded-xl border bg-card p-6">
         <h3 class="font-semibold text-lg mb-4">Change Password</h3>
         <form id="password-form" onsubmit="updatePassword(event)" class="space-y-4">
           <div><label class="block text-sm font-medium mb-1">Current Password</label><input type="password" id="current-password" required class="w-full rounded-lg border p-2 bg-background"></div>
-          <div class="grid gap-4 md:grid-cols-2">
-            <div><label class="block text-sm font-medium mb-1">New Password</label><input type="password" id="new-password" required minlength="8" class="w-full rounded-lg border p-2 bg-background"></div>
-            <div><label class="block text-sm font-medium mb-1">Confirm Password</label><input type="password" id="confirm-password" required class="w-full rounded-lg border p-2 bg-background"></div>
-          </div>
+          <div class="grid gap-4 md:grid-cols-2"><div><label class="block text-sm font-medium mb-1">New Password</label><input type="password" id="new-password" required minlength="8" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text-sm font-medium mb-1">Confirm Password</label><input type="password" id="confirm-password" required class="w-full rounded-lg border p-2 bg-background"></div></div>
           <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Password</button></div>
         </form>
       </div>
-
       <div class="rounded-xl border bg-card p-6">
         <h3 class="font-semibold text-lg mb-4">Preferences</h3>
         <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <div><p class="font-medium">Email Notifications</p></div>
-            <button onclick="togglePreference('email')" id="pref-email" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPref ? 'bg-primary' : 'bg-muted'}">
-              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailPref ? 'translate-x-6' : 'translate-x-1'}"></span>
-            </button>
-          </div>
-          <div class="flex justify-between items-center">
-            <div><p class="font-medium">Push Notifications</p></div>
-            <button onclick="togglePreference('push')" id="pref-push" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushPref ? 'bg-primary' : 'bg-muted'}">
-              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushPref ? 'translate-x-6' : 'translate-x-1'}"></span>
-            </button>
-          </div>
-          <div class="flex justify-between items-center">
-            <div><p class="font-medium">Dark Mode</p></div>
-            <button onclick="toggleTheme()" id="pref-darkmode" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${darkModePref ? 'bg-primary' : 'bg-muted'}">
-              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkModePref ? 'translate-x-6' : 'translate-x-1'}"></span>
-            </button>
-          </div>
+          <div class="flex justify-between items-center"><div><p class="font-medium">Email Notifications</p></div><button onclick="togglePreference('email')" id="pref-email" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPref ? 'bg-primary' : 'bg-muted'}"><span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailPref ? 'translate-x-6' : 'translate-x-1'}"></span></button></div>
+          <div class="flex justify-between items-center"><div><p class="font-medium">Push Notifications</p></div><button onclick="togglePreference('push')" id="pref-push" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushPref ? 'bg-primary' : 'bg-muted'}"><span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushPref ? 'translate-x-6' : 'translate-x-1'}"></span></button></div>
+          <div class="flex justify-between items-center"><div><p class="font-medium">Dark Mode</p></div><button onclick="toggleTheme()" id="pref-darkmode" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${darkModePref ? 'bg-primary' : 'bg-muted'}"><span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkModePref ? 'translate-x-6' : 'translate-x-1'}"></span></button></div>
         </div>
       </div>
-
       <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
         <h3 class="font-semibold text-lg mb-4 text-red-700 dark:text-red-400">Account Actions</h3>
-        <div class="flex gap-3">
-          <button onclick="downloadMyData()" class="px-4 py-2 border rounded-lg">Download My Data</button>
-          <button onclick="deactivateAccount()" class="px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg">Deactivate Account</button>
-        </div>
+        <div class="flex gap-3"><button onclick="downloadMyData()" class="px-4 py-2 border rounded-lg">Download My Data</button><button onclick="deactivateAccount()" class="px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg">Deactivate Account</button></div>
       </div>
     </div>
   `;
 }
-
 async function updateProfile(event) {
   event.preventDefault();
   const formData = new FormData(event.target);
@@ -1156,21 +949,13 @@ async function togglePreference(key) {
     await api.user.updatePreferences(prefs);
     user.preferences = prefs;
     localStorage.setItem('user', JSON.stringify(user));
-    // Update the toggle button UI
     const btn = document.getElementById(`pref-${key}`);
     if (btn) {
       const isOn = prefs[key];
-      if (isOn) {
-        btn.classList.remove('bg-muted');
-        btn.classList.add('bg-primary');
-        btn.querySelector('span').classList.remove('translate-x-1');
-        btn.querySelector('span').classList.add('translate-x-6');
-      } else {
-        btn.classList.remove('bg-primary');
-        btn.classList.add('bg-muted');
-        btn.querySelector('span').classList.remove('translate-x-6');
-        btn.querySelector('span').classList.add('translate-x-1');
-      }
+      btn.classList.toggle('bg-primary', isOn);
+      btn.classList.toggle('bg-muted', !isOn);
+      btn.querySelector('span').classList.toggle('translate-x-6', isOn);
+      btn.querySelector('span').classList.toggle('translate-x-1', !isOn);
     }
     showToast('Preference updated', 'success');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
@@ -1196,14 +981,13 @@ async function deactivateAccount() {
     setTimeout(() => logout(), 2000);
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
-
 async function uploadProfilePicture(file) {
   if (!file) return;
   const formData = new FormData();
   formData.append('picture', file);
   showLoading();
   try {
-    const response = await fetch('/api/user/profile-picture', {
+    const response = await fetch(`${API_BASE_URL}/api/user/profile-picture`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
       body: formData
@@ -1211,7 +995,6 @@ async function uploadProfilePicture(file) {
     const data = await response.json();
     if (data.success) {
       document.getElementById('profile-preview').src = data.data.profileImage;
-      // Update local user object
       const user = getCurrentUser();
       user.profileImage = data.data.profileImage;
       localStorage.setItem('user', JSON.stringify(user));
@@ -1306,7 +1089,6 @@ function copyToClipboard(text) {
   navigator.clipboard.writeText(text);
   showToast('Copied to clipboard', 'success');
 }
-
 function setReplyTo(messageId, contentPreview) {
   replyingTo = { id: messageId, content: contentPreview };
   let previewDiv = document.getElementById('reply-preview');
@@ -1319,7 +1101,6 @@ function setReplyTo(messageId, contentPreview) {
   }
   previewDiv.innerHTML = `<span>Replying to: ${escapeHtml(contentPreview)}</span><button onclick="cancelReply()" class="text-red-500">✖</button>`;
 }
-
 function cancelReply() {
   replyingTo = null;
   const preview = document.getElementById('reply-preview');
@@ -1327,9 +1108,7 @@ function cancelReply() {
 }
 
 // ============ STUDENT DETAIL MODAL ============
-
 let currentStudentId = null;
-
 async function viewStudentDetails(studentId) {
   currentStudentId = studentId;
   showLoading();
@@ -1338,10 +1117,8 @@ async function viewStudentDetails(studentId) {
       api.admin.getStudentDetails(studentId),
       api.analytics.getStudentAnalytics(studentId)
     ]);
-
     const student = studentRes.data;
     const analytics = analyticsRes.data;
-
     showStudentDetailModal(student, analytics);
   } catch (error) {
     showToast('Failed to load student details', 'error');
@@ -1350,76 +1127,28 @@ async function viewStudentDetails(studentId) {
     hideLoading();
   }
 }
-
 function showStudentDetailModal(student, analytics) {
   let modal = document.getElementById('student-detail-modal');
-  if (!modal) {
-    createStudentDetailModal();
-    modal = document.getElementById('student-detail-modal');
-  }
-
+  if (!modal) { createStudentDetailModal(); modal = document.getElementById('student-detail-modal'); }
   const user = student.User || {};
   const grades = analytics.records || [];
   const attendance = analytics.attendance || { rate: 0, present: 0, absent: 0, late: 0, total: 0 };
   const competencyLevels = analytics.competencyLevels || [];
-
   const modalContent = modal.querySelector('.modal-content');
   modalContent.innerHTML = `
     <div class="space-y-6">
       <div class="flex items-center gap-4 pb-4 border-b">
-        <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-          <span class="text-2xl font-bold text-green-600">${getInitials(user.name)}</span>
-        </div>
-        <div>
-          <h3 class="text-xl font-semibold">${escapeHtml(user.name)}</h3>
-          <p class="text-sm text-muted-foreground">${escapeHtml(user.email || 'No email')} • ${student.elimuid}</p>
-          <p class="text-sm">Grade: ${student.grade || 'N/A'}</p>
-        </div>
+        <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center"><span class="text-2xl font-bold text-green-600">${getInitials(user.name)}</span></div>
+        <div><h3 class="text-xl font-semibold">${escapeHtml(user.name)}</h3><p class="text-sm text-muted-foreground">${escapeHtml(user.email || 'No email')} • ${student.elimuid}</p><p class="text-sm">Grade: ${student.grade || 'N/A'}</p></div>
       </div>
-
       <div class="grid grid-cols-3 gap-3 text-center">
-        <div class="p-3 bg-muted/30 rounded-lg">
-          <p class="text-xs text-muted-foreground">Average Score</p>
-          <p class="text-2xl font-bold text-primary">${analytics.overallAverage || 0}%</p>
-        </div>
-        <div class="p-3 bg-muted/30 rounded-lg">
-          <p class="text-xs text-muted-foreground">Attendance Rate</p>
-          <p class="text-2xl font-bold ${attendance.rate >= 80 ? 'text-green-600' : 'text-yellow-600'}">${attendance.rate}%</p>
-        </div>
-        <div class="p-3 bg-muted/30 rounded-lg">
-          <p class="text-xs text-muted-foreground">Competency</p>
-          <p class="text-2xl font-bold text-purple-600">${analytics.grade || 'N/A'}</p>
-        </div>
+        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-xs text-muted-foreground">Average Score</p><p class="text-2xl font-bold text-primary">${analytics.overallAverage || 0}%</p></div>
+        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-xs text-muted-foreground">Attendance Rate</p><p class="text-2xl font-bold ${attendance.rate >= 80 ? 'text-green-600' : 'text-yellow-600'}">${attendance.rate}%</p></div>
+        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-xs text-muted-foreground">Competency</p><p class="text-2xl font-bold text-purple-600">${analytics.grade || 'N/A'}</p></div>
       </div>
-
-      <div>
-        <h4 class="font-medium mb-2">Recent Grades</h4>
-        <div class="chart-container h-40">
-          <canvas id="student-grades-chart"></canvas>
-        </div>
-      </div>
-
-      <div>
-        <h4 class="font-medium mb-2">Attendance Summary</h4>
-        <div class="flex gap-2 text-sm">
-          <span class="px-2 py-1 bg-green-100 text-green-700 rounded">Present: ${attendance.present}</span>
-          <span class="px-2 py-1 bg-red-100 text-red-700 rounded">Absent: ${attendance.absent}</span>
-          <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Late: ${attendance.late}</span>
-        </div>
-      </div>
-
-      <div>
-        <h4 class="font-medium mb-2">Competency Progress</h4>
-        <div class="space-y-2">
-          ${competencyLevels.slice(0, 5).map(c => `
-            <div class="flex justify-between items-center">
-              <span class="text-sm">${escapeHtml(c.competency)}</span>
-              <span class="px-2 py-0.5 text-xs rounded-full ${getLevelColorClass(c.level)}">${c.level}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
+      <div><h4 class="font-medium mb-2">Recent Grades</h4><div class="chart-container h-40"><canvas id="student-grades-chart"></canvas></div></div>
+      <div><h4 class="font-medium mb-2">Attendance Summary</h4><div class="flex gap-2 text-sm"><span class="px-2 py-1 bg-green-100 text-green-700 rounded">Present: ${attendance.present}</span><span class="px-2 py-1 bg-red-100 text-red-700 rounded">Absent: ${attendance.absent}</span><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Late: ${attendance.late}</span></div></div>
+      <div><h4 class="font-medium mb-2">Competency Progress</h4><div class="space-y-2">${competencyLevels.slice(0, 5).map(c => `<div class="flex justify-between items-center"><span class="text-sm">${escapeHtml(c.competency)}</span><span class="px-2 py-0.5 text-xs rounded-full ${getLevelColorClass(c.level)}">${c.level}</span></div>`).join('')}</div></div>
       <div class="flex justify-end gap-3 pt-4 border-t">
         <button onclick="closeStudentDetailModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
         <button onclick="reportAbsenceForStudent('${student.id}')" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Report Absence</button>
@@ -1427,50 +1156,24 @@ function showStudentDetailModal(student, analytics) {
       </div>
     </div>
   `;
-
   modal.classList.remove('hidden');
-
   setTimeout(() => {
     const ctx = document.getElementById('student-grades-chart');
     if (ctx) {
       new Chart(ctx, {
         type: 'line',
-        data: {
-          labels: grades.slice(0, 10).map(g => g.date ? new Date(g.date).toLocaleDateString() : ''),
-          datasets: [{
-            label: 'Score',
-            data: grades.slice(0, 10).map(g => g.score),
-            borderColor: '#3b82f6',
-            tension: 0.3
-          }]
-        },
+        data: { labels: grades.slice(0, 10).map(g => g.date ? new Date(g.date).toLocaleDateString() : ''), datasets: [{ label: 'Score', data: grades.slice(0, 10).map(g => g.score), borderColor: '#3b82f6', tension: 0.3 }] },
         options: { responsive: true, maintainAspectRatio: false }
       });
     }
     if (window.lucide) lucide.createIcons();
   }, 100);
 }
-
 function createStudentDetailModal() {
-  const html = `
-    <div id="student-detail-modal" class="fixed inset-0 z-50 hidden">
-      <div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailModal()"></div>
-      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4">
-        <div class="rounded-xl border bg-card p-6 shadow-xl">
-          <div class="modal-content"></div>
-        </div>
-      </div>
-    </div>
-  `;
+  const html = `<div id="student-detail-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4"><div class="rounded-xl border bg-card p-6 shadow-xl"><div class="modal-content"></div></div></div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 }
-
-function closeStudentDetailModal() {
-  const modal = document.getElementById('student-detail-modal');
-  if (modal) modal.classList.add('hidden');
-  currentStudentId = null;
-}
-
+function closeStudentDetailModal() { const m = document.getElementById('student-detail-modal'); if(m) m.classList.add('hidden'); currentStudentId = null; }
 async function reportAbsenceForStudent(studentId) {
   const reason = prompt('Enter reason for absence:');
   if (!reason) return;
@@ -1478,26 +1181,15 @@ async function reportAbsenceForStudent(studentId) {
   try {
     await api.parent.reportAbsence({ studentId, date: new Date().toISOString().split('T')[0], reason });
     showToast('Absence reported', 'success');
-  } catch (e) {
-    showToast(e.message, 'error');
-  } finally {
-    hideLoading();
-  }
+  } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
-
-function openMessageParent(studentId) {
-  // Open parent chat modal for this student's parent
-  showToast('Opening message to parent...', 'info');
-  // Implementation depends on existing parent chat
-}
-
+function openMessageParent(studentId) { showToast('Opening message to parent...', 'info'); }
 function getLevelColorClass(level) {
   if (level === 'EE' || level === 'A') return 'bg-green-100 text-green-700';
   if (level === 'ME' || level === 'B') return 'bg-blue-100 text-blue-700';
   if (level === 'AE' || level === 'C') return 'bg-yellow-100 text-yellow-700';
   return 'bg-red-100 text-red-700';
 }
-
 
 // ============ EXPORTS ============
 window.viewStudentDetails = viewStudentDetails;
@@ -1541,3 +1233,7 @@ window.deactivateAccount = deactivateAccount;
 window.addBlackoutDate = addBlackoutDate;
 window.saveDutyPreferences = saveDutyPreferences;
 window.submitSwapRequest = submitSwapRequest;
+window.deleteMessage = deleteMessage;
+window.renderMessageBubble = renderMessageBubble;
+window.setReplyTo = setReplyTo;
+window.cancelReply = cancelReply;
