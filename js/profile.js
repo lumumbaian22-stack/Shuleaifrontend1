@@ -324,18 +324,16 @@ async function uploadProfilePicture(file) {
     const token = localStorage.getItem('authToken');
     showLoading();
     try {
-        const response = await fetch('/api/user/profile-picture', {
+        const response = await fetch(`${API_BASE_URL}/api/user/profile-picture`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
         const data = await response.json();
         if (response.ok && data.success) {
-            // Update local user data with new profile image URL
             const user = getCurrentUser();
             user.profileImage = data.data.profileImage;
             localStorage.setItem('user', JSON.stringify(user));
-            // Refresh profile section to show updated image
             await showDashboardSection('profile');
             showToast('Profile picture updated successfully', 'success');
         } else {
