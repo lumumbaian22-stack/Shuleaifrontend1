@@ -4,17 +4,12 @@
 
 async function loadMyStudents() {
     try {
-        console.log('📥 Loading teacher students...');
         const response = await api.teacher.getMyStudents();
-        return response.data || [];
+        return response.data || { students: [], isClassTeacher: false, subjects: [] };
     } catch (error) {
-        console.error('❌ Failed to load students:', error);
-        if (error.message.includes('403')) {
-            showToast('You do not have permission to view students. Please contact your school admin.', 'error');
-        } else {
-            showToast(error.message || 'Failed to load students', 'error');
-        }
-        return [];
+        console.error('Failed to load students:', error);
+        showToast(error.message || 'Failed to load students', 'error');
+        return { students: [], isClassTeacher: false, subjects: [] };
     }
 }
 
@@ -22,76 +17,66 @@ async function loadMyStudents() {
 
 async function refreshTeacherStudentList() {
     const container = document.getElementById('teacher-students-table-body');
-    if (!container) {
-        console.warn('⚠️ Teacher student table container not found - using fallback');
-        const fallback = document.getElementById('my-students-table') || 
-                        document.querySelector('table tbody');
-        if (fallback) {
-            await refreshWithFallback(fallback);
-        }
-        return;
-    }
+    if (!container) return;
     
     try {
-        container.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center">Loading...</td></tr>';
+        container.innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center">Loading...</td></tr>';
         
-        const students = await loadMyStudents();
+        const data = await loadMyStudents();
+        const students = data.students || [];
+        const isClassTeacher = data.isClassTeacher;
+        const subjects = data.subjects || [];
         
-        if (!students || students.length === 0) {
-            container.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No students in your class yet</td></tr>';
+        if (students.length === 0) {
+            container.innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center text-muted-foreground">No students found</td></tr>';
             return;
         }
         
-        let html = '';
+        // Build table header dynamically
+        let headerHtml = '<tr>';
+        headerHtml += '<th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th>';
+        if (isClassTeacher) {
+            subjects.forEach(subject => { headerHtml += `<th class="px-4 py-3 text-center">${escapeHtml(subject)}</th>`; });
+        } else {
+            headerHtml += '<th class="px-4 py-3 text-center">Subject Score</th>';
+        }
+        headerHtml += '<th class="px-4 py-3 text-center">Attendance</th><th class="px-4 py-3 text-center">Overall</th><th class="px-4 py-3 text-right">Actions</th>';
+        headerHtml += '</tr>';
+        
+        const thead = container.closest('table').querySelector('thead');
+        if (thead) thead.innerHTML = headerHtml;
+        
+        let bodyHtml = '';
         students.forEach(student => {
-            const user = student.User || {};
-            const name = user.name || 'Unknown';
-            const grade = student.grade || 'N/A';
-            const elimuid = student.elimuid || 'N/A';
-            const attendance = student.attendance || 95;
-            const average = student.average || 0;
+            const attendance = student.attendance || 100;
+            const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
             
-            const avgClass = average > 80 ? 'text-green-600' : 
-                            average > 60 ? 'text-yellow-600' : 'text-red-600';
+            bodyHtml += '<tr class="hover:bg-accent/50 transition-colors">';
+            bodyHtml += `<td class="px-4 py-3"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><span class="font-medium text-blue-700 text-sm">${getInitials(student.name)}</span></div><span class="font-medium">${escapeHtml(student.name)}</span></div></td>`;
+            bodyHtml += `<td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(student.elimuid)}</span></td>`;
             
-            html += `
-                <tr class="hover:bg-accent/50 transition-colors">
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-3">
-                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                <span class="font-medium text-blue-700 text-sm">${getInitials(name)}</span>
-                            </div>
-                            <span class="font-medium">${escapeHtml(name)}</span>
-                        </div>
-                    </td>
-                    <td class="px-4 py-3">${escapeHtml(grade)}</td>
-                    <td class="px-4 py-3">
-                        <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(elimuid)}</span>
-                    </td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-2">
-                            <div class="h-2 w-16 rounded-full bg-muted overflow-hidden">
-                                <div class="h-full w-[${attendance}%] bg-green-500 rounded-full"></div>
-                            </div>
-                            <span class="text-xs">${attendance}%</span>
-                        </div>
-                    </td>
-                    <td class="px-4 py-3">
-                        <span class="font-semibold ${avgClass}">${average}%</span>
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                        <button onclick="viewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg">
-                            <i data-lucide="eye" class="h-4 w-4"></i>
-                        </button>
-                        <button onclick="copyElimuid('${elimuid}')" class="p-2 hover:bg-accent rounded-lg">
-                            <i data-lucide="copy" class="h-4 w-4"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
+            if (isClassTeacher) {
+                subjects.forEach(subject => {
+                    const score = student.subjectScores[subject];
+                    const display = score !== null ? `${score}%` : '—';
+                    const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+                    bodyHtml += `<td class="px-4 py-3 text-center"><span class="font-medium">${display}</span>${grade ? `<br><span class="text-xs ${getGradeColorClass(grade)} px-2 py-0.5 rounded-full">${grade}</span>` : ''}</td>`;
+                });
+            } else {
+                const subject = subjects[0] || 'Subject';
+                const score = student.subjectScores[subject];
+                const display = score !== null ? `${score}%` : '—';
+                const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+                bodyHtml += `<td class="px-4 py-3 text-center"><span class="font-medium">${display}</span>${grade ? `<br><span class="text-xs ${getGradeColorClass(grade)} px-2 py-0.5 rounded-full">${grade}</span>` : ''}</td>`;
+            }
+            
+            bodyHtml += `<td class="px-4 py-3 text-center"><div class="flex items-center justify-center gap-1"><div class="h-2 w-12 rounded-full bg-muted overflow-hidden"><div class="h-full w-[${attendance}%] bg-green-500 rounded-full"></div></div><span class="text-xs">${attendance}%</span></div></td>`;
+            bodyHtml += `<td class="px-4 py-3 text-center font-semibold ${getOverallColor(overall)}">${overall}</td>`;
+            bodyHtml += `<td class="px-4 py-3 text-right"><button onclick="viewStudentDetails(${student.id})" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button><button onclick="copyElimuid('${escapeHtml(student.elimuid)}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button></td>`;
+            bodyHtml += '</tr>';
         });
         
-        container.innerHTML = html;
+        container.innerHTML = bodyHtml;
         
         const countEl = document.getElementById('my-students-count');
         if (countEl) countEl.textContent = students.length;
@@ -100,8 +85,26 @@ async function refreshTeacherStudentList() {
         
     } catch (error) {
         console.error('Error refreshing teacher student list:', error);
-        container.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">Error loading students</td></tr>';
+        container.innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center text-red-500">Error loading students</td></tr>';
     }
+}
+
+// Helper functions
+function getOverallColor(value) {
+    if (value === '—') return 'text-muted-foreground';
+    const num = parseInt(value);
+    if (num >= 80) return 'text-green-600';
+    if (num >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+}
+
+function getGradeColorClass(grade) {
+    if (!grade) return 'bg-gray-100 text-gray-700';
+    const firstChar = grade.charAt(0).toUpperCase();
+    if (firstChar === 'A' || grade === 'EE') return 'bg-green-100 text-green-700';
+    if (firstChar === 'B' || grade === 'ME') return 'bg-blue-100 text-blue-700';
+    if (firstChar === 'C' || grade === 'AE') return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
 }
 
 async function refreshWithFallback(container) {
@@ -223,43 +226,61 @@ async function addStudent(studentData) {
 // ============ VIEW STUDENT DETAILS ============
 
 async function viewStudentDetails(studentId) {
-    showLoading();
     try {
-        const students = await loadMyStudents();
-        const student = students.find(s => s.id == studentId);
-        
+        const data = await loadMyStudents();
+        const student = data.students.find(s => s.id == studentId);
         if (!student) {
             showToast('Student not found', 'error');
             return;
         }
-        
         showStudentDetailsModal(student);
     } catch (error) {
-        console.error('Error viewing student:', error);
         showToast('Failed to load student details', 'error');
-    } finally {
-        hideLoading();
     }
 }
 
 function showStudentDetailsModal(student) {
     let modal = document.getElementById('student-details-modal');
-    
-    if (!modal) {
-        createStudentDetailsModal();
-        modal = document.getElementById('student-details-modal');
-    }
+    if (!modal) { createStudentDetailsModal(); modal = document.getElementById('student-details-modal'); }
     
     const modalContent = modal.querySelector('.modal-content');
-    if (modalContent) {
-        modalContent.innerHTML = getStudentDetailsHTML(student);
-    }
+    const subjects = Object.keys(student.subjectScores || {});
+    const subjectRows = subjects.map(sub => {
+        const score = student.subjectScores[sub];
+        const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+        return `<tr><td class="py-1">${escapeHtml(sub)}</td><td class="py-1 text-center">${score !== null ? score + '%' : '—'}</td><td class="py-1 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${getGradeColorClass(grade)}">${grade || '—'}</span></td></tr>`;
+    }).join('');
+    
+    modalContent.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex items-center gap-4 pb-4 border-b">
+                <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-green-600">${getInitials(student.name)}</span>
+                </div>
+                <div>
+                    <h4 class="font-medium text-lg">${escapeHtml(student.name)}</h4>
+                    <p class="text-sm text-muted-foreground">${escapeHtml(student.email || 'No email')}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><span class="font-medium">ELIMUID:</span> ${escapeHtml(student.elimuid)}</div>
+                <div><span class="font-medium">Grade:</span> ${escapeHtml(student.grade)}</div>
+                <div><span class="font-medium">Attendance:</span> ${student.attendance}%</div>
+                <div><span class="font-medium">Overall:</span> ${student.overallAverage !== null ? student.overallAverage + '%' : '—'}</div>
+            </div>
+            <div class="border-t pt-4">
+                <h4 class="font-medium mb-2">Subject Performance</h4>
+                <table class="w-full text-sm"><tbody>${subjectRows}</tbody></table>
+            </div>
+            <div class="flex justify-end gap-2 pt-4 border-t">
+                <button onclick="closeStudentDetailsModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Close</button>
+                <button onclick="copyToClipboard('${escapeHtml(student.elimuid)}')" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg">Copy ELIMUID</button>
+            </div>
+        </div>
+    `;
     
     modal.classList.remove('hidden');
-    
-    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-        lucide.createIcons();
-    }
+    if (window.lucide) lucide.createIcons();
 }
 
 function createStudentDetailsModal() {
@@ -739,6 +760,7 @@ window.showAddStudentModal = showAddStudentModal;
 window.closeAddStudentModal = closeAddStudentModal;
 window.handleAddStudentModal = handleAddStudentModal;
 window.viewStudentDetails = viewStudentDetails;
+window.showStudentDetailsModal = showStudentDetailsModal;
 window.closeStudentDetailsModal = closeStudentDetailsModal;
 window.renderStudentsTable = renderStudentsTable;
 window.deleteStudent = deleteStudent;
