@@ -439,7 +439,8 @@ async function handleStudentLogin() {
         const response = await api.auth.studentLogin(elimuid, password);
 
         if (response.success) {
-            localStorage.setItem('authToken', response.data.token);
+            authToken = response.data.token;        // Update global authToken
+            localStorage.setItem('authToken', authToken);
             localStorage.setItem('user', JSON.stringify(response.data.user));
             localStorage.setItem('student', JSON.stringify(response.data.student));
             localStorage.setItem('userRole', 'student');
@@ -454,7 +455,7 @@ async function handleStudentLogin() {
             }
         }
     } catch (error) {
-        showToast(error.message || 'Invalid ELIMUID or password. Try the default password: Student123!', 'error');
+        showToast(error.message || 'Invalid ELIMUID or password', 'error');
     } finally {
         hideLoading();
     }
