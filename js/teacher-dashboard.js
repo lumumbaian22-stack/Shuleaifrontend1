@@ -325,15 +325,41 @@ function renderStudentsTable(students) {
 
 // ============ ATTENDANCE ============
 async function renderTeacherAttendance() {
-  const students = await loadMyStudents();
-  if (!students.length) return '<div class="text-center py-12">No students in your class</div>';
-  const today = new Date().toISOString().split('T')[0];
-  let html = `<div class="space-y-6"><h2 class="text-2xl font-bold">Take Attendance - ${today}</h2><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b flex justify-end"><button onclick="saveAttendance()" class="px-4 py-2 bg-primary text-white rounded-lg">Save Attendance</button></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-left">Notes</th></tr></thead><tbody>`;
-  for (const s of students) {
-    html += `<tr data-student-id="${s.id}"><td class="px-4 py-3">${escapeHtml(s.User?.name)}</td><td class="px-4 py-3">${s.elimuid}</td><td class="px-4 py-3 text-center"><select class="attendance-status rounded border px-2 py-1 bg-background"><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option><option value="sick">Sick</option></select></td><td class="px-4 py-3"><input type="text" class="attendance-note w-full rounded border px-2 py-1 bg-background" placeholder="Note"></td></tr>`;
-  }
-  html += `</tbody></table></div></div></div>`;
-  return html;
+    const data = await loadMyStudents();
+    const students = data.students || [];
+    if (!students.length) return '<div class="text-center py-12">No students in your class</div>';
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Fetch existing attendance for today
+    const attendanceRes = await api.teacher.getAttendanceForDate(today).catch(() => ({ data: [] }));
+    const attendanceMap = {};
+    attendanceRes.data.forEach(a => { attendanceMap[a.studentId] = a; });
+
+    let html = `<div class="space-y-6"><h2 class="text-2xl font-bold">Take Attendance - ${today}</h2>`;
+    html += `<div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b flex justify-end"><button onclick="saveAttendance()" class="px-4 py-2 bg-primary text-white rounded-lg">Save Attendance</button></div>`;
+    html += `<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-left">Notes</th></tr></thead><tbody>`;
+
+    students.forEach(s => {
+        const att = attendanceMap[s.id] || { status: 'present', reason: '' };
+        html += `<tr data-student-id="${s.id}">
+            <td class="px-4 py-3">${escapeHtml(s.name)}</td>
+            <td class="px-4 py-3">${escapeHtml(s.elimuid)}</td>
+            <td class="px-4 py-3 text-center">
+                <select class="attendance-status rounded border px-2 py-1 bg-background">
+                    <option value="present" ${att.status === 'present' ? 'selected' : ''}>Present</option>
+                    <option value="absent" ${att.status === 'absent' ? 'selected' : ''}>Absent</option>
+                    <option value="late" ${att.status === 'late' ? 'selected' : ''}>Late</option>
+                    <option value="sick" ${att.status === 'sick' ? 'selected' : ''}>Sick</option>
+                </select>
+            </td>
+            <td class="px-4 py-3">
+                <input type="text" class="attendance-note w-full rounded border px-2 py-1 bg-background" placeholder="Note" value="${escapeHtml(att.reason || '')}">
+            </td>
+        </tr>`;
+    });
+
+    html += `</tbody></table></div></div></div>`;
+    return html;
 }
 
 async function saveAttendance() {
@@ -620,6 +646,17 @@ async function saveAllMarks() {
   hideLoading();
 }
 
+async function deleteMessage(messageId, deleteFor) {
+    if (!confirm(`Delete this message ${deleteFor === 'everyone' ? 'for everyone' : 'for yourself'}?`)) return;
+    try {
+        await api.teacher.deleteMessage(messageId, deleteFor);
+        // Refresh chat
+        switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+    } catch (e) {
+        showToast('Failed to delete message', 'error');
+    }
+}
+
 // ============ TASKS ============
 async function renderTeacherTasks() {
   let tasks = [];
@@ -675,6 +712,24 @@ async function deleteTask(taskId) {
     await api.tasks.deleteTask(taskId);
     await showDashboardSection('tasks');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+function renderMessageBubble(msg, isSent) {
+    return `
+        <div class="flex ${isSent ? 'justify-end' : 'justify-start'} group relative">
+            <div class="${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+                ${!isSent ? `<p class="text-xs font-medium">${escapeHtml(msg.Sender?.name)}</p>` : ''}
+                <p class="text-sm">${msg.deleted ? '[This message was deleted]' : escapeHtml(msg.content)}</p>
+                <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+            </div>
+            ${!msg.deleted ? `
+            <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                <button onclick="deleteMessage(${msg.id}, 'everyone')" class="bg-red-500 text-white rounded-full p-1 text-xs" title="Delete for everyone">🗑️</button>
+                <button onclick="deleteMessage(${msg.id}, 'me')" class="bg-gray-500 text-white rounded-full p-1 text-xs" title="Delete for me">👤</button>
+            </div>
+            ` : ''}
+        </div>
+    `;
 }
 
 // Student detail modal
