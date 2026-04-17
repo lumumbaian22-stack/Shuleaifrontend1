@@ -169,8 +169,104 @@ async function renderTeacherDashboard() {
 
 // ============ TEACHER STUDENTS ============
 async function renderTeacherStudents() {
-  const students = await loadMyStudents();
-  return renderStudentsTable(students);
+    const data = await loadMyStudents();
+    const students = data.students || [];
+    const isClassTeacher = data.isClassTeacher;
+    const subjects = data.subjects || [];
+    return renderStudentsTable(students, isClassTeacher, subjects);
+}
+
+function renderStudentsTable(students, isClassTeacher, subjects) {
+    if (!students || students.length === 0) {
+        return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
+    }
+    
+    let html = `
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-muted/50">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Student</th>
+                        <th class="px-4 py-3 text-left">ELIMUID</th>`;
+    
+    if (isClassTeacher) {
+        subjects.forEach(subject => { html += `<th class="px-4 py-3 text-center">${escapeHtml(subject)}</th>`; });
+    } else {
+        html += '<th class="px-4 py-3 text-center">Subject Score</th>';
+    }
+    
+    html += `<th class="px-4 py-3 text-center">Attendance</th>
+             <th class="px-4 py-3 text-center">Overall</th>
+             <th class="px-4 py-3 text-right">Actions</th>
+             </tr>
+        </thead>
+        <tbody class="divide-y">`;
+    
+    students.forEach(student => {
+        const attendance = student.attendance || 100;
+        const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
+        
+        html += `<tr class="hover:bg-accent/50">
+            <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span class="font-medium text-blue-700 text-sm">${getInitials(student.name)}</span>
+                    </div>
+                    <span class="font-medium">${escapeHtml(student.name)}</span>
+                </div>
+            </td>
+            <td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(student.elimuid)}</span></td>`;
+        
+        if (isClassTeacher) {
+            subjects.forEach(subject => {
+                const score = student.subjectScores[subject];
+                const display = score !== null ? `${score}%` : '—';
+                const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+                html += `<td class="px-4 py-3 text-center"><span class="font-medium">${display}</span>${grade ? `<br><span class="text-xs ${getGradeColorClass(grade)} px-2 py-0.5 rounded-full">${grade}</span>` : ''}</td>`;
+            });
+        } else {
+            const subject = subjects[0] || 'Subject';
+            const score = student.subjectScores[subject];
+            const display = score !== null ? `${score}%` : '—';
+            const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+            html += `<td class="px-4 py-3 text-center"><span class="font-medium">${display}</span>${grade ? `<br><span class="text-xs ${getGradeColorClass(grade)} px-2 py-0.5 rounded-full">${grade}</span>` : ''}</td>`;
+        }
+        
+        html += `<td class="px-4 py-3 text-center">
+                    <div class="flex items-center justify-center gap-1">
+                        <div class="h-2 w-12 rounded-full bg-muted overflow-hidden">
+                            <div class="h-full w-[${attendance}%] bg-green-500 rounded-full"></div>
+                        </div>
+                        <span class="text-xs">${attendance}%</span>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-center font-semibold ${getOverallColor(overall)}">${overall}</td>
+                <td class="px-4 py-3 text-right">
+                    <button onclick="viewStudentDetails(${student.id})" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                    <button onclick="copyElimuid('${escapeHtml(student.elimuid)}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button>
+                </td>
+            </tr>`;
+    });
+    
+    html += `</tbody></table></div>`;
+    return html;
+}
+
+function getOverallColor(value) {
+    if (value === '—') return 'text-muted-foreground';
+    const num = parseInt(value);
+    if (num >= 80) return 'text-green-600';
+    if (num >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+}
+
+function getGradeColorClass(grade) {
+    if (!grade) return 'bg-gray-100 text-gray-700';
+    const firstChar = grade.charAt(0).toUpperCase();
+    if (firstChar === 'A' || grade === 'EE') return 'bg-green-100 text-green-700';
+    if (firstChar === 'B' || grade === 'ME') return 'bg-blue-100 text-blue-700';
+    if (firstChar === 'C' || grade === 'AE') return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
 }
 
 async function loadMyStudents() {
