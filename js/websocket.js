@@ -1,20 +1,49 @@
-// websocket.js - Complete real-time update system
+// websocket.js - Complete real-time update system with proper cleanup
 
 let socket = null;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 
-// Connect WebSocket with authentication
+// Store event handler references for cleanup
+const eventHandlers = {
+    connect: null,
+    disconnect: null,
+    connect_error: null,
+    'school-approved': null,
+    'school-name-changed': null,
+    'student-added': null,
+    'student-updated': null,
+    'student-deleted': null,
+    'student-suspended': null,
+    'student-reactivated': null,
+    'teacher-updated': null,
+    'attendance-updated': null,
+    'curriculum-updated': null,
+    'class-assigned': null
+};
+
+function cleanupSocket() {
+    if (socket) {
+        // Remove all listeners
+        Object.keys(eventHandlers).forEach(event => {
+            if (eventHandlers[event]) {
+                socket.off(event, eventHandlers[event]);
+                eventHandlers[event] = null;
+            }
+        });
+        socket.disconnect();
+        socket = null;
+    }
+}
+
 function connectWebSocket() {
     const token = localStorage.getItem('authToken');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
     if (!token || !user.id) return;
     
-    // Close existing connection
-    if (socket) {
-        socket.close();
-    }
+    // Clean up any existing connection
+    cleanupSocket();
     
     // Connect to Socket.io server
     socket = io('https://shuleaibackend-32h1.onrender.com', {
@@ -25,26 +54,23 @@ function connectWebSocket() {
         reconnectionDelay: 1000
     });
     
-    socket.on('connect', () => {
+    // Define handlers
+    eventHandlers.connect = () => {
         console.log('✅ WebSocket connected');
         reconnectAttempts = 0;
         
-        // Join user's personal room
         if (user.id) {
             socket.emit('join', user.id);
         }
-        
-        // Join school room for real-time updates
         if (user.schoolCode) {
             socket.emit('join-school', user.schoolCode);
         }
-    });
-
-    socket.on('school-approved', (data) => {
+    };
+    
+    eventHandlers['school-approved'] = (data) => {
         console.log('🔔 School approved:', data);
         const currentUser = getCurrentUser();
         if (currentUser && currentUser.schoolCode === data.schoolId) {
-            // Update localStorage with active school
             const school = { 
                 schoolId: data.schoolId,
                 name: data.schoolName,
@@ -52,103 +78,98 @@ function connectWebSocket() {
                 status: 'active'
             };
             localStorage.setItem('school', JSON.stringify(school));
-            // Update UI
             updateSidebarSchoolName(data.schoolName);
             updateAllSchoolNameElements(data.schoolName);
             showToast(`School "${data.schoolName}" has been approved!`, 'success');
-            // Refresh current section
             if (typeof showDashboardSection === 'function') {
                 showDashboardSection(window.currentSection || 'dashboard');
             }
         }
-    });
+    };
 
-    // School name changed
-    socket.on('school-name-changed', (data) => {
+    eventHandlers['school-name-changed'] = (data) => {
         console.log('🔔 School name changed:', data);
         const currentSchool = getCurrentSchool();
         if (currentSchool && currentSchool.schoolId === data.schoolId) {
-            // Update localStorage
             currentSchool.name = data.newName;
             localStorage.setItem('school', JSON.stringify(currentSchool));
-            // Update UI
             updateSidebarSchoolName(data.newName);
             updateAllSchoolNameElements(data.newName);
             showToast(`School name updated to "${data.newName}"`, 'info');
-            // Refresh current section
             if (typeof showDashboardSection === 'function') {
                 showDashboardSection(window.currentSection || 'dashboard');
             }
         }
-    });
+    };
     
-    socket.on('connect_error', (error) => {
+    eventHandlers.connect_error = (error) => {
         console.error('WebSocket connection error:', error);
-    });
-    
-    // ============ REAL-TIME UPDATE HANDLERS ============
+    };
     
     // Student updates
-    socket.on('student-added', (data) => {
+    eventHandlers['student-added'] = (data) => {
         console.log('🔔 Student added:', data);
         handleStudentUpdate('added', data);
-    });
-    
-    socket.on('student-updated', (data) => {
+    };
+    eventHandlers['student-updated'] = (data) => {
         console.log('🔔 Student updated:', data);
         handleStudentUpdate('updated', data);
-    });
-    
-    socket.on('student-deleted', (data) => {
+    };
+    eventHandlers['student-deleted'] = (data) => {
         console.log('🔔 Student deleted:', data);
         handleStudentUpdate('deleted', data);
-    });
-    
-    socket.on('student-suspended', (data) => {
+    };
+    eventHandlers['student-suspended'] = (data) => {
         console.log('🔔 Student suspended:', data);
         handleStudentUpdate('suspended', data);
-    });
-    
-    socket.on('student-reactivated', (data) => {
+    };
+    eventHandlers['student-reactivated'] = (data) => {
         console.log('🔔 Student reactivated:', data);
         handleStudentUpdate('reactivated', data);
-    });
+    };
     
     // Teacher updates
-    socket.on('teacher-updated', (data) => {
+    eventHandlers['teacher-updated'] = (data) => {
         console.log('🔔 Teacher updated:', data);
         handleTeacherUpdate(data);
-    });
+    };
     
     // Attendance updates
-    socket.on('attendance-updated', (data) => {
+    eventHandlers['attendance-updated'] = (data) => {
         console.log('🔔 Attendance updated:', data);
         handleAttendanceUpdate(data);
-    });
+    };
     
     // Curriculum updates
-    socket.on('curriculum-updated', (data) => {
+    eventHandlers['curriculum-updated'] = (data) => {
         console.log('🔔 Curriculum updated:', data);
         const schoolSettings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
         schoolSettings.curriculum = data.curriculum;
         localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
         if (typeof showDashboardSection === 'function') {
              showDashboardSection(window.currentSection || 'dashboard');
-           }
-           showToast(`Curriculum changed to ${data.curriculumName}`, 'info');
-    });
+        }
+        showToast(`Curriculum changed to ${data.curriculumName}`, 'info');
+    };
     
     // Class assignment updates
-    socket.on('class-assigned', (data) => {
+    eventHandlers['class-assigned'] = (data) => {
         console.log('🔔 Class assignment updated:', data);
         handleClassUpdate(data);
-    });
+    };
     
-    socket.on('disconnect', () => {
+    eventHandlers.disconnect = () => {
         console.log('WebSocket disconnected');
         if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
             setTimeout(connectWebSocket, 1000 * reconnectAttempts);
+        }
+    };
+    
+    // Attach all handlers
+    Object.keys(eventHandlers).forEach(event => {
+        if (eventHandlers[event]) {
+            socket.on(event, eventHandlers[event]);
         }
     });
 }
@@ -158,7 +179,6 @@ function connectWebSocket() {
 function handleStudentUpdate(action, data) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
-    // Update teacher dashboard if teacher
     if (user.role === 'teacher') {
         if (typeof refreshMyStudents === 'function') {
             refreshMyStudents();
@@ -166,7 +186,6 @@ function handleStudentUpdate(action, data) {
         showToast(`📢 Student ${action}: ${data.name}`, 'info');
     }
     
-    // Update admin dashboard if admin
     if (user.role === 'admin') {
         if (typeof refreshStudentsList === 'function') {
             refreshStudentsList();
@@ -192,7 +211,6 @@ function handleAttendanceUpdate(data) {
     if (user.role === 'teacher' && typeof refreshMyStudents === 'function') {
         refreshMyStudents();
     }
-    
     if (user.role === 'admin' && typeof refreshStudentsList === 'function') {
         refreshStudentsList();
     }
@@ -203,12 +221,10 @@ function handleAttendanceUpdate(data) {
 function handleCurriculumUpdate(data) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
-    // Update local storage with new curriculum
     const schoolSettings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
     schoolSettings.curriculum = data.curriculum;
     localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
     
-    // Refresh current dashboard based on role
     if (user.role === 'teacher' && typeof refreshMyStudents === 'function') {
         refreshMyStudents();
     } else if (user.role === 'admin' && typeof refreshStudentsList === 'function') {
@@ -226,7 +242,6 @@ function handleClassUpdate(data) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
     if (user.role === 'teacher') {
-        // If teacher's class assignment changed, refresh their data
         if (data.teacherId == user.id) {
             if (typeof refreshMyStudents === 'function') {
                 refreshMyStudents();
@@ -247,7 +262,7 @@ function handleClassUpdate(data) {
     }
 }
 
-// ============ EMIT FUNCTIONS (Call these when making changes) ============
+// ============ EMIT FUNCTIONS ============
 
 function emitStudentUpdate(action, studentData) {
     if (socket && socket.connected) {
@@ -286,7 +301,6 @@ function emitCurriculumUpdate(curriculum) {
             'british': 'British',
             'american': 'American'
         };
-        
         socket.emit('curriculum-update', {
             curriculum,
             curriculumName: curriculumNames[curriculum] || curriculum,
