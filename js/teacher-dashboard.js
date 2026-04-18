@@ -714,20 +714,64 @@ async function loadStaffMembers() {
   try { const res = await api.teacher.getStaffMembers(); return res.data || []; } catch(e) { return []; }
 }
 async function switchStaffChat(type, partnerId = null, partnerName = '') {
-  currentStaffChatType = type;
-  currentStaffChatPartner = partnerId;
-  document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerName}`;
-  let messages = [];
-  if (type === 'group') {
-    try { const res = await api.teacher.getGroupMessages(); messages = res.data || []; } catch(e) { console.error(e); }
-  } else if (partnerId) {
-    try { const res = await api.teacher.getPrivateMessages(partnerId); messages = res.data || []; } catch(e) { console.error(e); }
-  }
-  const container = document.getElementById('staff-chat-messages');
-  const user = getCurrentUser();
-  container.innerHTML = messages.map(msg => renderMessageBubble(msg, msg.senderId === user.id)).join('') || '<div class="text-center text-muted-foreground">No messages yet</div>';
-  container.scrollTop = container.scrollHeight;
+    currentStaffChatType = type;
+    currentStaffChatPartner = partnerId;
+    document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerName}`;
+    
+    // Remove previous listener to prevent duplicates
+    if (window.socket) {
+        window.socket.off('new-group-message');
+        window.socket.off('new-private-message');
+        window.socket.off('message-deleted');
+    }
+    
+    let messages = [];
+    if (type === 'group') {
+        const res = await api.teacher.getGroupMessages();
+        messages = res.data || [];
+        // Listen for new group messages
+        if (window.socket) {
+            window.socket.on('new-group-message', (data) => {
+                if (currentStaffChatType === 'group') {
+                    appendStaffMessage(data);
+                }
+            });
+        }
+    } else if (partnerId) {
+        const res = await api.teacher.getPrivateMessages(partnerId);
+        messages = res.data || [];
+        if (window.socket) {
+            window.socket.on('new-private-message', (data) => {
+                if (currentStaffChatType === 'private' && (data.from === partnerId || data.to === partnerId)) {
+                    appendStaffMessage(data);
+                }
+            });
+        }
+    }
+    
+    // Listen for message deleted events
+    if (window.socket) {
+        window.socket.on('message-deleted', (data) => {
+            if (currentStaffChatType === 'group' || 
+                (currentStaffChatType === 'private' && (data.messageId))) {
+                // Refresh chat to show updated messages
+                switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+            }
+        });
+    }
+    
+    renderStaffMessages(messages);
 }
+
+function appendStaffMessage(msg) {
+    const container = document.getElementById('staff-chat-messages');
+    if (!container) return;
+    const isSent = msg.from === getCurrentUser()?.id;
+    const bubble = renderMessageBubble(msg, isSent);
+    container.insertAdjacentHTML('beforeend', bubble);
+    container.scrollTop = container.scrollHeight;
+}
+
 function renderMessageBubble(msg, isSent) {
     const deleted = msg.metadata?.deleted || msg.content === '[This message was deleted]';
     return `
