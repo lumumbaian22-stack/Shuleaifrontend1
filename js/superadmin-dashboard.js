@@ -14,6 +14,8 @@ async function renderSuperAdminSection(section) {
                 return await renderSuperAdminPendingSchools();
             case 'name-change-requests':
                 return await renderSuperAdminNameChangeRequests();
+             case 'help':
+                return renderHelpSection();   
             case 'platform-health':
                 return renderSuperAdminHealth();
             case 'settings':
