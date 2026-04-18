@@ -14,6 +14,7 @@ async function renderParentSection(section) {
             return renderHelpSection();
         case 'chat':
             return await renderParentChat();
+        case 'profile':
         case 'settings':
             return await renderProfileSection();
         default:
