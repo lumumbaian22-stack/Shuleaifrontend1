@@ -180,6 +180,14 @@ body {
     max-width: 80%;
     align-self: flex-end;
 }
+.students-table-container {
+    width: 100%;
+    overflow-x: auto;
+}
+.students-table {
+    min-width: 1000px; /* Ensures all columns are visible */
+    width: 100%;
+}
 .chat-bubble-received {
     background-color: hsl(var(--muted));
     border-radius: 0.5rem;
