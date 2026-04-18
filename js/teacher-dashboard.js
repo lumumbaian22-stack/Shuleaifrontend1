@@ -60,7 +60,7 @@ async function renderTeacherSection(section) {
       case 'duty-preferences': return renderTeacherDutyPreferences();
       case 'staff-chat': return await renderStaffChat();
       case 'parent-chat': return await renderParentChat();
-      case 'settings': return await renderTeacherSettings();
+      case 'settings': return await renderProfileSection()
       case 'help': return await renderHelpSection('teacher');
       case 'profile': return await renderProfileSection();
       default: return await renderTeacherDashboard();
