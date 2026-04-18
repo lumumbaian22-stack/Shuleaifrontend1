@@ -10,6 +10,8 @@ async function renderParentSection(section) {
             return await renderParentCompetency();    
         case 'payments':
             return await renderParentPayments();
+        case 'help':
+            return renderHelpSection();
         case 'chat':
             return await renderParentChat();
         case 'settings':
