@@ -1,5 +1,6 @@
 // analytics.js - Complete chart system for all roles
-let charts = {};
+window.charts = window.charts || {};
+let charts = window.charts;
 
 // ============ MAIN INITIALIZATION ============
 async function initRoleCharts(role, data) {
