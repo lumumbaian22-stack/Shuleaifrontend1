@@ -713,6 +713,37 @@ async function renderStaffChat() {
 async function loadStaffMembers() {
   try { const res = await api.teacher.getStaffMembers(); return res.data || []; } catch(e) { return []; }
 }
+
+function renderStaffMessages(messages) {
+    const container = document.getElementById('staff-chat-messages');
+    if (!container) return;
+    const user = getCurrentUser();
+    if (!messages || messages.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted-foreground py-8">No messages yet</div>';
+        return;
+    }
+    container.innerHTML = messages.map(msg => {
+        const isSent = msg.senderId === user.id;
+        const content = msg.deleted ? '[This message was deleted]' : escapeHtml(msg.content);
+        return `
+            <div class="flex ${isSent ? 'justify-end' : 'justify-start'} group relative">
+                <div class="${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+                    ${!isSent ? `<p class="text-xs font-medium">${escapeHtml(msg.Sender?.name || 'Unknown')}</p>` : ''}
+                    <p class="text-sm">${content}</p>
+                    <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+                </div>
+                ${!msg.deleted ? `
+                <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                    <button onclick="deleteMessage(${msg.id}, 'everyone')" class="bg-red-500 text-white rounded-full p-1 text-xs" title="Delete for everyone">🗑️</button>
+                    <button onclick="deleteMessage(${msg.id}, 'me')" class="bg-gray-500 text-white rounded-full p-1 text-xs" title="Delete for me">👤</button>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
 async function switchStaffChat(type, partnerId = null, partnerName = '') {
     currentStaffChatType = type;
     currentStaffChatPartner = partnerId;
