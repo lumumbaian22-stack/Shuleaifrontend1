@@ -112,18 +112,20 @@ function toggleNotifications() {
 
 let popupInterval = null;
 function startSmartPopups() {
-  if (popupInterval) clearInterval(popupInterval);
-  popupInterval = setInterval(() => {
+    if (popupInterval) clearInterval(popupInterval);
     const messages = [
-      "Did you know? You can upload students via CSV!",
-      "Reminder: Duty check-in is available 15 minutes before start.",
-      "Tip: Use the AI Tutor for extra help."
+        "📚 Did you know? CBC focuses on competencies, not just exams!",
+        "🧠 A short break every 45 minutes boosts productivity.",
+        "💧 Stay hydrated – it improves concentration by 20%.",
+        "🏃 Physical activity before study time enhances memory.",
+        "🎯 Set small daily goals for your child to build momentum."
     ];
-    const random = messages[Math.floor(Math.random() * messages.length)];
-    showToast(random, 'info', 5000);
-  }, 60000); // every minute
+    popupInterval = setInterval(() => {
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        showToast(randomMsg, 'info', 6000);
+    }, 120000); // every 2 minutes
 }
-// Call startSmartPopups() after login.
+// Call startSmartPopups() after login (in showDashboard)
 
 // Add search functionality
 window.searchContent = function() {
