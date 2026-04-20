@@ -1273,6 +1273,7 @@ window.reportAbsenceForStudent = reportAbsenceForStudent;
 window.openMessageParent = openMessageParent;
 window.renderTeacherSection = renderTeacherSection;
 window.renderTeacherDashboard = renderTeacherDashboard;
+window.renderTeacherStudents = renderTeacherStudents;
 window.loadMyStudents = loadMyStudents;
 window.loadTeacherMessages = loadTeacherMessages;
 window.handleCheckIn = handleCheckIn;
