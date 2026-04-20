@@ -2,6 +2,7 @@
 let replyingTo = null;
 let currentStaffChatType = 'group';
 let currentStaffChatPartner = null;
+let currentMarksClassName = '';
 let currentMarksClassId = null, currentMarksSubject = null, currentMarksStudents = [];
 let currentMarksTerm = 'Term 1', currentMarksYear = new Date().getFullYear();
 
@@ -442,6 +443,7 @@ async function renderTeacherMarksEntry() {
 async function openMarksEntry(subject, classId, className) {
   currentMarksSubject = subject;
   currentMarksClassId = classId;
+  currentMarksClassName = className; 
   currentMarksTerm = document.getElementById('marks-term')?.value || 'Term 1';
   currentMarksYear = document.getElementById('marks-year')?.value || new Date().getFullYear();
   showLoading();
@@ -516,15 +518,29 @@ window.updateGradeDisplayForStudent = function(studentId) {
   const score = parseFloat(document.getElementById(`score-${studentId}`)?.value);
   const gradeSpan = document.getElementById(`grade-${studentId}`);
   if (!isNaN(score) && score >= 0 && score <= 100) {
-    const curriculum = window.schoolSettings?.curriculum || 'cbc';
-    const level = window.schoolSettings?.schoolLevel || 'secondary';
-    const grade = getGradeFromScore(score, curriculum, level);   // ✅ Now returns a string
+    const curriculum = window.schoolSettings?.curriculum || 
+                       window.schoolSettings?.system || 
+                       'cbc';
+    
+    // Try to get level from schoolSettings, otherwise infer from class name
+    let level = window.schoolSettings?.schoolLevel || 
+                window.schoolSettings?.settings?.schoolLevel;
+    
+    // If level is 'both' or missing, use class name to decide
+    if (!level || level === 'both') {
+      const className = currentMarksClassName || '';
+      const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
+      level = primaryKeywords.some(kw => className.toUpperCase().includes(kw)) ? 'primary' : 'secondary';
+    }
+    
+    const grade = getGradeFromScore(score, curriculum, level);
     let color = 'gray';
-    if (grade === 'A' || grade === 'A*' || grade === 'EE') color = 'green';
-    else if (grade.startsWith('B') || grade === 'ME') color = 'blue';
-    else if (grade.startsWith('C') || grade === 'AE') color = 'yellow';
-    else if (grade.startsWith('D')) color = 'orange';
-    else if (grade === 'E' || grade === 'BE' || grade === 'U' || grade === 'F') color = 'red';
+    if (grade === 'EE' || grade === 'A' || grade === 'A*') color = 'green';
+    else if (grade === 'ME' || (grade && grade.startsWith('B'))) color = 'blue';
+    else if (grade === 'AE' || (grade && grade.startsWith('C'))) color = 'yellow';
+    else if (grade && grade.startsWith('D')) color = 'orange';
+    else if (grade === 'BE' || grade === 'E' || grade === 'U' || grade === 'F') color = 'red';
+    
     gradeSpan.textContent = grade;
     gradeSpan.className = `px-2 py-1 bg-${color}-100 dark:bg-${color}-900/30 text-${color}-700 dark:text-${color}-400 text-xs rounded-full`;
   } else {
