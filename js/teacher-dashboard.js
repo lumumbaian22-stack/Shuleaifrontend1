@@ -598,6 +598,13 @@ async function saveAllMarks() {
     }
   }
   showToast(`Saved ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
+  if (typeof refreshTeacherStudentList === 'function') {
+    await refreshTeacherStudentList();
+  } else if (typeof renderTeacherStudents === 'function' && currentSection === 'students') {
+    const content = document.getElementById('dashboard-content');
+    if (content) content.innerHTML = await renderTeacherStudents();
+    if (window.lucide) lucide.createIcons();
+  }
   closeMarksEntryModal();
   hideLoading();
 }
