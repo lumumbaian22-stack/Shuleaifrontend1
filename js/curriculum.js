@@ -189,23 +189,21 @@ function normalizeLevel(level) {
 // ============ GRADE CALCULATION ============
 function getGradeFromScore(score, curriculum, level) {
     const curriculumData = CURRICULUMS[curriculum];
-    if (!curriculumData) return { grade: 'N/A', description: 'Not available' };
+    if (!curriculumData) return 'N/A';
 
     const normalizedLevel = normalizeLevel(level);
     const gradingScale = curriculumData.grading[normalizedLevel] || curriculumData.grading.primary;
     const scoreNum = Number(score);
     
-    if (isNaN(scoreNum)) {
-        return { grade: 'N/A', description: 'Invalid score' };
-    }
+    if (isNaN(scoreNum)) return 'N/A';
 
     for (const gradeInfo of gradingScale) {
         const [min, max] = gradeInfo.range.split('-').map(Number);
         if (scoreNum >= min && scoreNum <= max) {
-            return gradeInfo;
+            return gradeInfo.grade;  // ← Return only the grade string
         }
     }
-    return { grade: 'N/A', description: 'Invalid score' };
+    return 'N/A';
 }
 
 function updateGradingSystem(curriculum) {
