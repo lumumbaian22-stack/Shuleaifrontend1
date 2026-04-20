@@ -187,18 +187,19 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
         return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
     }
     
-    // Determine level from class name (same logic as marks entry modal)
+    // ---------- DETECT LEVEL FROM CLASS NAME ----------
     const classNames = window.dashboardData?.classNames || [];
     const className = classNames[0] || '';
     const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
     const detectedLevel = primaryKeywords.some(kw => className.toUpperCase().includes(kw)) ? 'primary' : 'secondary';
     
-    const curriculum = window.schoolSettings?.curriculum || 'cbc';
-    const level = (window.schoolSettings?.schoolLevel === 'both' || !window.schoolSettings?.schoolLevel) 
-        ? detectedLevel 
-        : window.schoolSettings.schoolLevel;
+    const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
+    let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel;
+    if (!level || level === 'both') {
+        level = detectedLevel;
+    }
+    // -------------------------------------------------
     
-    // Abbreviated subject names for display
     const subjectAbbreviations = {
         'Mathematics': 'Math',
         'English': 'Eng',
@@ -253,7 +254,7 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
             subjects.forEach(subject => {
                 const score = student.subjectScores[subject];
                 const display = score !== null ? `${score}%` : '—';
-                const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+                const grade = score !== null ? getGradeFromScore(score, curriculum, level) : '';
                 html += `<td class="px-1 py-2 text-center" title="${escapeHtml(subject)}">
                     <span class="font-medium">${display}</span>
                     ${grade ? `<span class="text-xs ${getGradeColorClass(grade)} px-1 py-0.5 rounded-full block mt-0.5">${grade}</span>` : ''}
@@ -263,7 +264,7 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
             const subject = subjects[0] || 'Subject';
             const score = student.subjectScores[subject];
             const display = score !== null ? `${score}%` : '—';
-            const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+            const grade = score !== null ? getGradeFromScore(score, curriculum, level) : '';
             html += `<td class="px-2 py-2 text-center">
                 <span class="font-medium">${display}</span>
                 ${grade ? `<span class="text-xs ${getGradeColorClass(grade)} px-1 py-0.5 rounded-full block mt-0.5">${grade}</span>` : ''}
