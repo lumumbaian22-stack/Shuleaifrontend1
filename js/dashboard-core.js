@@ -217,7 +217,7 @@ async function showDashboard(role) {
         dashboardContainer.setAttribute('data-current-role', role);
     }
 
-    if (role === 'admin' || role === 'superadmin') {
+    if (role === 'admin' || role === 'superadmin' || role === 'teacher') {
         await loadSchoolSettings();
     } else {
         const cached = localStorage.getItem('schoolSettings');
