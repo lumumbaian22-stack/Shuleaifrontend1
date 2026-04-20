@@ -187,6 +187,17 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
         return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
     }
     
+    // Determine level from class name (same logic as marks entry modal)
+    const classNames = window.dashboardData?.classNames || [];
+    const className = classNames[0] || '';
+    const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
+    const detectedLevel = primaryKeywords.some(kw => className.toUpperCase().includes(kw)) ? 'primary' : 'secondary';
+    
+    const curriculum = window.schoolSettings?.curriculum || 'cbc';
+    const level = (window.schoolSettings?.schoolLevel === 'both' || !window.schoolSettings?.schoolLevel) 
+        ? detectedLevel 
+        : window.schoolSettings.schoolLevel;
+    
     // Abbreviated subject names for display
     const subjectAbbreviations = {
         'Mathematics': 'Math',
