@@ -1228,25 +1228,82 @@ function cancelReply() {
 }
 
 // ============ STUDENT DETAIL MODAL ============
-let currentStudentId = null;
 async function viewStudentDetails(studentId) {
-  currentStudentId = studentId;
-  showLoading();
-  try {
-    const [studentRes, analyticsRes] = await Promise.all([
-      api.admin.getStudentDetails(studentId),
-      api.analytics.getStudentAnalytics(studentId)
-    ]);
-    const student = studentRes.data;
-    const analytics = analyticsRes.data;
-    showStudentDetailModal(student, analytics);
-  } catch (error) {
-    showToast('Failed to load student details', 'error');
-    console.error(error);
-  } finally {
-    hideLoading();
-  }
+    showLoading();
+    try {
+        // Get student from already loaded data
+        const data = await loadMyStudents();
+        const student = data.students.find(s => s.id == studentId);
+        
+        if (!student) {
+            showToast('Student not found', 'error');
+            return;
+        }
+        
+        // Fetch analytics (teachers are allowed)
+        let analytics = null;
+        try {
+            const analyticsRes = await api.analytics.getStudentAnalytics(studentId);
+            analytics = analyticsRes.data;
+        } catch (e) {
+            console.warn('Analytics fetch failed:', e);
+        }
+        
+        showStudentDetailModalFromStudent(student, analytics);
+    } catch (error) {
+        console.error('Error viewing student:', error);
+        showToast('Failed to load student details', 'error');
+    } finally {
+        hideLoading();
+    }
 }
+
+// New function that accepts student object directly
+function showStudentDetailModalFromStudent(student, analytics) {
+    let modal = document.getElementById('student-detail-modal');
+    if (!modal) { createStudentDetailModal(); modal = document.getElementById('student-detail-modal'); }
+    
+    const attendance = student.attendance || 100;
+    const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
+    
+    const subjectRows = Object.entries(student.subjectScores || {}).map(([sub, score]) => {
+        const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+        return `<tr><td class="py-1">${escapeHtml(sub)}</td><td class="py-1 text-center">${score !== null ? score + '%' : '—'}</td><td class="py-1 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${getGradeColorClass(grade)}">${grade || '—'}</span></td></tr>`;
+    }).join('');
+    
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex items-center gap-4 pb-4 border-b">
+                <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-green-600">${getInitials(student.name)}</span>
+                </div>
+                <div>
+                    <h4 class="font-medium text-lg">${escapeHtml(student.name)}</h4>
+                    <p class="text-sm text-muted-foreground">${escapeHtml(student.email || 'No email')}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><span class="font-medium">ELIMUID:</span> ${escapeHtml(student.elimuid)}</div>
+                <div><span class="font-medium">Grade:</span> ${escapeHtml(student.grade)}</div>
+                <div><span class="font-medium">Attendance:</span> ${attendance}%</div>
+                <div><span class="font-medium">Overall:</span> ${overall}</div>
+            </div>
+            <div class="border-t pt-4">
+                <h4 class="font-medium mb-2">Subject Performance</h4>
+                <table class="w-full text-sm"><tbody>${subjectRows}</tbody></table>
+            </div>
+            <div class="flex justify-end gap-2 pt-4 border-t">
+                <button onclick="closeStudentDetailModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Close</button>
+                <button onclick="copyToClipboard('${escapeHtml(student.elimuid)}')" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg">Copy ELIMUID</button>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+}
+
 function showStudentDetailModal(student, analytics) {
   let modal = document.getElementById('student-detail-modal');
   if (!modal) { createStudentDetailModal(); modal = document.getElementById('student-detail-modal'); }
@@ -1313,6 +1370,7 @@ function getLevelColorClass(level) {
 
 // ============ EXPORTS ============
 window.viewStudentDetails = viewStudentDetails;
+window.showStudentDetailModalFromStudent = showStudentDetailModalFromStudent;
 window.closeStudentDetailModal = closeStudentDetailModal;
 window.reportAbsenceForStudent = reportAbsenceForStudent;
 window.openMessageParent = openMessageParent;
