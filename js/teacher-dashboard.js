@@ -518,8 +518,7 @@ window.updateGradeDisplayForStudent = function(studentId) {
   if (!isNaN(score) && score >= 0 && score <= 100) {
     const curriculum = window.schoolSettings?.curriculum || 'cbc';
     const level = window.schoolSettings?.schoolLevel || 'secondary';
-    const grade = getGradeFromScore(score, curriculum, level);
-    const grade = gradeInfo.grade;
+    const grade = getGradeFromScore(score, curriculum, level);   // ✅ Now returns a string
     let color = 'gray';
     if (grade === 'A' || grade === 'A*' || grade === 'EE') color = 'green';
     else if (grade.startsWith('B') || grade === 'ME') color = 'blue';
