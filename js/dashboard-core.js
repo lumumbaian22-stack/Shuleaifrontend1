@@ -28,10 +28,14 @@ async function loadSchoolSettings() {
         try {
             const response = await api.admin.getSchoolSettings();
             if (response && response.success && response.data) {
-                window.schoolSettings.schoolName = response.data.name;
+                // Assign the entire response data
+                window.schoolSettings = response.data;
+                // Ensure curriculum is accessible via both 'curriculum' and 'system'
                 window.schoolSettings.curriculum = response.data.system;
+                // Extract schoolLevel from nested settings
+                window.schoolSettings.schoolLevel = response.data.settings?.schoolLevel || 'both';
                 window.customSubjects = response.data.settings?.customSubjects || [];
-                localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+                localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
                 console.log('✅ School settings loaded from API');
                 return window.schoolSettings;
             }
