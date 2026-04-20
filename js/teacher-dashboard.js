@@ -187,23 +187,38 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
         return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
     }
     
+    // Abbreviated subject names for display
+    const subjectAbbreviations = {
+        'Mathematics': 'Math',
+        'English': 'Eng',
+        'Kiswahili': 'Kisw',
+        'Science': 'Sci',
+        'Social Studies': 'SST',
+        'CRE/IRE': 'CRE',
+        'Physical Education': 'PE',
+        'art and karafta': 'Art'
+    };
+    
     let html = `
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="w-full text-xs table-fixed border-separate border-spacing-0">
                 <thead class="bg-muted/50">
                     <tr>
-                        <th class="px-4 py-3 text-left">Student</th>
-                        <th class="px-4 py-3 text-left">ELIMUID</th>`;
+                        <th class="px-2 py-2 text-left w-24">Student</th>
+                        <th class="px-2 py-2 text-left w-20">ELIMUID</th>`;
     
     if (isClassTeacher) {
-        subjects.forEach(subject => { html += `<th class="px-4 py-3 text-center">${escapeHtml(subject)}</th>`; });
+        subjects.forEach(subject => {
+            const short = subjectAbbreviations[subject] || subject.substring(0,4);
+            html += `<th class="px-1 py-2 text-center w-12" title="${escapeHtml(subject)}">${escapeHtml(short)}</th>`;
+        });
     } else {
-        html += '<th class="px-4 py-3 text-center">Subject Score</th>';
+        html += '<th class="px-2 py-2 text-center w-16">Score</th>';
     }
     
-    html += `<th class="px-4 py-3 text-center">Attendance</th>
-             <th class="px-4 py-3 text-center">Overall</th>
-             <th class="px-4 py-3 text-right">Actions</th>
+    html += `<th class="px-2 py-2 text-center w-14">Att</th>
+             <th class="px-2 py-2 text-center w-12">Overall</th>
+             <th class="px-2 py-2 text-right w-12">Actions</th>
              </tr>
         </thead>
         <tbody class="divide-y">`;
@@ -213,43 +228,51 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
         const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
         
         html += `<tr class="hover:bg-accent/50">
-            <td class="px-4 py-3">
-                <div class="flex items-center gap-3">
-                    <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span class="font-medium text-blue-700 text-sm">${getInitials(student.name)}</span>
+            <td class="px-2 py-2">
+                <div class="flex items-center gap-1">
+                    <div class="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <span class="font-medium text-blue-700 text-xs">${getInitials(student.name)}</span>
                     </div>
-                    <span class="font-medium">${escapeHtml(student.name)}</span>
+                    <span class="font-medium truncate" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
                 </div>
             </td>
-            <td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(student.elimuid)}</span></td>`;
+            <td class="px-2 py-2"><span class="font-mono text-xs bg-muted px-1 py-0.5 rounded truncate block" title="${escapeHtml(student.elimuid)}">${escapeHtml(student.elimuid)}</span></td>`;
         
         if (isClassTeacher) {
             subjects.forEach(subject => {
                 const score = student.subjectScores[subject];
                 const display = score !== null ? `${score}%` : '—';
                 const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
-                html += `<td class="px-4 py-3 text-center"><span class="font-medium">${display}</span>${grade ? `<br><span class="text-xs ${getGradeColorClass(grade)} px-2 py-0.5 rounded-full">${grade}</span>` : ''}</td>`;
+                html += `<td class="px-1 py-2 text-center" title="${escapeHtml(subject)}">
+                    <span class="font-medium">${display}</span>
+                    ${grade ? `<span class="text-xs ${getGradeColorClass(grade)} px-1 py-0.5 rounded-full block mt-0.5">${grade}</span>` : ''}
+                </td>`;
             });
         } else {
             const subject = subjects[0] || 'Subject';
             const score = student.subjectScores[subject];
             const display = score !== null ? `${score}%` : '—';
             const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
-            html += `<td class="px-4 py-3 text-center"><span class="font-medium">${display}</span>${grade ? `<br><span class="text-xs ${getGradeColorClass(grade)} px-2 py-0.5 rounded-full">${grade}</span>` : ''}</td>`;
+            html += `<td class="px-2 py-2 text-center">
+                <span class="font-medium">${display}</span>
+                ${grade ? `<span class="text-xs ${getGradeColorClass(grade)} px-1 py-0.5 rounded-full block mt-0.5">${grade}</span>` : ''}
+            </td>`;
         }
         
-        html += `<td class="px-4 py-3 text-center">
+        html += `<td class="px-2 py-2 text-center">
                     <div class="flex items-center justify-center gap-1">
-                        <div class="h-2 w-12 rounded-full bg-muted overflow-hidden">
+                        <div class="h-1.5 w-8 rounded-full bg-muted overflow-hidden">
                             <div class="h-full w-[${attendance}%] bg-green-500 rounded-full"></div>
                         </div>
                         <span class="text-xs">${attendance}%</span>
                     </div>
                 </td>
-                <td class="px-4 py-3 text-center font-semibold ${getOverallColor(overall)}">${overall}</td>
-                <td class="px-4 py-3 text-right">
-                    <button onclick="viewStudentDetails(${student.id})" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button>
-                    <button onclick="copyElimuid('${escapeHtml(student.elimuid)}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button>
+                <td class="px-2 py-2 text-center font-semibold text-xs ${getOverallColor(overall)}">${overall}</td>
+                <td class="px-2 py-2 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                        <button onclick="viewStudentDetails(${student.id})" class="p-1 hover:bg-accent rounded"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                        <button onclick="copyElimuid('${escapeHtml(student.elimuid)}')" class="p-1 hover:bg-accent rounded"><i data-lucide="copy" class="h-3.5 w-3.5"></i></button>
+                    </div>
                 </td>
             </tr>`;
     });
