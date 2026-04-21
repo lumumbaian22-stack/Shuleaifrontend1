@@ -142,7 +142,6 @@ const authAPI = {
 // ============ SUPER ADMIN ENDPOINTS ============
 const superAdminAPI = {
     getOverview: () => apiRequest('/api/super-admin/overview'),
-    getAnalytics: () => apiRequest('/api/super-admin/analytics'),
     getSchools: () => apiRequest('/api/super-admin/schools'),
     getPendingSchools: () => apiRequest('/api/super-admin/pending-schools'),
     getSuspendedSchools: () => apiRequest('/api/super-admin/suspended-schools'),
@@ -205,17 +204,16 @@ const superAdminAPI = {
     runSystemBackup: () => apiRequest('/api/super-admin/backup', { method: 'POST' }),
     clearPlatformCache: () => apiRequest('/api/super-admin/cache/clear', { method: 'POST' }),
     exportPlatformData: () => apiRequest('/api/super-admin/export'),
-    // Aliases for frontend calls
     exportData: function() { return this.exportPlatformData(); },
     clearCache: function() { return this.clearPlatformCache(); },
     runBackup: function() { return this.runSystemBackup(); },
-    resetSettings: function() { return this.resetPlatformSettings(); }
+    resetSettings: function() { return this.resetPlatformSettings(); },
+    getAnalytics: () => apiRequest('/api/super-admin/analytics')
 };
 
 // ============ ADMIN ENDPOINTS ============
 const adminAPI = {
     getTeachers: () => apiRequest('/api/admin/teachers'),
-    getAnalytics: () => apiRequest('/api/admin/analytics'),
     getStudents: () => apiRequest('/api/admin/students'),
     getParents: () => apiRequest('/api/admin/parents'),
     getPendingApprovals: () => apiRequest('/api/admin/approvals/pending'),
@@ -321,13 +319,13 @@ const adminAPI = {
             body: JSON.stringify(data)
         }),
     getDashboardData: () => apiRequest('/api/admin/dashboard'),
-    getClassDetails: (classId) => apiRequest(`/api/admin/classes/${classId}`)
+    getClassDetails: (classId) => apiRequest(`/api/admin/classes/${classId}`),
+    getAnalytics: () => apiRequest('/api/admin/analytics')
 };
 
 // ============ TEACHER ENDPOINTS ============
 const teacherAPI = {
     getMyStudents: () => apiRequest('/api/teacher/students'),
-    getAnalytics: () => apiRequest('/api/teacher/analytics'),
     addStudent: (data) => 
         apiRequest('/api/teacher/students', {
             method: 'POST',
@@ -368,13 +366,13 @@ const teacherAPI = {
     getMyClass: () => apiRequest('/api/teacher/my-class'),
     getMySubjects: () => apiRequest('/api/teacher/my-subjects'),
     getTeacherStats: () => apiRequest('/api/teacher/stats'),
-    uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress)
+    uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress),
+    getAnalytics: () => apiRequest('/api/teacher/analytics')
 };
 
 // ============ PARENT ENDPOINTS ============
 const parentAPI = {
     getChildren: () => apiRequest('/api/parent/children'),
-    getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${childId}`),
     getChildTodayAttendance: (studentId) => apiRequest(`/api/parent/child/${studentId}/attendance/today`),
     getChildSummary: (studentId) => 
         apiRequest(`/api/parent/child/${studentId}/summary`),
@@ -410,13 +408,13 @@ const parentAPI = {
         }),
     getChildMarks: (studentId) => apiRequest(`/api/parent/child/${studentId}/marks`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
-    getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`)
+    getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
+    getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${childId}`)
 };
 
 // ============ STUDENT ENDPOINTS ============
 const studentAPI = {
     getGrades: () => apiRequest('/api/student/grades'),
-    getAnalytics: () => apiRequest('/api/student/analytics'),
     getAttendance: () => apiRequest('/api/student/attendance'),
     sendGroupMessage: (data) => apiRequest('/api/student/group-message', { method: 'POST', body: JSON.stringify(data) }),
     getMaterials: () => apiRequest('/api/student/materials'),
@@ -435,7 +433,8 @@ const studentAPI = {
     getAllMarks: () => apiRequest('/api/student/marks/all'),
     getClassPerformance: () => apiRequest('/api/student/class-performance'),
     getSubjectPerformance: () => apiRequest('/api/student/subject-performance'),
-    getGPA: () => apiRequest('/api/student/gpa')
+    getGPA: () => apiRequest('/api/student/gpa'),
+    getAnalytics: () => apiRequest('/api/student/analytics')
 };
 
 // ============ DUTY ENDPOINTS ============
@@ -600,13 +599,13 @@ const tasksAPI = {
   completeTask: (taskId) => apiRequest(`/api/tasks/${taskId}/complete`, { method: 'POST' })
 };
 
-// Add after the api object definition
-api.students = {
+// ============ STUDENT DETAILS ============
+const studentsAPI = {
     getFullDetails: (studentId) => apiRequest(`/api/user/students/${studentId}/details`)
 };
 
-// ============ SINGLE EXPORT STATEMENT ============
-window.api = {
+// ============ ASSEMBLE API OBJECT ============
+const api = {
     auth: authAPI,
     superAdmin: superAdminAPI,
     admin: adminAPI,
@@ -622,6 +621,7 @@ window.api = {
     help: helpAPI,
     tasks: tasksAPI,
     consent: consentAPI,
+    students: studentsAPI,
 
     homeTasks: {
         getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),
@@ -633,17 +633,10 @@ window.api = {
         getMyStatus: () => apiRequest('/api/subscription/my-status'),
         upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) })
     }
-
 };
 
-async function markAsRead(notificationId) {
-  try {
-    await apiRequest(`/api/alerts/${notificationId}/read`, { method: 'PUT' });
-    await loadNotifications();
-  } catch(e) { console.error(e); }
-}
-
-// Legacy support
+// Expose globally
+window.api = api;
 window.apiRequest = apiRequest;
 window.uploadFile = uploadFile;
 
