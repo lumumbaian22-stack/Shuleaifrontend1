@@ -24,7 +24,8 @@ function updateSidebar(role) {
                 { icon: 'building-2', label: 'Schools', section: 'schools' },
                 { icon: 'check-circle', label: 'School Approvals', section: 'school-approvals' },
                 { icon: 'file-edit', label: 'Name Changes', section: 'name-change-requests' },
-                { icon: 'activity', label: 'Platform Health', section: 'platform-health' }
+                { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
+                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
             settings: [
                 { icon: 'settings', label: 'Platform Settings', section: 'settings' },
@@ -40,7 +41,8 @@ function updateSidebar(role) {
                 { icon: 'calendar', label: 'Calendar', section: 'calendar' },
                 { icon: 'clock', label: 'Duty', section: 'duty' },
                 { icon: 'bar-chart-2', label: 'Fairness Report', section: 'fairness-report' },
-                { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' }
+                { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' },
+                { icon: 'trending-up', label: 'Analytics', section: 'analytics' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
@@ -57,7 +59,8 @@ function updateSidebar(role) {
                 { icon: 'check-square', label: 'Tasks', section: 'tasks' },
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
                 { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
-                { icon: 'message-circle', label: 'Staff Chat', section: 'staff-chat' }
+                { icon: 'message-circle', label: 'Staff Chat', section: 'staff-chat' },
+                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
             settings: [
                 { icon: 'settings', label: 'My Settings', section: 'settings' },
@@ -69,7 +72,8 @@ function updateSidebar(role) {
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'trending-up', label: 'Progress', section: 'progress' },
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
-                { icon: 'message-circle', label: 'Messages', section: 'chat' }
+                { icon: 'message-circle', label: 'Messages', section: 'chat' },
+                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
             settings: [
                 { icon: 'settings', label: 'My Settings', section: 'settings' },
@@ -83,7 +87,8 @@ function updateSidebar(role) {
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
                 { icon: 'bot', label: 'AI Tutor', section: 'ai-tutor' },
-                { icon: 'calendar', label: 'Schedule', section: 'schedule' }
+                { icon: 'calendar', label: 'Schedule', section: 'schedule' },
+                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
             settings: [
                 { icon: 'settings', label: 'My Settings', section: 'settings' },
