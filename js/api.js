@@ -142,6 +142,7 @@ const authAPI = {
 // ============ SUPER ADMIN ENDPOINTS ============
 const superAdminAPI = {
     getOverview: () => apiRequest('/api/super-admin/overview'),
+    getAnalytics: () => apiRequest('/api/super-admin/analytics'),
     getSchools: () => apiRequest('/api/super-admin/schools'),
     getPendingSchools: () => apiRequest('/api/super-admin/pending-schools'),
     getSuspendedSchools: () => apiRequest('/api/super-admin/suspended-schools'),
@@ -214,6 +215,7 @@ const superAdminAPI = {
 // ============ ADMIN ENDPOINTS ============
 const adminAPI = {
     getTeachers: () => apiRequest('/api/admin/teachers'),
+    getAnalytics: () => apiRequest('/api/admin/analytics'),
     getStudents: () => apiRequest('/api/admin/students'),
     getParents: () => apiRequest('/api/admin/parents'),
     getPendingApprovals: () => apiRequest('/api/admin/approvals/pending'),
@@ -325,6 +327,7 @@ const adminAPI = {
 // ============ TEACHER ENDPOINTS ============
 const teacherAPI = {
     getMyStudents: () => apiRequest('/api/teacher/students'),
+    getAnalytics: () => apiRequest('/api/teacher/analytics'),
     addStudent: (data) => 
         apiRequest('/api/teacher/students', {
             method: 'POST',
@@ -371,6 +374,7 @@ const teacherAPI = {
 // ============ PARENT ENDPOINTS ============
 const parentAPI = {
     getChildren: () => apiRequest('/api/parent/children'),
+    getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${childId}`),
     getChildTodayAttendance: (studentId) => apiRequest(`/api/parent/child/${studentId}/attendance/today`),
     getChildSummary: (studentId) => 
         apiRequest(`/api/parent/child/${studentId}/summary`),
@@ -412,6 +416,7 @@ const parentAPI = {
 // ============ STUDENT ENDPOINTS ============
 const studentAPI = {
     getGrades: () => apiRequest('/api/student/grades'),
+    getAnalytics: () => apiRequest('/api/student/analytics'),
     getAttendance: () => apiRequest('/api/student/attendance'),
     sendGroupMessage: (data) => apiRequest('/api/student/group-message', { method: 'POST', body: JSON.stringify(data) }),
     getMaterials: () => apiRequest('/api/student/materials'),
@@ -593,6 +598,11 @@ const tasksAPI = {
   updateTask: (taskId, data) => apiRequest(`/api/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteTask: (taskId) => apiRequest(`/api/tasks/${taskId}`, { method: 'DELETE' }),
   completeTask: (taskId) => apiRequest(`/api/tasks/${taskId}/complete`, { method: 'POST' })
+};
+
+// Add after the api object definition
+api.students = {
+    getFullDetails: (studentId) => apiRequest(`/api/user/students/${studentId}/details`)
 };
 
 // ============ SINGLE EXPORT STATEMENT ============
