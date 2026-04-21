@@ -377,18 +377,27 @@ async function showDashboardSection(section) {
 async function renderDashboardSection(role, section) {
     switch(role) {
         case 'superadmin':
+            if (section === 'analytics') {
+                return await renderAnalyticsSection('superadmin');
+            }
             if (typeof renderSuperAdminSection !== 'function') {
                 console.error('renderSuperAdminSection missing');
                 return '<div class="text-center py-12 text-red-500">Error: Super Admin module not loaded</div>';
             }
             return await renderSuperAdminSection(section);
         case 'admin':
+            if (section === 'analytics') {
+                return await renderAnalyticsSection('admin');
+            }
             if (typeof renderAdminSection !== 'function') {
                 console.error('renderAdminSection missing');
                 return '<div class="text-center py-12 text-red-500">Error: Admin module not loaded</div>';
             }
             return await renderAdminSection(section);
         case 'teacher':
+            if (section === 'analytics') {
+                return await renderAnalyticsSection('teacher');
+            }
             if (typeof renderTeacherSection !== 'function') {
                 console.warn('renderTeacherSection missing – using built-in fallback');
                 return `
@@ -404,12 +413,18 @@ async function renderDashboardSection(role, section) {
             }
             return await renderTeacherSection(section);
         case 'parent':
+            if (section === 'analytics') {
+                return await renderAnalyticsSection('parent');
+            }
             if (typeof renderParentSection !== 'function') {
                 console.error('renderParentSection missing');
                 return '<div class="text-center py-12 text-red-500">Error: Parent module not loaded</div>';
             }
             return await renderParentSection(section);
         case 'student':
+            if (section === 'analytics') {
+                return await renderAnalyticsSection('student');
+            }
             if (typeof renderStudentSection !== 'function') {
                 console.error('renderStudentSection missing');
                 return '<div class="text-center py-12 text-red-500">Error: Student module not loaded</div>';
