@@ -31,7 +31,14 @@ function renderStudentModal(data) {
                 <div class="rounded-2xl border bg-card shadow-2xl">
                     <div class="sticky top-0 bg-card border-b px-6 py-4 flex justify-between items-center">
                         <h3 class="text-xl font-semibold">Student Profile</h3>
-                        <button onclick="closeUnifiedStudentModal()" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="x" class="h-5 w-5"></i></button>
+                        <div class="flex gap-2">
+                            <button onclick="printReportCard()" class="px-3 py-1 bg-primary text-primary-foreground rounded-lg text-sm">
+                                <i data-lucide="download" class="h-4 w-4 inline mr-1"></i> Download
+                            </button>
+                            <button onclick="closeUnifiedStudentModal()" class="p-2 hover:bg-accent rounded-lg">
+                                <i data-lucide="x" class="h-5 w-5"></i>
+                            </button>
+                        </div>
                     </div>
                     <div id="unified-modal-content" class="p-6"></div>
                 </div>
@@ -180,6 +187,82 @@ function generateStudentModalHTML(data) {
     `;
 }
 
+function generatePrintFriendlyHTML(data) {
+    const student = data.student || {};
+    const user = data.user || {};
+    const academic = data.academicSummary || {};
+    const attendance = data.attendanceSummary || {};
+    
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Report Card - ${escapeHtml(user.name)}</title>
+            <style>
+                body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                .student-info { display: flex; gap: 20px; margin: 20px 0; }
+                .photo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .signature { margin-top: 40px; display: flex; justify-content: space-between; }
+                .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>ShuleAI Academy</h1>
+                <h2>Student Report Card</h2>
+                <p>Term 1, 2026</p>
+            </div>
+            <div class="student-info">
+                ${student.photo ? `<img src="${student.photo}" class="photo">` : ''}
+                <div>
+                    <h3>${escapeHtml(user.name)}</h3>
+                    <p><strong>ELIMUID:</strong> ${escapeHtml(student.elimuid)}</p>
+                    <p><strong>Grade:</strong> ${escapeHtml(student.grade)}</p>
+                    <p><strong>Enrollment Date:</strong> ${formatDate(student.enrollmentDate)}</p>
+                </div>
+            </div>
+            <h3>Academic Performance</h3>
+            <table>
+                <thead>
+                    <tr><th>Subject</th><th>Average</th><th>Grade</th></tr>
+                </thead>
+                <tbody>
+                    ${academic.subjects?.map(s => `<tr><td>${escapeHtml(s.subject)}</td><td>${s.average}%</td><td>${s.grade}</td></tr>`).join('') || '<tr><td colspan="3">No grades available</td></tr>'}
+                </tbody>
+            </table>
+            <p><strong>Overall Average:</strong> ${academic.overallAverage || 0}%</p>
+            <h3>Attendance Summary</h3>
+            <table>
+                <thead><tr><th>Present</th><th>Absent</th><th>Late</th><th>Rate</th></tr></thead>
+                <tbody><tr><td>${attendance.present || 0}</td><td>${attendance.absent || 0}</td><td>${attendance.late || 0}</td><td>${attendance.rate || 0}%</td></tr></tbody>
+            </table>
+            <div class="signature">
+                <div>_________________________<br>Class Teacher</div>
+                <div>_________________________<br>Principal</div>
+            </div>
+            <div class="footer">
+                <p>Generated on ${new Date().toLocaleDateString()} - ShuleAI School Intelligence System</p>
+            </div>
+        </body>
+        </html>
+    `;
+}
+
+function printReportCard() {
+    if (!currentStudentData) {
+        showToast('No student data available', 'error');
+        return;
+    }
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(generatePrintFriendlyHTML(currentStudentData));
+    printWindow.document.close();
+    printWindow.print();
+}
+
 function setupModalTabs() {
     const tabs = document.querySelectorAll('#modal-tabs .tab-btn');
     const panes = {
@@ -192,14 +275,12 @@ function setupModalTabs() {
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const tabName = tab.dataset.tab;
-            // Update active tab styling
             tabs.forEach(t => {
                 t.classList.remove('border-primary', 'text-primary');
                 t.classList.add('text-muted-foreground');
             });
             tab.classList.add('border-primary', 'text-primary');
             tab.classList.remove('text-muted-foreground');
-            // Show selected pane
             Object.values(panes).forEach(p => p?.classList.add('hidden'));
             if (panes[tabName]) panes[tabName].classList.remove('hidden');
         });
@@ -212,15 +293,17 @@ function closeUnifiedStudentModal() {
     currentStudentData = null;
 }
 
-// Helper functions (ensure they exist globally)
+// Helper functions
 function getInitials(name) {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
+
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -231,3 +314,4 @@ function escapeHtml(text) {
 // Expose globally
 window.showUnifiedStudentModal = showUnifiedStudentModal;
 window.closeUnifiedStudentModal = closeUnifiedStudentModal;
+window.printReportCard = printReportCard;
