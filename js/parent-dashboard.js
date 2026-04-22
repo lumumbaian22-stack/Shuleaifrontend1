@@ -1,4 +1,4 @@
-// parent-dashboard.js - Complete Parent Dashboard
+// parent-dashboard.js - Complete Parent Dashboard with Analytics Support
 
 async function renderParentSection(section) {
     switch(section) {
@@ -17,6 +17,8 @@ async function renderParentSection(section) {
         case 'profile':
         case 'settings':
             return await renderProfileSection();
+        case 'analytics':                               // <-- ADDED
+            return await renderAnalyticsSection('parent');
         default:
             return await renderParentDashboard();
     }
@@ -25,7 +27,6 @@ async function renderParentSection(section) {
 async function renderParentCompetency() {
   const selectedChildId = dashboardData.selectedChildId;
   const progress = await apiRequest(`/api/cbe/student-progress/${selectedChildId}`);
-  // Group by competency
   const compMap = {};
   progress.data.forEach(p => {
     const comp = p.LearningOutcome.Competency;
@@ -36,7 +37,6 @@ async function renderParentCompetency() {
     competency: comp.name,
     averageLevel: comp.levels.reduce((sum, l) => sum + (l === 'EE' ? 4 : l === 'ME' ? 3 : l === 'AE' ? 2 : 1), 0) / comp.levels.length
   }));
-  // Render a bar chart (you can use Chart.js)
   return `<div class="space-y-6"><h2 class="text-2xl font-bold">Competency Progress</h2><canvas id="parent-competency-chart" height="300"></canvas><script>
     new Chart(document.getElementById('parent-competency-chart'), {
       type: 'bar',
@@ -104,6 +104,15 @@ async function renderParentDashboard() {
 
         html += `</div>`;
 
+        const parent = getCurrentUser();
+        if (parent.trialEndsAt && new Date(parent.trialEndsAt) > new Date()) {
+            const daysLeft = Math.ceil((new Date(parent.trialEndsAt) - new Date()) / (1000*60*60*24));
+            html += `<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 flex justify-between items-center">
+                <div><i data-lucide="gift" class="h-5 w-5 inline mr-2 text-amber-600"></i> <span class="font-medium">Free Trial Active</span> – ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</div>
+                <button onclick="showSubscriptionPlans()" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">Upgrade Now</button>
+            </div>`;
+        }
+        
         if (selectedChildSummary) {
             const classTeacher = selectedChildSummary.classTeacher;
             const student = selectedChildSummary.student || {};
@@ -391,7 +400,7 @@ async function renderParentProgress() {
                                     <th class="px-4 py-3 text-left font-medium">Assessment</th>
                                     <th class="px-4 py-3 text-center font-medium">Score</th>
                                     <th class="px-4 py-3 text-center font-medium">Grade</th>
-                                    <th class="px-4 py-3 text-left font-medium">Date</th>
+                                    <th class="px-4 py-3 text01 font-medium">Date</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
@@ -850,7 +859,6 @@ window.completeTask = async function(taskId, difficulty) {
       body: JSON.stringify({ parentFeedback: { difficulty } })
     });
     showToast('Task completed! Points awarded.', 'success');
-    // Refresh the tasks section
     const container = document.getElementById('home-tasks-container');
     if (container) container.innerHTML = await renderHomeTasks();
     if (window.lucide) lucide.createIcons();
@@ -858,13 +866,6 @@ window.completeTask = async function(taskId, difficulty) {
     showToast(e.message, 'error');
   }
 };
-
-async function showStudentDetails(studentId) {
-  const student = await apiRequest(`/api/admin/students/${studentId}`);
-  const analytics = await apiRequest(`/api/analytics/student/${studentId}`);
-  // Show modal with grades chart, attendance, competency, report absence button
-  // Use Chart.js to render line chart for grades over time
-}
 
 async function sendParentMessage() {
     const selectedChildId = dashboardData?.selectedChildId;
@@ -972,9 +973,8 @@ async function loadLiveAttendance() {
       statusDiv.innerHTML = `<div class="text-muted-foreground"><i data-lucide="minus-circle" class="h-8 w-8 mx-auto"></i><p class="font-medium mt-2">Not Recorded</p></div>`;
     }
 
-    // Weekly calendar (simplified)
     const weekDays = ['M', 'T', 'W', 'T', 'F'];
-    const todayIndex = (today.getDay() + 6) % 7; // Monday = 0
+    const todayIndex = (today.getDay() + 6) % 7;
     calendarDiv.innerHTML = weekDays.map((day, i) => {
       const isToday = i === todayIndex;
       const bgClass = isToday ? 'bg-primary' : (i < todayIndex ? 'bg-green-500' : 'bg-gray-300');
@@ -987,12 +987,10 @@ async function loadLiveAttendance() {
   }
 }
 
-// Call these in renderParentDashboard after rendering
 setTimeout(() => {
   loadParentAlerts();
   loadLiveAttendance();
 }, 200);
-
 
 // ============ EXPORT FUNCTIONS ============
 window.loadParentAlerts = loadParentAlerts;
