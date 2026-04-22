@@ -1,4 +1,4 @@
-// profile.js - Profile section with profile picture upload
+// profile.js - Profile section with profile picture and signature upload
 
 async function renderProfileSection() {
     const user = getCurrentUser();
@@ -52,7 +52,6 @@ async function renderProfileSection() {
                     <p class="text-lg font-semibold text-green-600">${user.isActive ? 'Active' : 'Inactive'}</p>
                 </div>
             </div>
-
 
             <!-- Profile Information Form -->
             <div class="rounded-xl border bg-card p-6">
@@ -119,6 +118,19 @@ async function renderProfileSection() {
                 </form>
             </div>
 
+            <!-- Signature Upload -->
+            <div class="rounded-xl border bg-card p-6">
+                <h3 class="font-semibold text-lg mb-4">Signature</h3>
+                <div class="flex items-center gap-4">
+                    <img id="signature-preview" src="${user.signature || ''}" class="h-16 border rounded">
+                    <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary/90 transition-colors">
+                        Upload Signature
+                        <input type="file" id="signature-upload" accept="image/*" class="hidden" onchange="uploadSignature(this.files[0])">
+                    </label>
+                </div>
+                <p class="text-xs text-muted-foreground mt-2">Your signature will appear on report cards and official documents.</p>
+            </div>
+
             <!-- Preferences -->
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold text-lg mb-4">Preferences</h3>
@@ -130,7 +142,7 @@ async function renderProfileSection() {
                         </div>
                         <button onclick="togglePreference('email')" id="pref-email" 
                                 class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${user.preferences?.email !== false ? 'bg-primary' : 'bg-muted'}">
-                            <span class="translate-x-${user.preferences?.email !== false ? '6' : '1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
+                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.preferences?.email !== false ? 'translate-x-6' : 'translate-x-1'}"></span>
                         </button>
                     </div>
                     <div class="flex items-center justify-between">
@@ -140,7 +152,7 @@ async function renderProfileSection() {
                         </div>
                         <button onclick="togglePreference('push')" id="pref-push" 
                                 class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${user.preferences?.push !== false ? 'bg-primary' : 'bg-muted'}">
-                            <span class="translate-x-${user.preferences?.push !== false ? '6' : '1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
+                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.preferences?.push !== false ? 'translate-x-6' : 'translate-x-1'}"></span>
                         </button>
                     </div>
                     <div class="flex items-center justify-between">
@@ -150,7 +162,7 @@ async function renderProfileSection() {
                         </div>
                         <button onclick="togglePreference('darkMode')" id="pref-darkmode" 
                                 class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${document.documentElement.classList.contains('dark') ? 'bg-primary' : 'bg-muted'}">
-                            <span class="translate-x-${document.documentElement.classList.contains('dark') ? '6' : '1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
+                            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                         </button>
                     </div>
                 </div>
@@ -339,7 +351,7 @@ async function uploadProfilePicture(file) {
                 if (el.tagName === 'IMG') {
                     el.src = data.data.profileImage;
                 } else if (el.id === 'user-initials') {
-                 
+                    // ignore
                 }
             });
 
@@ -359,7 +371,38 @@ async function uploadProfilePicture(file) {
     }
 }
 
-// Export
+// Signature upload function
+async function uploadSignature(file) {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('signature', file);
+    const token = localStorage.getItem('authToken');
+    showLoading();
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/user/signature`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+            const user = getCurrentUser();
+            user.signature = data.data.signature;
+            localStorage.setItem('user', JSON.stringify(user));
+            document.getElementById('signature-preview').src = data.data.signature;
+            showToast('Signature uploaded successfully', 'success');
+        } else {
+            throw new Error(data.message || 'Upload failed');
+        }
+    } catch (error) {
+        console.error('Signature upload error:', error);
+        showToast(error.message || 'Failed to upload signature', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Export all functions
 window.renderProfileSection = renderProfileSection;
 window.updateProfile = updateProfile;
 window.updatePassword = updatePassword;
@@ -368,3 +411,4 @@ window.downloadMyData = downloadMyData;
 window.deactivateAccount = deactivateAccount;
 window.loadUserStats = loadUserStats;
 window.uploadProfilePicture = uploadProfilePicture;
+window.uploadSignature = uploadSignature;
