@@ -85,14 +85,25 @@ body {
     background: #94a3b8;
 }
 
+/* Analytics specific containers */
 .analytics-container {
     max-width: 100%;
-    overflow-x: auto;
+    overflow-x: hidden;
+}
+.analytics-card {
+    overflow: hidden;
+    min-width: 0;
 }
 .chart-container {
     position: relative;
-    height: 200px;
     width: 100%;
+    height: 200px;           /* Fixed height prevents canvas stretching */
+    max-width: 100%;
+}
+.chart-container canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
 }
 @media (max-width: 640px) {
     .chart-container {
@@ -113,7 +124,6 @@ body {
 .animate-slide-up {
     animation: slideUp 0.3s ease-out;
 }
-
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -136,6 +146,7 @@ body {
     box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
 }
 
+/* Global Search */
 #global-search {
     position: relative;
 }
@@ -200,12 +211,6 @@ body {
     transition: width 0.3s ease, transform 0.3s ease;
 }
 
-/* Chart Containers */
-.chart-container {
-    position: relative;
-    width: 100%;
-}
-
 /* Chat Bubbles */
 .chat-bubble-sent {
     background-color: hsl(var(--primary));
@@ -216,14 +221,6 @@ body {
     max-width: 80%;
     align-self: flex-end;
 }
-.students-table-container {
-    width: 100%;
-    overflow-x: auto;
-}
-.students-table {
-    min-width: 1000px; /* Ensures all columns are visible */
-    width: 100%;
-}
 .chat-bubble-received {
     background-color: hsl(var(--muted));
     border-radius: 0.5rem;
@@ -231,6 +228,16 @@ body {
     padding: 0.75rem;
     max-width: 80%;
     align-self: flex-start;
+}
+
+/* Student Tables */
+.students-table-container {
+    width: 100%;
+    overflow-x: auto;
+}
+.students-table {
+    min-width: 1000px;
+    width: 100%;
 }
 
 /* Focus Visible */
