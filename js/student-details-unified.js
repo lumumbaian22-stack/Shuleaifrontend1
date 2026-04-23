@@ -75,7 +75,7 @@ function generateStudentModalHTML(data) {
                         `<div class="h-32 w-32 rounded-full bg-primary/10 flex items-center justify-center mx-auto"><span class="text-4xl font-bold text-primary">${getInitials(user.name)}</span></div>`}
                     <h3 class="text-xl font-bold mt-3">${escapeHtml(user.name)}</h3>
                     <p class="text-sm text-muted-foreground">${escapeHtml(student.elimuid)}</p>
-                    ${student.isPrefect ? '<span class="inline-block mt-2 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium"><i data-lucide="shield" class="h-3 w-3 inline mr-1"></i>Prefect</span>' : ''}
+                    ${student.isPrefect ? '<span class="inline-block mt-2 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium"><i data-lucide="shield" class="h-3 w-3 inline mr-1"></i>School Prefect</span>' : ''}
                 </div>
                 <div class="mt-4 space-y-2 text-sm">
                     <div><span class="font-medium">Grade:</span> ${escapeHtml(student.grade)}</div>
@@ -101,7 +101,7 @@ function generateStudentModalHTML(data) {
                 <div id="tab-overview" class="tab-pane">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="col-span-2">
-                            <h4 class="font-medium mb-2">Address</h4>
+                            <h4 class="font-medium mb-2">Address / Location</h4>
                             <p class="text-sm text-muted-foreground">${escapeHtml(address)}</p>
                         </div>
                         <div>
@@ -114,9 +114,9 @@ function generateStudentModalHTML(data) {
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm mt-3">
-                    <div><span class="font-medium">NEMIS Number:</span> ${escapeHtml(student.nemisNumber || 'Not assigned')}</div>
-                    <div><span class="font-medium">Assessment Count:</span> ${academic.subjects?.length || 0}</div>
-                    <div class="col-span-2"><span class="font-medium">Address/Location:</span> ${escapeHtml(data.address || 'Not provided')}</div>
+                        <div><span class="font-medium">NEMIS Number:</span> ${escapeHtml(student.nemisNumber || 'Not assigned')}</div>
+                        <div><span class="font-medium">Assessment Count:</span> ${academic.subjects?.length || 0}</div>
+                        <div class="col-span-2"><span class="font-medium">Address/Location:</span> ${escapeHtml(address)}</div>
                     </div>
                     ${recent.length ? `
                     <div class="mt-6">
