@@ -657,52 +657,48 @@ function renderAdminDashboard() {
 // ============ REPLACE renderAdminStudents WITH THIS VERSION ============
 async function renderAdminStudents() {
     try {
-        // Fetch classes and students in parallel
         const [classesRes, studentsRes] = await Promise.all([
             api.admin.getClasses(),
             api.admin.getStudents()
         ]);
         const classes = classesRes.data || [];
         const allStudents = studentsRes.data || [];
-        
-        // Build a map of students by grade (since grade field matches class name)
+
+        // Group students by grade (class name)
         const studentsByGrade = {};
         allStudents.forEach(s => {
             const grade = s.grade || 'Unassigned';
             if (!studentsByGrade[grade]) studentsByGrade[grade] = [];
             studentsByGrade[grade].push(s);
         });
-        
-        // Get selected class from localStorage or default to first class
+
+        // Determine selected class from localStorage or default
         let selectedClassName = localStorage.getItem('adminSelectedClass');
         if (!selectedClassName || !studentsByGrade[selectedClassName]) {
             selectedClassName = classes.length > 0 ? classes[0].name : (Object.keys(studentsByGrade)[0] || '');
         }
-        
-        // Store selected class
         localStorage.setItem('adminSelectedClass', selectedClassName);
-        
-        // Students for the selected class
+
         const selectedStudents = studentsByGrade[selectedClassName] || [];
-        
-        // Summary stats for the selected class
+
+        // Stats for selected class
         const totalInClass = selectedStudents.length;
         const activeInClass = selectedStudents.filter(s => s.status === 'active').length;
         const inactiveInClass = selectedStudents.filter(s => s.status === 'inactive').length;
         const graduatedInClass = selectedStudents.filter(s => s.status === 'graduated').length;
-        
-        // Total stats across all students
+
+        // Overall stats
         const totalAll = allStudents.length;
         const activeAll = allStudents.filter(s => s.status === 'active').length;
         const inactiveAll = allStudents.filter(s => s.status === 'inactive').length;
         const graduatedAll = allStudents.filter(s => s.status === 'graduated').length;
-        
+
         // Build class list HTML
         let classListHtml = classes.map(cls => {
             const count = (studentsByGrade[cls.name] || []).length;
             const isSelected = cls.name === selectedClassName;
             return `
-                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}" 
+                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
                      data-class-name="${escapeHtml(cls.name)}"
                      onclick="selectAdminClass('${escapeHtml(cls.name).replace(/'/g, "\\'")}')">
                     <div class="flex justify-between items-center">
@@ -713,15 +709,15 @@ async function renderAdminStudents() {
                 </div>
             `;
         }).join('');
-        
-        // Also show any grades that have students but no class record
+
+        // Also show grades that have students but no class record
         const classNamesFromClasses = new Set(classes.map(c => c.name));
         const orphanGrades = Object.keys(studentsByGrade).filter(g => !classNamesFromClasses.has(g) && g !== 'Unassigned');
         orphanGrades.forEach(grade => {
             const count = studentsByGrade[grade].length;
             const isSelected = grade === selectedClassName;
             classListHtml += `
-                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}" 
+                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
                      data-class-name="${escapeHtml(grade)}"
                      onclick="selectAdminClass('${escapeHtml(grade).replace(/'/g, "\\'")}')">
                     <div class="flex justify-between items-center">
@@ -732,8 +728,8 @@ async function renderAdminStudents() {
                 </div>
             `;
         });
-        
-        // Build students table for selected class
+
+        // Students table for selected class
         const studentsTableHtml = selectedStudents.length === 0 ? `
             <div class="text-center py-12 text-muted-foreground">
                 <i data-lucide="users" class="h-12 w-12 mx-auto mb-3 opacity-50"></i>
@@ -818,7 +814,7 @@ async function renderAdminStudents() {
                 </table>
             </div>
         `;
-        
+
         return `
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
