@@ -113,6 +113,11 @@ function generateStudentModalHTML(data) {
                             <p class="text-2xl font-bold ${academic.overallAverage >= 70 ? 'text-green-600' : academic.overallAverage >= 50 ? 'text-yellow-600' : 'text-red-600'}">${academic.overallAverage || 0}%</p>
                         </div>
                     </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm mt-3">
+                    <div><span class="font-medium">NEMIS Number:</span> ${escapeHtml(student.nemisNumber || 'Not assigned')}</div>
+                    <div><span class="font-medium">Assessment Count:</span> ${academic.subjects?.length || 0}</div>
+                    <div class="col-span-2"><span class="font-medium">Address/Location:</span> ${escapeHtml(data.address || 'Not provided')}</div>
+                    </div>
                     ${recent.length ? `
                     <div class="mt-6">
                         <h4 class="font-medium mb-2">Recent Assessments</h4>
