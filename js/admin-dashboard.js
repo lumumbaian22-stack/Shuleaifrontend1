@@ -688,7 +688,7 @@ async function renderAdminStudents() {
         const graduatedAll = allStudents.filter(s => s.status === 'graduated').length;
         
         // Build class list HTML
-        const classListHtml = classes.map(cls => {
+        let classListHtml = classes.map(cls => {
             const count = (studentsByGrade[cls.name] || []).length;
             const isSelected = cls.name === selectedClassName;
             return `
