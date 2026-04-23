@@ -198,7 +198,6 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
     if (!level || level === 'both') {
         level = detectedLevel;
     }
-    // -------------------------------------------------
     
     const subjectAbbreviations = {
         'Mathematics': 'Math',
@@ -238,14 +237,22 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
     students.forEach(student => {
         const attendance = student.attendance || 100;
         const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
+        const isPrefect = student.isPrefect || false;
+        const photoUrl = student.photo || (student.User && student.User.profileImage) || '';
         
         html += `<tr class="hover:bg-accent/50">
             <td class="px-2 py-2">
                 <div class="flex items-center gap-1">
-                    <div class="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <span class="font-medium text-blue-700 text-xs">${getInitials(student.name)}</span>
+                    ${photoUrl ? 
+                        `<img src="${photoUrl}" class="h-6 w-6 rounded-full object-cover flex-shrink-0">` :
+                        `<div class="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <span class="font-medium text-blue-700 text-xs">${getInitials(student.name)}</span>
+                        </div>`
+                    }
+                    <div class="min-w-0">
+                        <span class="font-medium truncate block" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
+                        ${isPrefect ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 mt-0.5"><i data-lucide="shield" class="h-3 w-3 mr-0.5"></i>Prefect</span>' : ''}
                     </div>
-                    <span class="font-medium truncate" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
                 </div>
             </td>
             <td class="px-2 py-2"><span class="font-mono text-xs bg-muted px-1 py-0.5 rounded truncate block" title="${escapeHtml(student.elimuid)}">${escapeHtml(student.elimuid)}</span></td>`;
@@ -282,7 +289,7 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
                 <td class="px-2 py-2 text-center font-semibold text-xs ${getOverallColor(overall)}">${overall}</td>
                 <td class="px-2 py-2 text-right">
                     <div class="flex items-center justify-end gap-1">
-                        <button onclick="viewStudentDetails(${student.id})" class="p-1 hover:bg-accent rounded"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                        <button onclick="showUnifiedStudentModal('${student.id}')" class="p-1 hover:bg-accent rounded"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
                         <button onclick="copyElimuid('${escapeHtml(student.elimuid)}')" class="p-1 hover:bg-accent rounded"><i data-lucide="copy" class="h-3.5 w-3.5"></i></button>
                     </div>
                 </td>
