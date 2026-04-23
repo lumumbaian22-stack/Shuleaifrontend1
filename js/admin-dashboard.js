@@ -644,10 +644,171 @@ function renderAdminDashboard() {
     `;
 }
 
+// ============ REPLACE renderAdminStudents WITH THIS VERSION ============
 async function renderAdminStudents() {
     try {
-        const students = await loadAllStudents();
+        // Fetch classes and students in parallel
+        const [classesRes, studentsRes] = await Promise.all([
+            api.admin.getClasses(),
+            api.admin.getStudents()
+        ]);
+        const classes = classesRes.data || [];
+        const allStudents = studentsRes.data || [];
+        
+        // Build a map of students by grade (since grade field matches class name)
+        const studentsByGrade = {};
+        allStudents.forEach(s => {
+            const grade = s.grade || 'Unassigned';
+            if (!studentsByGrade[grade]) studentsByGrade[grade] = [];
+            studentsByGrade[grade].push(s);
+        });
+        
+        // Get selected class from localStorage or default to first class
+        let selectedClassName = localStorage.getItem('adminSelectedClass');
+        if (!selectedClassName || !studentsByGrade[selectedClassName]) {
+            selectedClassName = classes.length > 0 ? classes[0].name : (Object.keys(studentsByGrade)[0] || '');
+        }
+        
+        // Store selected class
+        localStorage.setItem('adminSelectedClass', selectedClassName);
+        
+        // Students for the selected class
+        const selectedStudents = studentsByGrade[selectedClassName] || [];
+        
+        // Summary stats for the selected class
+        const totalInClass = selectedStudents.length;
+        const activeInClass = selectedStudents.filter(s => s.status === 'active').length;
+        const inactiveInClass = selectedStudents.filter(s => s.status === 'inactive').length;
+        const graduatedInClass = selectedStudents.filter(s => s.status === 'graduated').length;
+        
+        // Total stats across all students
+        const totalAll = allStudents.length;
+        const activeAll = allStudents.filter(s => s.status === 'active').length;
+        const inactiveAll = allStudents.filter(s => s.status === 'inactive').length;
+        const graduatedAll = allStudents.filter(s => s.status === 'graduated').length;
+        
+        // Build class list HTML
+        const classListHtml = classes.map(cls => {
+            const count = (studentsByGrade[cls.name] || []).length;
+            const isSelected = cls.name === selectedClassName;
+            return `
+                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}" 
+                     data-class-name="${escapeHtml(cls.name)}"
+                     onclick="selectAdminClass('${escapeHtml(cls.name).replace(/'/g, "\\'")}')">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">${escapeHtml(cls.name)}</span>
+                        <span class="text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}">${count} students</span>
+                    </div>
+                    ${cls.stream ? `<p class="text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}">Stream: ${escapeHtml(cls.stream)}</p>` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        // Also show any grades that have students but no class record
+        const classNamesFromClasses = new Set(classes.map(c => c.name));
+        const orphanGrades = Object.keys(studentsByGrade).filter(g => !classNamesFromClasses.has(g) && g !== 'Unassigned');
+        orphanGrades.forEach(grade => {
+            const count = studentsByGrade[grade].length;
+            const isSelected = grade === selectedClassName;
+            classListHtml += `
+                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}" 
+                     data-class-name="${escapeHtml(grade)}"
+                     onclick="selectAdminClass('${escapeHtml(grade).replace(/'/g, "\\'")}')">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">${escapeHtml(grade)}</span>
+                        <span class="text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}">${count} students</span>
+                    </div>
+                    <p class="text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}">No class record</p>
+                </div>
+            `;
+        });
+        
+        // Build students table for selected class
+        const studentsTableHtml = selectedStudents.length === 0 ? `
+            <div class="text-center py-12 text-muted-foreground">
+                <i data-lucide="users" class="h-12 w-12 mx-auto mb-3 opacity-50"></i>
+                <p>No students in this class</p>
+            </div>
+        ` : `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">Student</th>
+                            <th class="px-4 py-3 text-left font-medium">ELIMUID</th>
+                            <th class="px-4 py-3 text-left font-medium">Status</th>
+                            <th class="px-4 py-3 text-left font-medium">Parent Email</th>
+                            <th class="px-4 py-3 text-center font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${selectedStudents.map(student => {
+                            const user = student.User || {};
+                            const name = user.name || 'Unknown';
+                            const email = user.email || 'N/A';
+                            const status = student.status || 'active';
+                            const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
+                                               status === 'inactive' ? 'bg-red-100 text-red-700' : 
+                                               'bg-gray-100 text-gray-700';
+                            const initials = getInitials(name);
+                            const photoUrl = user.profileImage || '';
+                            const isPrefect = student.isPrefect || false;
 
+                            return `
+                                <tr class="hover:bg-accent/50 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            ${photoUrl ? 
+                                                `<img src="${photoUrl}" class="h-8 w-8 rounded-full object-cover">` :
+                                                `<div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                    <span class="font-medium text-blue-700 text-sm">${initials}</span>
+                                                </div>`
+                                            }
+                                            <div>
+                                                <span class="font-medium">${escapeHtml(name)}</span>
+                                                ${isPrefect ? '<span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><i data-lucide="shield" class="h-3 w-3 mr-1"></i>Prefect</span>' : ''}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(student.elimuid || 'N/A')}</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span>
+                                    </td>
+                                    <td class="px-4 py-3">${escapeHtml(email)}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button onclick="showUnifiedStudentModal('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
+                                                <i data-lucide="eye" class="h-4 w-4 text-blue-600"></i>
+                                            </button>
+                                            <button onclick="adminEditStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
+                                                <i data-lucide="edit" class="h-4 w-4 text-green-600"></i>
+                                            </button>
+                                            ${status === 'active' ? 
+                                                `<button onclick="adminSuspendStudent('${student.id}', '${escapeHtml(name).replace(/'/g, "\\'")}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
+                                                    <i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i>
+                                                </button>` : 
+                                                `<button onclick="adminReactivateStudent('${student.id}', '${escapeHtml(name).replace(/'/g, "\\'")}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
+                                                    <i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i>
+                                                </button>`
+                                            }
+                                            <button onclick="adminDeleteStudent('${student.id}', '${escapeHtml(name).replace(/'/g, "\\'")}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
+                                                <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
+                                            </button>
+                                            <button onclick="copyToClipboard('${escapeHtml(student.elimuid).replace(/'/g, "\\'")}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
+                                                <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
         return `
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
@@ -658,103 +819,128 @@ async function renderAdminStudents() {
                     </button>
                 </div>
 
+                <!-- Overall Stats -->
                 <div class="grid gap-4 md:grid-cols-4">
                     <div class="rounded-xl border bg-card p-4">
                         <p class="text-sm text-muted-foreground">Total Students</p>
-                        <p class="text-2xl font-bold">${students.length}</p>
+                        <p class="text-2xl font-bold">${totalAll}</p>
                     </div>
                     <div class="rounded-xl border bg-card p-4">
                         <p class="text-sm text-muted-foreground">Active</p>
-                        <p class="text-2xl font-bold text-green-600">${students.filter(s => s.status === 'active').length}</p>
+                        <p class="text-2xl font-bold text-green-600">${activeAll}</p>
                     </div>
                     <div class="rounded-xl border bg-card p-4">
-                        <p class="text-sm text-muted-foreground">inactive</p>
-                        <p class="text-2xl font-bold text-red-600">${students.filter(s => s.status === 'inactive').length}</p>
+                        <p class="text-sm text-muted-foreground">Inactive</p>
+                        <p class="text-2xl font-bold text-red-600">${inactiveAll}</p>
                     </div>
                     <div class="rounded-xl border bg-card p-4">
                         <p class="text-sm text-muted-foreground">Graduated</p>
-                        <p class="text-2xl font-bold text-blue-600">${students.filter(s => s.status === 'graduated').length}</p>
+                        <p class="text-2xl font-bold text-blue-600">${graduatedAll}</p>
                     </div>
                 </div>
 
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-muted/50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left font-medium">Student</th>
-                                    <th class="px-4 py-3 text-left font-medium">ELIMUID</th>
-                                    <th class="px-4 py-3 text-left font-medium">Grade</th>
-                                    <th class="px-4 py-3 text-left font-medium">Status</th>
-                                    <th class="px-4 py-3 text-left font-medium">Parent Email</th>
-                                    <th class="px-4 py-3 text-center font-medium">Actions</th>
-                                 </thead>
-                            <tbody class="divide-y" id="students-table-body">
-                                ${students.map(student => {
-                                    const user = student.User || {};
-                                    const name = user.name || 'Unknown';
-                                    const email = user.email || 'N/A';
-                                    const status = student.status || 'active';
-                                    const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
-                                                       status === 'inactive' ? 'bg-red-100 text-red-700' : 
-                                                       'bg-gray-100 text-gray-700';
-                                    const initials = getInitials(name);
+                <!-- Class Selector + Students Panel -->
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <!-- Left Sidebar: Classes -->
+                    <div class="lg:w-72 flex-shrink-0">
+                        <div class="rounded-xl border bg-card overflow-hidden">
+                            <div class="p-4 border-b bg-muted/30">
+                                <h3 class="font-semibold flex items-center gap-2">
+                                    <i data-lucide="book-open" class="h-5 w-5"></i>
+                                    Classes
+                                </h3>
+                                <p class="text-xs text-muted-foreground mt-1">Select a class to view students</p>
+                            </div>
+                            <div class="p-2 max-h-[500px] overflow-y-auto" id="class-list-container">
+                                ${classListHtml || '<p class="text-center py-4 text-muted-foreground">No classes found</p>'}
+                            </div>
+                        </div>
+                    </div>
 
-                                    return `
-                                        <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                        <span class="font-medium text-blue-700 text-sm">${initials}</span>
-                                                    </div>
-                                                    <span class="font-medium">${name}</span>
-                                                </div>
-                                              </td>
-                                            <td class="px-4 py-3">
-                                                <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid || 'N/A'}</span>
-                                              </td>
-                                            <td class="px-4 py-3">${student.grade || 'N/A'}</td>
-                                            <td class="px-4 py-3">
-                                                <span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span>
-                                              </td>
-                                            <td class="px-4 py-3">${email}</td>
-                                            <td class="px-4 py-3 text-center">
-                                                <div class="flex items-center justify-center gap-2">
-                                                    <button onclick="adminViewStudentDetails('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
-                                                        <i data-lucide="eye" class="h-4 w-4 text-blue-600"></i>
-                                                    </button>
-                                                    <button onclick="adminEditStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
-                                                        <i data-lucide="edit" class="h-4 w-4 text-green-600"></i>
-                                                    </button>
-                                                    ${status === 'active' ? 
-                                                        `<button onclick="adminSuspendStudent('${student.id}', '${name}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
-                                                            <i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i>
-                                                        </button>` : 
-                                                        `<button onclick="adminReactivateStudent('${student.id}', '${name}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
-                                                            <i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i>
-                                                        </button>`
-                                                    }
-                                                    <button onclick="adminDeleteStudent('${student.id}', '${name}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
-                                                        <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
-                                                    </button>
-                                                    <button onclick="copyToClipboard('${student.elimuid}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
-                                                        <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
-                                                    </button>
-                                                </div>
-                                              </td>
-                                          </tr>
-                                    `;
-                                }).join('')}
-                                ${students.length === 0 ? '<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No students found</td></tr>' : ''}
-                            </tbody>
-                        </table>
+                    <!-- Right Panel: Students in Selected Class -->
+                    <div class="flex-1 min-w-0">
+                        <div class="rounded-xl border bg-card overflow-hidden">
+                            <div class="p-4 border-b bg-muted/30 flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h3 class="font-semibold flex items-center gap-2">
+                                        <i data-lucide="users" class="h-5 w-5"></i>
+                                        ${escapeHtml(selectedClassName)} Students
+                                    </h3>
+                                    <p class="text-xs text-muted-foreground mt-1">
+                                        ${totalInClass} total · ${activeInClass} active · ${inactiveInClass} inactive
+                                    </p>
+                                </div>
+                                <div class="relative">
+                                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"></i>
+                                    <input type="text" id="class-student-search" placeholder="Search in this class..." 
+                                           class="pl-9 pr-4 py-2 text-sm rounded-md border bg-background w-64"
+                                           oninput="filterStudentsInCurrentClass(this.value)">
+                                </div>
+                            </div>
+                            <div id="selected-class-students-container">
+                                ${studentsTableHtml}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
     } catch (error) {
+        console.error('Error loading students:', error);
         return `<div class="text-center py-12 text-red-500">Error loading students: ${error.message}</div>`;
     }
+}
+
+// ============ HELPER FUNCTIONS (ADD THESE TO GLOBAL SCOPE) ============
+
+// Called when a class is clicked in the sidebar
+window.selectAdminClass = function(className) {
+    localStorage.setItem('adminSelectedClass', className);
+    showDashboardSection('students'); // Re-render the section
+};
+
+// Filter students within the currently displayed class (client-side)
+window.filterStudentsInCurrentClass = function(searchTerm) {
+    const container = document.getElementById('selected-class-students-container');
+    if (!container) return;
+    
+    const rows = container.querySelectorAll('tbody tr');
+    const term = searchTerm.toLowerCase().trim();
+    
+    let visibleCount = 0;
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const match = term === '' || text.includes(term);
+        row.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+    
+    // Optionally show a "no results" message
+    const existingMsg = document.getElementById('no-search-results');
+    if (visibleCount === 0 && term !== '') {
+        if (!existingMsg) {
+            const msg = document.createElement('div');
+            msg.id = 'no-search-results';
+            msg.className = 'text-center py-8 text-muted-foreground';
+            msg.innerHTML = `<i data-lucide="search-x" class="h-12 w-12 mx-auto mb-3 opacity-50"></i><p>No students match "${escapeHtml(searchTerm)}"</p>`;
+            container.appendChild(msg);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    } else if (existingMsg) {
+        existingMsg.remove();
+    }
+};
+
+// Helper: escape HTML (ensure available globally)
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"]/g, function(c) {
+        if (c === '&') return '&amp;';
+        if (c === '<') return '&lt;';
+        if (c === '>') return '&gt;';
+        if (c === '"') return '&quot;';
+        return c;
+    });
 }
 
 async function renderAdminTeachers() {
