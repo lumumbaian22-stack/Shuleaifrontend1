@@ -97,29 +97,91 @@ function renderAdminAnalytics(data) {
     }, 100);
 
     return `
-        <div class="space-y-6 animate-fade-in">
+        <div class="space-y-6 animate-fade-in analytics-container">
             <h2 class="text-2xl font-bold">School Analytics</h2>
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Students</p><h3 class="text-xl font-bold">${ov.totalStudents || 0}</h3></div>
-                <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Teachers</p><h3 class="text-xl font-bold">${ov.totalTeachers || 0}</h3></div>
-                <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Classes</p><h3 class="text-xl font-bold">${ov.totalClasses || 0}</h3></div>
-                <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Attendance</p><h3 class="text-xl font-bold">${ov.attendanceRate || 0}%</h3></div>
-                <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Fee Collection</p><h3 class="text-xl font-bold">${ov.feeCollectionRate || 0}%</h3></div>
+            
+            <!-- KPI Cards -->
+            <div class="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+                <div class="rounded-xl border bg-card p-4 analytics-card">
+                    <p class="text-sm text-muted-foreground">Students</p>
+                    <h3 class="text-xl font-bold">${ov.totalStudents || 0}</h3>
+                </div>
+                <div class="rounded-xl border bg-card p-4 analytics-card">
+                    <p class="text-sm text-muted-foreground">Teachers</p>
+                    <h3 class="text-xl font-bold">${ov.totalTeachers || 0}</h3>
+                </div>
+                <div class="rounded-xl border bg-card p-4 analytics-card">
+                    <p class="text-sm text-muted-foreground">Classes</p>
+                    <h3 class="text-xl font-bold">${ov.totalClasses || 0}</h3>
+                </div>
+                <div class="rounded-xl border bg-card p-4 analytics-card">
+                    <p class="text-sm text-muted-foreground">Attendance</p>
+                    <h3 class="text-xl font-bold">${ov.attendanceRate || 0}%</h3>
+                </div>
+                <div class="rounded-xl border bg-card p-4 analytics-card">
+                    <p class="text-sm text-muted-foreground">Fee Collection</p>
+                    <h3 class="text-xl font-bold">${ov.feeCollectionRate || 0}%</h3>
+                </div>
             </div>
+
+            <!-- First Chart Row -->
             <div class="grid gap-4 lg:grid-cols-2">
-                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Enrollment Trend</h3><canvas id="admin-enrollment-chart" height="200"></canvas></div>
-                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Grade Distribution</h3><canvas id="admin-grade-dist-chart" height="200"></canvas></div>
+                <div class="rounded-xl border bg-card p-4 md:p-6 analytics-card">
+                    <h3 class="font-semibold mb-4">Enrollment Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="admin-enrollment-chart"></canvas>
+                    </div>
+                </div>
+                <div class="rounded-xl border bg-card p-4 md:p-6 analytics-card">
+                    <h3 class="font-semibold mb-4">Grade Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="admin-grade-dist-chart"></canvas>
+                    </div>
+                </div>
             </div>
+
+            <!-- Second Chart Row -->
             <div class="grid gap-4 lg:grid-cols-2">
-                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Attendance by Grade</h3><canvas id="admin-attendance-chart" height="200"></canvas></div>
-                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Fee Status</h3><canvas id="admin-fee-chart" height="200"></canvas></div>
+                <div class="rounded-xl border bg-card p-4 md:p-6 analytics-card">
+                    <h3 class="font-semibold mb-4">Attendance by Grade</h3>
+                    <div class="chart-container">
+                        <canvas id="admin-attendance-chart"></canvas>
+                    </div>
+                </div>
+                <div class="rounded-xl border bg-card p-4 md:p-6 analytics-card">
+                    <h3 class="font-semibold mb-4">Fee Status</h3>
+                    <div class="chart-container">
+                        <canvas id="admin-fee-chart"></canvas>
+                    </div>
+                </div>
             </div>
+
+            <!-- Class Averages Table -->
             ${data.classAverages ? `
-            <div class="rounded-xl border bg-card overflow-hidden">
-                <div class="p-4 border-b"><h3 class="font-semibold">Class Averages</h3></div>
-                <table class="w-full text-sm"><thead><tr><th class="px-4 py-2 text-left">Class</th><th class="px-4 py-2 text-left">Average</th></tr></thead>
-                <tbody>${data.classAverages.map(c => `<tr><td class="px-4 py-2">${escapeHtml(c.class)}</td><td class="px-4 py-2">${c.average}%</td></tr>`).join('')}</tbody></table>
-            </div>` : ''}
+            <div class="rounded-xl border bg-card overflow-hidden analytics-card">
+                <div class="p-4 border-b">
+                    <h3 class="font-semibold">Class Averages</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-muted/50">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-medium">Class</th>
+                                <th class="px-4 py-2 text-left font-medium">Average</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            ${data.classAverages.map(c => `
+                                <tr class="hover:bg-accent/50">
+                                    <td class="px-4 py-2">${escapeHtml(c.class)}</td>
+                                    <td class="px-4 py-2">${c.average}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
 }
