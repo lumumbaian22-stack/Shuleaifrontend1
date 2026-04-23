@@ -190,13 +190,19 @@ function renderAdminAnalytics(data) {
 function renderTeacherAnalytics(data) {
     const ov = data.overview || {};
     setTimeout(() => {
-        if (data.subjectAverages) initBarChart('teacher-subject-chart', data.subjectAverages.map(s => s.subject), data.subjectAverages.map(s => s.average), 'Avg Score');
-        if (data.attendanceTrend) initLineChart('teacher-attendance-trend', data.attendanceTrend.labels, data.attendanceTrend.values, 'Attendance %');
-        if (data.gradeDistribution) initBarChart('teacher-grade-chart', data.gradeDistribution.labels, data.gradeDistribution.values, 'Students');
+        if (data.subjectAverages && data.subjectAverages.length > 0) {
+            initBarChart('teacher-subject-chart', data.subjectAverages.map(s => s.subject), data.subjectAverages.map(s => s.average), 'Avg Score');
+        }
+        if (data.attendanceTrend && data.attendanceTrend.labels && data.attendanceTrend.labels.length > 0) {
+            initLineChart('teacher-attendance-trend', data.attendanceTrend.labels, data.attendanceTrend.values, 'Attendance %');
+        }
+        if (data.gradeDistribution && data.gradeDistribution.labels && data.gradeDistribution.labels.length > 0) {
+            initBarChart('teacher-grade-chart', data.gradeDistribution.labels, data.gradeDistribution.values, 'Students');
+        }
     }, 100);
 
     return `
-        <div class="space-y-6 animate-fade-in">
+        <div class="space-y-6 animate-fade-in analytics-container">
             <h2 class="text-2xl font-bold">My Class Analytics</h2>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">My Students</p><h3 class="text-xl font-bold">${ov.studentCount || 0}</h3></div>
@@ -205,13 +211,26 @@ function renderTeacherAnalytics(data) {
                 <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Pending Tasks</p><h3 class="text-xl font-bold">${ov.pendingTasks || 0}</h3></div>
             </div>
             <div class="grid gap-4 lg:grid-cols-2">
-                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Subject Averages</h3><canvas id="teacher-subject-chart" height="200"></canvas></div>
-                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Attendance Trend</h3><canvas id="teacher-attendance-trend" height="200"></canvas></div>
+                <div class="rounded-xl border bg-card p-6 analytics-card">
+                    <h3 class="font-semibold mb-4">Subject Averages</h3>
+                    <div class="chart-container">
+                        <canvas id="teacher-subject-chart"></canvas>
+                    </div>
+                </div>
+                <div class="rounded-xl border bg-card p-6 analytics-card">
+                    <h3 class="font-semibold mb-4">Attendance Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="teacher-attendance-trend"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="rounded-xl border bg-card p-6">
-                <h3 class="font-semibold mb-4">Grade Distribution</h3><canvas id="teacher-grade-chart" height="150"></canvas>
+            <div class="rounded-xl border bg-card p-6 analytics-card">
+                <h3 class="font-semibold mb-4">Grade Distribution</h3>
+                <div class="chart-container">
+                    <canvas id="teacher-grade-chart"></canvas>
+                </div>
             </div>
-            ${data.studentPerformance ? `
+            ${data.studentPerformance && data.studentPerformance.length > 0 ? `
             <div class="rounded-xl border bg-card overflow-hidden">
                 <div class="p-4 border-b"><h3 class="font-semibold">Student Performance</h3></div>
                 <table class="w-full text-sm"><thead><tr><th class="px-4 py-2 text-left">Student</th><th class="px-4 py-2 text-left">Average</th></tr></thead>
@@ -224,11 +243,13 @@ function renderTeacherAnalytics(data) {
 // ============ PARENT ANALYTICS ============
 function renderParentAnalytics(data) {
     setTimeout(() => {
-        if (data.gradeTrend) initLineChart('parent-grade-trend', data.gradeTrend.labels, data.gradeTrend.values, 'Score');
+        if (data.gradeTrend && data.gradeTrend.labels && data.gradeTrend.labels.length > 0) {
+            initLineChart('parent-grade-trend', data.gradeTrend.labels, data.gradeTrend.values, 'Score');
+        }
     }, 100);
 
     return `
-        <div class="space-y-6 animate-fade-in">
+        <div class="space-y-6 animate-fade-in analytics-container">
             <div class="flex items-center gap-4">
                 ${data.student?.photo ? `<img src="${data.student.photo}" class="h-16 w-16 rounded-full object-cover">` : ''}
                 <div>
@@ -241,10 +262,13 @@ function renderParentAnalytics(data) {
                 <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Attendance Rate</p><h3 class="text-2xl font-bold">${data.attendanceRate || 0}%</h3></div>
                 <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Fee Balance</p><h3 class="text-2xl font-bold ${data.feeBalance > 0 ? 'text-red-600' : 'text-green-600'}">$${data.feeBalance || 0}</h3></div>
             </div>
-            <div class="rounded-xl border bg-card p-6">
-                <h3 class="font-semibold mb-4">Grade Trend</h3><canvas id="parent-grade-trend" height="200"></canvas>
+            <div class="rounded-xl border bg-card p-6 analytics-card">
+                <h3 class="font-semibold mb-4">Grade Trend</h3>
+                <div class="chart-container">
+                    <canvas id="parent-grade-trend"></canvas>
+                </div>
             </div>
-            ${data.subjectPerformance ? `
+            ${data.subjectPerformance && data.subjectPerformance.length > 0 ? `
             <div class="rounded-xl border bg-card overflow-hidden">
                 <div class="p-4 border-b"><h3 class="font-semibold">Subject Performance</h3></div>
                 <table class="w-full text-sm"><thead><tr><th class="px-4 py-2 text-left">Subject</th><th class="px-4 py-2 text-left">Score</th><th class="px-4 py-2 text-left">Grade</th></tr></thead>
@@ -257,11 +281,13 @@ function renderParentAnalytics(data) {
 // ============ STUDENT ANALYTICS ============
 function renderStudentAnalytics(data) {
     setTimeout(() => {
-        if (data.gradeTrend) initLineChart('student-grade-trend', data.gradeTrend.labels, data.gradeTrend.values, 'Score');
+        if (data.gradeTrend && data.gradeTrend.labels && data.gradeTrend.labels.length > 0) {
+            initLineChart('student-grade-trend', data.gradeTrend.labels, data.gradeTrend.values, 'Score');
+        }
     }, 100);
 
     return `
-        <div class="space-y-6 animate-fade-in">
+        <div class="space-y-6 animate-fade-in analytics-container">
             <div class="flex items-center gap-4">
                 ${data.student?.photo ? `<img src="${data.student.photo}" class="h-16 w-16 rounded-full object-cover">` : ''}
                 <div>
@@ -275,10 +301,13 @@ function renderStudentAnalytics(data) {
                 <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Points</p><h3 class="text-2xl font-bold text-yellow-600">${data.points || 0}</h3></div>
                 <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Class Rank</p><h3 class="text-2xl font-bold">#${data.leaderboardRank || '-'}</h3></div>
             </div>
-            <div class="rounded-xl border bg-card p-6">
-                <h3 class="font-semibold mb-4">Grade Trend</h3><canvas id="student-grade-trend" height="200"></canvas>
+            <div class="rounded-xl border bg-card p-6 analytics-card">
+                <h3 class="font-semibold mb-4">Grade Trend</h3>
+                <div class="chart-container">
+                    <canvas id="student-grade-trend"></canvas>
+                </div>
             </div>
-            ${data.subjectPerformance ? `
+            ${data.subjectPerformance && data.subjectPerformance.length > 0 ? `
             <div class="rounded-xl border bg-card overflow-hidden">
                 <div class="p-4 border-b"><h3 class="font-semibold">Subject Performance</h3></div>
                 <table class="w-full text-sm"><thead><tr><th class="px-4 py-2 text-left">Subject</th><th class="px-4 py-2 text-left">Score</th></tr></thead>
