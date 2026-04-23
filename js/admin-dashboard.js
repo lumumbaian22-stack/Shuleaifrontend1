@@ -254,9 +254,17 @@ function ensureStudentModals() {
                             <div><label class="block text-sm font-medium mb-1">Grade</label><input type="text" id="edit-student-grade" class="w-full rounded-lg border p-2"></div>
                             <div><label class="block text-sm font-medium mb-1">Status</label>
                                 <select id="edit-student-status" class="w-full rounded-lg border p-2">
-                                    <option value="active">Active</option><option value="inactive">Inactive</option>
-                                    <option value="graduated">Graduated</option><option value="transferred">Transferred</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="graduated">Graduated</option>
+                                    <option value="transferred">Transferred</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" id="edit-student-prefect" class="rounded">
+                                    <span class="text-sm font-medium">School Prefect</span>
+                                </label>
                             </div>
                         </div>
                         <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
@@ -351,6 +359,7 @@ window.adminEditStudent = async function(studentId) {
     document.getElementById('edit-student-email').value = student.User?.email || '';
     document.getElementById('edit-student-grade').value = student.grade || '';
     document.getElementById('edit-student-status').value = student.status || 'active';
+    document.getElementById('edit-student-prefect').checked = student.isPrefect || false; // <-- new line
     document.getElementById('edit-student-modal').classList.remove('hidden');
 };
 
@@ -469,7 +478,8 @@ window.saveStudentEdit = async function() {
             name: document.getElementById('edit-student-name').value,
             email: document.getElementById('edit-student-email').value,
             grade: document.getElementById('edit-student-grade').value,
-            status: document.getElementById('edit-student-status').value
+            status: document.getElementById('edit-student-status').value,
+            isPrefect: document.getElementById('edit-student-prefect')?.checked // <-- new field
         });
         showToast('Student updated', 'success');
         closeEditStudentModal();
