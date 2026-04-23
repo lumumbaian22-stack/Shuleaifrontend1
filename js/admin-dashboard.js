@@ -471,20 +471,28 @@ window.closeEditStudentModal = function() { const m = document.getElementById('e
 window.editStudentFromModal = function() { const id = document.getElementById('edit-student-id')?.value; if(id) { closeStudentDetailsModal(); adminEditStudent(id); } };
 window.saveStudentEdit = async function() {
     const id = document.getElementById('edit-student-id')?.value;
-    if(!id) return;
+    if (!id) return;
     showLoading();
     try {
-        await api.admin.updateStudent(id, {
-            name: document.getElementById('edit-student-name').value,
-            email: document.getElementById('edit-student-email').value,
-            grade: document.getElementById('edit-student-grade').value,
-            status: document.getElementById('edit-student-status').value,
-            isPrefect: document.getElementById('edit-student-prefect')?.checked // <-- new field
-        });
+        const name = document.getElementById('edit-student-name')?.value;
+        const email = document.getElementById('edit-student-email')?.value?.trim();
+        const grade = document.getElementById('edit-student-grade')?.value;
+        const status = document.getElementById('edit-student-status')?.value;
+        const isPrefect = document.getElementById('edit-student-prefect')?.checked || false;
+
+        const updateData = { name, grade, status, isPrefect };
+        // Only include email if it's a non‑empty valid email
+        if (email) updateData.email = email;
+
+        await api.admin.updateStudent(id, updateData);
         showToast('Student updated', 'success');
         closeEditStudentModal();
         await renderAdminStudents();
-    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        hideLoading();
+    }
 };
 
 window.closeTeacherDetailsModal = function() { const m = document.getElementById('teacher-details-modal'); if(m) m.classList.add('hidden'); };
