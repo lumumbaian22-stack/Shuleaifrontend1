@@ -128,42 +128,87 @@ function startSmartPopups() {
 // Call startSmartPopups() after login (in showDashboard)
 
 // Add search functionality
-window.searchContent = function() {
+function initGlobalSearch() {
     const searchInput = document.getElementById('global-search');
-    const searchTerm = searchInput?.value.toLowerCase().trim();
+    const searchResults = document.getElementById('search-results');
+    if (!searchInput || !searchResults) return;
 
-    if (!searchTerm) {
-        // Show all content
-        document.querySelectorAll('.searchable').forEach(el => el.style.display = '');
-        return;
-    }
+    let debounceTimer;
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        const term = e.target.value.trim();
+        if (term.length < 2) {
+            searchResults.classList.add('hidden');
+            return;
+        }
+        debounceTimer = setTimeout(() => performSearch(term), 300);
+    });
 
-    // Find all searchable elements (tables, cards, etc.)
-    const searchableElements = document.querySelectorAll('.searchable, table tbody tr, .card');
-    let foundCount = 0;
-
-    searchableElements.forEach(el => {
-        const text = el.textContent.toLowerCase();
-        if (text.includes(searchTerm)) {
-            el.style.display = '';
-            foundCount++;
-        } else {
-            el.style.display = 'none';
+    searchInput.addEventListener('focus', () => {
+        const term = searchInput.value.trim();
+        if (term.length >= 2) {
+            performSearch(term);
         }
     });
 
-    if (foundCount === 0) {
-        showToast('No results found', 'info');
-    }
-};
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.classList.add('hidden');
+        }
+    });
+}
 
-// Add search input listener in main.js or here
-document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById('global-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', window.searchContent);
+async function performSearch(term) {
+    const searchResults = document.getElementById('search-results');
+    try {
+        const response = await apiRequest(`/api/search?q=${encodeURIComponent(term)}`);
+        if (response.success) {
+            renderSearchResults(response.data);
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        searchResults.innerHTML = '<div class="p-4 text-center text-red-500">Search failed</div>';
+        searchResults.classList.remove('hidden');
     }
-});
+}
+
+function renderSearchResults(data) {
+    const searchResults = document.getElementById('search-results');
+    let html = '';
+    if (data.students?.length) {
+        html += '<div class="p-2 text-xs font-semibold text-muted-foreground border-b">Students</div>';
+        data.students.forEach(s => {
+            html += `<div class="p-2 hover:bg-accent cursor-pointer flex items-center gap-2" onclick="showUnifiedStudentModal('${s.id}')">
+                ${s.photo ? `<img src="${s.photo}" class="h-6 w-6 rounded-full object-cover">` : `<div class="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center"><span class="text-xs">${getInitials(s.name)}</span></div>`}
+                <div><span class="font-medium">${escapeHtml(s.name)}</span><br><span class="text-xs text-muted-foreground">${escapeHtml(s.elimuid)} · Grade ${escapeHtml(s.grade)}</span></div>
+            </div>`;
+        });
+    }
+    if (data.teachers?.length) {
+        html += '<div class="p-2 text-xs font-semibold text-muted-foreground border-b">Teachers</div>';
+        data.teachers.forEach(t => {
+            html += `<div class="p-2 hover:bg-accent cursor-pointer" onclick="viewTeacherDetails('${t.id}')">
+                <span class="font-medium">${escapeHtml(t.name)}</span><br><span class="text-xs text-muted-foreground">${escapeHtml(t.employeeId)} · ${escapeHtml(t.email)}</span>
+            </div>`;
+        });
+    }
+    if (data.classes?.length) {
+        html += '<div class="p-2 text-xs font-semibold text-muted-foreground border-b">Classes</div>';
+        data.classes.forEach(c => {
+            html += `<div class="p-2 hover:bg-accent cursor-pointer" onclick="showDashboardSection('classes'); setTimeout(() => { if(typeof filterClass === 'function') filterClass(${c.id}); }, 200);">
+                <span class="font-medium">${escapeHtml(c.name)}</span> (Grade ${escapeHtml(c.grade)}${c.stream ? ' ' + escapeHtml(c.stream) : ''})
+            </div>`;
+        });
+    }
+    if (!html) {
+        html = '<div class="p-4 text-center text-muted-foreground">No results</div>';
+    }
+    searchResults.innerHTML = html;
+    searchResults.classList.remove('hidden');
+}
+
+// Call initGlobalSearch on DOM ready
+document.addEventListener('DOMContentLoaded', initGlobalSearch);
 
 // Add fade-out animation
 const style = document.createElement('style');
