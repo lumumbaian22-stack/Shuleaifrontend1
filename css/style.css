@@ -85,6 +85,24 @@ body {
     background: #94a3b8;
 }
 
+.analytics-container {
+    max-width: 100%;
+    overflow-x: auto;
+}
+.chart-container {
+    position: relative;
+    height: 200px;
+    width: 100%;
+}
+@media (max-width: 640px) {
+    .chart-container {
+        height: 180px;
+    }
+    .analytics-card {
+        padding: 1rem;
+    }
+}
+
 /* Animations */
 .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
