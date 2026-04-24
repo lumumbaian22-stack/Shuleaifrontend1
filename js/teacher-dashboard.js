@@ -523,6 +523,24 @@ function showMarksEntryModal(className) {
         <div class="w-[130px]"><label class="block text-xs font-medium mb-1">Year</label><select id="assessment-year" class="w-full rounded-lg border p-2 bg-background">${[new Date().getFullYear()-1, new Date().getFullYear(), new Date().getFullYear()+1].map(y => `<option value="${y}" ${y === new Date().getFullYear() ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
         <div class="w-[150px]"><label class="block text-xs font-medium mb-1">Date</label><input type="date" id="assessment-date" value="${today}" class="w-full rounded-lg border p-2 bg-background"></div>
       </div>
+      <div class="border rounded-lg p-3">
+         <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-sm font-medium flex items-center gap-1">
+            <i data-lucide="settings" class="h-4 w-4"></i> Custom Grading (optional)
+        </button>
+        <div class="hidden mt-3 space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium">Pass Mark (%)</label>
+                    <input type="number" id="custom-passmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium">Fail Mark (%)</label>
+                    <input type="number" id="custom-failmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
+                </div>
+            </div>
+            <p class="text-xs text-muted-foreground">Leave blank to use default curriculum grading.</p>
+        </div>
+    </div>
       
       <div class="overflow-x-auto max-h-[55vh] overflow-y-auto border rounded-lg">
         <table class="w-full text-sm">
@@ -551,6 +569,7 @@ function showMarksEntryModal(className) {
   modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
+
 
 function createMarksEntryModal() {
   const modalHTML = `<div id="marks-entry-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeMarksEntryModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl p-4"><div class="rounded-xl border bg-card shadow-xl max-h-[90vh] overflow-hidden flex flex-col"><div class="modal-content p-6 overflow-y-auto"></div></div></div></div>`;
@@ -597,6 +616,9 @@ async function saveAllMarks() {
   const assessmentType = document.getElementById('assessment-type')?.value;
   const assessmentName = document.getElementById('assessment-name')?.value;
   const assessmentDate = document.getElementById('assessment-date')?.value;
+  const passMark = document.getElementById('custom-passmark')?.value;
+  const failMark = document.getElementById('custom-failmark')?.value;
+  const gradingScale = (passMark || failMark) ? { passMark: parseInt(passMark), failMark: parseInt(failMark) } : null;
   if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
   showLoading();
   let saved = 0, failed = 0;
@@ -613,7 +635,8 @@ async function saveAllMarks() {
           date: assessmentDate,
           term: currentMarksTerm,
           year: currentMarksYear,
-          isPublished: false
+          isPublished: false,
+          gradingScale: req.body.gradingScale || null
         });
         saved++;
       } catch(e) { failed++; }
