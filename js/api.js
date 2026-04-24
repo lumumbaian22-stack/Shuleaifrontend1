@@ -367,6 +367,7 @@ const teacherAPI = {
     getMySubjects: () => apiRequest('/api/teacher/my-subjects'),
     getTeacherStats: () => apiRequest('/api/teacher/stats'),
     uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress),
+    publishMarks: (data) => apiRequest('/api/teacher/marks/publish', { method: 'POST', body: JSON.stringify(data) }),
     getAnalytics: () => apiRequest('/api/teacher/analytics')
 };
 
