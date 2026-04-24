@@ -541,9 +541,11 @@ function showMarksEntryModal(className) {
       </div>
       
       <div class="flex justify-end gap-3 pt-4 border-t">
-        <button onclick="closeMarksEntryModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
-        <button onclick="saveAllMarks()" class="px-4 py-2 bg-primary text-white rounded-lg">Save All Marks</button>
-      </div>
+        <button onclick="closeMarksEntryModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
+        <button onclick="saveAllMarks()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save as Draft</button>
+        <button onclick="publishAllMarks()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1">
+            <i data-lucide="check-circle" class="h-4 w-4"></i> Publish All
+       </button>
     </div>
   `;
   modal.classList.remove('hidden');
@@ -610,7 +612,8 @@ async function saveAllMarks() {
           score,
           date: assessmentDate,
           term: currentMarksTerm,
-          year: currentMarksYear
+          year: currentMarksYear,
+          isPublished: false
         });
         saved++;
       } catch(e) { failed++; }
@@ -626,6 +629,28 @@ async function saveAllMarks() {
   }
   closeMarksEntryModal();
   hideLoading();
+}
+
+async function publishAllMarks() {
+    if (!confirm('Publish all marks for this class? Parents and students will see them.')) return;
+    showLoading();
+    try {
+        const res = await api.teacher.publishMarks({
+            classId: currentMarksClassId,
+            subject: currentMarksSubject,
+            term: currentMarksTerm,
+            year: currentMarksYear
+        });
+        if (res.success) {
+            showToast('✅ All marks published', 'success');
+            closeMarksEntryModal();
+            if (typeof refreshTeacherStudentList === 'function') {
+                await refreshTeacherStudentList();
+            }
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally { hideLoading(); }
 }
 
 // ============ TASKS ============
