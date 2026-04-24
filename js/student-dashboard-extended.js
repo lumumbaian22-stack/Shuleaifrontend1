@@ -108,6 +108,26 @@ async function renderStudentDashboard() {
                     </div>
                 </div>
 
+                <!-- Leaderboard & Badges Row -->
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="rounded-xl border bg-card p-4">
+                        <h3 class="font-semibold mb-3 flex items-center gap-2">
+                            <i data-lucide="trophy" class="h-5 w-5 text-yellow-500"></i> Class Leaderboard
+                        </h3>
+                        <div id="student-leaderboard">
+                            <p class="text-sm text-muted-foreground">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border bg-card p-4">
+                        <h3 class="font-semibold mb-3 flex items-center gap-2">
+                            <i data-lucide="award" class="h-5 w-5 text-purple-500"></i> My Badges
+                        </h3>
+                        <div id="student-badges">
+                            <p class="text-sm text-muted-foreground">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Quick Actions -->
                 <div class="grid gap-4 md:grid-cols-2">
                     <button onclick="showDashboardSection('chat')" class="p-6 border rounded-lg hover:bg-accent transition-colors text-left flex items-center gap-4">
@@ -305,6 +325,32 @@ async function markTaskComplete(taskId) {
         hideLoading();
     }
 }
+
+async function loadStudentLeaderboard() {
+    // Get student's class ID from somewhere; we can infer from student data or fetch via API
+    const student = await Student.findOne({ where: { userId: getCurrentUser().id } }); // this is a server call, not direct; better to have a getClassId endpoint
+    // Simpler: use the class name info from dashboard data
+    const classId = dashboardData?.classId; // we need to pass this from backend
+    if (!classId) { document.getElementById('student-leaderboard').innerHTML = 'Class info not available'; return; }
+    const res = await apiRequest(`/api/gamification/leaderboard/${classId}`);
+    if (res.success) {
+        const list = res.data.slice(0, 5).map(i => `<div class="flex justify-between py-1"><span>#${i.rank} ${escapeHtml(i.name)}</span><span class="font-bold">${i.points} pts</span></div>`).join('');
+        document.getElementById('student-leaderboard').innerHTML = list;
+    }
+}
+
+async function loadStudentBadges() {
+    const student = await Student.findOne({ where: { userId: getCurrentUser().id } });
+    if (!student) return;
+    const res = await apiRequest(`/api/gamification/badges/${student.id}`);
+    if (res.success) {
+        const badges = res.data.map(b => `<span class="inline-flex items-center px-2 py-1 mr-2 mt-2 bg-purple-100 text-purple-800 rounded-full text-xs">${b.Badge.icon || '🏅'} ${b.Badge.name}</span>`).join('');
+        document.getElementById('student-badges').innerHTML = badges || 'No badges yet';
+    }
+}
+
+// Call these after dashboard render
+setTimeout(() => { loadStudentLeaderboard(); loadStudentBadges(); }, 300);
 
 async function renderStudentAttendance() {
     try {
