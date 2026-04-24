@@ -654,10 +654,17 @@ function renderAdminDashboard() {
             </div>
 
             <!-- Charts Row -->
-            <div class="grid gap-4 lg:grid-cols-2">
-                <div class="rounded-xl border bg-card p-6"><div class="flex items-center justify-between mb-4"><h3 class="font-semibold">Enrollment Trends</h3></div><div class="chart-container h-64"><canvas id="admin-enrollmentChart"></canvas></div></div>
-                <div class="rounded-xl border bg-card p-6"><div class="flex items-center justify-between mb-4"><h3 class="font-semibold">Grade Distribution</h3></div><div class="chart-container h-64"><canvas id="admin-gradeChart"></canvas></div></div>
-            </div>
+            <div class="rounded-xl border bg-card p-6">
+                 <h3 class="font-semibold mb-4 flex items-center gap-2">
+                     <i data-lucide="calendar" class="h-5 w-5"></i> Academic Calendar
+                 </h3>
+                 <div id="admin-calendar-events">
+                     <p class="text-sm text-muted-foreground">Loading...</p>
+                 </div>
+                 <button onclick="showAddCalendarEventModal()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm">
+                     + Add Event
+                  </button>
+             </div>
         </div>
     `;
 }
@@ -956,6 +963,50 @@ function escapeHtml(str) {
         return c;
     });
 }
+
+async function loadCalendarEvents() {
+    const res = await apiRequest('/api/calendar');
+    if (res.success) {
+        const container = document.getElementById('admin-calendar-events');
+        if (!container) return;
+        const events = res.data || [];
+        if (events.length === 0) {
+            container.innerHTML = '<p class="text-sm text-muted-foreground">No events yet.</p>';
+        } else {
+            container.innerHTML = events.map(e => `
+                <div class="flex justify-between items-center py-2 border-b">
+                    <div>
+                        <span class="font-medium">${escapeHtml(e.eventName)}</span>
+                        <span class="text-xs text-muted-foreground ml-2">${formatDate(e.startDate)} ${e.endDate ? '→ '+formatDate(e.endDate) : ''}</span>
+                    </div>
+                    <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs">X</button>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+function showAddCalendarEventModal() {
+    const name = prompt('Event name:');
+    if (!name) return;
+    const startDate = prompt('Start date (YYYY-MM-DD):');
+    if (!startDate) return;
+    const endDate = prompt('End date (YYYY-MM-DD, optional):');
+    const eventType = prompt('Type (term_start, term_end, holiday, exam, meeting):', 'other');
+    apiRequest('/api/calendar', {
+        method: 'POST',
+        body: JSON.stringify({ eventName: name, startDate, endDate: endDate || null, eventType: eventType || 'other' })
+    }).then(() => loadCalendarEvents()).catch(e => showToast(e.message, 'error'));
+}
+
+async function deleteCalendarEvent(id) {
+    if (confirm('Delete this event?')) {
+        await apiRequest(`/api/calendar/${id}`, { method: 'DELETE' });
+        loadCalendarEvents();
+    }
+}
+
+// Call loadCalendarEvents() after admin dashboard renders (in renderAdminDashboard or via setTimeout)
 
 async function renderAdminTeachers() {
     try {
