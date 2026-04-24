@@ -546,6 +546,8 @@ async function renderAdminSection(section) {
             case 'profile': return await renderProfileSection();    
             case 'fairness-report':
                 return await renderAdminFairnessReport();
+            case 'timetable':
+                return await renderTimetableSection();
             case 'custom-subjects':
                 return renderAdminCustomSubjects();
             case 'teacher-workload':
@@ -1004,6 +1006,47 @@ async function deleteCalendarEvent(id) {
         await apiRequest(`/api/calendar/${id}`, { method: 'DELETE' });
         loadCalendarEvents();
     }
+}
+
+async function renderTimetableSection() {
+    return `
+        <div class="space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Timetable Management</h2>
+                <div class="flex gap-3">
+                    <button onclick="generateTimetable()" class="px-4 py-2 bg-primary text-white rounded-lg">Generate</button>
+                    <button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>
+                </div>
+            </div>
+            <div id="timetable-grid" class="overflow-x-auto"></div>
+        </div>
+    `;
+}
+
+async function generateTimetable() {
+    const weekStart = prompt('Week start date (YYYY-MM-DD, e.g., 2025-04-28):');
+    if (!weekStart) return;
+    showLoading();
+    try {
+        const res = await apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate: weekStart }) });
+        if (res.success) {
+            currentTimetable = res.data;
+            renderTimetableGrid(currentTimetable.slots);
+            showToast('Timetable generated', 'success');
+        }
+    } catch (e) { showToast(e.message,'error'); }
+    finally { hideLoading(); }
+}
+
+async function publishTimetable() {
+    if (!currentTimetable || !currentTimetable.id) { showToast('No timetable to publish','error'); return; }
+    if (!confirm('Publish timetable? It will be visible to teachers, students, and parents.')) return;
+    showLoading();
+    try {
+        await apiRequest(`/api/timetable/${currentTimetable.id}/publish`, { method: 'POST' });
+        showToast('Published', 'success');
+    } catch (e) { showToast(e.message,'error'); }
+    finally { hideLoading(); }
 }
 
 // Call loadCalendarEvents() after admin dashboard renders (in renderAdminDashboard or via setTimeout)
