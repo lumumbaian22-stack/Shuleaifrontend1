@@ -525,8 +525,8 @@ function showMarksEntryModal(className) {
       </div>
       <div class="border rounded-lg p-3">
          <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-sm font-medium flex items-center gap-1">
-         <button type="button" onclick="applyCustomGrading()" class="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Apply Custom Grading</button>
             <i data-lucide="settings" class="h-4 w-4"></i> Custom Grading (optional)
+               <button type="button" onclick="applyCustomGrading()" class="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Apply Custom Grading</button>
         </button>
         <div class="hidden mt-3 space-y-3">
             <div class="grid grid-cols-2 gap-3">
