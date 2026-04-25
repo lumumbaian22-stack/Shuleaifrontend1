@@ -188,8 +188,8 @@ function normalizeLevel(level) {
 
 // ============ GRADE CALCULATION ============
 function getGradeFromScore(score, curriculum, level, customScale) {
+    // if customScale provided, use it
     if (customScale) {
-        // customScale could have a 'grades' array or simple pass/fail marks
         if (customScale.passMark !== undefined && score >= customScale.passMark) return 'PASS';
         if (customScale.failMark !== undefined && score < customScale.failMark) return 'FAIL';
         if (customScale.grades) {
@@ -197,23 +197,21 @@ function getGradeFromScore(score, curriculum, level, customScale) {
                 if (score >= g.min && score <= g.max) return g.grade;
             }
         }
-        // If only pass/fail defined, but score in between, maybe return 'PASS' or leave?
-        return 'PASS'; // default if no grade array and score >= passMark? we'll assume PASS
+        // fallback
+        return 'PASS';
     }
+
+    // existing default logic (unchanged)
     const curriculumData = CURRICULUMS[curriculum];
     if (!curriculumData) return 'N/A';
-
-    const normalizedLevel = normalizeLevel(level);
-    const gradingScale = curriculumData.grading[normalizedLevel] || curriculumData.grading.primary;
+    let normalizedLevel = level;
+    if (level === 'both') normalizedLevel = 'secondary';
+    const scale = curriculumData.grading[normalizedLevel] || curriculumData.grading.primary || [];
     const scoreNum = Number(score);
-    
     if (isNaN(scoreNum)) return 'N/A';
-
-    for (const gradeInfo of gradingScale) {
-        const [min, max] = gradeInfo.range.split('-').map(Number);
-        if (scoreNum >= min && scoreNum <= max) {
-            return gradeInfo.grade;  // ← Return only the grade string
-        }
+    for (let entry of scale) {
+        const [min, max] = entry.range.split('-').map(Number);
+        if (scoreNum >= min && scoreNum <= max) return entry.grade;
     }
     return 'N/A';
 }
