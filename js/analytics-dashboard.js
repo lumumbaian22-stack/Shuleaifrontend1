@@ -89,6 +89,8 @@ function renderSuperAdminAnalytics(data) {
 // ============ ADMIN ANALYTICS ============
 function renderAdminAnalytics(data) {
     const ov = data.overview || {};
+    const heatmap = data.subjectHeatmap || { classList: [], subjectList: [], matrix: [] };
+
     setTimeout(() => {
         if (data.enrollmentTrend) initLineChart('admin-enrollment-chart', data.enrollmentTrend.labels, data.enrollmentTrend.values, 'Students');
         if (data.gradeDistribution) initDoughnutChart('admin-grade-dist-chart', data.gradeDistribution.labels, data.gradeDistribution.values);
@@ -156,11 +158,45 @@ function renderAdminAnalytics(data) {
                 </div>
             </div>
 
+            <!-- Subject Performance Heatmap -->
+            ${heatmap.classList.length > 0 && heatmap.subjectList.length > 0 ? `
+            <div class="rounded-xl border bg-card p-4 md:p-6 analytics-card">
+                <h3 class="font-semibold mb-4">Subject Performance Heatmap</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm border-collapse">
+                        <thead>
+                            <tr>
+                                <th class="px-3 py-2 text-left font-medium border-b bg-muted/50">Class</th>
+                                ${heatmap.subjectList.map(s => `<th class="px-3 py-2 text-center font-medium border-b bg-muted/50">${escapeHtml(s)}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            ${heatmap.classList.map((cls, i) => {
+                                let row = `<tr class="hover:bg-accent/50"><td class="px-3 py-2 font-medium">${escapeHtml(cls)}</td>`;
+                                heatmap.subjectList.forEach((subj, j) => {
+                                    const avg = heatmap.matrix[i] ? heatmap.matrix[i][j] : null;
+                                    let colorClass = 'text-muted-foreground';
+                                    if (avg !== null) {
+                                        if (avg >= 80) colorClass = 'bg-green-100 text-green-800';
+                                        else if (avg >= 60) colorClass = 'bg-yellow-100 text-yellow-800';
+                                        else colorClass = 'bg-red-100 text-red-800';
+                                    }
+                                    row += `<td class="px-3 py-2 text-center ${colorClass} rounded">${avg !== null ? avg+'%' : '-'}</td>`;
+                                });
+                                row += '</tr>';
+                                return row;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            ` : ''}
+
             <!-- Class Averages Table -->
             ${data.classAverages ? `
             <div class="rounded-xl border bg-card overflow-hidden analytics-card">
                 <div class="p-4 border-b">
-                    <h3 class="font-semibold">Class Averages</h3>
+                    <h3 class="font-semibold">Overall Class Averages</h3>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
