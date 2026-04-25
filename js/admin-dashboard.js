@@ -1165,7 +1165,7 @@ async function renderProfileSection() {
             <img id="profile-preview" src="${user.profileImage || ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
             <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer">
               <i data-lucide="camera" class="h-4 w-4"></i>
-              <input type="file" id="profile-picture-input" accept="image/*" class="hidden" onchange="uploadProfilePicture(this.files[0])">
+              <input type="file" class="profile-picture-input" accept="image/*" class="hidden">
             </label>
           </div>
           <div>
