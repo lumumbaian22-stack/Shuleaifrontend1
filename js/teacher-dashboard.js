@@ -504,7 +504,30 @@ function showMarksEntryModal(className) {
   const assessmentTypes = ['test', 'exam', 'assignment', 'project', 'quiz'];
   const today = new Date().toISOString().split('T')[0];
   const terms = ['Term 1', 'Term 2', 'Term 3'];
-  
+
+  // ----- Build the default grading scale for this class -----
+  const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
+  let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel;
+  if (!level || level === 'both') {
+    const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
+    level = primaryKeywords.some(kw => className.toUpperCase().includes(kw)) ? 'primary' : 'secondary';
+  }
+  const curriculumData = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) || {};
+  const gradingTable = curriculumData.grading?.[level] || curriculumData.grading?.primary || [];
+  // gradingTable is an array of objects: { grade, range: 'min-max', description }
+
+  // Build rows for the custom grading table
+  const gradingRows = gradingTable.map((g, idx) => {
+    const [min, max] = g.range.split('-').map(Number);
+    return `
+      <tr>
+        <td class="py-1"><input type="text" value="${escapeHtml(g.grade)}" class="w-16 rounded border px-1 py-0.5 text-xs text-center bg-background custom-grade-name" data-index="${idx}"></td>
+        <td class="py-1"><input type="number" value="${min}" class="w-16 rounded border px-1 py-0.5 text-xs text-center custom-grade-min" data-index="${idx}" min="0" max="100"></td>
+        <td class="py-1"><input type="number" value="${max}" class="w-16 rounded border px-1 py-0.5 text-xs text-center custom-grade-max" data-index="${idx}" min="0" max="100"></td>
+      </tr>
+    `;
+  }).join('');
+
   modalContent.innerHTML = `
     <div class="space-y-4">
       <div class="border-b pb-3 flex justify-between items-center">
@@ -515,7 +538,7 @@ function showMarksEntryModal(className) {
         </div>
         <button onclick="closeMarksEntryModal()" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="x" class="h-5 w-5"></i></button>
       </div>
-      
+
       <div class="flex flex-wrap gap-3 items-end">
         <div class="flex-1 min-w-[150px]"><label class="block text-xs font-medium mb-1">Assessment Type</label><select id="assessment-type" class="w-full rounded-lg border p-2 bg-background">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select></div>
         <div class="flex-1 min-w-[200px]"><label class="block text-xs font-medium mb-1">Assessment Name</label><input type="text" id="assessment-name" placeholder="e.g., Mid-term Exam" class="w-full rounded-lg border p-2 bg-background"></div>
@@ -524,27 +547,32 @@ function showMarksEntryModal(className) {
         <div class="w-[150px]"><label class="block text-xs font-medium mb-1">Date</label><input type="date" id="assessment-date" value="${today}" class="w-full rounded-lg border p-2 bg-background"></div>
       </div>
 
-      <!-- Custom Grading toggle -->
+      <!-- Custom Grading Table -->
       <div class="border rounded-lg p-3">
         <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-sm font-medium flex items-center gap-1 w-full text-left">
-          <i data-lucide="settings" class="h-4 w-4"></i> Custom Grading (optional)
+          <i data-lucide="settings" class="h-4 w-4"></i> Custom Grading (override boundaries)
         </button>
         <div class="hidden mt-3 space-y-3">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium">Pass Mark (%)</label>
-              <input type="number" id="custom-passmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
-            </div>
-            <div>
-              <label class="block text-xs font-medium">Fail Mark (%)</label>
-              <input type="number" id="custom-failmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
-            </div>
+          <p class="text-xs text-muted-foreground">Edit the Min/Max scores for each grade. Leave blank to use the school's default grading.</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr>
+                  <th class="text-left py-1">Grade</th>
+                  <th class="text-left py-1">Min %</th>
+                  <th class="text-left py-1">Max %</th>
+                </tr>
+              </thead>
+              <tbody id="custom-grading-table-body">
+                ${gradingRows}
+              </tbody>
+            </table>
           </div>
-          <p class="text-xs text-muted-foreground">Leave blank to use default curriculum grading.</p>
           <button type="button" onclick="applyCustomGrading()" class="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Apply Custom Grading</button>
         </div>
       </div>
-      
+
+      <!-- Student marks table -->
       <div class="overflow-x-auto max-h-[55vh] overflow-y-auto border rounded-lg">
         <table class="w-full text-sm">
           <thead class="bg-muted/50 sticky top-0"><tr><th class="px-4 py-2 text-left">Student</th><th class="px-4 py-2 text-left">ELIMUID</th><th class="px-4 py-2 text-center w-32">Score (%)</th><th class="px-4 py-2 text-center w-24">Grade</th></tr></thead>
@@ -560,7 +588,7 @@ function showMarksEntryModal(className) {
           </tbody>
         </table>
       </div>
-      
+
       <div class="flex justify-end gap-3 pt-4 border-t">
         <button onclick="closeMarksEntryModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
         <button onclick="saveAllMarks()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save as Draft</button>
@@ -576,15 +604,24 @@ function showMarksEntryModal(className) {
 }
 
 function applyCustomGrading() {
-    const pass = parseInt(document.getElementById('custom-passmark')?.value);
-    const fail = parseInt(document.getElementById('custom-failmark')?.value);
-    if (isNaN(pass) && isNaN(fail)) {
+    const rows = document.querySelectorAll('#custom-grading-table-body tr');
+    const grades = [];
+    rows.forEach(row => {
+        const gradeName = row.querySelector('.custom-grade-name')?.value?.trim();
+        const minScore = parseFloat(row.querySelector('.custom-grade-min')?.value);
+        const maxScore = parseFloat(row.querySelector('.custom-grade-max')?.value);
+        if (gradeName && !isNaN(minScore) && !isNaN(maxScore)) {
+            grades.push({ grade: gradeName, min: minScore, max: maxScore });
+        }
+    });
+    if (grades.length === 0) {
         window.currentGradingScale = null;
-        return;
+        showToast('No valid custom grades defined – using default scale', 'info');
+    } else {
+        window.currentGradingScale = grades;
+        showToast('Custom grading scale applied', 'success');
     }
-    window.currentGradingScale = { passMark: pass, failMark: fail };
-    showToast('Custom grading applied to current marks', 'info');
-    // Refresh any existing grades
+    // Refresh any existing scores in the table
     currentMarksStudents.forEach(s => {
         const input = document.getElementById(`score-${s.id}`);
         if (input && input.value) {
@@ -592,7 +629,6 @@ function applyCustomGrading() {
         }
     });
 }
-
 
 function createMarksEntryModal() {
   const modalHTML = `<div id="marks-entry-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeMarksEntryModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl p-4"><div class="rounded-xl border bg-card shadow-xl max-h-[90vh] overflow-hidden flex flex-col"><div class="modal-content p-6 overflow-y-auto"></div></div></div></div>`;
