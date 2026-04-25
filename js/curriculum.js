@@ -187,7 +187,21 @@ function normalizeLevel(level) {
 }
 
 // ============ GRADE CALCULATION ============
-function getGradeFromScore(score, curriculum, level) {
+function getGradeFromScore(score, curriculum, level, customScale) {
+    if (customScale) {
+        // customScale is an object with boundaries or explicit mapping
+        // For simplicity, we expect { passMark: number, failMark: number, grades: [...] }
+        // If only pass/fail, return 'PASS' or 'FAIL'
+        if (customScale.passMark && score >= customScale.passMark) return 'PASS';
+        if (customScale.failMark && score < customScale.failMark) return 'FAIL';
+        // Full grade array: e.g., [{min:80, max:100, grade:'A'},...]
+        if (customScale.grades) {
+            for (let g of customScale.grades) {
+                if (score >= g.min && score <= g.max) return g.grade;
+            }
+        }
+    }
+    // default
     const curriculumData = CURRICULUMS[curriculum];
     if (!curriculumData) return 'N/A';
 
