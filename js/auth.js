@@ -164,27 +164,27 @@ async function studentLogin(elimuid, password) {
 }
 
 // Regular login for admin/teacher/parent
-async function login(email, password, role) {
+async function login(emailOrPhone, password, role) {
     try {
-        console.log('🔐 Attempting login for:', email, 'role:', role);
-        
-        const response = await api.auth.login(email, password, role);
+        console.log('🔐 Attempting login for:', emailOrPhone, 'role:', role);
+
+        const response = await api.auth.login(emailOrPhone, password, role);
         if (!response.success) throw new Error(response.message);
-        
+
         let userData = response.data.user;
         const profile = response.data.profile;
-        
+
         // Merge teacher profile into user object
         userData = mergeTeacherProfile(userData, profile);
-        
+
         authToken = response.data.token;
         currentUser = userData;
         currentSchool = response.data.school;
-        
+
         console.log('User from login:', currentUser);
         console.log('User teacher classTeacher:', currentUser.teacher?.classTeacher);
         console.log('School status:', currentSchool?.status);
-        
+
         // Handle inactive admin but active school
         if (currentUser.role === 'admin' && currentUser.isActive === false && currentSchool?.status === 'active') {
             console.log('⚠️ Admin account inactive but school is active - attempting refresh...');
@@ -197,19 +197,19 @@ async function login(email, password, role) {
                 }
             }
         }
-        
+
         if (currentUser.role === 'admin' && currentUser.isActive === false) {
             console.error('❌ Admin account is still inactive');
             throw new Error('Your account is pending approval. Please wait for the super admin to approve your school.');
         }
-        
+
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
         localStorage.setItem('school', JSON.stringify(currentSchool));
         localStorage.setItem('userRole', currentUser.role);
-        
+
         console.log('✅ Login successful, redirecting to dashboard');
-        
+
         return response;
     } catch (error) {
         console.error('Login error:', error);
