@@ -116,10 +116,10 @@ const authAPI = {
             body: JSON.stringify({ elimuid, password })
         }),
     
-    login: (email, password, role) => 
+    login: (emailOrPhone, password, role) => 
         apiRequest('/api/auth/login', {
             method: 'POST',
-            body: JSON.stringify({ email, password, role })
+            body: JSON.stringify({ email: emailOrPhone, password, role })
         }),
     
     verifySchoolCode: (schoolCode) => 
