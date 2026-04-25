@@ -26,7 +26,7 @@ function getAuthForm(role, mode) {
         return logoHtml + `
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <label class="block text-sm font-medium mb-1">Email or Phone</label>
                     <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="super@shuleai.com">
                 </div>
                 <div>
