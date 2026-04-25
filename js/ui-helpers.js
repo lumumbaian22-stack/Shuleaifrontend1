@@ -223,6 +223,31 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+function showAlertPopup(title, message, type = 'warning') {
+    const bgColors = { warning: 'bg-amber-50 border-amber-500', error: 'bg-red-50 border-red-500', info: 'bg-blue-50 border-blue-500' };
+    const iconColors = { warning: 'text-amber-600', error: 'text-red-600', info: 'text-blue-600' };
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-50 bg-black/50 flex items-center justify-center';
+    overlay.innerHTML = `
+        <div class="rounded-2xl border-l-4 ${bgColors[type]} bg-white dark:bg-gray-800 p-6 shadow-2xl w-full max-w-md animate-fade-in">
+            <div class="flex items-start gap-4">
+                <i data-lucide="${type==='error'?'x-circle':'alert-triangle'}" class="h-8 w-8 ${iconColors[type]}"></i>
+                <div>
+                    <h3 class="font-semibold text-lg">${escapeHtml(title)}</h3>
+                    <p class="text-sm text-muted-foreground mt-2">${escapeHtml(message)}</p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 border rounded-lg">Dismiss</button>
+                <button onclick="this.closest('.fixed').remove(); /* optional action */" class="px-4 py-2 bg-primary text-white rounded-lg">OK</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    lucide.createIcons();
+}
+
+window.showAlertPopup = showAlertPopup;
 window.showLoading = showLoading;
 window.hideLoading = hideLoading;
 window.showToast = showToast;
