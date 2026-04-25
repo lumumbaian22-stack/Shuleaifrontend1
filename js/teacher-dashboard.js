@@ -649,7 +649,7 @@ async function saveAllMarks() {
           term: currentMarksTerm,
           year: currentMarksYear,
           isPublished: false,
-          gradingScale: req.body.gradingScale || null
+          gradingScale: gradingScale || null
         });
         saved++;
       } catch(e) { failed++; }
