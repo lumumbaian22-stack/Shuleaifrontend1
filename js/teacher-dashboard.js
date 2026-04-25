@@ -523,25 +523,27 @@ function showMarksEntryModal(className) {
         <div class="w-[130px]"><label class="block text-xs font-medium mb-1">Year</label><select id="assessment-year" class="w-full rounded-lg border p-2 bg-background">${[new Date().getFullYear()-1, new Date().getFullYear(), new Date().getFullYear()+1].map(y => `<option value="${y}" ${y === new Date().getFullYear() ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
         <div class="w-[150px]"><label class="block text-xs font-medium mb-1">Date</label><input type="date" id="assessment-date" value="${today}" class="w-full rounded-lg border p-2 bg-background"></div>
       </div>
+
+      <!-- Custom Grading toggle -->
       <div class="border rounded-lg p-3">
-         <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-sm font-medium flex items-center gap-1">
-            <i data-lucide="settings" class="h-4 w-4"></i> Custom Grading (optional)
-               <button type="button" onclick="applyCustomGrading()" class="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Apply Custom Grading</button>
+        <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-sm font-medium flex items-center gap-1 w-full text-left">
+          <i data-lucide="settings" class="h-4 w-4"></i> Custom Grading (optional)
         </button>
         <div class="hidden mt-3 space-y-3">
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-medium">Pass Mark (%)</label>
-                    <input type="number" id="custom-passmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium">Fail Mark (%)</label>
-                    <input type="number" id="custom-failmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
-                </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium">Pass Mark (%)</label>
+              <input type="number" id="custom-passmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
             </div>
-            <p class="text-xs text-muted-foreground">Leave blank to use default curriculum grading.</p>
+            <div>
+              <label class="block text-xs font-medium">Fail Mark (%)</label>
+              <input type="number" id="custom-failmark" class="w-full rounded border p-2 text-sm" min="0" max="100">
+            </div>
+          </div>
+          <p class="text-xs text-muted-foreground">Leave blank to use default curriculum grading.</p>
+          <button type="button" onclick="applyCustomGrading()" class="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Apply Custom Grading</button>
         </div>
-    </div>
+      </div>
       
       <div class="overflow-x-auto max-h-[55vh] overflow-y-auto border rounded-lg">
         <table class="w-full text-sm">
@@ -564,7 +566,8 @@ function showMarksEntryModal(className) {
         <button onclick="saveAllMarks()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save as Draft</button>
         <button onclick="publishAllMarks()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1">
             <i data-lucide="check-circle" class="h-4 w-4"></i> Publish All
-       </button>
+        </button>
+      </div>
     </div>
   `;
   window.currentGradingScale = null; // reset
@@ -581,6 +584,13 @@ function applyCustomGrading() {
     }
     window.currentGradingScale = { passMark: pass, failMark: fail };
     showToast('Custom grading applied to current marks', 'info');
+    // Refresh any existing grades
+    currentMarksStudents.forEach(s => {
+        const input = document.getElementById(`score-${s.id}`);
+        if (input && input.value) {
+            updateGradeDisplayForStudent(s.id);
+        }
+    });
 }
 
 
