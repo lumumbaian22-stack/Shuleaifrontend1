@@ -247,6 +247,13 @@ function showAlertPopup(title, message, type = 'warning') {
     lucide.createIcons();
 }
 
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('profile-picture-input')) {
+        const file = e.target.files[0];
+        if (file) uploadProfilePicture(file);
+    }
+});
+
 window.showAlertPopup = showAlertPopup;
 window.showLoading = showLoading;
 window.hideLoading = hideLoading;
