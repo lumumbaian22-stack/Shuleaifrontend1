@@ -119,11 +119,12 @@ async function renderProfileSection() {
             </div>
 
             <!-- Signature Upload -->
-            <div class="rounded-xl border bg-card p-6">
-                <h3 class="font-semibold text-lg mb-4">Signature</h3>
+            ${(user.role === 'teacher' || user.role === 'admin') ? `
+            <div class="mt-4">
+                <label class="block text-sm font-medium mb-1">Signature</label>>
                 <div class="flex items-center gap-4">
                     <img id="signature-preview" src="${user.signature || ''}" class="h-16 border rounded">
-                    <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary/90 transition-colors">
+                    <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer">
                         Upload Signature
                         <input type="file" id="signature-upload" accept="image/*" class="hidden" onchange="uploadSignature(this.files[0])">
                     </label>
