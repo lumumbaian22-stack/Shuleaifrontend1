@@ -1510,30 +1510,56 @@ function getLevelColorClass(level) {
 }
 
 async function renderTeacherHomework() {
-    // Fetch existing assignments for this teacher
-    const res = await apiRequest('/api/homework/teacher');
-    const assignments = res.data || [];
-    return `
-        <div class="space-y-6 animate-fade-in">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold">Homework Assignments</h2>
-                <button onclick="showCreateHomeworkModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ Create New</button>
-            </div>
-            <div id="teacher-homework-list" class="space-y-4">
-                ${assignments.length === 0 ? '<p class="text-center text-muted-foreground">No assignments yet</p>' :
-                  assignments.map(a => `
-                    <div class="p-4 border rounded-lg">
-                        <h3 class="font-semibold">${escapeHtml(a.title)}</h3>
-                        <p class="text-sm text-muted-foreground">${escapeHtml(a.instructions.substring(0,100))}</p>
-                        <div class="flex gap-4 mt-2 text-xs">
-                            <span>Subject: ${escapeHtml(a.subject)}</span>
-                            <span>Due: ${formatDate(a.dueDate)}</span>
-                            <span>Class: ${escapeHtml(a.className)}</span>
+    try {
+        const res = await apiRequest('/api/homework/teacher');
+        const assignments = res.data || [];
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Homework Assignments</h2>
+                    <button onclick="showCreateHomeworkModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ Create New</button>
+                </div>
+                <div id="teacher-homework-list" class="space-y-4">
+                    ${assignments.length === 0 ? '<p class="text-center text-muted-foreground">No assignments yet</p>' :
+                      assignments.map(a => `
+                        <div class="p-4 border rounded-lg">
+                            <h3 class="font-semibold">${escapeHtml(a.title)}</h3>
+                            <p class="text-sm text-muted-foreground">${escapeHtml(a.instructions?.substring(0,100))}</p>
+                            <div class="flex gap-4 mt-2 text-xs">
+                                <span>Subject: ${escapeHtml(a.subject)}</span>
+                                <span>Due: ${formatDate(a.dueDate)}</span>
+                                <span>Class: ${escapeHtml(a.className)}</span>
+                            </div>
                         </div>
-                    </div>
-                  `).join('')}
-            </div>
-        </div>`;
+                      `).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        return '<div class="text-red-500">Error loading homework</div>';
+    }
+}
+
+function showCreateHomeworkModal() {
+    // Simple form using prompt for demo; you can replace with a modal later
+    const title = prompt('Homework title:');
+    if (!title) return;
+    const instructions = prompt('Instructions:');
+    const subject = prompt('Subject:');
+    const dueDate = prompt('Due date (YYYY-MM-DD):');
+    const classId = prompt('Class ID (e.g., from classes page):');
+    if (!classId || !subject || !dueDate) { showToast('Missing fields', 'error'); return; }
+    showLoading();
+    apiRequest('/api/homework/assign', {
+        method: 'POST',
+        body: JSON.stringify({ title, instructions, subject, dueDate, classId: parseInt(classId) })
+    }).then(() => {
+        hideLoading();
+        showToast('Homework assigned', 'success');
+        showDashboardSection('homework');
+    }).catch(e => {
+        hideLoading();
+        showToast(e.message, 'error');
+    });
 }
 
 // ============ EXPORTS ============
@@ -1543,6 +1569,7 @@ window.closeStudentDetailModal = closeStudentDetailModal;
 window.reportAbsenceForStudent = reportAbsenceForStudent;
 window.openMessageParent = openMessageParent;
 window.renderTeacherSection = renderTeacherSection;
+window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.renderTeacherDashboard = renderTeacherDashboard;
 window.renderTeacherStudents = renderTeacherStudents;
 window.loadMyStudents = loadMyStudents;
