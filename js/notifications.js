@@ -9,6 +9,13 @@ async function loadNotifications() {
   try {
     const res = await api.user.getAlerts(); // you'll need to add this to api.js
     notifications = res.data || [];
+    notifications.forEach(n => {
+      if (!n.isRead && (n.severity === 'critical' || n.severity === 'warning')) {
+        showAlertPopup(n.title, n.message, n.severity === 'critical' ? 'error' : 'warning');
+        n.isRead = true; // so it doesn't pop up again on next load
+      }
+    });
+        
     updateUnreadCount();
     renderNotificationsPanel();
     return notifications;
