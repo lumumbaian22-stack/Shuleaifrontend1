@@ -22,8 +22,16 @@ async function renderStudentSection(section) {
     switch(section) {
         case 'dashboard':
             return await renderStudentDashboard();
+        case 'leaderboard':
+            return await renderStudentLeaderboard();
         case 'grades':
             return await renderStudentGrades();
+        case 'badges':
+            return await renderStudentBadges();
+        case 'rewards':
+            return await renderRewardsStore();
+        case 'my-homework':
+            return await renderStudentHomework();
         case 'attendance':
             return await renderStudentAttendance();
         case 'chat':
@@ -710,9 +718,154 @@ async function redeemReward(rewardId) {
     } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
+async function renderStudentHomework() {
+    try {
+        const res = await apiRequest('/api/homework/student');
+        const assignments = res.data || [];
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">My Homework</h2>
+                <div class="space-y-4">
+                    ${assignments.length === 0 ? '<p class="text-center text-muted-foreground">No homework assigned</p>' :
+                      assignments.map(a => `
+                        <div class="p-4 border rounded-lg">
+                            <h3 class="font-semibold">${escapeHtml(a.HomeTask.title)}</h3>
+                            <p class="text-sm">${escapeHtml(a.HomeTask.instructions)}</p>
+                            <div class="flex gap-4 mt-2 text-xs">
+                                <span>Subject: ${escapeHtml(a.HomeTask.subject)}</span>
+                                <span>Due: ${formatDate(a.HomeTask.dueDate)}</span>
+                            </div>
+                            <div class="mt-2">
+                                Status: <span class="font-medium">${a.status === 'submitted' ? 'Submitted' : a.status === 'pending' ? 'Pending' : a.status}</span>
+                            </div>
+                            ${a.status !== 'submitted' ? `<button onclick="submitHomework(${a.id})" class="mt-2 px-4 py-1 bg-primary text-white rounded">Submit</button>` : '' }
+                        </div>
+                      `).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        return '<div class="text-red-500">Error loading homework</div>';
+    }
+}
+
+window.submitHomework = async function(assignmentId) {
+    const comment = prompt('Any comments?');
+    showLoading();
+    try {
+        await apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify({ comment }) });
+        hideLoading();
+        showToast('Submitted', 'success');
+        showDashboardSection('my-homework');
+    } catch (e) {
+        hideLoading();
+        showToast(e.message, 'error');
+    }
+};
+
+async function renderStudentLeaderboard() {
+    // Need classId; we assume it is stored in dashboardData or we fetch from user
+    const user = getCurrentUser();
+    const student = await apiRequest(`/api/student/dashboard`); // get classId from here? Actually need student's classId
+    // Simpler: use hardcoded classId from dashboardData or fetch student record
+    const dashboardRes = await api.student.getDashboard();
+    const classId = dashboardRes.data?.classId;
+    if (!classId) return '<div class="text-center py-12">Could not determine class</div>';
+    try {
+        const res = await apiRequest(`/api/gamification/leaderboard/${classId}`);
+        const list = res.data || [];
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">Class Leaderboard</h2>
+                <div class="space-y-2">
+                    ${list.length === 0 ? '<p class="text-center text-muted-foreground">No data</p>' :
+                      list.map(item => `
+                        <div class="flex justify-between items-center p-2 border rounded">
+                            <span>#${item.rank} ${escapeHtml(item.name)}</span>
+                            <span class="font-bold">${item.points} pts</span>
+                        </div>
+                      `).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        return '<div class="text-red-500">Error loading leaderboard</div>';
+    }
+}
+
+async function renderStudentBadges() {
+    const user = getCurrentUser();
+    const student = await apiRequest(`/api/student/dashboard`);
+    const studentId = student.data?.student?.id;
+    if (!studentId) return '<div class="text-center py-12">Student not found</div>';
+    try {
+        const res = await apiRequest(`/api/gamification/badges/${studentId}`);
+        const badges = res.data || [];
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">My Badges</h2>
+                <div class="flex flex-wrap gap-2">
+                    ${badges.length === 0 ? '<p class="text-muted-foreground">No badges yet</p>' :
+                      badges.map(b => `
+                        <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">${b.Badge?.icon || '🏅'} ${b.Badge?.name}</span>
+                      `).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        return '<div class="text-red-500">Error loading badges</div>';
+    }
+}
+
+async function renderRewardsStore() {
+    try {
+        const res = await apiRequest('/api/gamification/rewards');
+        const rewards = res.data || [];
+        const user = getCurrentUser();
+        const studentRes = await api.student.getDashboard();
+        const points = studentRes.data?.points || 0;
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">Rewards Store</h2>
+                <p class="text-sm text-muted-foreground">Your points: <strong>${points}</strong></p>
+                <div class="grid gap-4 md:grid-cols-3">
+                    ${rewards.map(r => `
+                        <div class="border rounded-lg p-4 text-center">
+                            <h3 class="font-semibold">${escapeHtml(r.name)}</h3>
+                            <p class="text-sm text-muted-foreground">${escapeHtml(r.description)}</p>
+                            <p class="text-lg font-bold">${r.pointsCost} pts</p>
+                            <button onclick="redeemReward(${r.id})" class="mt-2 px-4 py-2 bg-primary text-white rounded-lg">Redeem</button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        return '<div class="text-red-500">Error loading rewards</div>';
+    }
+}
+
+window.redeemReward = async function(rewardId) {
+    showLoading();
+    try {
+        const res = await apiRequest('/api/gamification/rewards/redeem', { method: 'POST', body: JSON.stringify({ rewardId }) });
+        hideLoading();
+        if (res.success) {
+            showToast('Reward redeemed!', 'success');
+            // Refresh points display and store
+            showDashboardSection('rewards');
+        } else {
+            showToast(res.message, 'error');
+        }
+    } catch (e) {
+        hideLoading();
+        showToast(e.message, 'error');
+    }
+};
+
 // ============ EXPORT FUNCTIONS ============
 window.renderStudentSection = renderStudentSection;
+window.renderRewardsStore = renderRewardsStore;
+window.renderStudentBadges = renderStudentBadges;
+window.renderStudentLeaderboard = renderStudentLeaderboard;
 window.renderStudentDashboard = renderStudentDashboard;
+window.renderStudentHomework = renderStudentHomework;
 window.renderStudentGrades = renderStudentGrades;
 window.renderStudentAttendance = renderStudentAttendance;
 window.renderStudentChat = renderStudentChat;
