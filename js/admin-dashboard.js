@@ -524,8 +524,12 @@ async function renderAdminSection(section) {
                 return renderHelpSection();
             case 'dashboard':
                 return renderAdminDashboard();
+            case 'calendar-management':
+                return await renderCalendarManagement();
             case 'students':
                 return await renderAdminStudents();
+            case 'timetable':
+                return await renderTimetableManagement();
             case 'calendar':
                 return renderAdminCalendar();
             case 'teachers':
@@ -1546,10 +1550,53 @@ async function sendAnnouncement() {
     }
 }
 
+async function renderCalendarManagement() {
+    showLoading();
+    try {
+        const res = await apiRequest('/api/calendar');
+        const events = res.data || [];
+        hideLoading();
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Academic Calendar</h2>
+                    <button onclick="showAddCalendarEventModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ Add Event</button>
+                </div>
+                <div id="admin-calendar-events" class="space-y-2">
+                    ${events.length === 0 ? '<p class="text-center text-muted-foreground">No events yet</p>' :
+                      events.map(e => `
+                        <div class="flex justify-between items-center p-3 border rounded-lg">
+                            <div>
+                                <span class="font-medium">${escapeHtml(e.eventName)}</span>
+                                <span class="text-xs text-muted-foreground ml-2">${formatDate(e.startDate)} ${e.endDate ? '→ '+formatDate(e.endDate) : ''} (${e.eventType})</span>
+                            </div>
+                            <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-sm">Delete</button>
+                        </div>
+                      `).join('')}
+                </div>
+            </div>`;
+    } catch(e) { hideLoading(); return `<div class="text-red-500">Error loading calendar</div>`; }
+}
+
+async function renderTimetableManagement() {
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Timetable Management</h2>
+                <div class="flex gap-3">
+                    <button onclick="generateTimetable()" class="px-4 py-2 bg-primary text-white rounded-lg">Generate</button>
+                    <button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>
+                </div>
+            </div>
+            <div id="timetable-grid" class="overflow-x-auto"></div>
+        </div>`;
+}
 
 // ============ EXPORT FUNCTIONS ============
 window.sendAnnouncement = sendAnnouncement;
 window.renderAdminSection = renderAdminSection;
+window.renderTimetableManagement = renderTimetableManagement;
+window.renderCalendarManagement = renderCalendarManagement;
 window.renderAdminDashboard = renderAdminDashboard;
 window.renderAdminStudents = renderAdminStudents;
 window.renderAdminTeachers = renderAdminTeachers;
