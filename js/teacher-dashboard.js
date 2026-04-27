@@ -850,22 +850,65 @@ window.saveDutyPreferences = async function() {
 };
 
 async function renderTeacherTimetable() {
-    const user = getCurrentUser();
-    const teacherId = user.teacher?.id || user.id;
-    const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
+    showLoading();
     try {
+        // Get teacherId from current user or their teacher profile
+        const user = getCurrentUser();
+        let teacherId = null;
+        try {
+            const teacherRes = await api.teacher.getMyAssignments();
+            teacherId = teacherRes.data?.teacherId;
+        } catch(e) {}
+        if (!teacherId) teacherId = user?.teacher?.id || user?.id; // fallback
+
+        const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
         const res = await apiRequest(`/api/timetable/teacher/${teacherId}?weekStart=${weekStart}`);
-        const slots = res.data || [];
+        const slots = (res && res.data) ? res.data : [];
+
+        hideLoading();
+
         return `
-            <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">My Timetable – Week of ${weekStart}</h2>
-                <div class="overflow-x-auto">
-                    ${typeof renderTimetableGrid === 'function' ? renderTimetableGrid(slots) : '<p class="text-muted-foreground">Timetable grid not loaded</p>'}
-                </div>
-            </div>`;
+        <div class="space-y-6 animate-fade-in">
+            <h2 class="text-2xl font-bold">My Timetable – Week of ${weekStart}</h2>
+            ${slots.length === 0 ? '<div class="text-center py-12 text-muted-foreground">No timetable published yet for this week.</div>' : renderTimetableGrid(slots)}
+        </div>`;
     } catch (e) {
-        return '<div class="text-red-500">Error loading timetable</div>';
+        hideLoading();
+        return `<div class="text-red-500 p-4">Failed to load timetable: ${escapeHtml(e.message)}</div>`;
     }
+}
+
+function renderTimetableGrid(slots) {
+    // slots is array of { day: 'monday', periods: [ { startTime, endTime, subject, teacherName, className } ] }
+    const daysOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00'];
+    const endTimes = ['09:00', '10:00', '11:00', '12:00', '13:00', '15:00', '16:00'];
+
+    let html = '<div class="overflow-x-auto"><table class="w-full text-sm border"><thead><tr><th class="border p-2 bg-muted/50">Time</th>';
+    daysOrder.forEach(day => {
+        html += `<th class="border p-2 bg-muted/50 capitalize">${day.substring(0,3)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    for (let i = 0; i < timeSlots.length; i++) {
+        html += `<tr><td class="border p-2 font-medium">${timeSlots[i]} - ${endTimes[i]}</td>`;
+        for (const day of daysOrder) {
+            const daySlot = slots.find(s => s.day === day);
+            const period = daySlot ? daySlot.periods.find(p => p.startTime === timeSlots[i]) : null;
+            if (period) {
+                html += `<td class="border p-2 bg-blue-50 dark:bg-blue-900/20">
+                    <strong>${escapeHtml(period.subject)}</strong><br>
+                    <span class="text-xs">${escapeHtml(period.className)}</span><br>
+                    <span class="text-xs text-muted-foreground">${escapeHtml(period.teacherName)}</span>
+                </td>`;
+            } else {
+                html += '<td class="border p-2 text-center text-muted-foreground">-</td>';
+            }
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
 }
 
 // ============ STAFF CHAT ============
