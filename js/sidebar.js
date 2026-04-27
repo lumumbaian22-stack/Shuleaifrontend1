@@ -43,7 +43,8 @@ function updateSidebar(role) {
                 { icon: 'clock', label: 'Duty', section: 'duty' },
                 { icon: 'bar-chart-2', label: 'Fairness Report', section: 'fairness-report' },
                 { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' },
-                { icon: 'trending-up', label: 'Analytics', section: 'analytics' }
+                { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
+                { icon: 'clock', label: 'Timetable', section: 'timetable' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
@@ -61,7 +62,8 @@ function updateSidebar(role) {
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
                 { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
                 { icon: 'message-circle', label: 'Staff Chat', section: 'staff-chat' },
-                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
+                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
+                { icon: 'calendar', label: 'My Timetable', section: 'my-timetable' }
             ],
             settings: [
                 { icon: 'settings', label: 'My Settings', section: 'settings' },
