@@ -30,6 +30,8 @@ async function renderStudentSection(section) {
             return renderStudentChat();
         case 'ai-tutor':
             return renderStudentAITutor();
+        case 'rewards':
+            return await renderRewardsStore();
         case 'schedule':
             return renderStudentSchedule();
         case 'help':
@@ -673,6 +675,41 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+async function renderRewardsStore() {
+    const res = await apiRequest('/api/gamification/rewards');
+    const rewards = res.data || [];
+    const studentPoints = getCurrentUser()?.points || 0;
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <h2 class="text-2xl font-bold">Rewards Store</h2>
+            <p class="text-sm text-muted-foreground">Your points: <strong>${studentPoints}</strong></p>
+            <div class="grid gap-4 md:grid-cols-3">
+                ${rewards.map(r => `
+                    <div class="border rounded-lg p-4 text-center">
+                        <h3 class="font-semibold">${escapeHtml(r.name)}</h3>
+                        <p class="text-sm text-muted-foreground">${escapeHtml(r.description)}</p>
+                        <p class="text-lg font-bold">${r.pointsCost} pts</p>
+                        <button onclick="redeemReward(${r.id})" class="mt-2 px-4 py-2 bg-primary text-white rounded-lg">Redeem</button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+}
+window.renderRewardsStore = renderRewardsStore;
+
+async function redeemReward(rewardId) {
+    showLoading();
+    try {
+        const res = await apiRequest('/api/gamification/rewards/redeem', { method: 'POST', body: JSON.stringify({ rewardId }) });
+        if (res.success) {
+            showToast('Reward redeemed!', 'success');
+            // Refresh page or update points
+        } else {
+            showToast(res.message, 'error');
+        }
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
 // ============ EXPORT FUNCTIONS ============
 window.renderStudentSection = renderStudentSection;
 window.renderStudentDashboard = renderStudentDashboard;
@@ -681,6 +718,7 @@ window.renderStudentAttendance = renderStudentAttendance;
 window.renderStudentChat = renderStudentChat;
 window.renderStudentAITutor = renderStudentAITutor;
 window.renderStudentSchedule = renderStudentSchedule;
+window.redeemReward = redeemReward;
 window.loadStudentHomeTasks = loadStudentHomeTasks;
 window.markTaskComplete = markTaskComplete;
 window.sendStudentMessage = sendStudentMessage;
