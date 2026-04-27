@@ -1154,6 +1154,44 @@ function renderAdminSettings() {
     `;
 }
 
+async function renderAdminTimetable() {
+    return `
+    <div class="space-y-6 animate-fade-in">
+        <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold">Timetable Management</h2>
+            <div class="flex gap-3">
+                <button onclick="generateTimetable()" class="px-4 py-2 bg-primary text-white rounded-lg">Generate</button>
+                <button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>
+            </div>
+        </div>
+        <div id="admin-timetable-grid"></div>
+    </div>`;
+}
+
+async function generateTimetable() {
+    const weekStart = prompt('Enter week start date (YYYY-MM-DD):');
+    if (!weekStart) return;
+    showLoading();
+    try {
+        const res = await apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate: weekStart }) });
+        if (res.success) {
+            showToast('Timetable generated', 'success');
+            // Display the generated grid
+            document.getElementById('admin-timetable-grid').innerHTML = renderTimetableGrid(res.data.slots);
+            window.currentAdminTimetable = res.data;
+        }
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+async function publishTimetable() {
+    if (!window.currentAdminTimetable) return showToast('Generate timetable first', 'error');
+    const id = window.currentAdminTimetable.id;
+    try {
+        await apiRequest(`/api/timetable/${id}/publish`, { method: 'POST' });
+        showToast('Published', 'success');
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
 // ============ PROFILE SECTION ============
 async function renderProfileSection() {
   const user = getCurrentUser();
@@ -1609,3 +1647,4 @@ window.renderAdminCustomSubjects = renderAdminCustomSubjects;
 window.addCustomSubject = addCustomSubject;
 window.removeCustomSubject = removeCustomSubject;
 window.saveAllSettings = saveAllSettings;
+window.renderTimetableGrid = renderTimetableGrid;
