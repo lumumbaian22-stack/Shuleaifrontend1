@@ -53,6 +53,8 @@ async function renderTeacherSection(section) {
     switch(section) {
       case 'dashboard': return await renderTeacherDashboard();
       case 'competency': return await renderTeacherCompetency();
+      case 'my-timetable': return await renderTeacherTimetable();
+      case 'homework': return await renderTeacherHomework();
       case 'students': return isClassTeacher() ? await renderTeacherStudents() : '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><p>Only Class Teachers can manage students.</p></div>';
       case 'attendance': return await renderTeacherAttendance();
       case 'grades': return await renderTeacherMarksEntry();
@@ -675,15 +677,16 @@ async function saveAllMarks() {
   const assessmentType = document.getElementById('assessment-type')?.value;
   const assessmentName = document.getElementById('assessment-name')?.value;
   const assessmentDate = document.getElementById('assessment-date')?.value;
-  const passMark = document.getElementById('custom-passmark')?.value;
-  const failMark = document.getElementById('custom-failmark')?.value;
-  const gradingScale = (passMark || failMark) ? { passMark: parseInt(passMark), failMark: parseInt(failMark) } : null;
   if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
+
+  // Use the custom grading scale that was applied (array, or null)
+  const gradingScale = window.currentGradingScale || null;
+
   showLoading();
   let saved = 0, failed = 0;
   for (const student of currentMarksStudents) {
     const score = parseFloat(document.getElementById(`score-${student.id}`)?.value);
-    if (!isNaN(score) && score>=0 && score<=100) {
+    if (!isNaN(score) && score >= 0 && score <= 100) {
       try {
         await api.teacher.enterMarks({
           studentId: student.id,
@@ -695,20 +698,13 @@ async function saveAllMarks() {
           term: currentMarksTerm,
           year: currentMarksYear,
           isPublished: false,
-          gradingScale: gradingScale || null
+          gradingScale: gradingScale       // array of {grade, min, max} or null
         });
         saved++;
       } catch(e) { failed++; }
     }
   }
   showToast(`Saved ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
-  if (typeof refreshTeacherStudentList === 'function') {
-    await refreshTeacherStudentList();
-  } else if (typeof renderTeacherStudents === 'function' && currentSection === 'students') {
-    const content = document.getElementById('dashboard-content');
-    if (content) content.innerHTML = await renderTeacherStudents();
-    if (window.lucide) lucide.createIcons();
-  }
   closeMarksEntryModal();
   hideLoading();
 }
@@ -852,6 +848,25 @@ window.saveDutyPreferences = async function() {
     showToast('Preferences saved', 'success');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 };
+
+async function renderTeacherTimetable() {
+    const user = getCurrentUser();
+    const teacherId = user.teacher?.id || user.id;
+    const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
+    try {
+        const res = await apiRequest(`/api/timetable/teacher/${teacherId}?weekStart=${weekStart}`);
+        const slots = res.data || [];
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">My Timetable – Week of ${weekStart}</h2>
+                <div class="overflow-x-auto">
+                    ${typeof renderTimetableGrid === 'function' ? renderTimetableGrid(slots) : '<p class="text-muted-foreground">Timetable grid not loaded</p>'}
+                </div>
+            </div>`;
+    } catch (e) {
+        return '<div class="text-red-500">Error loading timetable</div>';
+    }
+}
 
 // ============ STAFF CHAT ============
 async function renderStaffChat() {
@@ -1494,6 +1509,33 @@ function getLevelColorClass(level) {
   return 'bg-red-100 text-red-700';
 }
 
+async function renderTeacherHomework() {
+    // Fetch existing assignments for this teacher
+    const res = await apiRequest('/api/homework/teacher');
+    const assignments = res.data || [];
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Homework Assignments</h2>
+                <button onclick="showCreateHomeworkModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ Create New</button>
+            </div>
+            <div id="teacher-homework-list" class="space-y-4">
+                ${assignments.length === 0 ? '<p class="text-center text-muted-foreground">No assignments yet</p>' :
+                  assignments.map(a => `
+                    <div class="p-4 border rounded-lg">
+                        <h3 class="font-semibold">${escapeHtml(a.title)}</h3>
+                        <p class="text-sm text-muted-foreground">${escapeHtml(a.instructions.substring(0,100))}</p>
+                        <div class="flex gap-4 mt-2 text-xs">
+                            <span>Subject: ${escapeHtml(a.subject)}</span>
+                            <span>Due: ${formatDate(a.dueDate)}</span>
+                            <span>Class: ${escapeHtml(a.className)}</span>
+                        </div>
+                    </div>
+                  `).join('')}
+            </div>
+        </div>`;
+}
+
 // ============ EXPORTS ============
 window.viewStudentDetails = viewStudentDetails;
 window.showStudentDetailModalFromStudent = showStudentDetailModalFromStudent;
@@ -1504,11 +1546,13 @@ window.renderTeacherSection = renderTeacherSection;
 window.renderTeacherDashboard = renderTeacherDashboard;
 window.renderTeacherStudents = renderTeacherStudents;
 window.loadMyStudents = loadMyStudents;
+window.renderTeacherHomework = renderTeacherHomework;
 window.loadTeacherMessages = loadTeacherMessages;
 window.handleCheckIn = handleCheckIn;
 window.handleCheckOut = handleCheckOut;
 window.loadTodayDuty = loadTodayDuty;
 window.saveAttendance = saveAttendance;
+window.renderTeacherTimetable = renderTeacherTimetable;
 window.openMarksEntry = openMarksEntry;
 window.closeMarksEntryModal = closeMarksEntryModal;
 window.saveAllMarks = saveAllMarks;
