@@ -1656,3 +1656,4 @@ window.deleteMessage = deleteMessage;
 window.renderMessageBubble = renderMessageBubble;
 window.setReplyTo = setReplyTo;
 window.cancelReply = cancelReply;
+window.renderTimetableGrid = renderTimetableGrid;
