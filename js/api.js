@@ -426,6 +426,7 @@ const studentAPI = {
         }),
     getMessages: (otherUserId) => 
         apiRequest(`/api/student/messages/${otherUserId}`),
+    getGroupMessages: () => apiRequest('/api/student/group-messages'),   // <-- ADDED
     setFirstPassword: (data) => 
         apiRequest('/api/student/set-first-password', {
             method: 'POST',
@@ -605,6 +606,44 @@ const studentsAPI = {
     getFullDetails: (studentId) => apiRequest(`/api/user/students/${studentId}/details`)
 };
 
+// ============ NEW FEATURES APIs ============
+
+// Homework
+const homeworkAPI = {
+    getTeacherAssignments: () => apiRequest('/api/homework/teacher'),
+    createAssignment: (data) => apiRequest('/api/homework/assign', { method: 'POST', body: JSON.stringify(data) }),
+    getStudentAssignments: () => apiRequest('/api/homework/student'),
+    submitAssignment: (assignmentId, data) => apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify(data) })
+};
+
+// Calendar
+const calendarAPI = {
+    getEvents: () => apiRequest('/api/calendar'),
+    createEvent: (data) => apiRequest('/api/calendar', { method: 'POST', body: JSON.stringify(data) }),
+    deleteEvent: (id) => apiRequest(`/api/calendar/${id}`, { method: 'DELETE' })
+};
+
+// Timetable
+const timetableAPI = {
+    generate: (weekStartDate) => apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate }) }),
+    getForTeacher: (teacherId, weekStart) => apiRequest(`/api/timetable/teacher/${teacherId}?weekStart=${weekStart}`),
+    getForClass: (classId, weekStart) => apiRequest(`/api/timetable/class/${classId}?weekStart=${weekStart}`),
+    publish: (id) => apiRequest(`/api/timetable/${id}/publish`, { method: 'POST' })
+};
+
+// Gamification
+const gamificationAPI = {
+    getLeaderboard: (classId) => apiRequest(`/api/gamification/leaderboard/${classId}`),
+    getBadges: (studentId) => apiRequest(`/api/gamification/badges/${studentId}`),
+    getRewards: () => apiRequest('/api/gamification/rewards'),
+    redeemReward: (data) => apiRequest('/api/gamification/rewards/redeem', { method: 'POST', body: JSON.stringify(data) })
+};
+
+// Global Search
+const searchAPI = {
+    globalSearch: (q) => apiRequest(`/api/search?q=${encodeURIComponent(q)}`)
+};
+
 // ============ ASSEMBLE API OBJECT ============
 const api = {
     auth: authAPI,
@@ -623,12 +662,15 @@ const api = {
     tasks: tasksAPI,
     consent: consentAPI,
     students: studentsAPI,
-
+    homework: homeworkAPI,        // <-- NEW
+    calendar: calendarAPI,        // <-- NEW
+    timetable: timetableAPI,      // <-- NEW
+    gamification: gamificationAPI,// <-- NEW
+    search: searchAPI,            // <-- NEW
     homeTasks: {
         getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),
         complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
     },
-
     subscription: {
         getPlans: () => apiRequest('/api/subscription/plans'),
         getMyStatus: () => apiRequest('/api/subscription/my-status'),
