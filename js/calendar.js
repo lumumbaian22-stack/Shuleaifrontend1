@@ -32,7 +32,7 @@ function saveCalendarEvents(events) {
 }
 
 function renderAdminCalendar() {
-    const events = loadCalendarEvents();
+    let events = loadCalendarEvents();
     if (!Array.isArray(events)) events = [];
     const year = calendarState.currentDate.getFullYear();
     const month = calendarState.currentDate.getMonth();
