@@ -183,6 +183,18 @@ function connectWebSocket() {
             loadStudentChatMessages();
         }
     });
+
+    // ============ ALERT LISTENER (for pop‑ups) ============
+socket.on('alert', (alert) => {
+    console.log('🔔 Alert received:', alert);
+    if (alert.severity === 'critical' || alert.severity === 'warning') {
+        showAlertPopup(alert.title, alert.message, alert.severity === 'critical' ? 'error' : 'warning');
+    }
+    // Also add to notifications array and update badge if needed
+    if (typeof loadNotifications === 'function') {
+        loadNotifications();
+    }
+});
     
     socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
