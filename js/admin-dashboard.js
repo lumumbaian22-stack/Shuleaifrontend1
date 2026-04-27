@@ -1665,4 +1665,3 @@ window.renderAdminCustomSubjects = renderAdminCustomSubjects;
 window.addCustomSubject = addCustomSubject;
 window.removeCustomSubject = removeCustomSubject;
 window.saveAllSettings = saveAllSettings;
-window.renderTimetableGrid = renderTimetableGrid;
