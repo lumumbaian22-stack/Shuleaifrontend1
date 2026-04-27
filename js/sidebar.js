@@ -63,7 +63,8 @@ function updateSidebar(role) {
                 { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
                 { icon: 'message-circle', label: 'Staff Chat', section: 'staff-chat' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
-                { icon: 'calendar', label: 'My Timetable', section: 'my-timetable' }
+                { icon: 'calendar', label: 'My Timetable', section: 'my-timetable' },
+                { icon: 'book-open', label: 'Homework', section: 'homework' }
             ],
             settings: [
                 { icon: 'settings', label: 'My Settings', section: 'settings' },
@@ -91,6 +92,8 @@ function updateSidebar(role) {
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
                 { icon: 'bot', label: 'AI Tutor', section: 'ai-tutor' },
                 { icon: 'calendar', label: 'Schedule', section: 'schedule' },
+                { icon: 'shopping-bag', label: 'Rewards', section: 'rewards' },
+                { icon: 'book-open', label: 'My Homework', section: 'my-homework' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
             settings: [
