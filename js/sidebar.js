@@ -25,7 +25,8 @@ function updateSidebar(role) {
                 { icon: 'check-circle', label: 'School Approvals', section: 'school-approvals' },
                 { icon: 'file-edit', label: 'Name Changes', section: 'name-change-requests' },
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
-                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
+                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
+                { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' }
             ],
             settings: [
                 { icon: 'settings', label: 'Platform Settings', section: 'settings' },
