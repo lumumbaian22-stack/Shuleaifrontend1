@@ -529,7 +529,7 @@ async function renderAdminSection(section) {
             case 'students':
                 return await renderAdminStudents();
             case 'timetable':
-                return await renderTimetableManagement();
+                return await return await renderAdminTimetable();
             case 'calendar':
                 return renderAdminCalendar();
             case 'teachers':
@@ -1673,7 +1673,6 @@ async function renderCalendarManagement() {
 // ============ EXPORT FUNCTIONS ============
 window.sendAnnouncement = sendAnnouncement;
 window.renderAdminSection = renderAdminSection;
-window.renderTimetableManagement = renderTimetableManagement;
 window.renderCalendarManagement = renderCalendarManagement;
 window.renderAdminDashboard = renderAdminDashboard;
 window.renderAdminStudents = renderAdminStudents;
