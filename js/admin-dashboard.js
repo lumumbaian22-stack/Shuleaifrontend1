@@ -550,8 +550,6 @@ async function renderAdminSection(section) {
             case 'profile': return await renderProfileSection();    
             case 'fairness-report':
                 return await renderAdminFairnessReport();
-            case 'timetable':
-                return await renderTimetableSection();
             case 'custom-subjects':
                 return renderAdminCustomSubjects();
             case 'teacher-workload':
@@ -1012,21 +1010,6 @@ async function deleteCalendarEvent(id) {
     }
 }
 
-async function renderTimetableSection() {
-    return `
-        <div class="space-y-6">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold">Timetable Management</h2>
-                <div class="flex gap-3">
-                    <button onclick="generateTimetable()" class="px-4 py-2 bg-primary text-white rounded-lg">Generate</button>
-                    <button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>
-                </div>
-            </div>
-            <div id="timetable-grid" class="overflow-x-auto"></div>
-        </div>
-    `;
-}
-
 async function generateTimetable() {
     const weekStart = prompt('Enter week start date (YYYY-MM-DD):');
     if (!weekStart) return;
@@ -1172,7 +1155,7 @@ function renderAdminSettings() {
     `;
 }
 
-// ============ ADMIN TIMETABLE ============
+// ============ ADMIN TIMETABLE (single, clean version) ============
 let currentTimetableId = null;
 
 async function renderAdminTimetable() {
@@ -1213,7 +1196,7 @@ async function generateTimetable(prefilledWeek) {
         });
         if (res.success) {
             currentTimetableId = res.data.id;
-            // Re-render the whole section to show the grid and publish button
+            // Re‑open the timetable page so the new grid appears instantly
             await showDashboardSection('timetable');
             showToast('Timetable generated', 'success');
         } else {
@@ -1235,7 +1218,7 @@ async function publishTimetable() {
     } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
-// Grid renderer (shared with teacher view)
+// Grid renderer (also used by teacher view)
 function renderTimetableGrid(slots) {
     if (!slots || !Array.isArray(slots)) return '<p class="text-muted-foreground">No slots available</p>';
     const daysOrder = ['monday','tuesday','wednesday','thursday','friday'];
@@ -1685,20 +1668,6 @@ async function renderCalendarManagement() {
                 </div>
             </div>`;
     } catch(e) { hideLoading(); return `<div class="text-red-500">Error loading calendar</div>`; }
-}
-
-async function renderTimetableManagement() {
-    return `
-        <div class="space-y-6 animate-fade-in">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold">Timetable Management</h2>
-                <div class="flex gap-3">
-                    <button onclick="generateTimetable()" class="px-4 py-2 bg-primary text-white rounded-lg">Generate</button>
-                    <button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>
-                </div>
-            </div>
-            <div id="timetable-grid" class="overflow-x-auto"></div>
-        </div>`;
 }
 
 // ============ EXPORT FUNCTIONS ============
