@@ -1613,16 +1613,39 @@ function closeCreateHomeworkModal() {
 
 async function loadTeacherClassesForHomework() {
     try {
-        const res = await api.admin.getClasses(); // or a teacher-specific endpoint
-        const classes = res.data || [];
+        const res = await api.teacher.getMyAssignments();
+        const data = res.data || {};
         const select = document.getElementById('hw-class');
+        if (!select) return;
+        
         select.innerHTML = '<option value="">Select class</option>';
-        classes.forEach(c => {
-            select.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)} (Grade ${escapeHtml(c.grade)})</option>`;
-        });
-    } catch (e) { console.error(e); }
+        
+        // Add class teacher's own class if exists
+        if (data.classTeacher) {
+            select.innerHTML += `<option value="${data.classTeacher.id}">${escapeHtml(data.classTeacher.name)} (Grade ${escapeHtml(data.classTeacher.grade)})</option>`;
+        }
+        
+        // Add subject teaching classes
+        if (data.subjects && Array.isArray(data.subjects)) {
+            data.subjects.forEach(sub => {
+                // Check if already added (avoid duplicates)
+                const exists = data.classTeacher && sub.classId == data.classTeacher.id;
+                if (!exists) {
+                    select.innerHTML += `<option value="${sub.classId}">${escapeHtml(sub.className)} (Grade ${escapeHtml(sub.grade)}) - ${escapeHtml(sub.subject)}</option>`;
+                }
+            });
+        }
+        
+        // If no classes at all, show message
+        if (select.options.length <= 1) {
+            select.innerHTML = '<option value="">No classes assigned</option>';
+        }
+    } catch (e) {
+        console.error('Failed to load classes:', e);
+        const select = document.getElementById('hw-class');
+        if (select) select.innerHTML = '<option value="">Error loading classes</option>';
+    }
 }
-
 async function createHomework() {
     const title = document.getElementById('hw-title')?.value.trim();
     const instructions = document.getElementById('hw-instructions')?.value.trim();
