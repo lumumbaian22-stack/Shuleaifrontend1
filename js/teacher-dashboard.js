@@ -852,30 +852,18 @@ window.saveDutyPreferences = async function() {
 async function renderTeacherTimetable() {
     showLoading();
     try {
-        // Get teacherId from current user or their teacher profile
-        const user = getCurrentUser();
-        let teacherId = null;
-        try {
-            const teacherRes = await api.teacher.getMyAssignments();
-            teacherId = teacherRes.data?.teacherId;
-        } catch(e) {}
-        if (!teacherId) teacherId = user?.teacher?.id || user?.id; // fallback
-
+        const teacherRes = await apiRequest('/api/teacher/my-assignments');
+        const teacherId = teacherRes.data?.teacherId || getCurrentUser()?.teacher?.id || getCurrentUser()?.id;
         const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
         const res = await apiRequest(`/api/timetable/teacher/${teacherId}?weekStart=${weekStart}`);
         const slots = (res && res.data) ? res.data : [];
-
         hideLoading();
-
         return `
         <div class="space-y-6 animate-fade-in">
-            <h2 class="text-2xl font-bold">My Timetable – Week of ${weekStart}</h2>
-            ${slots.length === 0 ? '<div class="text-center py-12 text-muted-foreground">No timetable published yet for this week.</div>' : renderTimetableGrid(slots)}
+            <h2 class="text-2xl font-bold">My Timetable – ${weekStart}</h2>
+            ${slots.length ? window.renderTimetableGrid(slots) : '<div class="text-center py-12">No timetable published yet for this week.</div>'}
         </div>`;
-    } catch (e) {
-        hideLoading();
-        return `<div class="text-red-500 p-4">Failed to load timetable: ${escapeHtml(e.message)}</div>`;
-    }
+    } catch(e) { hideLoading(); return `<div class="text-red-500">Error: ${escapeHtml(e.message)}</div>`; }
 }
 
 function renderTimetableGrid(slots) {
