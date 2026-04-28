@@ -529,7 +529,7 @@ async function renderAdminSection(section) {
             case 'students':
                 return await renderAdminStudents();
             case 'timetable':
-                return await return await renderAdminTimetable();
+                 return await renderAdminTimetable();
             case 'calendar':
                 return renderAdminCalendar();
             case 'teachers':
@@ -1009,52 +1009,6 @@ async function deleteCalendarEvent(id) {
         loadCalendarEvents();
     }
 }
-
-async function generateTimetable() {
-    const weekStart = prompt('Enter week start date (YYYY-MM-DD):');
-    if (!weekStart) return;
-    showLoading();
-    try {
-        const res = await apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate: weekStart }) });
-        if (res.success) {
-            showToast('Timetable generated', 'success');
-
-            // 1) Wait a tiny moment for the dashboard section to finish rendering
-            await new Promise(resolve => setTimeout(resolve, 200));
-
-            // 2) Get the grid container and check it exists
-            let gridContainer = document.getElementById('admin-timetable-grid');
-            if (!gridContainer) {
-                gridContainer = document.createElement('div');
-                gridContainer.id = 'admin-timetable-grid';
-                // Append it to the main content area (fallback)
-                const content = document.getElementById('dashboard-content');
-                if (content) content.appendChild(gridContainer);
-            }
-
-            // 3) Render the grid (make sure renderTimetableGrid is globally available)
-            if (typeof window.renderTimetableGrid === 'function') {
-                gridContainer.innerHTML = window.renderTimetableGrid(res.data.slots);
-            } else {
-                gridContainer.innerHTML = '<p class="text-red-500">Timetable grid renderer not found.</p>';
-            }
-            window.currentAdminTimetable = res.data;
-        }
-    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
-}
-
-async function publishTimetable() {
-    if (!currentTimetable || !currentTimetable.id) { showToast('No timetable to publish','error'); return; }
-    if (!confirm('Publish timetable? It will be visible to teachers, students, and parents.')) return;
-    showLoading();
-    try {
-        await apiRequest(`/api/timetable/${currentTimetable.id}/publish`, { method: 'POST' });
-        showToast('Published', 'success');
-    } catch (e) { showToast(e.message,'error'); }
-    finally { hideLoading(); }
-}
-
-// Call loadCalendarEvents() after admin dashboard renders (in renderAdminDashboard or via setTimeout)
 
 async function renderAdminTeachers() {
     try {
