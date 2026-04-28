@@ -1172,42 +1172,89 @@ function renderAdminSettings() {
     `;
 }
 
+// ============ ADMIN TIMETABLE PAGE ============
 async function renderAdminTimetable() {
-    return `
-    <div class="space-y-6 animate-fade-in">
-        <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold">Timetable Management</h2>
-            <div class="flex gap-3">
-                <button onclick="generateTimetable()" class="px-4 py-2 bg-primary text-white rounded-lg">Generate</button>
-                <button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>
+    showLoading();
+    try {
+        const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
+        const res = await apiRequest(`/api/timetable?weekStartDate=${weekStart}`);
+        const timetable = (res && res.data) ? res.data : null;
+        hideLoading();
+
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Timetable Management</h2>
+                <div class="flex gap-3">
+                    <button onclick="generateTimetable()" class="px-4 py-2 bg-primary text-white rounded-lg">Generate New</button>
+                    ${timetable && !timetable.isPublished ? 
+                        `<button onclick="publishTimetable(${timetable.id})" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>` : ''}
+                </div>
             </div>
-        </div>
-        <div id="admin-timetable-grid"></div>
-    </div>`;
+            <div class="text-sm text-muted-foreground mb-2">Week starting: ${weekStart}</div>
+            ${timetable ? renderTimetableGrid(timetable.slots) : '<div class="text-center py-12">No timetable yet. Click Generate to create one.</div>'}
+        </div>`;
+    } catch(e) { hideLoading(); return `<div class="text-red-500">Error loading timetable: ${escapeHtml(e.message)}</div>`; }
 }
 
+// Generate button – prompts for date, calls API, then re-renders the page
 async function generateTimetable() {
-    const weekStart = prompt('Enter week start date (YYYY-MM-DD):');
+    const weekStart = prompt('Enter week start date (YYYY-MM-DD):', moment().startOf('isoWeek').format('YYYY-MM-DD'));
     if (!weekStart) return;
     showLoading();
     try {
-        const res = await apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate: weekStart }) });
+        const res = await apiRequest('/api/timetable/generate', {
+            method: 'POST',
+            body: JSON.stringify({ weekStartDate: weekStart })
+        });
         if (res.success) {
             showToast('Timetable generated', 'success');
-            // Display the generated grid
-            document.getElementById('admin-timetable-grid').innerHTML = renderTimetableGrid(res.data.slots);
-            window.currentAdminTimetable = res.data;
+            // Re-render the page to display the new timetable
+            await showDashboardSection('timetable');
+        } else {
+            showToast(res.message || 'Generation failed', 'error');
         }
     } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
-async function publishTimetable() {
-    if (!window.currentAdminTimetable) return showToast('Generate timetable first', 'error');
-    const id = window.currentAdminTimetable.id;
+// Publish button – publishes the given timetable id
+async function publishTimetable(id) {
+    showLoading();
     try {
         await apiRequest(`/api/timetable/${id}/publish`, { method: 'POST' });
-        showToast('Published', 'success');
-    } catch(e) { showToast(e.message, 'error'); }
+        showToast('Timetable published', 'success');
+        await showDashboardSection('timetable');
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+// Render a visual timetable grid (used by teacher as well)
+function renderTimetableGrid(slots) {
+    if (!slots || !Array.isArray(slots)) return '<p class="text-muted-foreground">No slots available</p>';
+    const daysOrder = ['monday','tuesday','wednesday','thursday','friday'];
+    const timeSlots = ['08:00','09:00','10:00','11:00','12:00','14:00','15:00'];
+    const endTimes   = ['09:00','10:00','11:00','12:00','13:00','15:00','16:00'];
+
+    let html = '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse border"><thead><tr><th class="border p-2 bg-muted">Time</th>';
+    daysOrder.forEach(d => html += `<th class="border p-2 bg-muted capitalize">${d.slice(0,3)}</th>`);
+    html += '</tr></thead><tbody>';
+
+    for (let i = 0; i < timeSlots.length; i++) {
+        html += `<tr><td class="border p-2 font-medium">${timeSlots[i]} - ${endTimes[i]}</td>`;
+        for (const day of daysOrder) {
+            const daySlot = slots.find(s => s.day === day);
+            const period = daySlot ? daySlot.periods.find(p => p.startTime === timeSlots[i]) : null;
+            html += period ?
+                `<td class="border p-2 bg-blue-50 dark:bg-blue-900/20 text-xs">
+                    <strong>${escapeHtml(period.subject)}</strong><br>
+                    ${escapeHtml(period.className)}<br>
+                    <span class="text-muted-foreground">${escapeHtml(period.teacherName)}</span>
+                </td>` :
+                '<td class="border p-2 text-center text-muted-foreground">-</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
 }
 
 // ============ PROFILE SECTION ============
@@ -1665,3 +1712,7 @@ window.renderAdminCustomSubjects = renderAdminCustomSubjects;
 window.addCustomSubject = addCustomSubject;
 window.removeCustomSubject = removeCustomSubject;
 window.saveAllSettings = saveAllSettings;
+window.renderAdminTimetable = renderAdminTimetable;
+window.generateTimetable = generateTimetable;
+window.publishTimetable = publishTimetable;
+window.renderTimetableGrid = renderTimetableGrid;
