@@ -1305,17 +1305,36 @@ async function uploadProfilePicture(file) {
 async function loadTodayDuty() {
   try {
     const res = await api.duty.getTodayDuty();
-    const duty = res.data?.duties?.find(d => d.teacherId === getCurrentUser().id);
-    if (duty) {
-      document.getElementById('duty-location').innerText = duty.area;
-      document.getElementById('duty-status').innerText = duty.checkedIn ? 'Checked In' : 'Not Checked In';
-      document.getElementById('check-in-btn').disabled = duty.checkedIn;
-      document.getElementById('check-out-btn').disabled = !duty.checkedIn;
-    } else {
-      document.getElementById('duty-location').innerText = 'No duty today';
+    const duty = res.data?.duties?.find(d => d.teacherId === getCurrentUser()?.id);
+
+    // Only update duty card elements if they exist (they're only on teacher dashboard)
+    const dutyLocation = document.getElementById('duty-location');
+    if (dutyLocation) {
+      dutyLocation.innerText = duty ? duty.area : 'No duty today';
     }
-  } catch(e) { console.error(e); }
+
+    const dutyStatus = document.getElementById('duty-status');
+    if (dutyStatus) {
+      dutyStatus.innerText = duty?.checkedIn ? 'Checked In' : 'Not Checked In';
+    }
+
+    const checkInBtn = document.getElementById('check-in-btn');
+    if (checkInBtn) {
+      checkInBtn.disabled = duty?.checkedIn || !duty;
+    }
+
+    const checkOutBtn = document.getElementById('check-out-btn');
+    if (checkOutBtn) {
+      checkOutBtn.disabled = !duty?.checkedIn;
+    }
+
+    return duty;
+  } catch (e) {
+    console.error('loadTodayDuty failed:', e);
+    return null;
+  }
 }
+
 async function handleCheckIn() {
   showLoading();
   try {
