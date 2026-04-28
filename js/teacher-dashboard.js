@@ -1571,26 +1571,82 @@ async function renderTeacherHomework() {
 }
 
 function showCreateHomeworkModal() {
-    // Simple form using prompt for demo; you can replace with a modal later
-    const title = prompt('Homework title:');
-    if (!title) return;
-    const instructions = prompt('Instructions:');
-    const subject = prompt('Subject:');
-    const dueDate = prompt('Due date (YYYY-MM-DD):');
-    const classId = prompt('Class ID (e.g., from classes page):');
-    if (!classId || !subject || !dueDate) { showToast('Missing fields', 'error'); return; }
+    let modal = document.getElementById('create-homework-modal');
+    if (!modal) {
+        // Create modal HTML
+        const modalHtml = `
+        <div id="create-homework-modal" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black/50" onclick="closeCreateHomeworkModal()"></div>
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg p-4">
+                <div class="rounded-xl border bg-card p-6 shadow-xl">
+                    <h3 class="text-lg font-semibold mb-4">Assign Homework</h3>
+                    <div class="space-y-4">
+                        <div><label class="block text-sm font-medium">Title</label><input type="text" id="hw-title" class="w-full rounded-lg border p-2"></div>
+                        <div><label class="block text-sm font-medium">Instructions</label><textarea id="hw-instructions" rows="3" class="w-full rounded-lg border p-2"></textarea></div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="block text-sm font-medium">Subject</label><input type="text" id="hw-subject" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2"></div>
+                        </div>
+                        <div><label class="block text-sm font-medium">Class</label><select id="hw-class" class="w-full rounded-lg border p-2"><option value="">Loading...</option></select></div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button onclick="closeCreateHomeworkModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
+                        <button onclick="createHomework()" class="px-4 py-2 bg-primary text-white rounded-lg">Assign</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        modal = document.getElementById('create-homework-modal');
+    }
+
+    // Load teacher's classes into dropdown
+    loadTeacherClassesForHomework();
+    modal.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeCreateHomeworkModal() {
+    const modal = document.getElementById('create-homework-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function loadTeacherClassesForHomework() {
+    try {
+        const res = await api.admin.getClasses(); // or a teacher-specific endpoint
+        const classes = res.data || [];
+        const select = document.getElementById('hw-class');
+        select.innerHTML = '<option value="">Select class</option>';
+        classes.forEach(c => {
+            select.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)} (Grade ${escapeHtml(c.grade)})</option>`;
+        });
+    } catch (e) { console.error(e); }
+}
+
+async function createHomework() {
+    const title = document.getElementById('hw-title')?.value.trim();
+    const instructions = document.getElementById('hw-instructions')?.value.trim();
+    const subject = document.getElementById('hw-subject')?.value.trim();
+    const dueDate = document.getElementById('hw-due')?.value;
+    const classId = document.getElementById('hw-class')?.value;
+
+    if (!title || !instructions || !subject || !dueDate || !classId) {
+        showToast('Please fill all fields', 'error');
+        return;
+    }
+
     showLoading();
-    apiRequest('/api/homework/assign', {
-        method: 'POST',
-        body: JSON.stringify({ title, instructions, subject, dueDate, classId: parseInt(classId) })
-    }).then(() => {
-        hideLoading();
-        showToast('Homework assigned', 'success');
-        showDashboardSection('homework');
-    }).catch(e => {
-        hideLoading();
-        showToast(e.message, 'error');
-    });
+    try {
+        const res = await apiRequest('/api/homework/assign', {
+            method: 'POST',
+            body: JSON.stringify({ title, instructions, subject, dueDate, classId })
+        });
+        if (res.success) {
+            showToast('Homework assigned successfully!', 'success');
+            closeCreateHomeworkModal();
+            await showDashboardSection('homework');
+        }
+    } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
 // ============ EXPORTS ============
@@ -1645,3 +1701,6 @@ window.renderMessageBubble = renderMessageBubble;
 window.setReplyTo = setReplyTo;
 window.cancelReply = cancelReply;
 window.renderTimetableGrid = renderTimetableGrid;
+window.showCreateHomeworkModal = showCreateHomeworkModal;
+window.closeCreateHomeworkModal = closeCreateHomeworkModal;
+window.createHomework = createHomework;
