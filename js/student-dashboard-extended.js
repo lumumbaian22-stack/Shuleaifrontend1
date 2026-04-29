@@ -703,7 +703,7 @@ async function renderRewardsStore() {
                 </div>
             </div>`;
     } catch (e) {
-        return '<div class="text-red-500">Error loading rewards</div>';
+        return '<div class="rounded-lg border p-4 text-muted-foreground">Rewards are temporarily unavailable. Your points are safe; try again after backend sync.</div>';
     }
 }
 
@@ -751,7 +751,7 @@ async function renderStudentHomework() {
                 </div>
             </div>`;
     } catch (e) {
-        return '<div class="text-red-500">Error loading homework</div>';
+        return '<div class="rounded-lg border p-4 text-muted-foreground">Homework could not load yet. Ask your teacher to confirm it was assigned to your class/student account.</div>';
     }
 }
 

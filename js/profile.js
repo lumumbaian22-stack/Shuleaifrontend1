@@ -7,7 +7,7 @@ async function renderProfileSection() {
     const stats = await loadUserStats(user.role);
 
     // Profile picture preview URL
-    const profileImageUrl = user.profileImage ? resolveAssetUrl(user.profileImage) : '';
+    const profileImageUrl = user.profileImage ? resolveMediaUrl(user.profileImage) : '';
 
     return `
         <div class="space-y-6 animate-fade-in max-w-4xl mx-auto">
@@ -346,19 +346,19 @@ async function uploadProfilePicture(file) {
         const data = await response.json();
         if (response.ok && data.success) {
             const user = getCurrentUser();
-            user.profileImage = data.data.profileImage;
+            user.profileImage = resolveMediaUrl(data.data.profileImage);
             localStorage.setItem('user', JSON.stringify(user));
 
             document.querySelectorAll('.user-avatar, #profile-preview, #user-initials').forEach(el => {
                 if (el.tagName === 'IMG') {
-                    el.src = resolveAssetUrl(data.data.profileImage);
+                    el.src = resolveMediaUrl(data.data.profileImage);
                 } else if (el.id === 'user-initials') {
                     // ignore
                 }
             });
 
             const headerAvatar = document.querySelector('#user-menu-button img');
-            if (headerAvatar) headerAvatar.src = resolveAssetUrl(data.data.profileImage);
+            if (headerAvatar) headerAvatar.src = resolveMediaUrl(data.data.profileImage);
 
             await showDashboardSection('profile');
             showToast('Profile picture updated successfully', 'success');

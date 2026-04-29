@@ -240,7 +240,7 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
         const attendance = student.attendance || 100;
         const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
         const isPrefect = student.isPrefect || false;
-        const photoUrl = resolveAssetUrl(student.photo || (student.User && student.User.profileImage) || '');
+        const photoUrl = resolveMediaUrl(student.photo || (student.User && student.User.profileImage) || '');
         
         html += `<tr class="hover:bg-accent/50">
             <td class="px-2 py-2">
@@ -1161,7 +1161,7 @@ async function renderProfileSection() {
       <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
         <div class="flex items-center gap-6">
           <div class="relative">
-            <img id="profile-preview" src="${user.profileImage ? resolveAssetUrl(user.profileImage) : ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
+            <img id="profile-preview" src="${resolveMediaUrl(user.profileImage) || ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
             <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer"><i data-lucide="camera" class="h-4 w-4"></i><input type="file" class="profile-picture-input" accept="image/*" class="hidden"></label>
           </div>
           <div><h2 class="text-3xl font-bold">${user.name}</h2><p class="text-white/80 capitalize">${user.role}</p></div>
@@ -1286,9 +1286,9 @@ async function uploadProfilePicture(file) {
     });
     const data = await response.json();
     if (data.success) {
-      document.getElementById('profile-preview').src = resolveAssetUrl(data.data.profileImage);
+      document.getElementById('profile-preview').src = resolveMediaUrl(data.data.profileImage);
       const user = getCurrentUser();
-      user.profileImage = data.data.profileImage;
+      user.profileImage = resolveMediaUrl(data.data.profileImage);
       localStorage.setItem('user', JSON.stringify(user));
       showToast('Profile picture updated', 'success');
     } else {

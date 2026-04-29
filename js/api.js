@@ -1,19 +1,6 @@
 // API Configuration
 const API_BASE_URL = (localStorage.getItem('SHULE_API_BASE_URL') || 'https://shuleaibackend-32h1.onrender.com').replace(/\/$/, '');
 
-function resolveAssetUrl(url) {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
-        return url;
-    }
-    if (url.startsWith('/')) {
-        return `${API_BASE_URL}${url}`;
-    }
-    return `${API_BASE_URL}/${url}`;
-}
-
-window.resolveAssetUrl = resolveAssetUrl;
-
 // Token management
 let authToken = localStorage.getItem('authToken');
 let refreshToken = localStorage.getItem('refreshToken');
@@ -707,3 +694,13 @@ window.uploadFile = uploadFile;
 
 console.log('✅ API loaded successfully!');
 console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
+
+
+function resolveMediaUrl(url) {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
+    if (!base) return url;
+    return base + (url.startsWith('/') ? url : '/' + url);
+}
+window.resolveMediaUrl = resolveMediaUrl;

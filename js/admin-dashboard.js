@@ -776,7 +776,7 @@ async function renderAdminStudents() {
                                                status === 'inactive' ? 'bg-red-100 text-red-700' : 
                                                'bg-gray-100 text-gray-700';
                             const initials = getInitials(name);
-                            const photoUrl = user.profileImage ? resolveAssetUrl(user.profileImage) : '';
+                            const photoUrl = resolveMediaUrl(user.profileImage) || '';
                             const isPrefect = student.isPrefect || false;
 
                             return `
@@ -1212,7 +1212,7 @@ async function renderProfileSection() {
       <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
         <div class="flex items-center gap-6">
           <div class="relative">
-            <img id="profile-preview" src="${user.profileImage ? resolveAssetUrl(user.profileImage) : ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
+            <img id="profile-preview" src="${resolveMediaUrl(user.profileImage) || ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
             <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer">
               <i data-lucide="camera" class="h-4 w-4"></i>
               <input type="file" class="profile-picture-input" accept="image/*" class="hidden">
@@ -1317,10 +1317,10 @@ async function uploadProfilePicture(file) {
     });
     const data = await response.json();
     if (data.success) {
-      document.getElementById('profile-preview').src = resolveAssetUrl(data.data.profileImage);
+      document.getElementById('profile-preview').src = resolveMediaUrl(data.data.profileImage);
       // Update local user object
       const user = getCurrentUser();
-      user.profileImage = data.data.profileImage;
+      user.profileImage = resolveMediaUrl(data.data.profileImage);
       localStorage.setItem('user', JSON.stringify(user));
       showToast('Profile picture updated', 'success');
     } else {
