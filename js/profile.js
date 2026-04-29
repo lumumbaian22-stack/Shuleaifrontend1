@@ -131,6 +131,7 @@ async function renderProfileSection() {
                 </div>
                 <p class="text-xs text-muted-foreground mt-2">Your signature will appear on report cards and official documents.</p>
             </div>
+            ` : ''}
 
             <!-- Preferences -->
             <div class="rounded-xl border bg-card p-6">
