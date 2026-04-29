@@ -243,10 +243,10 @@ async function renderParentDashboard() {
                             </thead>
                             <tbody class="divide-y">
                                 ${recentRecords.slice(0, 5).map(record => {
-                                    const score = record.score || 0;
-                                    const gradeClass = score >= 80 ? 'bg-green-100 text-green-700' : 
-                                                      score >= 60 ? 'bg-yellow-100 text-yellow-700' : 
-                                                      'bg-red-100 text-red-700';
+                                    const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
+                                    const level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary';
+                                    const grade = getGradeFromScore(score, curriculum, level);
+                                    
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
                                             <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
@@ -405,10 +405,9 @@ async function renderParentProgress() {
                             </thead>
                             <tbody class="divide-y">
                                 ${records.map(record => {
-                                    const score = record.score || 0;
-                                    const gradeClass = score >= 80 ? 'bg-green-100 text-green-700' : 
-                                                      score >= 60 ? 'bg-yellow-100 text-yellow-700' : 
-                                                      'bg-red-100 text-red-700';
+                                    const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
+                                    const level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary';
+                                    const grade = getGradeFromScore(score, curriculum, level); 
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
                                             <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
