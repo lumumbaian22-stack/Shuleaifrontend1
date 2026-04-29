@@ -109,7 +109,7 @@ async function renderParentDashboard() {
             const daysLeft = Math.ceil((new Date(parent.trialEndsAt) - new Date()) / (1000*60*60*24));
             html += `<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 flex justify-between items-center">
                 <div><i data-lucide="gift" class="h-5 w-5 inline mr-2 text-amber-600"></i> <span class="font-medium">Free Trial Active</span> – ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</div>
-                <button onclick="showSubscriptionPlans()" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">Upgrade Now</button>
+                <button class="px-4 py-2 bg-primary text-white rounded-lg text-sm" disabled>Upgrade Now</button>
             </div>`;
         }
         
@@ -225,6 +225,12 @@ async function renderParentDashboard() {
                         <div id="weekly-attendance-calendar" class="flex gap-1"></div>
                     </div>
                 </div>
+
+                <div class="rounded-xl border bg-card p-4">
+                    <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="file-text" class="h-4 w-4"></i> View / Download Report Card
+                    </button>
+                </div>
                 
                 <div class="rounded-xl border bg-card overflow-hidden">
                     <div class="p-4 border-b">
@@ -243,19 +249,21 @@ async function renderParentDashboard() {
                             </thead>
                             <tbody class="divide-y">
                                 ${recentRecords.slice(0, 5).map(record => {
+                                    const score = record.score || 0;
                                     const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
                                     const level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary';
                                     const grade = getGradeFromScore(score, curriculum, level);
-                                    
+                                    const gradeClass = grade === 'A' || grade === 'EE' ? 'bg-green-100 text-green-700' :
+                                                       grade === 'B' || grade === 'ME' ? 'bg-blue-100 text-blue-700' :
+                                                       grade === 'C' || grade === 'AE' ? 'bg-yellow-100 text-yellow-700' :
+                                                       'bg-red-100 text-red-700';
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
                                             <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
                                             <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
                                             <td class="px-4 py-3 text-center">${score}%</td>
                                             <td class="px-4 py-3 text-center">
-                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">
-                                                    ${escapeHtml(record.grade || 'N/A')}
-                                                </span>
+                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">${grade}</span>
                                             </td>
                                             <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
                                         </tr>
@@ -400,23 +408,26 @@ async function renderParentProgress() {
                                     <th class="px-4 py-3 text-left font-medium">Assessment</th>
                                     <th class="px-4 py-3 text-center font-medium">Score</th>
                                     <th class="px-4 py-3 text-center font-medium">Grade</th>
-                                    <th class="px-4 py-3 text01 font-medium">Date</th>
+                                    <th class="px-4 py-3 text-left font-medium">Date</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
                                 ${records.map(record => {
+                                    const score = record.score || 0;
                                     const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
                                     const level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary';
-                                    const grade = getGradeFromScore(score, curriculum, level); 
+                                    const grade = getGradeFromScore(score, curriculum, level);
+                                    const gradeClass = grade === 'A' || grade === 'EE' ? 'bg-green-100 text-green-700' :
+                                                       grade === 'B' || grade === 'ME' ? 'bg-blue-100 text-blue-700' :
+                                                       grade === 'C' || grade === 'AE' ? 'bg-yellow-100 text-yellow-700' :
+                                                       'bg-red-100 text-red-700';
                                     return `
                                         <tr class="hover:bg-accent/50 transition-colors">
                                             <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
                                             <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
                                             <td class="px-4 py-3 text-center">${score}%</td>
                                             <td class="px-4 py-3 text-center">
-                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">
-                                                    ${escapeHtml(record.grade || 'N/A')}
-                                                </span>
+                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">${grade}</span>
                                             </td>
                                             <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
                                         </tr>
