@@ -13,7 +13,7 @@ async function renderAnalyticsSection(role) {
             const res = await api.teacher.getAnalytics();
             data = res.data;
         } else if (role === 'parent') {
-            const childId = dashboardData?.selectedChildId;
+            const childId = dashboardData?.selectedChildId || dashboardData?.selectedChild?.id || dashboardData?.children?.[0]?.id;
             if (!childId) { hideLoading(); return '<div class="text-center py-12">Please select a child first</div>'; }
             const res = await api.parent.getAnalytics(childId);
             data = res.data;

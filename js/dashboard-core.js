@@ -289,32 +289,6 @@ async function showDashboard(role) {
     } catch (error) {
         console.error('❌ Error loading dashboard:', error);
         showToast('Failed to load dashboard data. Please check your connection.', 'error');
-
-        const content = document.getElementById('dashboard-content');
-        const dashboardContainer = document.getElementById('dashboard-container');
-        const landingPage = document.getElementById('landing-page');
-
-        if (dashboardContainer) dashboardContainer.style.display = 'block';
-        if (landingPage) landingPage.style.display = 'none';
-
-        if (content) {
-            const safeMessage = String(error.message || error).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-            content.innerHTML = `
-                <div class="rounded-xl border bg-card p-6 m-4">
-                    <h2 class="text-xl font-bold text-red-600 mb-2">Dashboard failed to load</h2>
-                    <p class="text-sm text-muted-foreground mb-4">The frontend is running, but dashboard data/rendering failed. Check the error below.</p>
-                    <pre class="bg-red-50 text-red-700 p-4 rounded-lg overflow-auto text-xs">${safeMessage}</pre>
-                    <div class="flex gap-2 mt-4 flex-wrap">
-                        <button onclick="localStorage.clear(); location.reload()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Clear session and reload</button>
-                        <button onclick="document.getElementById('landing-page').style.display='block'; document.getElementById('dashboard-container').style.display='none';" class="px-4 py-2 border rounded-lg">Back to landing</button>
-                    </div>
-                </div>
-            `;
-        }
-
-        if (window.__SHULE_SHOW_FATAL__) {
-            window.__SHULE_SHOW_FATAL__('Dashboard load failed', error && error.stack ? error.stack : String(error));
-        }
     } finally {
         hideLoading();
     }

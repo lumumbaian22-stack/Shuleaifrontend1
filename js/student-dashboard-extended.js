@@ -202,9 +202,7 @@ async function loadDashboardLeaderboard() {
         const dashboardRes = await api.student.getDashboard();
         const classId = dashboardRes.data?.classId;
         if (!classId) {
-            const leaderboardEl = document.getElementById('student-leaderboard');
-            if (!leaderboardEl) return;
-            leaderboardEl.innerHTML = '<p class="text-sm text-muted-foreground">Class not available</p>';
+            document.getElementById('student-leaderboard').innerHTML = '<p class="text-sm text-muted-foreground">Class not available</p>';
             return;
         }
         const res = await apiRequest(`/api/gamification/leaderboard/${classId}`);
@@ -212,11 +210,9 @@ async function loadDashboardLeaderboard() {
         const html = list.length === 0
             ? '<p class="text-sm text-muted-foreground">No data</p>'
             : list.slice(0, 5).map(i => `<div class="flex justify-between py-1"><span>#${i.rank} ${escapeHtml(i.name)}</span><span class="font-bold">${i.points} pts</span></div>`).join('');
-        const leaderboardEl = document.getElementById('student-leaderboard');
-        if (leaderboardEl) leaderboardEl.innerHTML = html;
+        document.getElementById('student-leaderboard').innerHTML = html;
     } catch (e) {
-        const leaderboardEl = document.getElementById('student-leaderboard');
-        if (leaderboardEl) leaderboardEl.innerHTML = '';
+        document.getElementById('student-leaderboard').innerHTML = '';
     }
 }
 
@@ -225,8 +221,7 @@ async function loadDashboardBadges() {
         const dashboardRes = await api.student.getDashboard();
         const studentId = dashboardRes.data?.student?.id;
         if (!studentId) {
-            const badgesEl = document.getElementById('student-badges');
-            if (badgesEl) badgesEl.innerHTML = '';
+            document.getElementById('student-badges').innerHTML = '';
             return;
         }
         const res = await apiRequest(`/api/gamification/badges/${studentId}`);
@@ -234,20 +229,18 @@ async function loadDashboardBadges() {
         const html = badges.length === 0
             ? '<p class="text-sm text-muted-foreground">No badges yet</p>'
             : badges.map(b => `<span class="inline-flex items-center px-2 py-1 mr-2 mt-2 bg-purple-100 text-purple-800 rounded-full text-xs">${b.Badge?.icon || '🏅'} ${b.Badge?.name}</span>`).join('');
-        const badgesEl = document.getElementById('student-badges');
-        if (badgesEl) badgesEl.innerHTML = html;
+        document.getElementById('student-badges').innerHTML = html;
     } catch (e) {
-        const badgesEl = document.getElementById('student-badges');
-        if (badgesEl) badgesEl.innerHTML = '';
+        document.getElementById('student-badges').innerHTML = '';
     }
 }
 
 // Trigger widget loads after dashboard render
 setTimeout(() => {
-    if (document.getElementById('student-home-tasks-list')) loadStudentHomeTasks();
-    if (document.getElementById('student-leaderboard')) loadDashboardLeaderboard();
-    if (document.getElementById('student-badges')) loadDashboardBadges();
-    if (typeof initStudentCharts === 'function' && typeof dashboardData !== 'undefined') initStudentCharts(dashboardData);
+    loadStudentHomeTasks();
+    loadDashboardLeaderboard();
+    loadDashboardBadges();
+    if (typeof initStudentCharts === 'function') initStudentCharts(dashboardData);
 }, 200);
 
 async function loadStudentHomeTasks() {

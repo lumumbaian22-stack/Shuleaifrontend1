@@ -121,7 +121,7 @@ async function renderProfileSection() {
             <!-- Signature Upload -->
             ${(user.role === 'teacher' || user.role === 'admin') ? `
             <div class="mt-4">
-                <label class="block text-sm font-medium mb-1">Signature</label>>
+                <label class="block text-sm font-medium mb-1">Signature</label>
                 <div class="flex items-center gap-4">
                     <img id="signature-preview" src="${user.signature || ''}" class="h-16 border rounded">
                     <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer">
@@ -130,8 +130,8 @@ async function renderProfileSection() {
                     </label>
                 </div>
                 <p class="text-xs text-muted-foreground mt-2">Your signature will appear on report cards and official documents.</p>
-            </div>
             ` : ''}
+            </div>
 
             <!-- Preferences -->
             <div class="rounded-xl border bg-card p-6">
