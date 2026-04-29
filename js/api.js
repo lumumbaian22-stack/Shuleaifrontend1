@@ -319,7 +319,16 @@ const adminAPI = {
             body: JSON.stringify(data)
         }),
     getDashboardData: () => apiRequest('/api/admin/dashboard'),
-    getClassDetails: (classId) => apiRequest(`/api/admin/classes/${classId}`),
+    getClassDetails: async (classId) => {
+        try {
+            return await apiRequest(`/api/admin/classes/${classId}`);
+        } catch (error) {
+            const classes = await apiRequest('/api/admin/classes');
+            const found = (classes.data || []).find(c => String(c.id) === String(classId));
+            if (!found) throw error;
+            return { success: true, data: found };
+        }
+    },
     getAnalytics: () => apiRequest('/api/admin/analytics')
 };
 
