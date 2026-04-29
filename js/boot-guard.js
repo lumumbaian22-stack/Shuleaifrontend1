@@ -9,11 +9,8 @@
     box = document.createElement('div');
     box.id = 'frontend-debug-box';
     box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:999999;max-width:min(760px,calc(100vw - 32px));max-height:55vh;overflow:auto;background:#111827;color:#f9fafb;border:1px solid rgba(255,255,255,.2);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:14px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap';
-    if (localStorage.getItem('SHULE_SHOW_DEBUG_POPUP') === '1') {
-      document.body.appendChild(box);
-      return box;
-    }
-    return { textContent: '' };
+    document.body.appendChild(box);
+    return box;
   }
 
   function showFatal(title, detail) {
