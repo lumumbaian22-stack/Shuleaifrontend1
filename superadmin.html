@@ -1,0 +1,171 @@
+<div class="space-y-6 animate-fade-in">
+    <!-- Stats Grid -->
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-xl border bg-card p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Total Schools</p>
+                    <h3 class="text-2xl font-bold mt-1" id="total-schools">24</h3>
+                    <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <i data-lucide="trending-up" class="h-3 w-3"></i>
+                        <span id="new-schools">3</span> this month
+                    </p>
+                </div>
+                <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <i data-lucide="building-2" class="h-6 w-6 text-blue-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="rounded-xl border bg-card p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Active Admins</p>
+                    <h3 class="text-2xl font-bold mt-1" id="active-admins">18</h3>
+                    <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <i data-lucide="trending-up" class="h-3 w-3"></i>
+                        +<span id="new-admins">2</span> new
+                    </p>
+                </div>
+                <div class="h-12 w-12 rounded-lg bg-violet-100 flex items-center justify-center">
+                    <i data-lucide="user-plus" class="h-6 w-6 text-violet-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="rounded-xl border bg-card p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Pending Approvals</p>
+                    <h3 class="text-2xl font-bold mt-1" id="pending-approvals">6</h3>
+                    <p class="text-xs text-yellow-600 mt-1 flex items-center gap-1">
+                        <i data-lucide="clock" class="h-3 w-3"></i>
+                        Awaiting review
+                    </p>
+                </div>
+                <div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <i data-lucide="alert-circle" class="h-6 w-6 text-amber-600"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="rounded-xl border bg-card p-6 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Revenue (MTD)</p>
+                    <h3 class="text-2xl font-bold mt-1" id="revenue">$1,240</h3>
+                    <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <i data-lucide="trending-up" class="h-3 w-3"></i>
+                        +<span id="revenue-growth">15</span>% from last month
+                    </p>
+                </div>
+                <div class="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center">
+                    <i data-lucide="dollar-sign" class="h-6 w-6 text-emerald-600"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts Row -->
+    <div class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border bg-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold">School Growth Trends</h3>
+                <select class="text-sm border rounded-md px-2 py-1 bg-background" onchange="updateSuperAdminChart(this.value)">
+                    <option value="year">This Year</option>
+                    <option value="last-year">Last Year</option>
+                </select>
+            </div>
+            <div class="chart-container h-64">
+                <canvas id="superadmin-enrollmentChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="rounded-xl border bg-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold">School Distribution</h3>
+                <select class="text-sm border rounded-md px-2 py-1 bg-background" onchange="updateSuperAdminPieChart(this.value)">
+                    <option value="level">By Level</option>
+                    <option value="region">By Region</option>
+                </select>
+            </div>
+            <div class="chart-container h-64">
+                <canvas id="superadmin-gradeChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Admin Management Table -->
+    <div class="rounded-xl border bg-card overflow-hidden">
+        <div class="p-4 border-b flex justify-between items-center">
+            <h3 class="font-semibold">School/Admin Management</h3>
+            <span class="text-sm text-muted-foreground" id="school-count">24 total</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-muted/50">
+                    <tr>
+                        <th class="px-4 py-3 text-left font-medium">School</th>
+                        <th class="px-4 py-3 text-left font-medium">Admin</th>
+                        <th class="px-4 py-3 text-left font-medium">Level</th>
+                        <th class="px-4 py-3 text-left font-medium">Status</th>
+                        <th class="px-4 py-3 text-right font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y" id="schools-table-body">
+                    <tr class="hover:bg-accent/50 transition-colors">
+                        <td class="px-4 py-3 font-medium">Nairobi High School</td>
+                        <td class="px-4 py-3">admin@nairobi.edu</td>
+                        <td class="px-4 py-3">Secondary</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">Active</span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <button onclick="viewSchool('1')" class="p-2 hover:bg-accent rounded-lg">
+                                <i data-lucide="eye" class="h-4 w-4"></i>
+                            </button>
+                            <button onclick="manageSchool('1')" class="p-2 hover:bg-accent rounded-lg">
+                                <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-accent/50 transition-colors">
+                        <td class="px-4 py-3 font-medium">Mombasa Academy</td>
+                        <td class="px-4 py-3">admin@mombasa.edu</td>
+                        <td class="px-4 py-3">Primary</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700">Pending</span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <button onclick="viewSchool('2')" class="p-2 hover:bg-accent rounded-lg">
+                                <i data-lucide="eye" class="h-4 w-4"></i>
+                            </button>
+                            <button onclick="manageSchool('2')" class="p-2 hover:bg-accent rounded-lg">
+                                <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Name Change Requests -->
+    <div class="rounded-xl border bg-card">
+        <div class="p-4 border-b">
+            <h3 class="font-semibold">Name Change Requests</h3>
+        </div>
+        <div class="divide-y" id="name-change-requests">
+            <div class="p-4 flex items-center justify-between hover:bg-accent/50 transition-colors">
+                <div>
+                    <p class="text-sm font-medium">City School → City Academy</p>
+                    <p class="text-xs text-muted-foreground">Payment: $50 verified • 2 hours ago</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="approveNameChange('1')" class="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full hover:bg-green-200">Approve</button>
+                    <button onclick="rejectNameChange('1')" class="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-full hover:bg-red-200">Reject</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
