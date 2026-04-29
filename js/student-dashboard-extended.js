@@ -61,6 +61,13 @@ async function renderStudentDashboard() {
 
         return `
             <div class="space-y-6 animate-fade-in">
+                <!-- Report Card Button -->
+                <div class="flex justify-end">
+                     <button onclick="openReportCard()" class="px-3 py-1 bg-primary text-white text-sm rounded-lg inline-flex items-center gap-1">
+                          <i data-lucide="file-text" class="h-4 w-4"></i> View Report Card
+                    </button>
+                </div>
+                
                 <!-- School Name Header -->
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
                     <h2 id="student-school-name" class="text-xl font-semibold">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</h2>
