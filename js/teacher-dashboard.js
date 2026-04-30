@@ -113,13 +113,41 @@ async function renderTeacherDashboard() {
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Attendance Today</p><h3 class="text-2xl font-bold mt-1">${stats.attendanceToday || '0/0'}</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 dark:text-amber-400"></i></div></div></div>
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Pending Tasks</p><h3 class="text-2xl font-bold mt-1">${stats.pendingTasks || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><i data-lucide="check-square" class="h-6 w-6 text-red-600 dark:text-red-400"></i></div></div></div>
       </div>
-
-      <div class="grid gap-4 lg:grid-cols-2">
-        <div class="rounded-xl border bg-card p-6"><div class="flex justify-between items-center mb-4"><h3 class="font-semibold">Subject Performance</h3></div><div class="chart-container h-64"><canvas id="teacher-performanceChart"></canvas></div></div>
-        <div class="rounded-xl border bg-card p-6"><div class="flex justify-between items-center mb-4"><h3 class="font-semibold">Attendance Trend (Last 7 days)</h3></div><div class="chart-container h-64"><canvas id="teacher-gradeChart"></canvas></div></div>
+      <div class="v7-card v7-card-soft">
+        <div class="v7-toolbar">
+          <div>
+            <h3 class="font-bold">Academic Tools</h3>
+            <p class="text-sm text-muted-foreground">Enter marks, backtest previous years, analyze, and publish report-card drafts.</p>
+          </div>
+          <button onclick="v7OpenMarksEntryModal()" class="v7-btn v7-btn-primary">Open Marks Entry</button>
+        </div>
       </div>
 
-      <div class="rounded-xl border bg-card p-6">
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border bg-card p-6">
+          <h3 class="font-semibold mb-4">Subject Performance Summary</h3>
+          <div class="space-y-2">
+            ${(performanceData.subjectAverages || []).length ? performanceData.subjectAverages.slice(0, 5).map(s => `
+              <div class="flex items-center justify-between text-sm border-b pb-2">
+                <span>${escapeHtml(s.subject || 'Subject')}</span>
+                <span class="font-semibold">${Math.round(s.average || 0)}%</span>
+              </div>
+            `).join('') : '<p class="text-muted-foreground text-sm">No performance data yet</p>'}
+          </div>
+        </div>
+        <div class="rounded-xl border bg-card p-6">
+          <h3 class="font-semibold mb-4">Attendance Summary</h3>
+          <div class="space-y-2">
+            ${(performanceData.attendanceTrend || []).length ? performanceData.attendanceTrend.slice(-7).map(a => `
+              <div class="flex items-center justify-between text-sm border-b pb-2">
+                <span>${typeof moment !== 'undefined' ? moment(a.date).format('MMM D') : formatDate(a.date)}</span>
+                <span class="font-semibold">${Math.round(a.rate || 0)}%</span>
+              </div>
+            `).join('') : '<p class="text-muted-foreground text-sm">No attendance data yet</p>'}
+          </div>
+        </div>
+      </div>
+<div class="rounded-xl border bg-card p-6">
         <div class="flex justify-between items-center mb-4"><div class="flex items-center gap-2"><i data-lucide="message-circle" class="h-5 w-5 text-primary"></i><h3 class="font-semibold text-lg">Parent Messages</h3></div><span class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium" id="teacher-message-count-badge">0</span></div>
         <div id="teacher-messages-list" class="space-y-2 max-h-96 overflow-y-auto"><div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-12 w-12 mx-auto mb-3 opacity-50"></i><p>Loading messages...</p></div></div>
         <button onclick="loadTeacherMessages()" class="mt-4 w-full py-2 text-sm border rounded-lg hover:bg-accent flex items-center justify-center gap-2"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Refresh Messages</button>
@@ -130,34 +158,6 @@ async function renderTeacherDashboard() {
   `;
 
   setTimeout(() => {
-    const perfCtx = document.getElementById('teacher-performanceChart');
-    const gradeCtx = document.getElementById('teacher-gradeChart');
-    if (perfCtx && performanceData.subjectAverages && performanceData.subjectAverages.length) {
-      if (window.teacherPerfChart) window.teacherPerfChart.destroy();
-      window.teacherPerfChart = new Chart(perfCtx, {
-        type: 'line',
-        data: {
-          labels: performanceData.subjectAverages.map(s => s.subject),
-          datasets: [{ label: 'Average Score (%)', data: performanceData.subjectAverages.map(s => s.average), borderColor: '#8b5cf6', tension: 0.4, fill: false }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }
-      });
-    } else if (perfCtx) {
-      perfCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No performance data yet</p></div>';
-    }
-    if (gradeCtx && performanceData.attendanceTrend && performanceData.attendanceTrend.length) {
-      if (window.teacherGradeChart) window.teacherGradeChart.destroy();
-      window.teacherGradeChart = new Chart(gradeCtx, {
-        type: 'bar',
-        data: {
-          labels: performanceData.attendanceTrend.map(a => moment(a.date).format('MMM D')),
-          datasets: [{ label: 'Attendance Rate (%)', data: performanceData.attendanceTrend.map(a => a.rate), backgroundColor: '#3b82f6', borderRadius: 6 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }
-      });
-    } else if (gradeCtx) {
-      gradeCtx.parentElement.innerHTML = '<div class="flex items-center justify-center h-full"><p class="text-muted-foreground">No attendance data yet</p></div>';
-    }
     loadTodayDuty();
     loadTeacherMessages();
   }, 100);
@@ -177,6 +177,18 @@ async function loadMyStudents() {
 }
 
 async function renderTeacherStudents() {
+    if (typeof v7OpenMarksEntryModal === 'function') {
+        setTimeout(() => {
+            const content = document.getElementById('dashboard-content');
+            if (content && !document.getElementById('v7-teacher-student-tools')) {
+                const tools = document.createElement('div');
+                tools.id = 'v7-teacher-student-tools';
+                tools.className = 'v7-card v7-card-soft mb-4';
+                tools.innerHTML = '<div class="v7-toolbar"><div><h3 class="font-bold">Academic Tools</h3><p class="text-sm text-muted-foreground">Use marks entry for drafts/backtesting. Open a student detail, then use report-card preview when published marks exist.</p></div><button onclick="v7OpenMarksEntryModal()" class="v7-btn v7-btn-primary">Open Marks Entry</button></div>';
+                content.prepend(tools);
+            }
+        }, 50);
+    }
     const data = await loadMyStudents();
     const students = data.students || [];
     const isClassTeacher = data.isClassTeacher;
@@ -1356,7 +1368,7 @@ async function handleCheckOut() {
 async function loadTeacherMessages() {
   try {
     const res = await api.teacher.getParentConversations();
-    const convos = res.data || [];
+    const convos = (res.data || []).filter(c => !c.userRole || c.userRole === 'parent');
     const container = document.getElementById('teacher-messages-list');
     const badge = document.getElementById('teacher-message-count-badge');
     if (!container) return;
@@ -1746,3 +1758,9 @@ window.renderTimetableGrid = renderTimetableGrid;
 window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.closeCreateHomeworkModal = closeCreateHomeworkModal;
 window.createHomework = createHomework;
+
+function viewV7ReportCardForStudent(studentId) {
+  if (typeof v7OpenReportCard === 'function') return v7OpenReportCard(studentId);
+  showToast('Report card module not loaded', 'error');
+}
+window.viewV7ReportCardForStudent = viewV7ReportCardForStudent;

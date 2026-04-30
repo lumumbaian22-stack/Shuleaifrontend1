@@ -344,15 +344,10 @@ async function showDashboardSection(section) {
 
         updateSidebarActiveState(section);
 
-        if (section === 'dashboard' || section === 'analytics') {
+        // Dashboard pages must stay card/table based only.
+        // Charts are initialized only inside the dedicated Analytics section.
+        if (section === 'analytics') {
             setTimeout(() => {
-                if (currentRole === 'admin') {
-                    if (typeof initAdminCharts === 'function') initAdminCharts();
-                } else if (currentRole === 'teacher') {
-                    if (typeof initTeacherCharts === 'function') {
-                        initTeacherCharts(dashboardData);
-                    }
-                }
                 if (typeof initRoleCharts === 'function') {
                     initRoleCharts(currentRole, dashboardData);
                 }
@@ -375,6 +370,12 @@ async function showDashboardSection(section) {
 }
 
 async function renderDashboardSection(role, section) {
+    if (section === 'help' && typeof renderV8HelpSection === 'function') {
+        return await renderV8HelpSection();
+    }
+    if (section === 'curriculum-progress' && typeof renderV8CurriculumProgress === 'function') {
+        return await renderV8CurriculumProgress(role === 'teacher' ? 'teacher' : 'admin');
+    }
     switch(role) {
         case 'superadmin':
             if (section === 'analytics') {

@@ -208,7 +208,9 @@ const superAdminAPI = {
     clearCache: function() { return this.clearPlatformCache(); },
     runBackup: function() { return this.runSystemBackup(); },
     resetSettings: function() { return this.resetPlatformSettings(); },
-    getAnalytics: () => apiRequest('/api/super-admin/analytics')
+    getAnalytics: () => apiRequest(`/api/super-admin/analytics?_=${Date.now()}`),
+    getLiveStats: () => apiRequest(`/api/super-admin/live-stats?_=${Date.now()}`),
+    getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats?_=${Date.now()}`)
 };
 
 // ============ ADMIN ENDPOINTS ============
@@ -329,7 +331,8 @@ const adminAPI = {
             return { success: true, data: found };
         }
     },
-    getAnalytics: () => apiRequest('/api/admin/analytics')
+    getAnalytics: () => apiRequest(`/api/admin/analytics?_=${Date.now()}`),
+    getCurriculumProgress: () => apiRequest('/api/admin/curriculum-progress')
 };
 
 // ============ TEACHER ENDPOINTS ============
@@ -377,7 +380,13 @@ const teacherAPI = {
     getTeacherStats: () => apiRequest('/api/teacher/stats'),
     uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress),
     publishMarks: (data) => apiRequest('/api/teacher/marks/publish', { method: 'POST', body: JSON.stringify(data) }),
-    getAnalytics: () => apiRequest('/api/teacher/analytics')
+    getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
+    getCurriculumProgress: () => apiRequest('/api/teacher/curriculum-progress'),
+    updateCurriculumProgress: (data) => apiRequest('/api/teacher/curriculum-progress', { method:'PUT', body: JSON.stringify(data) }),
+    getMarksContext: () => apiRequest('/api/teacher/marks/context'),
+    getMarksStudents: (classId) => apiRequest(`/api/teacher/marks/students?classId=${classId}`),
+    analyzeMarks: (data) => apiRequest('/api/teacher/marks/analyze', { method: 'POST', body: JSON.stringify(data) }),
+    getReportCard: (params) => apiRequest(`/api/teacher/report-card?${new URLSearchParams(params).toString()}`)
 };
 
 // ============ PARENT ENDPOINTS ============
@@ -419,7 +428,7 @@ const parentAPI = {
     getChildMarks: (studentId) => apiRequest(`/api/parent/child/${studentId}/marks`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
     getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
-    getAnalytics: (childId) => apiRequest(`/api/parent/child/${childId}/analytics`)
+    getAnalytics: (childId) => apiRequest(`/api/parent/child/${childId}/analytics?_=${Date.now()}`)
 };
 
 // ============ STUDENT ENDPOINTS ============
@@ -445,7 +454,7 @@ const studentAPI = {
     getClassPerformance: () => apiRequest('/api/student/class-performance'),
     getSubjectPerformance: () => apiRequest('/api/student/subject-performance'),
     getGPA: () => apiRequest('/api/student/gpa'),
-    getAnalytics: () => apiRequest('/api/student/analytics')
+    getAnalytics: () => apiRequest(`/api/student/analytics?_=${Date.now()}`)
 };
 
 // ============ DUTY ENDPOINTS ============
@@ -634,9 +643,16 @@ const calendarAPI = {
 
 // Timetable
 const timetableAPI = {
-    generate: (weekStartDate) => apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate }) }),
+    generate: (payload) => apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify(typeof payload === 'string' ? { weekStartDate: payload } : payload) }),
+    getCurrent: (params = {}) => {
+        const qs = new URLSearchParams(params).toString();
+        return apiRequest(`/api/timetable${qs ? '?' + qs : ''}`);
+    },
+    getClasses: () => apiRequest('/api/timetable/classes'),
     getForTeacher: (teacherId, weekStart) => apiRequest(`/api/timetable/teacher/${teacherId}?weekStart=${weekStart}`),
     getForClass: (classId, weekStart) => apiRequest(`/api/timetable/class/${classId}?weekStart=${weekStart}`),
+    update: (id, data) => apiRequest(`/api/timetable/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    updateSlot: (id, data) => apiRequest(`/api/timetable/${id}/slot`, { method: 'PUT', body: JSON.stringify(data) }),
     publish: (id) => apiRequest(`/api/timetable/${id}/publish`, { method: 'POST' })
 };
 
@@ -650,7 +666,7 @@ const gamificationAPI = {
 
 // Global Search
 const searchAPI = {
-    globalSearch: (q) => apiRequest(`/api/search?q=${encodeURIComponent(q)}`)
+    globalSearch: (q) => apiRequest(`/api/search?q=${encodeURIComponent(q)}&_=${Date.now()}`)
 };
 
 // ============ ASSEMBLE API OBJECT ============
@@ -704,3 +720,16 @@ function resolveMediaUrl(url) {
     return base + (url.startsWith('/') ? url : '/' + url);
 }
 window.resolveMediaUrl = resolveMediaUrl;
+
+
+function getSchoolDisplayName(school) {
+    if (!school) return 'ShuleAI School';
+    return school.approvedName || school.publicName || school.displayName || school.platformDisplayName || 'ShuleAI School';
+}
+window.getSchoolDisplayName = getSchoolDisplayName;
+function normalizeSchoolPayload(school) {
+    if (!school) return school;
+    const displayName = getSchoolDisplayName(school);
+    return { ...school, displayName, publicName: displayName, name: displayName };
+}
+window.normalizeSchoolPayload = normalizeSchoolPayload;

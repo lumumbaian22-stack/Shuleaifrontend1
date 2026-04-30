@@ -136,6 +136,7 @@ window.addEventListener('storage', function(e) {
                 // Update school in localStorage
                 const updatedSchool = {
                     ...currentSchool,
+                    approvedName: nameChangeData.newName,
                     name: nameChangeData.newName,
                     settings: { ...currentSchool.settings, schoolName: nameChangeData.newName }
                 };

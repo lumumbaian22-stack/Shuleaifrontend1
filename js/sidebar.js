@@ -9,10 +9,8 @@ function updateSidebar(role) {
     const schoolNameSpan = document.getElementById('sidebar-school-name');
     const school = getCurrentSchool();
     
-    if (schoolNameSpan && school && school.status === 'active' && school.name) {
-        schoolNameSpan.textContent = school.name;
-    } else if (schoolNameSpan) {
-        schoolNameSpan.textContent = 'ShuleAI';
+    if (schoolNameSpan) {
+        schoolNameSpan.textContent = (typeof getSchoolDisplayName === 'function') ? getSchoolDisplayName(school) : 'ShuleAI School';
     }
 
     if (!nav) return;
@@ -26,6 +24,8 @@ function updateSidebar(role) {
                 { icon: 'file-edit', label: 'Name Changes', section: 'name-change-requests' },
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
+                { icon: 'book-open', label: 'Curriculum Progress', section: 'curriculum-progress' },
+                { icon: 'book-open', label: 'Curriculum Progress', section: 'curriculum-progress' },
                 { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' }
             ],
             settings: [

@@ -165,11 +165,22 @@ async function renderStudentDashboard() {
                     </button>
                 </div>
 
-                <!-- Study Progress Chart -->
+                <!-- Study Progress Summary - dashboard uses cards/tables, not charts -->
                 <div class="rounded-xl border bg-card p-6">
-                    <h3 class="font-semibold mb-4">My Progress</h3>
-                    <div class="chart-container h-64">
-                        <canvas id="student-gradeChart"></canvas>
+                    <h3 class="font-semibold mb-4">My Progress Summary</h3>
+                    <div class="grid gap-3 md:grid-cols-3 text-sm">
+                        <div class="p-3 rounded-lg bg-muted/30">
+                            <p class="text-muted-foreground">Current Average</p>
+                            <p class="text-2xl font-bold">${dashboardData?.averageScore || dashboardData?.overallAverage || 0}%</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-muted/30">
+                            <p class="text-muted-foreground">Attendance</p>
+                            <p class="text-2xl font-bold">${dashboardData?.attendanceRate || 0}%</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-muted/30">
+                            <p class="text-muted-foreground">Points</p>
+                            <p class="text-2xl font-bold">${dashboardData?.points || 0}</p>
+                        </div>
                     </div>
                 </div>
 

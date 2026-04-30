@@ -606,7 +606,8 @@ async function renderParentChat() {
     const childName = selectedChild?.name || 'your child';
     const classTeacher = dashboardData?.selectedChild?.classTeacher;
     const conversations = await api.parent.getConversations();
-    const messages = conversations.data?.[0]?.messages || [];
+    const messages = [];
+    const parentConversations = conversations.data || [];
 
     return `
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -1015,3 +1016,28 @@ window.renderParentDashboard = renderParentDashboard;
 window.renderParentProgress = renderParentProgress;
 window.renderParentPayments = renderParentPayments;
 window.renderParentChat = renderParentChat;
+
+
+async function loadParentConversation(otherUserId) {
+    const container = document.getElementById('parent-chat-messages');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center text-muted-foreground py-8">Loading conversation...</div>';
+    try {
+        const res = await api.parent.getMessages(otherUserId);
+        const messages = res.data || [];
+        container.innerHTML = messages.length ? messages.map(msg => `
+            <div class="flex ${msg.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}">
+                <div class="${msg.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+                    <p class="text-sm font-medium">${msg.senderId === getCurrentUser().id ? 'You' : escapeHtml(msg.Sender?.name || 'School Staff')}</p>
+                    <p class="text-sm">${escapeHtml(msg.content)}</p>
+                    <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt || msg.timestamp)}</p>
+                </div>
+            </div>
+        `).join('') : '<div class="text-center text-muted-foreground py-8">No messages in this conversation yet.</div>';
+        window.currentParentChatPartner = otherUserId;
+    } catch (error) {
+        console.error('Parent conversation load failed:', error);
+        container.innerHTML = `<div class="text-center text-red-500 py-8">Could not load messages: ${escapeHtml(error.message)}</div>`;
+    }
+}
+window.loadParentConversation = loadParentConversation;
