@@ -165,22 +165,11 @@ async function renderStudentDashboard() {
                     </button>
                 </div>
 
-                <!-- Study Progress Summary - dashboard uses cards/tables, not charts -->
+                <!-- Study Progress Chart -->
                 <div class="rounded-xl border bg-card p-6">
-                    <h3 class="font-semibold mb-4">My Progress Summary</h3>
-                    <div class="grid gap-3 md:grid-cols-3 text-sm">
-                        <div class="p-3 rounded-lg bg-muted/30">
-                            <p class="text-muted-foreground">Current Average</p>
-                            <p class="text-2xl font-bold">${dashboardData?.averageScore || dashboardData?.overallAverage || 0}%</p>
-                        </div>
-                        <div class="p-3 rounded-lg bg-muted/30">
-                            <p class="text-muted-foreground">Attendance</p>
-                            <p class="text-2xl font-bold">${dashboardData?.attendanceRate || 0}%</p>
-                        </div>
-                        <div class="p-3 rounded-lg bg-muted/30">
-                            <p class="text-muted-foreground">Points</p>
-                            <p class="text-2xl font-bold">${dashboardData?.points || 0}</p>
-                        </div>
+                    <h3 class="font-semibold mb-4">My Progress</h3>
+                    <div class="chart-container h-64">
+                        <canvas id="student-gradeChart"></canvas>
                     </div>
                 </div>
 
@@ -876,3 +865,96 @@ window.sendStudentChatMessage = sendStudentChatMessage;
 window.loadStudentChatMessages = loadStudentChatMessages;
 window.loadDashboardLeaderboard = loadDashboardLeaderboard;
 window.loadDashboardBadges = loadDashboardBadges;
+
+
+// V6 Student class-scoped WhatsApp-style chat
+let selectedStudentChatMember = null;
+
+async function renderStudentClassChat() {
+    try {
+        const [membersRes, messagesRes] = await Promise.all([
+            api.studentChat.getClassMembers(),
+            api.studentChat.getClassGroupMessages()
+        ]);
+
+        const members = membersRes.data || [];
+        const messages = messagesRes.data || [];
+        const currentUser = getCurrentUser && getCurrentUser();
+
+        const membersHtml = members.length
+            ? members.map(m => ShuleChatUI.userRow(m, `openStudentPrivateChat(${m.userId || m.id})`)).join('')
+            : '<div class="p-4 text-sm text-muted-foreground">No classmates found for your class yet.</div>';
+
+        const messagesHtml = messages.map(m => ShuleChatUI.messageBubble(m, currentUser?.id)).join('');
+
+        return ShuleChatUI.shell({
+            title: 'Class Group Chat',
+            subtitle: 'Only students in your class can participate',
+            membersHtml,
+            messagesHtml,
+            inputId: 'student-class-chat-input',
+            sendFnName: 'sendStudentClassGroupMessage'
+        });
+    } catch (error) {
+        console.error('Student class chat error:', error);
+        return `<div class="card p-6">
+            <h3 class="font-bold text-red-600">Chat could not load</h3>
+            <p class="text-sm text-muted-foreground">${escapeHtml(error.message || 'Please try again later')}</p>
+        </div>`;
+    }
+}
+
+async function sendStudentClassGroupMessage() {
+    const input = document.getElementById('student-class-chat-input');
+    const message = input?.value?.trim();
+    if (!message) return;
+    await api.studentChat.sendClassGroupMessage(message);
+    input.value = '';
+    const content = document.getElementById('dashboard-content');
+    if (content) content.innerHTML = await renderStudentClassChat();
+}
+
+async function openStudentPrivateChat(userId) {
+    selectedStudentChatMember = userId;
+    try {
+        const [membersRes, messagesRes] = await Promise.all([
+            api.studentChat.getClassMembers(),
+            api.studentChat.getPrivateMessages(userId)
+        ]);
+        const members = membersRes.data || [];
+        const messages = messagesRes.data || [];
+        const currentUser = getCurrentUser && getCurrentUser();
+        const selected = members.find(m => String(m.userId || m.id) === String(userId));
+
+        const membersHtml = members.map(m => ShuleChatUI.userRow(m, `openStudentPrivateChat(${m.userId || m.id})`)).join('');
+        const messagesHtml = messages.map(m => ShuleChatUI.messageBubble(m, currentUser?.id)).join('');
+
+        const content = document.getElementById('dashboard-content');
+        if (content) {
+            content.innerHTML = ShuleChatUI.shell({
+                title: selected?.name || 'Private Chat',
+                subtitle: 'Private chat with your classmate',
+                membersHtml,
+                messagesHtml,
+                inputId: 'student-private-chat-input',
+                sendFnName: 'sendStudentPrivateMessage'
+            });
+        }
+    } catch (error) {
+        showToast(error.message || 'Private chat failed', 'error');
+    }
+}
+
+async function sendStudentPrivateMessage() {
+    const input = document.getElementById('student-private-chat-input');
+    const message = input?.value?.trim();
+    if (!message || !selectedStudentChatMember) return;
+    await api.studentChat.sendPrivateMessage(selectedStudentChatMember, message);
+    input.value = '';
+    await openStudentPrivateChat(selectedStudentChatMember);
+}
+
+window.renderStudentClassChat = renderStudentClassChat;
+window.sendStudentClassGroupMessage = sendStudentClassGroupMessage;
+window.openStudentPrivateChat = openStudentPrivateChat;
+window.sendStudentPrivateMessage = sendStudentPrivateMessage;

@@ -328,6 +328,7 @@
             color: hsl(var(--sidebar-accent-foreground));
         }
     </style>
+<link rel="stylesheet" href="css/chat-ui.css">
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
     
@@ -665,7 +666,7 @@
                 <div class="flex items-center gap-4">
                     <div class="hidden md:flex relative">
                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"></i>
-                        <input id="global-search" oninput="v8GlobalSearch(this.value)" type="text" placeholder="Search students, teachers, classes..." class="h-9 w-64 rounded-md border border-input bg-background pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring" autocomplete="off">
+                        <input id="global-search" type="text" placeholder="Search students, teachers, classes..." class="h-9 w-64 rounded-md border border-input bg-background pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring" autocomplete="off">
                         <div id="search-results" class="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg hidden z-50 max-h-96 overflow-y-auto"></div>
                     </div>
                     
@@ -724,6 +725,7 @@
 
 <!-- JavaScript Modules -->
 <script src="js/api.js" defer></script>
+<script src="js/chat-ui.js" defer></script>
 <script src="js/auth.js" defer></script>
 <script src="js/websocket.js" defer></script>
 <script src="js/helpers.js" defer></script>
@@ -740,8 +742,6 @@
 <script src="js/analytics.js" defer></script>
 <script src="js/upload.js" defer></script>
 <script src="js/calendar.js" defer></script>
-<script src="js/v7-academic-suite.js" defer></script>
-<script src="js/v8-platform-suite.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js" defer></script>
 <script src="js/messaging.js" defer></script>
 <script src="js/teacher-dashboard.js" defer></script>

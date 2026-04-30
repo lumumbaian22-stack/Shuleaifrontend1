@@ -1,3 +1,11 @@
+function renderProfileAvatar(userOrEntity, size = 'lg') {
+    const img = window.resolveMediaUrl ? resolveMediaUrl(userOrEntity?.profileImage || userOrEntity?.profilePicture || userOrEntity?.photo || userOrEntity?.User?.profileImage || '') : (userOrEntity?.profileImage || userOrEntity?.User?.profileImage || '');
+    const name = userOrEntity?.name || userOrEntity?.fullName || userOrEntity?.firstName || userOrEntity?.User?.name || 'User';
+    const initials = String(name).split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0]).join('').toUpperCase() || 'U';
+    const cls = size === 'sm' ? 'w-10 h-10' : 'w-20 h-20';
+    return `<div class="${cls} rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-blue-500 text-white font-bold grid place-items-center shrink-0">${img ? `<img src="${img}" class="w-full h-full object-cover" alt="${escapeHtml(name)}" onerror="this.remove(); this.parentElement.innerHTML='${initials}'">` : initials}</div>`;
+}
+
 // ============ CRITICAL FALLBACKS for admin-dashboard ============
 if (typeof window.loadAllTeachers !== 'function') {
     console.warn('loadAllTeachers not defined – using fallback');
@@ -575,7 +583,7 @@ function renderAdminDashboard() {
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <div class="flex items-center gap-3 mb-2">
-                            <h2 id="dashboard-school-name" class="text-2xl font-bold">${getSchoolDisplayName(school)}</h2>
+                            <h2 id="dashboard-school-name" class="text-2xl font-bold">${school?.name || 'Your School'}</h2>
                             <span class="px-3 py-1 ${school?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} text-xs rounded-full">${school?.status || 'pending'}</span>
                         </div>
                         <div class="flex items-center gap-4">
@@ -1113,8 +1121,30 @@ function renderAdminSettings() {
 let currentTimetableId = null;
 
 async function renderAdminTimetable() {
-    if (typeof window.renderV7AdminTimetable === 'function') return await window.renderV7AdminTimetable();
-    return '<div class="text-red-500">V7 timetable module not loaded.</div>';
+    const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
+    showLoading();
+    try {
+        const res = await apiRequest(`/api/timetable?weekStartDate=${weekStart}`);
+        const timetable = (res && res.data) ? res.data : null;
+        if (timetable) currentTimetableId = timetable.id;
+        hideLoading();
+
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Timetable Management</h2>
+                <div class="flex gap-3">
+                    <button onclick="generateTimetable('${weekStart}')" class="px-4 py-2 bg-primary text-white rounded-lg">Generate New</button>
+                    ${timetable && !timetable.isPublished ? 
+                        `<button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>` : ''}
+                </div>
+            </div>
+            <div class="text-sm text-muted-foreground">Current week: ${weekStart}</div>
+            <div id="admin-timetable-grid">
+                ${timetable ? window.renderTimetableGrid(timetable.slots) : '<div class="text-center py-12">No timetable yet. Click Generate to create one.</div>'}
+            </div>
+        </div>`;
+    } catch(e) { hideLoading(); return `<div class="text-red-500">Error: ${escapeHtml(e.message)}</div>`; }
 }
 
 async function generateTimetable(prefilledWeek) {
@@ -1400,11 +1430,11 @@ window.saveAllSettings = async function() {
             // === END ADD ===
             
             const school = JSON.parse(localStorage.getItem('school') || '{}');
-            school.requestedName = schoolName;
+            school.name = schoolName;
             school.system = curriculum;
             school.settings = response.data.settings;
             localStorage.setItem('school', JSON.stringify(school));
-            updateAllSchoolNameElements(getSchoolDisplayName(school));
+            updateAllSchoolNameElements(schoolName);
             showToast('✅ Settings saved!', 'success');
             await updateAdminStats();
         } else {
