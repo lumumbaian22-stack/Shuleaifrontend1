@@ -328,6 +328,8 @@
             color: hsl(var(--sidebar-accent-foreground));
         }
     </style>
+    <link rel="stylesheet" href="css/landing-premium.css">
+    <link rel="stylesheet" href="css/dashboard-production.css">
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
     
@@ -343,225 +345,357 @@
     </div>
 
     <!-- LANDING PAGE -->
-    <div id="landing-page" class="min-h-screen bg-background">
-        <!-- Hero Section - REDESIGNED -->
-        <section class="relative min-h-[90vh] flex items-center justify-center bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 overflow-hidden">
-            <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djJIMjR2LTJoMTJ6TTM2IDIwdjJIMjR2LTJoMTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
-            <div class="container mx-auto px-4 text-center text-white relative z-10">
-                <div class="flex items-center justify-center gap-4 mb-6 cursor-pointer" id="secret-logo-trigger">
-                    <img src="assets/logo-light.png" alt="Logo" class="h-20 w-20 object-contain rounded-xl shadow-lg">
-                    <div>
-                        <span class="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-300 to-yellow-300">ShuleAI</span>
+    <div id="landing-page" class="landing-premium">
+        <!-- Navbar -->
+        <header class="lp-navbar" id="lp-navbar">
+            <a href="#home" class="lp-brand" id="super-admin-trigger" title="Shule AI">
+                <span class="lp-brand-mark">S</span>
+                <span>Shule<span>AI</span></span>
+            </a>
+
+            <button class="lp-menu-btn" id="lp-menu-btn" type="button" aria-label="Open menu">
+                <span></span><span></span><span></span>
+            </button>
+
+            <nav class="lp-nav-links" id="lp-nav-links">
+                <a href="#platform">Platform</a>
+                <a href="#portal">Portals</a>
+                <a href="#gamified">Gamification</a>
+                <a href="#roles">Roles</a>
+                <a href="#pricing">Pricing</a>
+            </nav>
+
+            <div class="lp-nav-actions">
+                <button type="button" class="lp-btn lp-btn-ghost" onclick="openAuthModal('admin','signin')">Login</button>
+                <a class="lp-btn lp-btn-primary" href="#portal">Get Started</a>
+            </div>
+        </header>
+
+        <!-- Hidden Super Admin Notice -->
+        <div class="lp-secret-toast" id="lp-secret-toast">
+            <strong>Super Admin access unlocked</strong>
+            <span>Opening secure platform login...</span>
+        </div>
+
+        <!-- Hero -->
+        <section class="lp-hero" id="home">
+            <div class="lp-glow lp-glow-1"></div>
+            <div class="lp-glow lp-glow-2"></div>
+
+            <div class="lp-hero-grid">
+                <div class="lp-hero-copy lp-reveal">
+                    <div class="lp-eyebrow">
+                        <span></span>
+                        AI-powered school operating system
+                    </div>
+
+                    <h1>Your School.<br>Powered by <em>AI.</em></h1>
+                    <p>
+                        Shule AI combines intelligent tutoring, real-time analytics, gamified homework,
+                        parent communication, timetable tools, and school management into one modern platform.
+                    </p>
+
+                    <div class="lp-hero-actions">
+                        <a class="lp-btn lp-btn-primary lp-btn-lg" href="#portal">Choose Your Portal</a>
+                        <a class="lp-btn lp-btn-glass lp-btn-lg" href="#platform">Explore Features</a>
+                    </div>
+
+                    <div class="lp-proof-grid">
+                        <div><strong>4 Portals</strong><span>Admin, Teacher, Parent, Student</span></div>
+                        <div><strong>Live Data</strong><span>Analytics & insights</span></div>
+                        <div><strong>CBC/CBE</strong><span>Curriculum-aware</span></div>
                     </div>
                 </div>
-                
-                <h1 class="max-w-4xl mx-auto text-5xl md:text-7xl font-extrabold tracking-tight leading-tight">
-                    The <span class="bg-clip-text text-transparent bg-gradient-to-r from-pink-300 to-yellow-300">Intelligent</span> School Ecosystem
-                </h1>
-                
-                <p class="mt-8 max-w-2xl mx-auto text-xl text-white/80">
-                    Streamline administration, empower teachers, engage parents, and guide students—all in one seamless platform.
-                </p>
-                
-                <div class="mt-12 flex flex-wrap gap-4 justify-center">
-                    <a href="#role-cards" class="rounded-full bg-white text-blue-700 px-8 py-4 font-semibold text-lg shadow-xl hover:bg-gray-100 transition transform hover:scale-105">
-                        Get Started
-                    </a>
-                    <a href="#stats" class="rounded-full border-2 border-white text-white px-8 py-4 font-semibold text-lg hover:bg-white/10 transition">
-                        Learn More
-                    </a>
+
+                <div class="lp-preview-wrap lp-reveal lp-delay-1">
+                    <div class="lp-preview-card">
+                        <div class="lp-window-bar">
+                            <i></i><i></i><i></i>
+                            <span>Shule AI Control Center</span>
+                        </div>
+
+                        <div class="lp-preview-tabs">
+                            <button type="button" class="active" data-preview="student">Student</button>
+                            <button type="button" data-preview="teacher">Teacher</button>
+                            <button type="button" data-preview="parent">Parent</button>
+                        </div>
+
+                        <div class="lp-preview-screen active" id="student-preview">
+                            <div class="lp-preview-head">
+                                <div>
+                                    <span>Student Progress</span>
+                                    <h3>Brian Otieno</h3>
+                                </div>
+                                <b class="lp-pill gold">Level 8</b>
+                            </div>
+                            <div class="lp-stats">
+                                <div><span>Average</span><strong>82%</strong></div>
+                                <div><span>Points</span><strong>1,240</strong></div>
+                                <div><span>Streak</span><strong>12 days</strong></div>
+                            </div>
+                            <div class="lp-progress-card">
+                                <div><span>Mathematics Mastery</span><strong>76%</strong></div>
+                                <p><i style="width:76%"></i></p>
+                            </div>
+                            <div class="lp-mini-list">
+                                <div><b>🤖</b><span>AI Tutor helped with fractions</span></div>
+                                <div><b>🏅</b><span>Unlocked Homework Hero badge</span></div>
+                            </div>
+                        </div>
+
+                        <div class="lp-preview-screen" id="teacher-preview">
+                            <div class="lp-preview-head">
+                                <div>
+                                    <span>Teacher Workspace</span>
+                                    <h3>Grade 6 Blue</h3>
+                                </div>
+                                <b class="lp-pill blue">Class Teacher</b>
+                            </div>
+                            <div class="lp-stats">
+                                <div><span>Students</span><strong>42</strong></div>
+                                <div><span>Draft Marks</span><strong>18</strong></div>
+                                <div><span>Attendance</span><strong>96%</strong></div>
+                            </div>
+                            <div class="lp-flow">
+                                <div><b>1</b> Subject teachers enter draft marks</div>
+                                <div><b>2</b> Class teacher reviews report card</div>
+                                <div><b>3</b> Final marks published to parents</div>
+                            </div>
+                        </div>
+
+                        <div class="lp-preview-screen" id="parent-preview">
+                            <div class="lp-preview-head">
+                                <div>
+                                    <span>Parent View</span>
+                                    <h3>Child Insight Summary</h3>
+                                </div>
+                                <b class="lp-pill purple">Live</b>
+                            </div>
+                            <div class="lp-parent-money">
+                                <div><span>Fee Balance</span><strong>KES 4,500</strong></div>
+                                <button type="button" onclick="openAuthModal('parent','signin')">Track</button>
+                            </div>
+                            <div class="lp-mini-list">
+                                <div><b>📈</b><span>English improved by 9% this term</span></div>
+                                <div><b>📩</b><span>New message from class teacher</span></div>
+                                <div><b>🏠</b><span>2 homework tasks pending today</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lp-float chip-1">AI Tutor Online</div>
+                    <div class="lp-float chip-2">+18% Progress</div>
+                    <div class="lp-float chip-3">3 Badges Earned</div>
                 </div>
             </div>
         </section>
 
-        <!-- Stats Section -->
-        <section id="stats" class="py-16 lg:py-24 container mx-auto px-4">
-            <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold">Trusted by schools across the country</h2>
-                <p class="text-muted-foreground mt-2">Real-time data at your fingertips</p>
+        <!-- Portal chooser -->
+        <section class="lp-section lp-light" id="portal">
+            <div class="lp-section-head lp-reveal">
+                <span>Choose your portal</span>
+                <h2>Login or sign up from the right dashboard.</h2>
+                <p>No guessing. Every user starts from the correct role and gets the correct workflow.</p>
             </div>
-            
-            <!-- Stats Grid -->
-            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <div class="rounded-xl border bg-card p-6 card-hover text-center">
-                    <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                        <i data-lucide="users" class="h-6 w-6 text-blue-600"></i>
+
+            <div class="lp-portal-grid">
+                <article class="lp-portal-card lp-reveal">
+                    <div class="lp-portal-icon">🏫</div>
+                    <h3>School Admin</h3>
+                    <p>Create classes, manage teachers, approve users, assign class/subject teachers, generate timetable, and view school analytics.</p>
+                    <div class="lp-card-actions">
+                        <button type="button" class="lp-btn lp-btn-primary" onclick="openAuthModal('admin','signin')">Admin Login</button>
+                        <button type="button" class="lp-btn lp-btn-outline" onclick="openAuthModal('admin','signup')">Sign Up School</button>
                     </div>
-                    <p class="text-3xl font-bold">2,543+</p>
-                    <p class="text-sm text-muted-foreground">Active Students</p>
-                </div>
-                
-                <div class="rounded-xl border bg-card p-6 card-hover text-center">
-                    <div class="h-12 w-12 rounded-lg bg-violet-100 flex items-center justify-center mx-auto mb-4">
-                        <i data-lucide="users" class="h-6 w-6 text-violet-600"></i>
+                </article>
+
+                <article class="lp-portal-card lp-reveal lp-delay-1">
+                    <div class="lp-portal-icon">👨‍🏫</div>
+                    <h3>Teacher</h3>
+                    <p>Enter subject marks, upload class students if assigned as class teacher, take attendance, assign homework, and message parents.</p>
+                    <div class="lp-card-actions">
+                        <button type="button" class="lp-btn lp-btn-primary" onclick="openAuthModal('teacher','signin')">Teacher Login</button>
+                        <button type="button" class="lp-btn lp-btn-outline" onclick="openAuthModal('teacher','signup')">Teacher Sign Up</button>
                     </div>
-                    <p class="text-3xl font-bold">128+</p>
-                    <p class="text-sm text-muted-foreground">Expert Teachers</p>
-                </div>
-                
-                <div class="rounded-xl border bg-card p-6 card-hover text-center">
-                    <div class="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-                        <i data-lucide="book-open" class="h-6 w-6 text-emerald-600"></i>
+                </article>
+
+                <article class="lp-portal-card lp-reveal lp-delay-2">
+                    <div class="lp-portal-icon">👨‍👩‍👧</div>
+                    <h3>Parent</h3>
+                    <p>Track your child’s grades, homework, attendance, fees, analytics, and communicate with school staff.</p>
+                    <div class="lp-card-actions">
+                        <button type="button" class="lp-btn lp-btn-primary" onclick="openAuthModal('parent','signin')">Parent Login</button>
+                        <button type="button" class="lp-btn lp-btn-outline" onclick="openAuthModal('parent','signup')">Parent Sign Up</button>
                     </div>
-                    <p class="text-3xl font-bold">64</p>
-                    <p class="text-sm text-muted-foreground">Interactive Classes</p>
-                </div>
-                
-                <div class="rounded-xl border bg-card p-6 card-hover text-center">
-                    <div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                        <i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i>
+                </article>
+
+                <article class="lp-portal-card lp-reveal">
+                    <div class="lp-portal-icon">🎓</div>
+                    <h3>Student</h3>
+                    <p>Use ELIMU ID to access homework, AI tutor, rewards, badges, grades, attendance, and learning progress.</p>
+                    <div class="lp-card-actions">
+                        <button type="button" class="lp-btn lp-btn-primary" onclick="openAuthModal('student','signin')">Student Login</button>
+                        <button type="button" class="lp-btn lp-btn-outline" onclick="document.getElementById('student-help').scrollIntoView({behavior:'smooth'})">How Students Join</button>
                     </div>
-                    <p class="text-3xl font-bold">94.2%</p>
-                    <p class="text-sm text-muted-foreground">Attendance Rate</p>
-                </div>
+                </article>
             </div>
-            
-            <!-- Simple chart placeholder -->
-            <div class="mt-12 rounded-xl border bg-card p-6 max-w-2xl mx-auto">
-                <h3 class="font-semibold mb-4 text-center">Enrollment growth (last 6 months)</h3>
-                <div class="h-40 w-full bg-gradient-to-r from-blue-200 to-violet-200 rounded-lg flex items-end justify-around p-2">
-                    <div class="w-8 bg-blue-500 h-16 rounded-t"></div>
-                    <div class="w-8 bg-blue-500 h-20 rounded-t"></div>
-                    <div class="w-8 bg-blue-500 h-24 rounded-t"></div>
-                    <div class="w-8 bg-blue-500 h-28 rounded-t"></div>
-                    <div class="w-8 bg-blue-500 h-32 rounded-t"></div>
-                    <div class="w-8 bg-blue-500 h-36 rounded-t"></div>
+
+            <div class="lp-student-note lp-reveal" id="student-help">
+                <strong>Student access note:</strong>
+                Students do not create accounts publicly. The school or class teacher adds students, then students log in using their ELIMU ID and assigned password.
+            </div>
+        </section>
+
+        <!-- Platform -->
+        <section class="lp-section lp-light" id="platform">
+            <div class="lp-section-head lp-reveal">
+                <span>Core platform</span>
+                <h2>Everything your school needs. One clean system.</h2>
+                <p>Built for real school workflows — not generic dashboards pretending to fit everyone.</p>
+            </div>
+
+            <div class="lp-feature-grid">
+                <article class="lp-feature-card lp-reveal"><b>🤖</b><h3>AI Tutor</h3><p>Personalized support based on grades, competencies, homework, and weak areas.</p></article>
+                <article class="lp-feature-card lp-reveal lp-delay-1"><b>📊</b><h3>Smart Analytics</h3><p>Live dashboards for performance, attendance, homework, risks, and class progress.</p></article>
+                <article class="lp-feature-card lp-reveal lp-delay-2"><b>🏠</b><h3>Homework System</h3><p>Assign tasks, track submissions, and guide parents at home.</p></article>
+                <article class="lp-feature-card lp-reveal"><b>💬</b><h3>Messaging</h3><p>Clean communication between parents, teachers, students, and school staff.</p></article>
+                <article class="lp-feature-card lp-reveal lp-delay-1"><b>🗓️</b><h3>Timetable AI</h3><p>Generate class timetables by term or year while balancing teachers and subjects.</p></article>
+                <article class="lp-feature-card lp-reveal lp-delay-2"><b>🏅</b><h3>Gamification</h3><p>Points, badges, leaderboards, rewards, streaks, and motivation built into learning.</p></article>
+            </div>
+        </section>
+
+        <!-- Gamified -->
+        <section class="lp-section lp-game" id="gamified">
+            <div class="lp-game-grid">
+                <div class="lp-leaderboard lp-reveal">
+                    <div class="lp-card-title"><h3>Class Leaderboard</h3><span>Weekly XP</span></div>
+                    <div class="lp-leader first"><b>🥇</b><span>Amina</span><strong>2,430 XP</strong></div>
+                    <div class="lp-leader"><b>🥈</b><span>Brian</span><strong>2,120 XP</strong></div>
+                    <div class="lp-leader"><b>🥉</b><span>Faith</span><strong>1,980 XP</strong></div>
+                    <div class="lp-badges"><span>📚</span><span>⚡</span><span>🎯</span><span>🔥</span></div>
+                </div>
+
+                <div class="lp-game-copy lp-reveal lp-delay-1">
+                    <span>Gamified learning</span>
+                    <h2>Learning that feels like a game — but still improves results.</h2>
+                    <p>Students earn points, unlock badges, complete homework streaks, and compete positively with classmates.</p>
+                    <div class="lp-game-list">
+                        <div><b>XP</b><p>Earn points for homework, attendance, progress, and effort.</p></div>
+                        <div><b>🏅</b><p>Unlock badges like Homework Hero, Attendance Star, and Prefect.</p></div>
+                        <div><b>📈</b><p>Parents and teachers see the academic impact behind the fun.</p></div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Role Cards Section -->
-        <section id="role-cards" class="py-16 lg:py-24 bg-muted/30">
-            <div class="container mx-auto px-4">
-                <div class="text-center mb-12">
-                    <h2 class="text-3xl font-bold">One platform for every role</h2>
-                    <p class="text-muted-foreground mt-2">Select your role to sign in or create an account</p>
+        <!-- Roles -->
+        <section class="lp-section lp-light" id="roles">
+            <div class="lp-section-head lp-reveal">
+                <span>Role-based experience</span>
+                <h2>Every user gets the dashboard they actually need.</h2>
+                <p>Admin, Teacher, Parent, and Student flows stay separate, clean, and permission-controlled.</p>
+            </div>
+
+            <div class="lp-role-tabs lp-reveal">
+                <button class="active" type="button" data-role-tab="admin">Admin</button>
+                <button type="button" data-role-tab="teacher">Teacher</button>
+                <button type="button" data-role-tab="parent">Parent</button>
+                <button type="button" data-role-tab="student">Student</button>
+            </div>
+
+            <div class="lp-role-panel lp-reveal lp-delay-1">
+                <div class="lp-role-content active" id="role-admin">
+                    <div><h3>Admin Control Center</h3><p>Create classes, approve teachers, assign class teachers, manage curriculum, events, calendar, timetable, and school-wide analytics.</p></div>
+                    <div class="lp-role-mock"><span>Total Students</span><strong>1,248</strong><span>Pending Approvals</span><strong>7</strong><span>Active Classes</span><strong>34</strong></div>
                 </div>
-                
-                <!-- Role Cards Grid -->
-                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-                    <!-- Super Admin (hidden by default) -->
-                    <div id="superadmin-role-card" class="rounded-xl border bg-card p-6 card-hover flex flex-col items-center text-center hidden">
-                        <div class="h-16 w-16 rounded-full bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center mb-4 shadow-md">
-                            <i data-lucide="shield" class="h-8 w-8 text-white"></i>
-                        </div>
-                        <h3 class="font-semibold text-lg">Super Admin</h3>
-                        <p class="text-xs text-muted-foreground mt-1 mb-4">Platform oversight</p>
-                        <div class="flex gap-2 w-full">
-                            <button onclick="openAuthModal('superadmin', 'signin')" class="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90">Sign In</button>
-                        </div>
-                    </div>
+                <div class="lp-role-content" id="role-teacher">
+                    <div><h3>Teacher Workspace</h3><p>Subject teachers enter subject marks. Class teachers upload students, review class results, and publish final report-card marks.</p></div>
+                    <div class="lp-role-mock"><span>Assigned Classes</span><strong>4</strong><span>Draft Marks</span><strong>28</strong><span>Messages</span><strong>12</strong></div>
+                </div>
+                <div class="lp-role-content" id="role-parent">
+                    <div><h3>Parent Dashboard</h3><p>Parents track child progress, attendance, homework, fees, analytics, and messages in one friendly dashboard.</p></div>
+                    <div class="lp-role-mock"><span>Attendance</span><strong>94%</strong><span>Homework Pending</span><strong>2</strong><span>Balance</span><strong>KES 4,500</strong></div>
+                </div>
+                <div class="lp-role-content" id="role-student">
+                    <div><h3>Student Learning Hub</h3><p>Students see assignments, rewards, grades, AI help, badges, and progress without feeling like they’re inside an admin system.</p></div>
+                    <div class="lp-role-mock"><span>Points</span><strong>1,240</strong><span>Badges</span><strong>9</strong><span>Average</span><strong>82%</strong></div>
+                </div>
+            </div>
+        </section>
 
-                    <!-- Admin -->
-                    <div class="rounded-xl border bg-card p-6 card-hover flex flex-col items-center text-center">
-                        <div class="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center mb-4 shadow-md">
-                            <i data-lucide="building-2" class="h-8 w-8 text-white"></i>
-                        </div>
-                        <h3 class="font-semibold text-lg">Admin</h3>
-                        <p class="text-xs text-muted-foreground mt-1 mb-4">School management</p>
-                        <div class="flex gap-2 w-full">
-                            <button onclick="openAuthModal('admin', 'signin')" class="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90">Sign In</button>
-                            <button onclick="openAuthModal('admin', 'signup')" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-xs font-medium hover:bg-accent">Sign Up</button>
-                        </div>
+        <!-- Trust -->
+        <section class="lp-section lp-trust" id="trust">
+            <div class="lp-trust-grid">
+                <div class="lp-trust-copy lp-reveal">
+                    <span>Trust & adoption</span>
+                    <h2>Built for schools. Loved by parents.</h2>
+                    <p>Shule AI is designed around real school operations: class teachers, subject teachers, calendars, report cards, homework, fees, and daily communication.</p>
+                    <div class="lp-trust-stats">
+                        <div><strong>10k+</strong><span>Student records ready</span></div>
+                        <div><strong>500+</strong><span>Teacher workflows</span></div>
+                        <div><strong>24/7</strong><span>Parent visibility</span></div>
                     </div>
+                </div>
 
-                    <!-- Teacher -->
-                    <div class="rounded-xl border bg-card p-6 card-hover flex flex-col items-center text-center">
-                        <div class="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-4 shadow-md">
-                            <i data-lucide="presentation" class="h-8 w-8 text-white"></i>
-                        </div>
-                        <h3 class="font-semibold text-lg">Teacher</h3>
-                        <p class="text-xs text-muted-foreground mt-1 mb-4">Classroom management</p>
-                        <div class="flex gap-2 w-full">
-                            <button onclick="openAuthModal('teacher', 'signin')" class="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90">Sign In</button>
-                            <button onclick="openAuthModal('teacher', 'signup')" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-xs font-medium hover:bg-accent">Sign Up</button>
-                        </div>
-                    </div>
+                <div class="lp-testimonials lp-reveal lp-delay-1">
+                    <div><p>“Parents finally understand what is happening before end-term results.”</p><span>— School Administrator</span></div>
+                    <div><p>“The class teacher publishing flow makes report cards controlled and accountable.”</p><span>— Class Teacher</span></div>
+                    <div><p>“Homework and points make students more consistent at home.”</p><span>— Parent</span></div>
+                </div>
+            </div>
+        </section>
 
-                    <!-- Parent -->
-                    <div class="rounded-xl border bg-card p-6 card-hover flex flex-col items-center text-center">
-                        <div class="h-16 w-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-4 shadow-md">
-                            <i data-lucide="heart" class="h-8 w-8 text-white"></i>
-                        </div>
-                        <h3 class="font-semibold text-lg">Parent</h3>
-                        <p class="text-xs text-muted-foreground mt-1 mb-4">Track your child</p>
-                        <div class="flex gap-2 w-full">
-                            <button onclick="openAuthModal('parent', 'signin')" class="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90">Sign In</button>
-                            <button onclick="openAuthModal('parent', 'signup')" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-xs font-medium hover:bg-accent">Sign Up</button>
-                        </div>
-                    </div>
+        <!-- Pricing -->
+        <section class="lp-section lp-light" id="pricing">
+            <div class="lp-section-head lp-reveal">
+                <span>Pricing</span>
+                <h2>Simple plans for growing schools.</h2>
+                <p>Start lean, then upgrade when the school is ready for advanced AI, analytics, and automation.</p>
+            </div>
 
-                    <!-- Student -->
-                    <div class="rounded-xl border bg-card p-6 card-hover flex flex-col items-center text-center">
-                        <div class="h-16 w-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center mb-4 shadow-md">
-                            <i data-lucide="graduation-cap" class="h-8 w-8 text-white"></i>
-                        </div>
-                        <h3 class="font-semibold text-lg">Student</h3>
-                        <p class="text-xs text-muted-foreground mt-1 mb-4">Access your learning portal</p>
-                        <div class="flex gap-2 w-full">
-                            <button onclick="openStudentLoginModal()" class="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90">Login</button>
-                        </div>
-                        <p class="text-xs text-muted-foreground mt-3">New students: Get ELIMUID from your teacher</p>
-                    </div>
+            <div class="lp-pricing-grid">
+                <article class="lp-price-card lp-reveal">
+                    <h3>Free Trial</h3><p>Test the core dashboard and onboarding flow.</p><strong>KES 0</strong><span>limited trial</span>
+                    <ul><li>Basic dashboards</li><li>Sample analytics</li><li>Student and teacher preview</li></ul>
+                    <button type="button" class="lp-btn lp-btn-outline" onclick="openAuthModal('admin','signup')">Try Demo</button>
+                </article>
+                <article class="lp-price-card featured lp-reveal lp-delay-1">
+                    <i>Most Practical</i><h3>Starter School</h3><p>For schools ready to manage real users and records.</p><strong>Custom</strong><span>per school / term</span>
+                    <ul><li>Admin, teacher, parent, student portals</li><li>Marks, attendance, messaging</li><li>Calendar and school settings</li></ul>
+                    <button type="button" class="lp-btn lp-btn-primary" onclick="openAuthModal('admin','signup')">Get Started</button>
+                </article>
+                <article class="lp-price-card lp-reveal lp-delay-2">
+                    <h3>Pro School</h3><p>Advanced automation, AI tutor, analytics, and gamification.</p><strong>Custom</strong><span>premium plan</span>
+                    <ul><li>AI tutor and insights</li><li>Advanced timetable tools</li><li>Gamification and reward system</li></ul>
+                    <a class="lp-btn lp-btn-outline" href="mailto:hello@shuleai.app?subject=Shule%20AI%20Pro%20School%20Inquiry">Contact Sales</a>
+                </article>
+            </div>
+        </section>
+
+        <!-- Final CTA -->
+        <section class="lp-final-cta">
+            <div class="lp-final-card lp-reveal">
+                <h2>Start transforming your school today.</h2>
+                <p>One platform for learning, school operations, parent engagement, and AI-powered student growth.</p>
+                <div class="lp-hero-actions center">
+                    <a class="lp-btn lp-btn-primary lp-btn-lg" href="#portal">Choose Portal</a>
+                    <button type="button" class="lp-btn lp-btn-glass lp-btn-lg" onclick="openAuthModal('admin','signin')">Login</button>
                 </div>
             </div>
         </section>
 
         <!-- Footer -->
-        <footer class="bg-card border-t border-border py-12">
-            <div class="container mx-auto px-4">
-                <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                        <div class="flex items-center gap-2 mb-4">
-                            <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
-                              <img src="assets/logo-light.png" alt="Logo" class="h-10 w-10 object-contain block dark:hidden">
-                              <img src="assets/logo-dark.png" alt="Logo" class="h-10 w-10 object-contain hidden dark:block">
-                            </div>
-                            <span class="text-lg font-bold">ShuleAI</span>
-                        </div>
-                        <p class="text-sm text-muted-foreground">Modern school management for the digital age. Empowering education through intelligence.</p>
-                    </div>
-                    
-                    <div>
-                        <h4 class="font-semibold mb-4">Quick Links</h4>
-                        <ul class="space-y-2 text-sm text-muted-foreground">
-                            <li><a href="#" class="hover:text-foreground transition-colors">About Us</a></li>
-                            <li><a href="#" class="hover:text-foreground transition-colors">Features</a></li>
-                            <li><a href="#" class="hover:text-foreground transition-colors">Pricing</a></li>
-                            <li><a href="#" class="hover:text-foreground transition-colors">Blog</a></li>
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <h4 class="font-semibold mb-4">Support</h4>
-                        <ul class="space-y-2 text-sm text-muted-foreground">
-                            <li><a href="#" class="hover:text-foreground transition-colors">Help Center</a></li>
-                            <li><a href="#" class="hover:text-foreground transition-colors">Documentation</a></li>
-                            <li><a href="#" class="hover:text-foreground transition-colors">Contact Us</a></li>
-                            <li><a href="#" class="hover:text-foreground transition-colors">Privacy Policy</a></li>
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <h4 class="font-semibold mb-4">Connect</h4>
-                        <div class="flex gap-3">
-                            <a href="#" class="h-9 w-9 rounded-lg border border-input flex items-center justify-center hover:bg-accent transition-colors">
-                                <i data-lucide="twitter" class="h-4 w-4"></i>
-                            </a>
-                            <a href="#" class="h-9 w-9 rounded-lg border border-input flex items-center justify-center hover:bg-accent transition-colors">
-                                <i data-lucide="linkedin" class="h-4 w-4"></i>
-                            </a>
-                            <a href="#" class="h-9 w-9 rounded-lg border border-input flex items-center justify-center hover:bg-accent transition-colors">
-                                <i data-lucide="github" class="h-4 w-4"></i>
-                            </a>
-                            <a href="#" class="h-9 w-9 rounded-lg border border-input flex items-center justify-center hover:bg-accent transition-colors">
-                                <i data-lucide="mail" class="h-4 w-4"></i>
-                            </a>
-                        </div>
-                        <p class="text-sm text-muted-foreground mt-4">© 2026 ShuleAI. All rights reserved.</p>
-                    </div>
+        <footer class="lp-footer">
+            <div class="lp-footer-grid">
+                <div>
+                    <a href="#home" class="lp-brand footer-brand"><span class="lp-brand-mark">S</span><span>Shule<span>AI</span></span></a>
+                    <p>AI-powered school management, learning, analytics, and parent engagement.</p>
                 </div>
+                <div><h4>Platform</h4><a href="#platform">Features</a><a href="#gamified">Gamification</a><a href="#roles">Roles</a></div>
+                <div><h4>Portals</h4><button type="button" onclick="openAuthModal('admin','signin')">Admin</button><button type="button" onclick="openAuthModal('teacher','signin')">Teacher</button><button type="button" onclick="openAuthModal('parent','signin')">Parent</button><button type="button" onclick="openAuthModal('student','signin')">Student</button></div>
+                <div><h4>Contact</h4><a href="mailto:hello@shuleai.app">hello@shuleai.app</a><a href="#trust">Nairobi, Kenya</a></div>
             </div>
+            <div class="lp-footer-bottom"><span>© 2026 Shule AI. All rights reserved.</span><span>Click the logo 5 times for secure platform access.</span></div>
         </footer>
     </div>
 
@@ -758,6 +892,8 @@
 <script src="js/tasks.js" defer></script>
 <script src="js/analytics-dashboard.js" defer></script>
 <script src="js/student-details-unified.js" defer></script>
+<script src="js/landing-premium.js" defer></script>
+<script src="js/dashboard-production.js" defer></script>
 <script src="js/main.js" defer></script>
 <script src="js/app-health.js" defer></script>
 </body>
