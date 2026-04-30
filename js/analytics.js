@@ -4,21 +4,8 @@ let charts = window.charts;
 
 // ============ MAIN INITIALIZATION ============
 async function initRoleCharts(role, data) {
-    try {
-        if (role === 'admin') {
-            await initAdminCharts();
-        } else if (role === 'teacher') {
-            await initTeacherCharts(data);
-        } else if (role === 'parent') {
-            await initParentCharts(data);
-        } else if (role === 'student') {
-            await initStudentCharts(data);
-        } else if (role === 'superadmin') {
-            await initSuperAdminCharts();
-        }
-    } catch (error) {
-        console.error('Chart initialization error:', error);
-    }
+    // Disabled for dashboard auto-charting. Dedicated analytics pages render their own real-time charts.
+    return;
 }
 
 // ============ ADMIN CHARTS ============

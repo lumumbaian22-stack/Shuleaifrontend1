@@ -1,11 +1,3 @@
-function renderProfileAvatar(userOrEntity, size = 'lg') {
-    const img = window.resolveMediaUrl ? resolveMediaUrl(userOrEntity?.profileImage || userOrEntity?.profilePicture || userOrEntity?.photo || userOrEntity?.User?.profileImage || '') : (userOrEntity?.profileImage || userOrEntity?.User?.profileImage || '');
-    const name = userOrEntity?.name || userOrEntity?.fullName || userOrEntity?.firstName || userOrEntity?.User?.name || 'User';
-    const initials = String(name).split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0]).join('').toUpperCase() || 'U';
-    const cls = size === 'sm' ? 'w-10 h-10' : 'w-20 h-20';
-    return `<div class="${cls} rounded-full overflow-hidden bg-gradient-to-br from-emerald-500 to-blue-500 text-white font-bold grid place-items-center shrink-0">${img ? `<img src="${img}" class="w-full h-full object-cover" alt="${escapeHtml(name)}" onerror="this.remove(); this.parentElement.innerHTML='${initials}'">` : initials}</div>`;
-}
-
 // ============ CRITICAL FALLBACKS for admin-dashboard ============
 if (typeof window.loadAllTeachers !== 'function') {
     console.warn('loadAllTeachers not defined – using fallback');

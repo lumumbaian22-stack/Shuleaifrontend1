@@ -344,15 +344,10 @@ async function showDashboardSection(section) {
 
         updateSidebarActiveState(section);
 
-        if (section === 'dashboard' || section === 'analytics') {
+        // Dashboard pages must stay card/table based only.
+        // Charts are initialized only inside the dedicated Analytics section.
+        if (section === 'analytics') {
             setTimeout(() => {
-                if (currentRole === 'admin') {
-                    if (typeof initAdminCharts === 'function') initAdminCharts();
-                } else if (currentRole === 'teacher') {
-                    if (typeof initTeacherCharts === 'function') {
-                        initTeacherCharts(dashboardData);
-                    }
-                }
                 if (typeof initRoleCharts === 'function') {
                     initRoleCharts(currentRole, dashboardData);
                 }

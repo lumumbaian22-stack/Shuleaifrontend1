@@ -208,7 +208,7 @@ const superAdminAPI = {
     clearCache: function() { return this.clearPlatformCache(); },
     runBackup: function() { return this.runSystemBackup(); },
     resetSettings: function() { return this.resetPlatformSettings(); },
-    getAnalytics: () => apiRequest('/api/super-admin/analytics')
+    getAnalytics: () => apiRequest(`/api/super-admin/analytics?_=${Date.now()}`)
 };
 
 // ============ ADMIN ENDPOINTS ============
@@ -329,7 +329,7 @@ const adminAPI = {
             return { success: true, data: found };
         }
     },
-    getAnalytics: () => apiRequest('/api/admin/analytics')
+    getAnalytics: () => apiRequest(`/api/admin/analytics?_=${Date.now()}`)
 };
 
 // ============ TEACHER ENDPOINTS ============
@@ -377,7 +377,7 @@ const teacherAPI = {
     getTeacherStats: () => apiRequest('/api/teacher/stats'),
     uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress),
     publishMarks: (data) => apiRequest('/api/teacher/marks/publish', { method: 'POST', body: JSON.stringify(data) }),
-    getAnalytics: () => apiRequest('/api/teacher/analytics')
+    getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`)
 };
 
 // ============ PARENT ENDPOINTS ============
@@ -419,7 +419,7 @@ const parentAPI = {
     getChildMarks: (studentId) => apiRequest(`/api/parent/child/${studentId}/marks`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
     getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
-    getAnalytics: (childId) => apiRequest(`/api/parent/child/${childId}/analytics`)
+    getAnalytics: (childId) => apiRequest(`/api/parent/child/${childId}/analytics?_=${Date.now()}`)
 };
 
 // ============ STUDENT ENDPOINTS ============
@@ -445,7 +445,7 @@ const studentAPI = {
     getClassPerformance: () => apiRequest('/api/student/class-performance'),
     getSubjectPerformance: () => apiRequest('/api/student/subject-performance'),
     getGPA: () => apiRequest('/api/student/gpa'),
-    getAnalytics: () => apiRequest('/api/student/analytics')
+    getAnalytics: () => apiRequest(`/api/student/analytics?_=${Date.now()}`)
 };
 
 // ============ DUTY ENDPOINTS ============
@@ -704,24 +704,3 @@ function resolveMediaUrl(url) {
     return base + (url.startsWith('/') ? url : '/' + url);
 }
 window.resolveMediaUrl = resolveMediaUrl;
-
-
-// V6 profile/chat helpers
-if (typeof api !== 'undefined') {
-    api.user = api.user || {};
-    api.user.getPublicUserProfile = (userId) => apiRequest(`/api/user/public/${userId}`);
-
-    api.studentChat = {
-        getClassMembers: () => apiRequest('/api/student/chat/class-members'),
-        getClassGroupMessages: () => apiRequest('/api/student/chat/class-group-messages'),
-        sendClassGroupMessage: (message) => apiRequest('/api/student/chat/class-group-message', {
-            method: 'POST',
-            body: JSON.stringify({ message })
-        }),
-        getPrivateMessages: (otherUserId) => apiRequest(`/api/student/chat/private-messages/${otherUserId}`),
-        sendPrivateMessage: (recipientId, message) => apiRequest('/api/student/chat/private-message', {
-            method: 'POST',
-            body: JSON.stringify({ recipientId, message })
-        })
-    };
-}

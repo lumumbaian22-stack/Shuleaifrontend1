@@ -22,8 +22,13 @@ async function renderAnalyticsSection(role) {
             data = res.data;
         } else { hideLoading(); return '<div class="text-center py-12">Analytics not available</div>'; }
         hideLoading();
-        return generateAnalyticsHTML(role, data);
+        return generateAnalyticsHTML(role, { ...(data || {}), __loadedAt: new Date().toISOString() });
     } catch (error) { hideLoading(); return `<div class="text-red-500 py-12">Error loading analytics: ${error.message}</div>`; }
+}
+
+function formatDateTime(value) {
+    if (!value) return 'just now';
+    try { return new Date(value).toLocaleString(); } catch (_) { return 'just now'; }
 }
 
 function generateAnalyticsHTML(role, data) {
@@ -51,7 +56,7 @@ function renderAdminAnalytics(data) {
 
     let html = `
     <div class="space-y-6 animate-fade-in analytics-container">
-        <h2 class="text-2xl font-bold">School Analytics</h2>
+        <div class="flex items-center justify-between gap-3 flex-wrap"><h2 class="text-2xl font-bold">School Analytics</h2><span class="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700">Live data • ${formatDateTime(data.__loadedAt)}</span></div>
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">Students</p><h3 class="text-xl font-bold">${ov.totalStudents||0}</h3></div>
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">Teachers</p><h3 class="text-xl font-bold">${ov.totalTeachers||0}</h3></div>
@@ -98,7 +103,7 @@ function renderTeacherAnalytics(data) {
 
     let html = `
     <div class="space-y-6 animate-fade-in analytics-container">
-        <h2 class="text-2xl font-bold">My Class Analytics</h2>
+        <div class="flex items-center justify-between gap-3 flex-wrap"><h2 class="text-2xl font-bold">My Class Analytics</h2><span class="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700">Live data • ${formatDateTime(data.__loadedAt)}</span></div>
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">My Students</p><h3 class="text-xl font-bold">${ov.studentCount||0}</h3></div>
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">Class Average</p><h3 class="text-xl font-bold">${ov.classAverage||0}%</h3></div>
@@ -256,23 +261,36 @@ function renderStudentAnalytics(data) {
 }
 
 // Chart helpers (same as before)
+function destroyExistingCanvasChart(ctx, key) {
+    if (!ctx || typeof Chart === 'undefined') return;
+    const existing = Chart.getChart ? Chart.getChart(ctx) : null;
+    if (existing) existing.destroy();
+    if (window[key]) {
+        try { window[key].destroy(); } catch (_) {}
+        window[key] = null;
+    }
+}
+
 function initLineChart(canvasId, labels, values, label) {
     const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    if (window[canvasId + '_chart']) window[canvasId + '_chart'].destroy();
-    window[canvasId + '_chart'] = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label, data: values, borderColor: '#3b82f6', tension: 0.4, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
+    if (!ctx || typeof Chart === 'undefined') return;
+    const key = canvasId + '_chart';
+    destroyExistingCanvasChart(ctx, key);
+    window[key] = new Chart(ctx, { type: 'line', data: { labels: labels || [], datasets: [{ label, data: values || [], borderColor: '#3b82f6', tension: 0.4, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
 }
 function initBarChart(canvasId, labels, values, label) {
     const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    if (window[canvasId + '_chart']) window[canvasId + '_chart'].destroy();
-    window[canvasId + '_chart'] = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label, data: values, backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
+    if (!ctx || typeof Chart === 'undefined') return;
+    const key = canvasId + '_chart';
+    destroyExistingCanvasChart(ctx, key);
+    window[key] = new Chart(ctx, { type: 'bar', data: { labels: labels || [], datasets: [{ label, data: values || [], backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
 }
 function initDoughnutChart(canvasId, labels, values) {
     const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    if (window[canvasId + '_chart']) window[canvasId + '_chart'].destroy();
-    window[canvasId + '_chart'] = new Chart(ctx, { type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+    if (!ctx || typeof Chart === 'undefined') return;
+    const key = canvasId + '_chart';
+    destroyExistingCanvasChart(ctx, key);
+    window[key] = new Chart(ctx, { type: 'doughnut', data: { labels: labels || [], datasets: [{ data: values || [], backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
 }
 
 window.renderAnalyticsSection = renderAnalyticsSection;
