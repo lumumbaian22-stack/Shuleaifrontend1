@@ -534,6 +534,8 @@ async function renderAdminSection(section) {
                 return renderAdminCalendar();
             case 'teachers':
                 return await renderAdminTeachers();
+            case 'departments':
+                return await renderAdminDepartments();
             case 'teacher-approvals':
                 return await renderAdminPendingTeachers();
             case 'classes':

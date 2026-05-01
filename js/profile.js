@@ -346,21 +346,18 @@ async function uploadProfilePicture(file) {
         const data = await response.json();
         if (response.ok && data.success) {
             const user = getCurrentUser();
-            user.profileImage = resolveMediaUrl(data.data.profileImage);
+            const finalProfileUrl = resolveMediaUrl(data.data.profileImage);
+            user.profileImage = finalProfileUrl;
+            user.profilePicture = finalProfileUrl;
             localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('shule_user', JSON.stringify(user));
 
-            document.querySelectorAll('.user-avatar, #profile-preview, #user-initials').forEach(el => {
-                if (el.tagName === 'IMG') {
-                    el.src = resolveMediaUrl(data.data.profileImage);
-                } else if (el.id === 'user-initials') {
-                    // ignore
-                }
-            });
-
-            const headerAvatar = document.querySelector('#user-menu-button img');
-            if (headerAvatar) headerAvatar.src = resolveMediaUrl(data.data.profileImage);
+            if (typeof applyGlobalProfilePictures === 'function') {
+                applyGlobalProfilePictures();
+            }
 
             await showDashboardSection('profile');
+            setTimeout(() => { if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures(); }, 150);
             showToast('Profile picture updated successfully', 'success');
         } else {
             throw new Error(data.message || 'Upload failed');

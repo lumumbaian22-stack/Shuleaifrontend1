@@ -344,6 +344,10 @@ async function showDashboardSection(section) {
 
         updateSidebarActiveState(section);
 
+        if (currentRole === 'admin' && section === 'departments') {
+            setTimeout(() => { if (typeof v92LoadDepartments === 'function') v92LoadDepartments(); }, 100);
+        }
+
         // Dashboard pages must stay card/table based only.
         // Charts are initialized only inside the dedicated Analytics section.
         if (currentRole === 'teacher' && (section === 'chat' || section === 'messages' || section === 'staff-chat')) {

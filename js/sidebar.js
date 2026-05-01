@@ -37,6 +37,7 @@ function updateSidebar(role) {
             main: [
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'users', label: 'Teachers', section: 'teachers' },
+                { icon: 'building-2', label: 'Departments', section: 'departments' },
                 { icon: 'user-plus', label: 'Teacher Approvals', section: 'teacher-approvals' },
                 { icon: 'graduation-cap', label: 'Students', section: 'students' },
                 { icon: 'calendar', label: 'Calendar', section: 'calendar' },

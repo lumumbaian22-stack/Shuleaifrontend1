@@ -36,6 +36,7 @@
       document.body.classList.toggle('sidebar-collapsed');
       localStorage.setItem('shule_sidebar_collapsed', document.body.classList.contains('sidebar-collapsed') ? '1' : '0');
       if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
     });
 
     header.classList.add('justify-between');
@@ -87,6 +88,7 @@
         markActiveLinks();
         injectStudentXP();
         if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
       }, 0);
       return result;
     };
@@ -107,6 +109,7 @@
         markActiveLinks();
         injectStudentXP();
         if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
       }, 0);
       return result;
     };

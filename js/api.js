@@ -721,6 +721,8 @@ window.resolveMediaUrl = resolveMediaUrl;
 const chatV9API = {
     getDepartments: () => apiRequest('/api/chat-v9/departments'),
     createDepartment: (data) => apiRequest('/api/chat-v9/departments', { method: 'POST', body: JSON.stringify(data) }),
+    updateDepartment: (departmentId, data) => apiRequest(`/api/chat-v9/departments/${departmentId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteDepartment: (departmentId) => apiRequest(`/api/chat-v9/departments/${departmentId}`, { method: 'DELETE' }),
     getTeachers: () => apiRequest('/api/chat-v9/teachers'),
 
     getTeacherGroups: () => apiRequest('/api/chat-v9/teacher/groups'),
