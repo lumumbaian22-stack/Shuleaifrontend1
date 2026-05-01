@@ -8,10 +8,32 @@ function openAuthModal(role, mode) {
 
     if (!modal || !titleEl || !contentEl) return;
 
-    titleEl.textContent = mode === 'signin' ? `Sign In as ${role}` : `Sign Up as ${role}`;
+    const roleLabel = role === 'superadmin' ? 'Super Admin' : role.charAt(0).toUpperCase() + role.slice(1);
+    titleEl.textContent = mode === 'signin' ? `Sign In as ${roleLabel}` : `Sign Up as ${roleLabel}`;
     contentEl.innerHTML = getAuthForm(role, mode);
     modal.classList.remove('hidden');
     if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+}
+
+
+function showAuthInlineError(message) {
+    const contentEl = document.getElementById('auth-modal-content');
+    if (!contentEl) return;
+    let box = document.getElementById('auth-inline-error');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'auth-inline-error';
+        box.className = 'mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300';
+        contentEl.prepend(box);
+    }
+    box.textContent = message || 'Something went wrong. Please try again.';
+}
+function clearAuthInlineError() {
+    const box = document.getElementById('auth-inline-error');
+    if (box) box.remove();
+}
+function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
 function getAuthForm(role, mode) {
@@ -26,12 +48,12 @@ function getAuthForm(role, mode) {
         return logoHtml + `
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium mb-1">Email or Phone</label>
-                    <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="super@shuleai.com">
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="auth-email" autocomplete="email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="super@shuleai.com">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="password" id="auth-password" autocomplete="current-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Secret Key</label>
@@ -42,16 +64,36 @@ function getAuthForm(role, mode) {
         `;
     }
 
+    if (role === 'student' && mode === 'signin') {
+        return logoHtml + `
+            <div class="space-y-4">
+                <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300">
+                    <strong>Student Login</strong><br>
+                    Use your ELIMUID and password given by your school.
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">ELIMUID</label>
+                    <input type="text" id="auth-elimuid" autocomplete="username" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="e.g., ELI-2024-001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="auth-password" autocomplete="current-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Enter your password">
+                </div>
+                <p class="text-xs text-muted-foreground">First time? Use the default password issued by the school, then change it after logging in.</p>
+            </div>
+        `;
+    }
+
     if (mode === 'signin') {
         return logoHtml + `
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email" id="auth-email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="email" id="auth-email" autocomplete="email" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <input type="password" id="auth-password" autocomplete="current-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 </div>
             </div>
         `;
@@ -95,7 +137,7 @@ function getAuthForm(role, mode) {
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Password</label>
-                        <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        <input type="password" id="auth-password" autocomplete="current-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
                     <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                         <p class="text-xs text-blue-600 dark:text-blue-400">
@@ -147,7 +189,7 @@ function getAuthForm(role, mode) {
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Password</label>
-                        <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        <input type="password" id="auth-password" autocomplete="current-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
                     <div class="flex items-start gap-2 mt-4">
                         <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
@@ -179,7 +221,7 @@ function getAuthForm(role, mode) {
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Password</label>
-                        <input type="password" id="auth-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        <input type="password" id="auth-password" autocomplete="current-password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
                     <div class="flex items-start gap-2 mt-4">
                         <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
@@ -236,38 +278,60 @@ async function handleAuthSubmit() {
             const password = document.getElementById('auth-password')?.value;
             const secretKey = document.getElementById('auth-secret-key')?.value;
 
+            clearAuthInlineError();
             if (!email || !password || !secretKey) {
+                showAuthInlineError('Email, password, and secret key are required.');
                 showToast('All fields are required', 'error');
                 hideLoading();
                 return;
             }
+            if (!isValidEmail(email)) {
+                showAuthInlineError('Please enter a valid Super Admin email address.');
+                showToast('Use a valid email address', 'error');
+                hideLoading();
+                return;
+            }
 
-            const response = await superAdminLogin(email, password, secretKey);
+            const response = await superAdminLogin(email.trim(), password, secretKey);
             showToast('Super Admin login successful', 'success');
             await showDashboard('superadmin');
             closeAuthModal();
 
         } else if (role === 'student' && mode === 'signin') {
-            const elimuid = document.getElementById('auth-elimuid')?.value;
+            clearAuthInlineError();
+            const elimuid = document.getElementById('auth-elimuid')?.value?.trim();
             const password = document.getElementById('auth-password')?.value;
 
             if (!elimuid || !password) {
+                showAuthInlineError('ELIMUID and password are required.');
                 showToast('ELIMUID and password required', 'error');
                 hideLoading();
                 return;
             }
 
-            const response = await studentLogin(elimuid, password);
+            const response = typeof studentLogin === 'function'
+                ? await studentLogin(elimuid, password)
+                : await api.auth.studentLogin(elimuid, password);
+
             showToast('Login successful', 'success');
             await showDashboard('student');
             closeAuthModal();
 
         } else if (mode === 'signin') {
-            const email = document.getElementById('auth-email')?.value;
+            clearAuthInlineError();
+            const email = document.getElementById('auth-email')?.value?.trim();
             const password = document.getElementById('auth-password')?.value;
 
             if (!email || !password) {
+                showAuthInlineError('Email and password are required.');
                 showToast('Email and password required', 'error');
+                hideLoading();
+                return;
+            }
+
+            if (!isValidEmail(email)) {
+                showAuthInlineError('Please enter a valid email address. Phone login is not accepted by the current backend validation.');
+                showToast('Use a valid email address', 'error');
                 hideLoading();
                 return;
             }
@@ -369,7 +433,9 @@ async function handleAuthSubmit() {
         }
     } catch (error) {
         console.error('Auth error:', error);
-        showToast(error.message || 'Authentication failed', 'error');
+        const message = error.message || 'Authentication failed';
+        showAuthInlineError(message);
+        showToast(message, 'error');
     } finally {
         hideLoading();
     }
@@ -407,7 +473,7 @@ function openStudentLoginModal() {
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">Password</label>
-                <input type="password" id="auth-password" placeholder="Enter your password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
+                <input type="password" id="auth-password" autocomplete="current-password" placeholder="Enter your password" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
             </div>
             <div class="flex justify-end gap-2 mt-6">
                 <button onclick="closeAuthModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Cancel</button>

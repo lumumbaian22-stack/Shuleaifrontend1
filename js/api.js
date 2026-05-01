@@ -39,7 +39,14 @@ async function apiRequest(endpoint, options = {}) {
         }
 
         if (!response.ok) {
-            throw new Error(data?.message || data?.error || `Request failed with status ${response.status}`);
+            const validationMessage = Array.isArray(data?.errors)
+                ? data.errors.map(err => err.msg || err.message || `${err.path || err.param || 'Field'} is invalid`).join(', ')
+                : null;
+            const message = validationMessage || data?.message || data?.error || `Request failed with status ${response.status}`;
+            const error = new Error(message);
+            error.status = response.status;
+            error.data = data;
+            throw error;
         }
 
         return data;
@@ -116,11 +123,15 @@ const authAPI = {
             body: JSON.stringify({ elimuid, password })
         }),
     
-    login: (emailOrPhone, password, role) => 
-        apiRequest('/api/auth/login', {
+    login: (emailOrPhone, password, role) => {
+        const identifier = String(emailOrPhone || '').trim();
+        const payload = { email: identifier, emailOrPhone: identifier, password, role };
+        if (/^[+\d\s-]{7,}$/.test(identifier)) payload.phone = identifier;
+        return apiRequest('/api/auth/login', {
             method: 'POST',
-            body: JSON.stringify({ email: emailOrPhone, password, role })
-        }),
+            body: JSON.stringify(payload)
+        });
+    },
     
     verifySchoolCode: (schoolCode) => 
         apiRequest('/api/auth/verify-school', {

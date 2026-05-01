@@ -166,7 +166,7 @@ async function studentLogin(elimuid, password) {
 // Regular login for admin/teacher/parent
 async function login(emailOrPhone, password, role) {
     try {
-        console.log('🔐 Attempting login for:', emailOrPhone, 'role:', role);
+        console.log('🔐 Attempting login for role:', role);
 
         const response = await api.auth.login(emailOrPhone, password, role);
         if (!response.success) throw new Error(response.message);
