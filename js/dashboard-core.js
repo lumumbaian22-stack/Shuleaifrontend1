@@ -346,7 +346,7 @@ async function showDashboardSection(section) {
 
         // Dashboard pages must stay card/table based only.
         // Charts are initialized only inside the dedicated Analytics section.
-        if (currentRole === 'teacher' && (section === 'chat' || section === 'messages')) {
+        if (currentRole === 'teacher' && (section === 'chat' || section === 'messages' || section === 'staff-chat')) {
             setTimeout(() => { if (typeof v9RefreshTeacherChat === 'function') v9RefreshTeacherChat(); }, 100);
         }
         if (currentRole === 'student' && (section === 'chat' || section === 'classroom')) {

@@ -61,7 +61,7 @@ function updateSidebar(role) {
                 { icon: 'check-square', label: 'Tasks', section: 'tasks' },
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
                 { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
-                { icon: 'message-circle', label: 'Staff Chat', section: 'staff-chat' },
+                { icon: 'message-circle', label: 'Messages', section: 'staff-chat' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'calendar', label: 'My Timetable', section: 'my-timetable' },
                 { icon: 'book-open', label: 'Homework', section: 'homework' }

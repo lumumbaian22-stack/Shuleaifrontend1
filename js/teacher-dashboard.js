@@ -61,7 +61,7 @@ async function renderTeacherSection(section) {
       case 'tasks': return await renderTeacherTasks();
       case 'duty': return await renderTeacherDuty();
       case 'duty-preferences': return renderTeacherDutyPreferences();
-      case 'staff-chat': return await renderStaffChat();
+      case 'staff-chat': return await renderTeacherV9Messages();
       case 'parent-chat': return await renderParentChat();
       case 'settings': return await renderProfileSection()
       case 'help': return await renderHelpSection('teacher');
