@@ -20,6 +20,8 @@ async function renderSuperAdminSection(section) {
                 return renderSuperAdminHealth();
             case 'settings':
                 return renderSuperAdminSettings();
+            case 'alerts':
+                return renderV94AlertsCenter();
             default:
                 return renderSuperAdminDashboard();
         }

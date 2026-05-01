@@ -548,7 +548,7 @@ async function renderAdminSection(section) {
                     return '<div class="text-center py-12"><p class="text-red-500">Class management module not loaded. Please refresh the page.</p><button onclick="location.reload()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Refresh Page</button></div>';
                 }
             case 'duty':
-                return await renderAdminDuty();
+                return await renderAdminSmartDuty();
             case 'profile': return await renderProfileSection();    
             case 'fairness-report':
                 return await renderAdminFairnessReport();
@@ -558,6 +558,10 @@ async function renderAdminSection(section) {
                 return await renderAdminTeacherWorkload();
             case 'settings':
                 return renderAdminSettings();
+            case 'alerts':
+                return renderV94AlertsCenter();
+            case 'exams':
+                return renderV94AdminMarks();
             default:
                 return '<div class="text-center py-12">Section not found</div>';
         }

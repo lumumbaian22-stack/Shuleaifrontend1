@@ -115,6 +115,23 @@ function getAuthForm(role, mode) {
                         <input type="text" id="auth-school-name" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
                     <div>
+                        <label class="block text-sm font-medium mb-2">School Type</label>
+                        <div class="grid grid-cols-1 gap-2">
+                            <label class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-accent">
+                                <input type="radio" name="auth-school-type" value="day" class="mt-1" checked>
+                                <span><strong>Day School</strong><small class="block text-muted-foreground">Students attend during the day and return home.</small></span>
+                            </label>
+                            <label class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-accent">
+                                <input type="radio" name="auth-school-type" value="boarding" class="mt-1">
+                                <span><strong>Boarding School</strong><small class="block text-muted-foreground">Students stay at school in dormitories.</small></span>
+                            </label>
+                            <label class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-accent">
+                                <input type="radio" name="auth-school-type" value="day_boarding" class="mt-1">
+                                <span><strong>Day & Boarding</strong><small class="block text-muted-foreground">School supports both day and boarding students.</small></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium mb-1">School Level</label>
                         <select id="auth-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                             <option value="primary">Primary</option>
@@ -358,7 +375,8 @@ async function handleAuthSubmit() {
                     phone: document.getElementById('auth-phone')?.value,
                     schoolName: document.getElementById('auth-school-name')?.value,
                     schoolLevel: document.getElementById('auth-school-level')?.value,
-                    curriculum: document.getElementById('auth-curriculum')?.value
+                    curriculum: document.getElementById('auth-curriculum')?.value,
+                    schoolType: document.querySelector('input[name="auth-school-type"]:checked')?.value || 'day'
                 };
 
                 if (!adminData.name || !adminData.email || !adminData.password || !adminData.schoolName) {

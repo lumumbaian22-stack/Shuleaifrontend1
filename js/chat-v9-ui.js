@@ -150,7 +150,7 @@ function v9RenderConversationList() {
       <div class="v9-avatar">${g.type === 'department' ? '🏫' : g.type === 'staff' ? '👥' : '💬'}</div>
       <div class="min-w-0">
         <div class="font-bold truncate">${escapeHtml(g.name)}</div>
-        <small>${escapeHtml(g.type || 'group')}</small>
+        <small>${g.type === 'department' ? `🏫 Department${g.headName ? ' • Head: ' + escapeHtml(g.headName) : ''}` : escapeHtml(g.type || 'group')}</small>
       </div>
     </div>
   `).join('');
@@ -193,7 +193,8 @@ function v9RenderInfoPanel() {
     <div class="v9-info-card text-center">
       <div class="v9-avatar mx-auto mb-3">${v9Initials(selected?.name || 'Chat')}</div>
       <h3 class="font-bold">${escapeHtml(selected?.name || 'Conversation')}</h3>
-      <small>${v9ChatState.mode === 'direct' ? 'Personal teacher chat' : 'Group chat'}</small>
+      <small>${v9ChatState.mode === 'direct' ? 'Personal teacher chat' : (selected?.type === 'department' ? 'Department group chat' : 'Group chat')}</small>
+      ${selected?.type === 'department' ? `<div class="mt-3 p-3 rounded-lg bg-muted/40 text-sm"><strong>Department Head</strong><br><span class="text-muted-foreground">${escapeHtml(selected.headName || 'Not assigned')}</span></div>` : ''}
     </div>
     <div class="v9-info-card">
       <h4 class="font-bold mb-2">Features</h4>

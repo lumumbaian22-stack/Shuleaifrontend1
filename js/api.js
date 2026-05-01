@@ -463,6 +463,12 @@ const studentAPI = {
 const dutyAPI = {
     getTodayDuty: () => apiRequest('/api/duty/today'),
     getWeeklyDuty: () => apiRequest('/api/duty/week'),
+    getVerificationConfig: () => apiRequest('/api/duty/verification-config'),
+    updateVerificationConfig: (data) => apiRequest('/api/duty/verification-config', { method: 'PUT', body: JSON.stringify(data) }),
+    getComplianceReport: (date = '') => apiRequest(`/api/duty/compliance-report${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+    getLateArrivals: (date = '') => apiRequest(`/api/duty/late-arrivals${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+    verifiedCheckIn: (data) => apiRequest('/api/duty/check-in/verified', { method: 'POST', body: JSON.stringify(data) }),
+    verifiedCheckOut: (data) => apiRequest('/api/duty/check-out/verified', { method: 'POST', body: JSON.stringify(data) }),
     checkIn: (data) => 
         apiRequest('/api/duty/check-in', {
             method: 'POST',
@@ -552,6 +558,15 @@ const userAPI = {
             body: JSON.stringify({ reason })
         }),
     getAlerts: () => apiRequest('/api/user/alerts')
+};
+
+
+// ============ ALERTS ENDPOINTS ============
+const alertsAPI = {
+    getMine: () => apiRequest('/api/alerts'),
+    create: (data) => apiRequest('/api/alerts', { method: 'POST', body: JSON.stringify(data) }),
+    markRead: (id) => apiRequest(`/api/alerts/${id}/read`, { method: 'PUT' }),
+    markAllRead: () => apiRequest('/api/alerts/read-all', { method: 'PUT' })
 };
 
 // ============ CONSENT ENDPOINTS ============
@@ -667,6 +682,7 @@ const searchAPI = {
 // ============ ASSEMBLE API OBJECT ============
 const api = {
     auth: authAPI,
+    alerts: alertsAPI,
     superAdmin: superAdminAPI,
     admin: adminAPI,
     teacher: teacherAPI,
@@ -720,6 +736,7 @@ window.resolveMediaUrl = resolveMediaUrl;
 // ============ V9 CHAT / THREADS / ACHIEVEMENTS ============
 const chatV9API = {
     getDepartments: () => apiRequest('/api/chat-v9/departments'),
+    getDepartmentGroup: (departmentId) => apiRequest(`/api/chat-v9/departments/${departmentId}/group`),
     createDepartment: (data) => apiRequest('/api/chat-v9/departments', { method: 'POST', body: JSON.stringify(data) }),
     updateDepartment: (departmentId, data) => apiRequest(`/api/chat-v9/departments/${departmentId}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDepartment: (departmentId) => apiRequest(`/api/chat-v9/departments/${departmentId}`, { method: 'DELETE' }),

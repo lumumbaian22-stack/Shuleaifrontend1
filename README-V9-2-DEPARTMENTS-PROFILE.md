@@ -1,4 +1,4 @@
-it# Shule AI Frontend V9.2
+# Shule AI Frontend V9.2
 
 ## Added
 

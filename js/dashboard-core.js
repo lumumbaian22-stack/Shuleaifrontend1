@@ -344,6 +344,17 @@ async function showDashboardSection(section) {
 
         updateSidebarActiveState(section);
 
+        if (section === 'alerts') {
+            setTimeout(() => { if (typeof v94LoadAlerts === 'function') v94LoadAlerts(); }, 100);
+        }
+
+        if (currentRole === 'admin' && section === 'duty') {
+            setTimeout(() => { if (typeof v93LoadAdminDuty === 'function') v93LoadAdminDuty(); }, 100);
+        }
+        if (currentRole === 'teacher' && section === 'duty') {
+            setTimeout(() => { if (typeof v93LoadTeacherDuty === 'function') v93LoadTeacherDuty(); }, 100);
+        }
+
         if (currentRole === 'admin' && section === 'departments') {
             setTimeout(() => { if (typeof v92LoadDepartments === 'function') v92LoadDepartments(); }, 100);
         }

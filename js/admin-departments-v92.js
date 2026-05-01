@@ -108,7 +108,7 @@ function v92RenderDepartmentsList() {
                         <div class="mt-5 flex gap-2 flex-wrap">
                             <button onclick="v92OpenDepartmentModal(${dep.id})" class="px-3 py-2 border rounded-lg text-sm">Edit</button>
                             <button onclick="v92DeleteDepartment(${dep.id})" class="px-3 py-2 border rounded-lg text-sm text-red-600">Archive</button>
-                            <button onclick="showDashboardSection('staff-chat')" class="px-3 py-2 bg-primary text-white rounded-lg text-sm">View Group Chat</button>
+                            <button onclick="v93OpenDepartmentGroupChat(${dep.id})" class="px-3 py-2 bg-primary text-white rounded-lg text-sm">View Group Chat</button>
                         </div>
                     </article>
                 `;

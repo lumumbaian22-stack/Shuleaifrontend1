@@ -19,7 +19,9 @@ async function renderParentSection(section) {
             return await renderProfileSection();
         case 'analytics':                               // <-- ADDED
             return await renderAnalyticsSection('parent');
-        default:
+        case 'alerts':
+            return renderV94AlertsCenter();
+            default:
             return await renderParentDashboard();
     }
 }

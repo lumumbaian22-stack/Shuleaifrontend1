@@ -59,14 +59,15 @@ async function renderTeacherSection(section) {
       case 'attendance': return await renderTeacherAttendance();
       case 'grades': return await renderTeacherMarksEntry();
       case 'tasks': return await renderTeacherTasks();
-      case 'duty': return await renderTeacherDuty();
+      case 'duty': return await renderTeacherSmartDuty();
       case 'duty-preferences': return renderTeacherDutyPreferences();
       case 'staff-chat': return await renderTeacherV9Messages();
       case 'parent-chat': return await renderParentChat();
       case 'settings': return await renderProfileSection()
       case 'help': return await renderHelpSection('teacher');
       case 'profile': return await renderProfileSection();
-      default: return await renderTeacherDashboard();
+      case 'alerts': return renderV94AlertsCenter();
+            default: return await renderTeacherDashboard();
     }
   } catch (error) {
     console.error('Error rendering teacher section:', error);

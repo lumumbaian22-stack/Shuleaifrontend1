@@ -45,7 +45,9 @@ async function renderStudentSection(section) {
         case 'settings':
         case 'profile':
             return await renderProfileSection();
-        default:
+        case 'alerts':
+            return renderV94AlertsCenter();
+            default:
             return await renderStudentDashboard();
     }
 }
@@ -369,7 +371,9 @@ function getAttendanceStatusClass(status) {
         case 'absent': return 'bg-red-100 text-red-700';
         case 'late': return 'bg-yellow-100 text-yellow-700';
         case 'sick': return 'bg-purple-100 text-purple-700';
-        default: return 'bg-gray-100 text-gray-700';
+        case 'alerts':
+            return renderV94AlertsCenter();
+            default: return 'bg-gray-100 text-gray-700';
     }
 }
 

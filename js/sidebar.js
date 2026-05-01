@@ -45,7 +45,9 @@ function updateSidebar(role) {
                 { icon: 'bar-chart-2', label: 'Fairness Report', section: 'fairness-report' },
                 { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' },
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
-                { icon: 'clock', label: 'Timetable', section: 'timetable' }
+                { icon: 'clock', label: 'Timetable', section: 'timetable' },
+                { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
+                { icon: 'file-edit', label: 'Exams / Marks', section: 'exams' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
@@ -92,6 +94,7 @@ function updateSidebar(role) {
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
                 { icon: 'bot', label: 'AI Tutor', section: 'ai-tutor' },
+                { icon: 'bell', label: 'Alerts', section: 'alerts' },
                 { icon: 'calendar', label: 'Schedule', section: 'schedule' },
                 { icon: 'shopping-bag', label: 'Rewards', section: 'rewards' },
                 { icon: 'book-open', label: 'My Homework', section: 'my-homework' },
