@@ -35,7 +35,7 @@ async function renderStudentSection(section) {
         case 'attendance':
             return await renderStudentAttendance();
         case 'chat':
-            return renderStudentChat();
+            return await renderStudentV9Classroom();
         case 'ai-tutor':
             return renderStudentAITutor();
         case 'schedule':

@@ -715,3 +715,35 @@ function resolveMediaUrl(url) {
     return base + (url.startsWith('/') ? url : '/' + url);
 }
 window.resolveMediaUrl = resolveMediaUrl;
+
+
+// ============ V9 CHAT / THREADS / ACHIEVEMENTS ============
+const chatV9API = {
+    getDepartments: () => apiRequest('/api/chat-v9/departments'),
+    createDepartment: (data) => apiRequest('/api/chat-v9/departments', { method: 'POST', body: JSON.stringify(data) }),
+    getTeachers: () => apiRequest('/api/chat-v9/teachers'),
+
+    getTeacherGroups: () => apiRequest('/api/chat-v9/teacher/groups'),
+    createTeacherGroup: (data) => apiRequest('/api/chat-v9/teacher/groups', { method: 'POST', body: JSON.stringify(data) }),
+
+    getDirectMessages: (userId) => apiRequest(`/api/chat-v9/teacher/direct/${userId}`),
+    sendDirectMessage: (receiverId, content, attachmentUrl = null) =>
+        apiRequest('/api/chat-v9/teacher/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl }) }),
+
+    getGroupMessages: (groupId) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`),
+    sendGroupMessage: (groupId, content, attachmentUrl = null) =>
+        apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify({ content, attachmentUrl }) }),
+
+    getClassroomThreads: () => apiRequest('/api/chat-v9/classroom/threads'),
+    createClassroomThread: (data) => apiRequest('/api/chat-v9/classroom/threads', { method: 'POST', body: JSON.stringify(data) }),
+    replyToThread: (threadId, content, parentReplyId = null) =>
+        apiRequest(`/api/chat-v9/classroom/threads/${threadId}/replies`, { method: 'POST', body: JSON.stringify({ content, parentReplyId }) }),
+
+    awardThreadReply: (replyId, points = 0, streakDelta = 0, note = '') =>
+        apiRequest(`/api/chat-v9/classroom/replies/${replyId}/award`, { method: 'POST', body: JSON.stringify({ points, streakDelta, note }) }),
+    awardChatMessage: (messageId, points = 0, streakDelta = 0, note = '') =>
+        apiRequest(`/api/chat-v9/teacher/messages/${messageId}/award`, { method: 'POST', body: JSON.stringify({ points, streakDelta, note }) }),
+
+    getMyAchievements: () => apiRequest('/api/chat-v9/achievements/me')
+};
+window.chatV9API = chatV9API;
