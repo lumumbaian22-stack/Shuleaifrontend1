@@ -53,20 +53,20 @@ async function renderTeacherSection(section) {
     switch(section) {
       case 'dashboard': return await renderTeacherDashboard();
       case 'competency': return await renderTeacherCompetency();
-      case 'my-timetable': return await renderTeacherTimetable();
-      case 'homework': return await renderTeacherHomework();
+      case 'my-timetable': return await window.v12RenderTeacherTimetable();
+      case 'homework': return await window.v12RenderTeacherHomework();
       case 'students': return isClassTeacher() ? await renderTeacherStudents() : '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><p>Only Class Teachers can manage students.</p></div>';
       case 'attendance': return await renderTeacherAttendance();
       case 'grades': return await renderTeacherMarksEntry();
       case 'tasks': return await renderTeacherTasks();
-      case 'duty': return await renderTeacherSmartDuty();
+      case 'duty': return await window.v12RenderTeacherDuty();
       case 'duty-preferences': return renderTeacherDutyPreferences();
       case 'staff-chat': return await renderTeacherV9Messages();
       case 'parent-chat': return await renderParentChat();
       case 'settings': return await renderProfileSection()
       case 'help': return await renderHelpSection('teacher');
       case 'profile': return await renderProfileSection();
-      case 'alerts': return renderV94AlertsCenter();
+      case 'alerts': return await window.v12RenderAlertsCenter('teacher');
             default: return await renderTeacherDashboard();
     }
   } catch (error) {

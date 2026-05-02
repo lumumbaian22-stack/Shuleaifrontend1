@@ -31,7 +31,7 @@ async function renderStudentSection(section) {
         case 'rewards':
             return await renderRewardsStore();
         case 'my-homework':
-            return await renderStudentHomework();
+            return await window.v12RenderStudentHomework();
         case 'attendance':
             return await renderStudentAttendance();
         case 'chat':
@@ -39,14 +39,14 @@ async function renderStudentSection(section) {
         case 'ai-tutor':
             return renderStudentAITutor();
         case 'schedule':
-            return renderStudentSchedule();
+            return await window.v12RenderStudentTimetable();
         case 'help':
             return renderHelpSection();
         case 'settings':
         case 'profile':
             return await renderProfileSection();
         case 'alerts':
-            return renderV94AlertsCenter();
+            return await window.v12RenderAlertsCenter('student');
             default:
             return await renderStudentDashboard();
     }
@@ -371,9 +371,7 @@ function getAttendanceStatusClass(status) {
         case 'absent': return 'bg-red-100 text-red-700';
         case 'late': return 'bg-yellow-100 text-yellow-700';
         case 'sick': return 'bg-purple-100 text-purple-700';
-        case 'alerts':
-            return renderV94AlertsCenter();
-            default: return 'bg-gray-100 text-gray-700';
+        default: return 'bg-gray-100 text-gray-700';
     }
 }
 

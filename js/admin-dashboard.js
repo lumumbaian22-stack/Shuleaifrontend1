@@ -525,11 +525,11 @@ async function renderAdminSection(section) {
             case 'dashboard':
                 return renderAdminDashboard();
             case 'calendar-management':
-                return await renderCalendarManagement();
+                return await window.v12RenderAcademicCalendar();
             case 'students':
                 return await renderAdminStudents();
             case 'timetable':
-                 return await renderAdminTimetable();
+                 return await window.v12RenderAdminTimetable();
             case 'calendar':
                 return renderAdminCalendar();
             case 'teachers':
@@ -559,7 +559,7 @@ async function renderAdminSection(section) {
             case 'settings':
                 return renderAdminSettings();
             case 'alerts':
-                return renderV94AlertsCenter();
+                return await window.v12RenderAlertsCenter('admin');
             default:
                 return '<div class="text-center py-12">Section not found</div>';
         }

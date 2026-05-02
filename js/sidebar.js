@@ -25,6 +25,7 @@ function updateSidebar(role) {
                 { icon: 'check-circle', label: 'School Approvals', section: 'school-approvals' },
                 { icon: 'file-edit', label: 'Name Changes', section: 'name-change-requests' },
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
+                { icon: 'credit-card', label: 'Platform Payments', section: 'platform-payments' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' }
             ],
@@ -46,7 +47,8 @@ function updateSidebar(role) {
                 { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' },
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
                 { icon: 'clock', label: 'Timetable', section: 'timetable' },
-                { icon: 'bell', label: 'Alerts Center', section: 'alerts' }
+                { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
+                { icon: 'credit-card', label: 'Payment Settings', section: 'payment-settings' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
@@ -78,6 +80,7 @@ function updateSidebar(role) {
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'trending-up', label: 'Progress', section: 'progress' },
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
+                { icon: 'calendar', label: 'Child Timetable', section: 'timetable' },
                 { icon: 'message-circle', label: 'Messages', section: 'chat' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
@@ -94,7 +97,7 @@ function updateSidebar(role) {
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
                 { icon: 'bot', label: 'AI Tutor', section: 'ai-tutor' },
                 { icon: 'bell', label: 'Alerts', section: 'alerts' },
-                { icon: 'calendar', label: 'Schedule', section: 'schedule' },
+                { icon: 'calendar', label: 'My Timetable', section: 'schedule' },
                 { icon: 'shopping-bag', label: 'Rewards', section: 'rewards' },
                 { icon: 'book-open', label: 'My Homework', section: 'my-homework' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }

@@ -18,10 +18,12 @@ async function renderSuperAdminSection(section) {
                 return renderHelpSection();   
             case 'platform-health':
                 return renderSuperAdminHealth();
+            case 'platform-payments':
+                return await window.v12RenderPlatformPayments();
             case 'settings':
                 return renderSuperAdminSettings();
             case 'alerts':
-                return renderV94AlertsCenter();
+                return await window.v12RenderAlertsCenter('superadmin');
             default:
                 return renderSuperAdminDashboard();
         }
