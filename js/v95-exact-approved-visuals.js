@@ -542,99 +542,10 @@ Thank you for your continued support.</p></div><div class="v95-section-card mt-4
   };
 
   // Marks popup exact approved direction
-  window.showMarksEntryModal = function(className){
-    const students = window.currentMarksStudents || [];
-    const subject = window.currentMarksSubject || 'Mathematics';
-    const body = `<div>
-      <div class="v95-marks-top">
-        ${select('v95-mark-exam','Exam','Mid Term Exam',['CAT','Mid Term Exam','End Term Exam','Assignment','Project'])}
-        ${field('v95-mark-class','Class',className || window.currentMarksClassName || 'Form 2A')}
-        ${field('v95-mark-subject','Subject',subject)}
-        ${select('v95-mark-term','Term','Term 2',['Term 1','Term 2','Term 3'])}
-        ${field('v95-mark-teacher','Teacher',current().name || 'Teacher')}
-      </div>
-      <div class="v95-marks-layout">
-        <section class="v95-marks-panel">
-          <table class="v95-marks-table">
-            <thead><tr><th>#</th><th>Admission No</th><th>Student Name</th><th>CAT /20</th><th>Exam /80</th><th>Total</th><th>Grade</th><th>Remarks</th></tr></thead>
-            <tbody>${students.map((s,i)=>`<tr><td>${i+1}</td><td>${h(s.elimuid || s.admissionNumber || '-')}</td><td><strong>${h(s.User?.name || s.name || 'Student')}</strong></td><td><input class="v95-score-input v95-cat" data-i="${i}" type="number" min="0" max="20" oninput="v95CalcMarks()"></td><td><input class="v95-score-input v95-exam-score" data-i="${i}" type="number" min="0" max="80" oninput="v95CalcMarks()"></td><td id="v95-total-${i}">-</td><td id="v95-grade-${i}">-</td><td><input id="v95-remark-${i}" placeholder="Remark"></td></tr>`).join('')}</tbody>
-          </table>
-        </section>
-        <aside class="v95-summary-card">
-          <h3 class="font-bold text-lg mb-4">Entry Summary</h3>
-          <div class="v95-grid" style="gap:12px">
-            <div class="v95-section-card"><span class="text-xs text-muted-foreground">Students</span><strong class="block text-2xl">${students.length}</strong></div>
-            <div class="v95-section-card"><span class="text-xs text-muted-foreground">Average</span><strong id="v95-avg" class="block text-2xl">0%</strong></div>
-            <div class="v95-section-card"><span class="text-xs text-muted-foreground">Missing</span><strong id="v95-missing" class="block text-2xl">${students.length}</strong></div>
-            <div class="v95-section-card" style="background:#fff7ed;border-color:#fed7aa"><strong>Moderation & Approval</strong><p class="text-sm text-muted-foreground mt-2">Class teacher reviews before parents/students see final marks.</p><label class="mt-3 block"><input type="checkbox" checked> Submit for class teacher approval</label></div>
-          </div>
-        </aside>
-      </div>
-    </div>`;
-    modal('marks-entry-modal','Enter Marks','Structured score entry with class teacher moderation and report-card publishing',body,
-      `<button class="v95-btn">Save Draft</button><div class="v95-right-actions"><button class="v95-btn">Preview Report</button><button class="v95-btn" onclick="v95SubmitMarks(false)">Submit for Review</button><button class="v95-btn primary" onclick="v95SubmitMarks(true)">Publish Marks</button></div>`,true);
-  };
-  window.v95CalcMarks = function(){
-    const cats = Array.from(document.querySelectorAll('.v95-cat'));
-    let total = 0, entered = 0;
-    cats.forEach((c,i) => {
-      const cat = Number(c.value || 0);
-      const ex = Number(document.querySelector(`.v95-exam-score[data-i="${i}"]`)?.value || 0);
-      const has = c.value !== '' || document.querySelector(`.v95-exam-score[data-i="${i}"]`)?.value !== '';
-      const score = has ? cat + ex : null;
-      const totalEl = document.getElementById(`v95-total-${i}`);
-      const gradeEl = document.getElementById(`v95-grade-${i}`);
-      if(totalEl) totalEl.textContent = score === null ? '-' : score;
-      let grade = '-';
-      if(score !== null){ entered++; total += score; grade = score>=80?'A':score>=70?'B+':score>=60?'B':score>=50?'C+':score>=40?'C':'D'; }
-      if(gradeEl) gradeEl.innerHTML = grade === '-' ? '-' : `<span class="v95-tag ${score>=70?'green':score>=50?'orange':'red'}">${grade}</span>`;
-    });
-    const avg = document.getElementById('v95-avg'); if(avg) avg.textContent = entered ? Math.round(total/entered) + '%' : '0%';
-    const miss = document.getElementById('v95-missing'); if(miss) miss.textContent = cats.length - entered;
-  };
-  window.v95SubmitMarks = async function(publish){
-    try{
-      showLoading();
-      const students = window.currentMarksStudents || [];
-      let saved = 0, failed = 0;
-      for(const [i,s] of students.entries()){
-        const cat = Number(document.querySelector(`.v95-cat[data-i="${i}"]`)?.value || 0);
-        const exam = Number(document.querySelector(`.v95-exam-score[data-i="${i}"]`)?.value || 0);
-        if(!cat && !exam) continue;
-        try{
-          await api.teacher.enterMarks({
-            studentId: s.id,
-            subject: val('v95-mark-subject'),
-            assessmentType: val('v95-mark-exam').toLowerCase().includes('exam') ? 'exam' : 'test',
-            assessmentName: val('v95-mark-exam'),
-            score: cat + exam,
-            date: new Date().toISOString().slice(0,10),
-            term: val('v95-mark-term'),
-            year: new Date().getFullYear(),
-            isPublished: !!publish,
-            remarks: val(`v95-remark-${i}`)
-          });
-          saved++;
-        }catch(_){ failed++; }
-      }
-      showToast(`${publish?'Published':'Submitted'} ${saved} marks${failed ? ', failed '+failed : ''}`,'success');
-      close('marks-entry-modal');
-    }catch(e){ showToast(e.message || 'Marks save failed','error'); } finally { hideLoading(); }
-  };
-
+  // V9.7: disabled here. The real functional marks modal lives inside teacher-dashboard.js
+  // so it can access currentMarksStudents/currentMarksClassId/currentMarksSubject lexical state.
   // Make dashboard alert loader call exact root too
-  window.renderV94AdminMarks = function(){
-    return `<div class="space-y-6 animate-fade-in"><div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold">Exams & Marks</h2><p class="text-muted-foreground">Use the approved marks entry popup. Subject teachers enter marks; class teachers review and publish.</p><button class="v95-btn primary mt-4" onclick="v95OpenMarksPreview()">Open Marks Entry</button></div></div>`;
-  };
-  window.v95OpenMarksPreview = function(){
-    window.currentMarksStudents = [
-      {id:1,elimuid:'GA/24/001',User:{name:'Akinyi Brenda'}},
-      {id:2,elimuid:'GA/24/002',User:{name:'Mwangi Brian'}},
-      {id:3,elimuid:'GA/24/003',User:{name:'Njeri Faith'}}
-    ];
-    window.currentMarksSubject = 'English';
-    window.currentMarksClassName = 'Form 2A';
-    window.showMarksEntryModal('Form 2A');
-  };
+  window.renderV94AdminMarks = undefined;
+  window.v95OpenMarksPreview = undefined;
 
 })();

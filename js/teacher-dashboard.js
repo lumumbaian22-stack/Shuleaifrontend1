@@ -492,142 +492,176 @@ async function openMarksEntry(subject, classId, className) {
 
 function showMarksEntryModal(className) {
   let modal = document.getElementById('marks-entry-modal');
-  if (!modal) { createMarksEntryModal(); modal = document.getElementById('marks-entry-modal'); }
+  if (!modal) {
+    createMarksEntryModal();
+    modal = document.getElementById('marks-entry-modal');
+  }
+
   const modalContent = modal.querySelector('.modal-content');
   const assessmentTypes = ['test', 'exam', 'assignment', 'project', 'quiz'];
   const today = new Date().toISOString().split('T')[0];
   const terms = ['Term 1', 'Term 2', 'Term 3'];
 
-  // ----- Build the default grading scale for this class -----
-  const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
-  let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel;
-  if (!level || level === 'both') {
-    const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
-    level = primaryKeywords.some(kw => className.toUpperCase().includes(kw)) ? 'primary' : 'secondary';
-  }
-  const curriculumData = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) || {};
-  const gradingTable = curriculumData.grading?.[level] || curriculumData.grading?.primary || [];
-  // gradingTable is an array of objects: { grade, range: 'min-max', description }
-
-  // Build rows for the custom grading table
-  const gradingRows = gradingTable.map((g, idx) => {
-    const [min, max] = g.range.split('-').map(Number);
-    return `
-      <tr>
-        <td class="py-1"><input type="text" value="${escapeHtml(g.grade)}" class="w-16 rounded border px-1 py-0.5 text-xs text-center bg-background custom-grade-name" data-index="${idx}"></td>
-        <td class="py-1"><input type="number" value="${min}" class="w-16 rounded border px-1 py-0.5 text-xs text-center custom-grade-min" data-index="${idx}" min="0" max="100"></td>
-        <td class="py-1"><input type="number" value="${max}" class="w-16 rounded border px-1 py-0.5 text-xs text-center custom-grade-max" data-index="${idx}" min="0" max="100"></td>
-      </tr>
+  if (!Array.isArray(currentMarksStudents) || currentMarksStudents.length === 0) {
+    modalContent.innerHTML = `
+      <div class="text-center py-12">
+        <i data-lucide="users-x" class="h-12 w-12 mx-auto mb-3 text-muted-foreground"></i>
+        <h3 class="text-lg font-semibold">No students loaded</h3>
+        <p class="text-muted-foreground">The marks modal opened, but no students were returned for this class.</p>
+        <button onclick="closeMarksEntryModal()" class="mt-4 px-4 py-2 rounded-lg border">Close</button>
+      </div>
     `;
-  }).join('');
+    modal.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
 
   modalContent.innerHTML = `
-    <div class="space-y-4">
-      <div class="border-b pb-3 flex justify-between items-center">
-        <div>
-          <h3 class="text-lg font-semibold">Enter Marks</h3>
-          <p class="text-sm text-muted-foreground">Class: ${escapeHtml(className)} | Subject: ${escapeHtml(currentMarksSubject)}</p>
-          <p class="text-xs text-muted-foreground">Teacher: ${escapeHtml(getCurrentUser()?.name)}</p>
-        </div>
-        <button onclick="closeMarksEntryModal()" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="x" class="h-5 w-5"></i></button>
+    <div class="v95-modal-head !px-0 !pt-0">
+      <div>
+        <div class="v95-title">Enter Marks</div>
+        <div class="v95-subtitle">Class: ${escapeHtml(className)} • Subject: ${escapeHtml(currentMarksSubject || 'Subject')} • Real students loaded from teacher class data</div>
       </div>
+      <button onclick="closeMarksEntryModal()" class="v95-close">×</button>
+    </div>
 
-      <div class="flex flex-wrap gap-3 items-end">
-        <div class="flex-1 min-w-[150px]"><label class="block text-xs font-medium mb-1">Assessment Type</label><select id="assessment-type" class="w-full rounded-lg border p-2 bg-background">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select></div>
-        <div class="flex-1 min-w-[200px]"><label class="block text-xs font-medium mb-1">Assessment Name</label><input type="text" id="assessment-name" placeholder="e.g., Mid-term Exam" class="w-full rounded-lg border p-2 bg-background"></div>
-        <div class="w-[130px]"><label class="block text-xs font-medium mb-1">Term</label><select id="assessment-term" class="w-full rounded-lg border p-2 bg-background">${terms.map(t => `<option value="${t}" ${t === 'Term 1' ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-        <div class="w-[130px]"><label class="block text-xs font-medium mb-1">Year</label><select id="assessment-year" class="w-full rounded-lg border p-2 bg-background">${[new Date().getFullYear()-1, new Date().getFullYear(), new Date().getFullYear()+1].map(y => `<option value="${y}" ${y === new Date().getFullYear() ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
-        <div class="w-[150px]"><label class="block text-xs font-medium mb-1">Date</label><input type="date" id="assessment-date" value="${today}" class="w-full rounded-lg border p-2 bg-background"></div>
+    <div class="v95-marks-top mt-5">
+      <div class="v95-field">
+        <label>Assessment Type</label>
+        <select id="assessment-type">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select>
       </div>
-
-      <!-- Custom Grading Table -->
-      <div class="border rounded-lg p-3">
-        <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-sm font-medium flex items-center gap-1 w-full text-left">
-          <i data-lucide="settings" class="h-4 w-4"></i> Custom Grading (override boundaries)
-        </button>
-        <div class="hidden mt-3 space-y-3">
-          <p class="text-xs text-muted-foreground">Edit the Min/Max scores for each grade. Leave blank to use the school's default grading.</p>
-          <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-              <thead>
-                <tr>
-                  <th class="text-left py-1">Grade</th>
-                  <th class="text-left py-1">Min %</th>
-                  <th class="text-left py-1">Max %</th>
-                </tr>
-              </thead>
-              <tbody id="custom-grading-table-body">
-                ${gradingRows}
-              </tbody>
-            </table>
-          </div>
-          <button type="button" onclick="applyCustomGrading()" class="mt-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Apply Custom Grading</button>
-        </div>
+      <div class="v95-field">
+        <label>Assessment Name <span class="req">*</span></label>
+        <input type="text" id="assessment-name" value="Mid Term Exam" placeholder="e.g. Mid-term Exam">
       </div>
-
-      <!-- Student marks table -->
-      <div class="overflow-x-auto max-h-[55vh] overflow-y-auto border rounded-lg">
-        <table class="w-full text-sm">
-          <thead class="bg-muted/50 sticky top-0"><tr><th class="px-4 py-2 text-left">Student</th><th class="px-4 py-2 text-left">ELIMUID</th><th class="px-4 py-2 text-center w-32">Score (%)</th><th class="px-4 py-2 text-center w-24">Grade</th></tr></thead>
-          <tbody class="divide-y">
-            ${currentMarksStudents.map(s => `
-              <tr>
-                <td class="px-4 py-2">${escapeHtml(s.User?.name)}</td>
-                <td class="px-4 py-2">${s.elimuid}</td>
-                <td class="px-4 py-2 text-center"><input type="number" id="score-${s.id}" class="score-input w-24 rounded border px-2 py-1 text-center bg-background" min="0" max="100" step="0.5" onchange="updateGradeDisplayForStudent('${s.id}')"></td>
-                <td class="px-4 py-2 text-center"><span id="grade-${s.id}" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full">-</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <div class="v95-field">
+        <label>Term</label>
+        <select id="assessment-term" onchange="currentMarksTerm=this.value">${terms.map(t => `<option value="${t}" ${t === currentMarksTerm ? 'selected' : ''}>${t}</option>`).join('')}</select>
       </div>
-
-      <div class="flex justify-end gap-3 pt-4 border-t">
-        <button onclick="closeMarksEntryModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
-        <button onclick="saveAllMarks()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save as Draft</button>
-        <button onclick="publishAllMarks()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1">
-            <i data-lucide="check-circle" class="h-4 w-4"></i> Publish All
-        </button>
+      <div class="v95-field">
+        <label>Year</label>
+        <input type="number" id="assessment-year" value="${currentMarksYear}" onchange="currentMarksYear=this.value">
+      </div>
+      <div class="v95-field">
+        <label>Date</label>
+        <input type="date" id="assessment-date" value="${today}">
       </div>
     </div>
+
+    <div class="v95-marks-layout mt-5">
+      <section class="v95-marks-panel">
+        <table class="v95-marks-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Admission No</th>
+              <th>Student Name</th>
+              <th>CAT /20</th>
+              <th>Exam /80</th>
+              <th>Total</th>
+              <th>Grade</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${currentMarksStudents.map((s, i) => {
+              const user = s.User || s.user || {};
+              const name = user.name || s.name || s.fullName || 'Student';
+              const admission = s.elimuid || s.admissionNumber || s.assessmentNumber || '-';
+              return `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${escapeHtml(admission)}</td>
+                  <td>
+                    <div class="flex items-center gap-2">
+                      ${user.profileImage ? `<img src="${resolveMediaUrl(user.profileImage)}" class="h-8 w-8 rounded-full object-cover">` : `<span class="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">${getInitials(name)}</span>`}
+                      <strong>${escapeHtml(name)}</strong>
+                    </div>
+                  </td>
+                  <td><input class="v95-score-input marks-cat-input" data-student-id="${s.id}" type="number" min="0" max="20" oninput="updateCompositeScore('${s.id}')"></td>
+                  <td><input class="v95-score-input marks-exam-input" data-student-id="${s.id}" type="number" min="0" max="80" oninput="updateCompositeScore('${s.id}')"></td>
+                  <td id="total-${s.id}">-</td>
+                  <td><span id="grade-${s.id}" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full">-</span></td>
+                  <td><input id="remark-${s.id}" placeholder="Remark"></td>
+                  <td style="display:none"><input type="hidden" id="score-${s.id}"></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </section>
+
+      <aside class="v95-summary-card">
+        <h3 class="font-bold text-lg mb-4">Entry Summary</h3>
+        <div class="v95-grid" style="gap:12px">
+          <div class="v95-section-card"><span class="text-xs text-muted-foreground">Students Loaded</span><strong class="block text-2xl">${currentMarksStudents.length}</strong></div>
+          <div class="v95-section-card"><span class="text-xs text-muted-foreground">Average</span><strong id="marks-average" class="block text-2xl">0%</strong></div>
+          <div class="v95-section-card"><span class="text-xs text-muted-foreground">Missing</span><strong id="marks-missing" class="block text-2xl">${currentMarksStudents.length}</strong></div>
+          <div class="v95-section-card" style="background:#fff7ed;border-color:#fed7aa">
+            <strong>Moderation & Approval</strong>
+            <p class="text-sm text-muted-foreground mt-2">Subject teacher saves marks. Class teacher reviews/publishes final report-card marks.</p>
+          </div>
+        </div>
+
+        <div class="mt-5 v95-section-card">
+          <h4 class="font-bold mb-2">Actions</h4>
+          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Save Draft</button>
+          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Submit for Review</button>
+          <button onclick="publishAllMarks()" class="v95-btn primary w-full">Publish Marks</button>
+        </div>
+      </aside>
+    </div>
   `;
-  window.currentGradingScale = null; // reset
+
   modal.classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-function applyCustomGrading() {
-    const rows = document.querySelectorAll('#custom-grading-table-body tr');
-    const grades = [];
-    rows.forEach(row => {
-        const gradeName = row.querySelector('.custom-grade-name')?.value?.trim();
-        const minScore = parseFloat(row.querySelector('.custom-grade-min')?.value);
-        const maxScore = parseFloat(row.querySelector('.custom-grade-max')?.value);
-        if (gradeName && !isNaN(minScore) && !isNaN(maxScore)) {
-            grades.push({ grade: gradeName, min: minScore, max: maxScore });
-        }
-    });
-    if (grades.length === 0) {
-        window.currentGradingScale = null;
-        showToast('No valid custom grades defined – using default scale', 'info');
-    } else {
-        window.currentGradingScale = grades;
-        showToast('Custom grading scale applied', 'success');
-    }
-    // Refresh any existing scores in the table
-    currentMarksStudents.forEach(s => {
-        const input = document.getElementById(`score-${s.id}`);
-        if (input && input.value) {
-            updateGradeDisplayForStudent(s.id);
-        }
-    });
+function updateCompositeScore(studentId) {
+  const catInput = document.querySelector(`.marks-cat-input[data-student-id="${studentId}"]`);
+  const examInput = document.querySelector(`.marks-exam-input[data-student-id="${studentId}"]`);
+  const cat = parseFloat(catInput?.value || '0');
+  const exam = parseFloat(examInput?.value || '0');
+  const hasCat = catInput?.value !== '';
+  const hasExam = examInput?.value !== '';
+  const score = (hasCat || hasExam) ? Math.min(100, Math.max(0, cat + exam)) : '';
+
+  const scoreInput = document.getElementById(`score-${studentId}`);
+  if (scoreInput) scoreInput.value = score;
+
+  const totalEl = document.getElementById(`total-${studentId}`);
+  if (totalEl) totalEl.textContent = score === '' ? '-' : score;
+
+  updateGradeDisplayForStudent(studentId);
+  updateMarksSummary();
 }
+
+function updateMarksSummary() {
+  const scores = currentMarksStudents.map(s => parseFloat(document.getElementById(`score-${s.id}`)?.value)).filter(n => !isNaN(n));
+  const average = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
+  const avgEl = document.getElementById('marks-average');
+  const missingEl = document.getElementById('marks-missing');
+  if (avgEl) avgEl.textContent = `${average}%`;
+  if (missingEl) missingEl.textContent = Math.max(0, currentMarksStudents.length - scores.length);
+}
+
 
 function createMarksEntryModal() {
-  const modalHTML = `<div id="marks-entry-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeMarksEntryModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl p-4"><div class="rounded-xl border bg-card shadow-xl max-h-[90vh] overflow-hidden flex flex-col"><div class="modal-content p-6 overflow-y-auto"></div></div></div></div>`;
+  const modalHTML = `<div id="marks-entry-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeMarksEntryModal()"></div>
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl p-4">
+      <div class="rounded-2xl border bg-card text-card-foreground shadow-2xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="modal-content p-6 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>`;
   document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
-function closeMarksEntryModal() { const m = document.getElementById('marks-entry-modal'); if(m) m.classList.add('hidden'); currentMarksStudents = []; }
+function closeMarksEntryModal() {
+  const m = document.getElementById('marks-entry-modal');
+  if (m) m.remove();
+  currentMarksStudents = [];
+}
 
 window.updateGradeDisplayForStudent = function(studentId) {
   const score = parseFloat(document.getElementById(`score-${studentId}`)?.value);
@@ -689,7 +723,8 @@ async function saveAllMarks() {
           term: currentMarksTerm,
           year: currentMarksYear,
           isPublished: false,
-          gradingScale: gradingScale       // array of {grade, min, max} or null
+          gradingScale: gradingScale,       // array of {grade, min, max} or null
+          remarks: document.getElementById(`remark-${student.id}`)?.value || ''
         });
         saved++;
       } catch(e) { failed++; }

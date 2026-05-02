@@ -560,8 +560,6 @@ async function renderAdminSection(section) {
                 return renderAdminSettings();
             case 'alerts':
                 return renderV94AlertsCenter();
-            case 'exams':
-                return renderV94AdminMarks();
             default:
                 return '<div class="text-center py-12">Section not found</div>';
         }

@@ -46,8 +46,7 @@ function updateSidebar(role) {
                 { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' },
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
                 { icon: 'clock', label: 'Timetable', section: 'timetable' },
-                { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
-                { icon: 'file-edit', label: 'Exams / Marks', section: 'exams' }
+                { icon: 'bell', label: 'Alerts Center', section: 'alerts' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },

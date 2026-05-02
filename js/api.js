@@ -679,6 +679,21 @@ const searchAPI = {
     globalSearch: (q) => apiRequest(`/api/search?q=${encodeURIComponent(q)}`)
 };
 
+
+
+// ============ PAYMENT / DARAJA ENDPOINTS ============
+const paymentAPI = {
+    getSchoolSettings: () => apiRequest('/api/payments/admin/school-settings'),
+    updateSchoolSettings: (data) => apiRequest('/api/payments/admin/school-settings', { method: 'PUT', body: JSON.stringify(data) }),
+    getPlatformSettings: () => apiRequest('/api/payments/superadmin/platform-settings'),
+    updatePlatformSettings: (data) => apiRequest('/api/payments/superadmin/platform-settings', { method: 'PUT', body: JSON.stringify(data) }),
+    parentFeeSTK: (data) => apiRequest('/api/payments/parent/fee/stk', { method: 'POST', body: JSON.stringify(data) }),
+    parentSubscriptionSTK: (data) => apiRequest('/api/payments/parent/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),
+    adminNameChangeSTK: (data) => apiRequest('/api/payments/admin/name-change/stk', { method: 'POST', body: JSON.stringify(data) }),
+    platformSTK: (data) => apiRequest('/api/payments/platform/stk', { method: 'POST', body: JSON.stringify(data) }),
+    querySTKStatus: (checkoutRequestId) => apiRequest(`/api/payments/stk/${checkoutRequestId}/status`)
+};
+
 // ============ ASSEMBLE API OBJECT ============
 const api = {
     auth: authAPI,
@@ -703,6 +718,7 @@ const api = {
     timetable: timetableAPI,      // <-- NEW
     gamification: gamificationAPI,// <-- NEW
     search: searchAPI,            // <-- NEW
+    payments: paymentAPI,          // <-- DARAJA / M-PESA
     homeTasks: {
         getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),
         complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
