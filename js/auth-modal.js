@@ -625,7 +625,7 @@ function showStudentHelp() {
     showToast('Contact your teacher to reset your password or get your ELIMUID', 'info', 5000);
 }
 
-// Terms and Privacy are loaded from /api/legal by the production legal modal
+// Terms and Privacy placeholders (you can implement actual modals later)
 function showTerms() {
     alert('Terms of Service: By using ShuleAI, you agree to our terms...');
 }

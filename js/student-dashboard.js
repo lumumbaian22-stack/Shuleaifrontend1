@@ -143,24 +143,40 @@ async function sendStudentMessage() {
 
 // Ask AI tutor
 async function askAI() {
-    if (window.askAITutor && window.askAITutor !== askAI) return window.askAITutor();
     const input = document.getElementById('ai-input');
     const question = input?.value.trim();
+    
+    if (!question) return;
+    
     const container = document.getElementById('ai-chat-messages');
-    if (!question || !container) return;
-    container.innerHTML += `<div class="flex justify-end mb-3"><div class="chat-bubble-sent max-w-[70%]"><p class="text-sm">${escapeHtml(question)}</p><p class="text-xs text-muted-foreground mt-1">just now</p></div></div>`;
+    if (!container) return;
+    
+    // Add user message
+    container.innerHTML += `
+        <div class="flex justify-end mb-3">
+            <div class="chat-bubble-sent max-w-[70%]">
+                <p class="text-sm">${question}</p>
+                <p class="text-xs text-muted-foreground mt-1">just now</p>
+            </div>
+        </div>
+    `;
+    
     input.value = '';
     container.scrollTop = container.scrollHeight;
-    try {
-        const response = await tutorAPI.chat({ message: question });
-        const data = response.data || {};
-        container.innerHTML += `<div class="flex justify-start mb-3"><div class="chat-bubble-received max-w-[80%]"><p class="text-sm font-medium">AI Tutor • ${escapeHtml(data.subject || 'Learning')}</p><p class="text-sm whitespace-pre-wrap">${escapeHtml(data.answer || '')}</p></div></div>`;
-    } catch (error) {
-        container.innerHTML += `<div class="flex justify-start mb-3"><div class="chat-bubble-received max-w-[70%]"><p class="text-sm text-red-600">${escapeHtml(error.message || 'AI tutor unavailable')}</p></div></div>`;
-    }
-    container.scrollTop = container.scrollHeight;
+    
+    // Simulate AI response
+    setTimeout(() => {
+        container.innerHTML += `
+            <div class="flex justify-start mb-3">
+                <div class="chat-bubble-received max-w-[70%]">
+                    <p class="text-sm font-medium">AI Tutor</p>
+                    <p class="text-sm">I'm here to help! What would you like to know about?</p>
+                </div>
+            </div>
+        `;
+        container.scrollTop = container.scrollHeight;
+    }, 1000);
 }
-
 
 // Export functions
 window.loadStudentDashboard = loadStudentDashboard;
