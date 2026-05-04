@@ -238,8 +238,8 @@ function showAlertPopup(title, message, type = 'warning') {
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 border rounded-lg">Dismiss</button>
-                <button onclick="this.closest('.fixed').remove(); /* optional action */" class="px-4 py-2 bg-primary text-white rounded-lg">OK</button>
+                <button onclick="window.safeClosestRemove && window.safeClosestRemove(this, '.fixed')" class="px-4 py-2 border rounded-lg">Dismiss</button>
+                <button onclick="window.safeClosestRemove && window.safeClosestRemove(this, '.fixed'); /* optional action */" class="px-4 py-2 bg-primary text-white rounded-lg">OK</button>
             </div>
         </div>
     `;

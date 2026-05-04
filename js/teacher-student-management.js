@@ -670,7 +670,7 @@ async function addComment(studentId, comment) {
 // ============ TASK FUNCTIONS ============
 
 function addTeacherTask() {
-    showToast('Add task feature coming soon', 'info');
+    if (window.addTask) { window.addTask(); } else { showToast('Open the Tasks section to create a task', 'info'); }
 }
 
 // ============ MESSAGE FUNCTIONS ============

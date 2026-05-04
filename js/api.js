@@ -199,8 +199,9 @@ const superAdminAPI = {
             body: JSON.stringify(data)
         }),
     getAllUsers: () => apiRequest('/api/super-admin/users'),
-    getSystemMetrics: () => apiRequest('/api/super-admin/metrics'),
-    getSystemLogs: () => apiRequest('/api/super-admin/logs'),
+    getSystemMetrics: () => apiRequest('/api/super-admin/system/metrics'),
+    getSystemLogs: () => apiRequest('/api/super-admin/system/events'),
+    getSystemStatus: () => apiRequest('/api/super-admin/system/status'),
     getRequestHistory: () => apiRequest('/api/super-admin/requests/history'),
     getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats`),
     getGrowthData: () => apiRequest('/api/super-admin/growth-data'),
@@ -660,7 +661,9 @@ const calendarAPI = {
 
 // Timetable
 const timetableAPI = {
-    generate: (weekStartDate) => apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate }) }),
+    getByWeek: (weekStartDate) => apiRequest(`/api/timetable?weekStartDate=${weekStartDate}`),
+    generate: (weekStartDate, extra = {}) => apiRequest('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate, ...extra }) }),
+    update: (id, data) => apiRequest(`/api/timetable/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     getForTeacher: (teacherId, weekStart) => apiRequest(`/api/timetable/teacher/${teacherId}?weekStart=${weekStart}`),
     getForClass: (classId, weekStart) => apiRequest(`/api/timetable/class/${classId}?weekStart=${weekStart}`),
     publish: (id) => apiRequest(`/api/timetable/${id}/publish`, { method: 'POST' })
@@ -782,3 +785,25 @@ const chatV9API = {
     getMyAchievements: () => apiRequest('/api/chat-v9/achievements/me')
 };
 window.chatV9API = chatV9API;
+
+
+// ============ PRODUCTION LEARNING / AI TUTOR / LEGAL APIs ============
+const learningAPI = {
+  getMaterials: (params = {}) => apiRequest(`/api/learning/materials?${new URLSearchParams(params).toString()}`),
+  getMaterial: (id) => apiRequest(`/api/learning/materials/${id}`),
+  createMaterial: (data) => apiRequest('/api/learning/materials', { method: 'POST', body: JSON.stringify(data) })
+};
+const tutorAPI = {
+  chat: (data) => apiRequest('/api/tutor/chat', { method: 'POST', body: JSON.stringify(data) }),
+  getInsights: (studentId = null) => apiRequest(studentId ? `/api/tutor/insights/${studentId}` : '/api/tutor/insights'),
+  getSessions: (params = {}) => apiRequest(`/api/tutor/sessions?${new URLSearchParams(params).toString()}`)
+};
+const legalAPI = {
+  getAll: () => apiRequest('/api/legal'),
+  get: (type) => apiRequest(`/api/legal/${type}`),
+  update: (type, data) => apiRequest(`/api/legal/${type}`, { method: 'PUT', body: JSON.stringify(data) })
+};
+window.learningAPI = learningAPI;
+window.tutorAPI = tutorAPI;
+window.legalAPI = legalAPI;
+if (window.api) { window.api.learning = learningAPI; window.api.tutor = tutorAPI; window.api.legal = legalAPI; }
