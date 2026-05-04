@@ -483,9 +483,21 @@ async function openMarksEntry(subject, classId, className) {
   currentMarksYear = document.getElementById('marks-year')?.value || new Date().getFullYear();
   showLoading();
   try {
+    // v17: load the school curriculum before marks entry so grades match the school's configured system.
+    try {
+      const meta = await apiRequest('/api/school/curriculum');
+      if (meta?.data) {
+        window.schoolSettings = { ...(window.schoolSettings || {}), ...meta.data };
+        window.currentGradingScale = meta.data.gradingScale || null;
+      }
+    } catch (metaErr) { console.warn('Curriculum metadata could not be loaded:', metaErr.message); }
+
     const res = await api.teacher.getClassStudents(classId);
-    currentMarksStudents = res.data || [];
-    if (!currentMarksStudents.length) { showToast('No students', 'warning'); hideLoading(); return; }
+    const payload = res.data;
+    currentMarksStudents = Array.isArray(payload) ? payload : (payload?.students || payload?.data || []);
+    if (res.meta) window.currentMarksClassMeta = res.meta;
+    if (payload?.meta) window.currentMarksClassMeta = payload.meta;
+    if (!currentMarksStudents.length) { showToast('No students found for this class. Check class name/grade mapping and student status.', 'warning'); hideLoading(); return; }
     showMarksEntryModal(className);
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
@@ -501,6 +513,16 @@ function showMarksEntryModal(className) {
   const assessmentTypes = ['test', 'exam', 'assignment', 'project', 'quiz'];
   const today = new Date().toISOString().split('T')[0];
   const terms = ['Term 1', 'Term 2', 'Term 3'];
+
+  const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
+  let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary';
+  if (!level || level === 'both') {
+    const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
+    level = primaryKeywords.some(kw => String(className || '').toUpperCase().includes(kw)) ? 'primary' : 'secondary';
+  }
+  const curriculumName = (window.CURRICULUMS?.[curriculum]?.name) || String(curriculum).toUpperCase();
+  const scale = window.currentGradingScale || window.CURRICULUMS?.[curriculum]?.grading?.[level] || [];
+  const scaleHtml = `<div class="rounded-xl border bg-card p-4 mt-4 v17-grading-scale"><div class="flex items-center justify-between gap-2 flex-wrap"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">School curriculum detected</p><h3 class="font-bold">${escapeHtml(curriculumName)} • ${escapeHtml(level)}</h3></div><span class="text-xs rounded-full border px-3 py-1">${scale.length} grading bands</span></div><div class="mt-3 flex gap-2 flex-wrap">${scale.map(g => `<span class="text-xs rounded-full bg-muted px-2 py-1"><strong>${escapeHtml(g.grade)}</strong> ${escapeHtml(g.range || ((g.min ?? '') + '-' + (g.max ?? '')))}</span>`).join('')}</div></div>`;
 
   if (!Array.isArray(currentMarksStudents) || currentMarksStudents.length === 0) {
     modalContent.innerHTML = `
@@ -524,6 +546,8 @@ function showMarksEntryModal(className) {
       </div>
       <button onclick="closeMarksEntryModal()" class="v95-close">×</button>
     </div>
+
+    ${scaleHtml}
 
     <div class="v95-marks-top mt-5">
       <div class="v95-field">

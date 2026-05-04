@@ -7,6 +7,9 @@ let refreshToken = localStorage.getItem('refreshToken');
 
 // API request wrapper with authentication
 async function apiRequest(endpoint, options = {}) {
+    // v17: always read the latest token from localStorage. Some dashboard modules login/update
+    // localStorage after api.js has loaded, so the old cached authToken variable can go stale.
+    authToken = localStorage.getItem('authToken') || localStorage.getItem('token') || authToken;
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
@@ -430,7 +433,7 @@ const parentAPI = {
     getChildMarks: (studentId) => apiRequest(`/api/parent/child/${studentId}/marks`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
     getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
-    getAnalytics: (childId) => apiRequest(`/api/parent/child/${childId}/analytics?_=${Date.now()}`)
+    getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`)
 };
 
 // ============ STUDENT ENDPOINTS ============
