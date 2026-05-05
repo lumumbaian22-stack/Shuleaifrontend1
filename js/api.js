@@ -677,6 +677,18 @@ const gamificationAPI = {
     redeemReward: (data) => apiRequest('/api/gamification/rewards/redeem', { method: 'POST', body: JSON.stringify(data) })
 };
 
+
+// Enhanced AI Tutor
+const tutorAPI = {
+    getConfig: () => apiRequest('/api/tutor/config'),
+    ask: (data) => apiRequest('/api/tutor/ask', { method: 'POST', body: JSON.stringify(data) }),
+    getProgress: (studentId = '') => apiRequest(`/api/tutor/progress/${studentId}`),
+    getSession: (studentId = '') => apiRequest(`/api/tutor/session/${studentId}`),
+    submitPracticeAnswer: (data) => apiRequest('/api/tutor/practice/answer', { method: 'POST', body: JSON.stringify(data) }),
+    getParentReport: (parentId = '') => apiRequest(`/api/tutor/reports/parent/${parentId}`),
+    getTeacherReport: (classId = '') => apiRequest(`/api/tutor/reports/teacher/${classId}`)
+};
+
 // Global Search
 const searchAPI = {
     globalSearch: (q) => apiRequest(`/api/search?q=${encodeURIComponent(q)}`)
@@ -721,6 +733,7 @@ const api = {
     timetable: timetableAPI,      // <-- NEW
     gamification: gamificationAPI,// <-- NEW
     search: searchAPI,            // <-- NEW
+    tutor: tutorAPI,              // <-- ENHANCED AI TUTOR
     payments: paymentAPI,          // <-- DARAJA / M-PESA
     homeTasks: {
         getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),

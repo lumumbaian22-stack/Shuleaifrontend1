@@ -558,41 +558,120 @@ async function sendStudentChatMessage() {
 function renderStudentAITutor() {
     const curriculum = schoolSettings.curriculum || 'cbc';
     const school = getCurrentSchool();
-    
+    const user = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
+    const grade = user.grade || user.class || 'Grade 5';
+
     return `
-        <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold">AI Tutor</h2>
+        <div class="max-w-6xl mx-auto space-y-6 animate-fade-in">
+            <div class="flex flex-wrap justify-between items-center gap-3">
+                <div>
+                    <h2 class="text-2xl font-bold">Enhanced AI Tutor</h2>
+                    <p class="text-sm text-muted-foreground">Subject-aware tutor for all levels with command detection.</p>
+                </div>
                 <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
             </div>
-            <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
-                <div class="flex items-center gap-3 mb-4 pb-2 border-b">
-                    <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                        <i data-lucide="bot" class="h-6 w-6 text-white"></i>
+
+            <div class="grid gap-4 lg:grid-cols-4">
+                <div class="rounded-xl border bg-card p-4 lg:col-span-1 space-y-4">
+                    <div>
+                        <label class="text-xs font-semibold text-muted-foreground">Education Level</label>
+                        <select id="ai-level-select" onchange="updateTutorSubjects()" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="early_years">Early Years: PP1 - Grade 3</option>
+                            <option value="upper_primary" selected>Upper Primary: Grade 4 - 6</option>
+                            <option value="junior_secondary">Junior Secondary: Grade 7 - 9</option>
+                            <option value="senior_school">Senior / Exam Classes</option>
+                        </select>
                     </div>
                     <div>
-                        <h3 class="font-semibold text-lg">AI Tutor</h3>
-                        <p class="text-xs text-muted-foreground">Curriculum: ${CURRICULUMS[curriculum]?.name || 'CBC'}</p>
+                        <label class="text-xs font-semibold text-muted-foreground">Subject</label>
+                        <select id="ai-subject-select" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></select>
                     </div>
+                    <div>
+                        <label class="text-xs font-semibold text-muted-foreground">Command</label>
+                        <select id="ai-command-select" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="ask">Auto detect</option>
+                            <option value="explain">Explain</option>
+                            <option value="solve">Solve</option>
+                            <option value="quiz">Quiz me</option>
+                            <option value="summarize">Summarize</option>
+                            <option value="revise">Revision</option>
+                            <option value="homework">Give homework</option>
+                            <option value="weakness">Show weak areas</option>
+                            <option value="plan">Study plan</option>
+                        </select>
+                    </div>
+                    <div class="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground space-y-2">
+                        <p class="font-semibold text-foreground">Commands it understands:</p>
+                        <p>“explain fractions”, “quiz me in science”, “summarize nouns”, “make revision plan”, “show my weak areas”.</p>
+                    </div>
+                    <button onclick="loadTutorProgress()" class="w-full rounded-lg border px-3 py-2 text-sm hover:bg-accent">Load My Progress</button>
+                    <div id="ai-progress-panel" class="text-xs space-y-2"></div>
                 </div>
-                <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="ai-chat-container">
-                    <div class="flex justify-start">
-                        <div class="chat-bubble-received max-w-[70%]">
-                            <p class="text-sm">Hi! I'm your AI tutor. I can help you with ${CURRICULUMS[curriculum]?.name || 'your'} curriculum. What would you like to learn about today?</p>
+
+                <div class="rounded-xl border bg-card p-4 h-[680px] flex flex-col lg:col-span-3">
+                    <div class="flex items-center gap-3 mb-4 pb-2 border-b">
+                        <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                            <i data-lucide="bot" class="h-6 w-6 text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg">Shule AI Tutor</h3>
+                            <p class="text-xs text-muted-foreground">Curriculum: ${CURRICULUMS[curriculum]?.name || 'CBC'} • Grade: ${grade}</p>
                         </div>
                     </div>
-                </div>
-                <div class="flex gap-2">
-                    <input type="text" id="ai-question-input" placeholder="Ask me anything..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                    <button onclick="askAITutor()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
-                        <i data-lucide="send" class="h-4 w-4"></i>
-                        Ask
-                    </button>
+                    <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="ai-chat-container">
+                        <div class="flex justify-start">
+                            <div class="chat-bubble-received max-w-[80%]">
+                                <p class="text-sm">Hi! I can detect subjects and commands. Try: <b>“quiz me in Mathematics”</b>, <b>“explain photosynthesis”</b>, or <b>“make a revision plan for English.”</b></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-2">
+                        ${['Explain this', 'Quiz me', 'Summarize topic', 'Revision plan', 'Give homework', 'Show weak areas'].map(label => `<button onclick="fillTutorCommand('${label}')" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">${label}</button>`).join('')}
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="ai-question-input" placeholder="Ask me anything or type a command..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <button onclick="askAITutor()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                            <i data-lucide="send" class="h-4 w-4"></i>
+                            Ask
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 }
+
+const SHULE_TUTOR_SUBJECTS = {
+    early_years: ['Literacy', 'Kiswahili Language Activities', 'English Language Activities', 'Mathematical Activities', 'Environmental Activities', 'Creative Activities', 'Religious Education', 'Psychomotor Activities'],
+    upper_primary: ['Mathematics', 'English', 'Kiswahili', 'Science and Technology', 'Agriculture and Nutrition', 'Social Studies', 'Creative Arts', 'Religious Education', 'Physical and Health Education'],
+    junior_secondary: ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Health Education', 'Pre-Technical Studies', 'Social Studies', 'Religious Education', 'Business Studies', 'Agriculture', 'Life Skills Education', 'Sports and Physical Education', 'Computer Science', 'Visual Arts', 'Performing Arts', 'Home Science', 'Foreign Languages'],
+    senior_school: ['Mathematics', 'English', 'Kiswahili', 'Biology', 'Chemistry', 'Physics', 'History and Government', 'Geography', 'CRE', 'IRE', 'Business Studies', 'Agriculture', 'Computer Studies', 'Home Science', 'Art and Design', 'Music', 'Physical Education']
+};
+
+function updateTutorSubjects() {
+    const level = document.getElementById('ai-level-select')?.value || 'upper_primary';
+    const select = document.getElementById('ai-subject-select');
+    if (!select) return;
+    select.innerHTML = (SHULE_TUTOR_SUBJECTS[level] || SHULE_TUTOR_SUBJECTS.upper_primary).map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function fillTutorCommand(label) {
+    const input = document.getElementById('ai-question-input');
+    if (!input) return;
+    const subject = document.getElementById('ai-subject-select')?.value || 'Mathematics';
+    const map = {
+        'Explain this': `Explain ${subject} in simple steps`,
+        'Quiz me': `Quiz me in ${subject}`,
+        'Summarize topic': `Summarize a key topic in ${subject}`,
+        'Revision plan': `Make a revision plan for ${subject}`,
+        'Give homework': `Give homework for ${subject}`,
+        'Show weak areas': `Show my weak areas in ${subject}`
+    };
+    input.value = map[label] || label;
+    input.focus();
+}
+
+setTimeout(updateTutorSubjects, 0);
 
 function renderStudentSchedule() {
     const school = getCurrentSchool();
@@ -810,15 +889,20 @@ window.sendStudentMessage = function() {
     input.value = '';
 };
 
-window.askAITutor = function() {
+window.askAITutor = async function() {
     const input = document.getElementById('ai-question-input');
     const question = input?.value.trim();
     if (!question) return;
     const container = document.getElementById('ai-chat-container');
     if (!container) return;
+    const subject = document.getElementById('ai-subject-select')?.value || undefined;
+    const command = document.getElementById('ai-command-select')?.value || 'ask';
+    const level = document.getElementById('ai-level-select')?.value || undefined;
+    const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
+
     container.innerHTML += `
         <div class="flex justify-end">
-            <div class="chat-bubble-sent max-w-[70%]">
+            <div class="chat-bubble-sent max-w-[75%]">
                 <p class="text-sm font-medium">You</p>
                 <p class="text-sm">${escapeHtml(question)}</p>
                 <p class="text-xs text-muted-foreground mt-1">just now</p>
@@ -827,31 +911,58 @@ window.askAITutor = function() {
     `;
     container.scrollTop = container.scrollHeight;
     input.value = '';
+
     const typingDiv = document.createElement('div');
     typingDiv.className = 'flex justify-start';
-    typingDiv.innerHTML = `<div class="chat-bubble-received"><p class="text-sm text-muted-foreground">AI Tutor is typing...</p></div>`;
+    typingDiv.innerHTML = `<div class="chat-bubble-received"><p class="text-sm text-muted-foreground">Shule AI Tutor is thinking...</p></div>`;
     container.appendChild(typingDiv);
     container.scrollTop = container.scrollHeight;
-    setTimeout(() => {
+
+    try {
+        const res = await api.tutor.ask({
+            question,
+            subject,
+            command: command === 'ask' ? undefined : command,
+            level,
+            grade: currentUser.grade || currentUser.class || undefined,
+            studentId: currentUser.studentId || currentUser.id || undefined
+        });
         typingDiv.remove();
-        const responses = [
-            `That's an excellent question! Let me explain...`,
-            `Based on the curriculum, here's what you need to know...`,
-            `Great question! Here's a step-by-step explanation...`,
-            `I'd be happy to help you with that. The answer is...`
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+        const data = res.data || {};
         container.innerHTML += `
             <div class="flex justify-start">
-                <div class="chat-bubble-received max-w-[70%]">
-                    <p class="text-sm font-medium">AI Tutor</p>
-                    <p class="text-sm">${randomResponse} "${escapeHtml(question)}" is an important concept. Would you like me to provide examples or practice problems?</p>
-                    <p class="text-xs text-muted-foreground mt-1">just now</p>
+                <div class="chat-bubble-received max-w-[82%]">
+                    <p class="text-sm font-medium">AI Tutor <span class="text-xs text-muted-foreground">• ${escapeHtml(data.subject || subject || 'Subject')} • ${escapeHtml(data.command || 'ask')}</span></p>
+                    <p class="text-sm whitespace-pre-line mt-1"><b>${escapeHtml(data.answer || 'Answer')}</b></p>
+                    <p class="text-sm whitespace-pre-line mt-2">${escapeHtml(data.explanation || '')}</p>
+                    ${data.nextQuestion ? `<div class="mt-3 rounded-lg bg-muted/40 p-2 text-sm"><b>Next:</b> ${escapeHtml(data.nextQuestion)}</div>` : ''}
+                    ${data.usage ? `<p class="text-xs text-muted-foreground mt-2">Today: ${data.usage.used}/${data.usage.limit} tutor questions used.</p>` : ''}
                 </div>
             </div>
         `;
         container.scrollTop = container.scrollHeight;
-    }, 1500);
+    } catch (error) {
+        typingDiv.remove();
+        container.innerHTML += `<div class="flex justify-start"><div class="chat-bubble-received max-w-[80%]"><p class="text-sm text-red-600">${escapeHtml(error.message || 'Tutor could not answer right now.')}</p></div></div>`;
+    }
+};
+
+window.loadTutorProgress = async function() {
+    const panel = document.getElementById('ai-progress-panel');
+    if (!panel) return;
+    panel.innerHTML = '<p class="text-muted-foreground">Loading progress...</p>';
+    try {
+        const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
+        const res = await api.tutor.getProgress(currentUser.studentId || currentUser.id || '');
+        const rows = res.data || [];
+        if (!rows.length) {
+            panel.innerHTML = '<p class="text-muted-foreground">No tutor progress yet. Ask your first question.</p>';
+            return;
+        }
+        panel.innerHTML = rows.slice(0, 6).map(r => `<div class="rounded-lg border p-2"><b>${escapeHtml(r.subject)}</b><br><span>${escapeHtml(r.topic)} • ${r.attempts || 0} attempts</span></div>`).join('');
+    } catch (e) {
+        panel.innerHTML = `<p class="text-red-600">${escapeHtml(e.message)}</p>`;
+    }
 };
 
 // ============ EXPORT FUNCTIONS ============
@@ -871,7 +982,8 @@ window.submitHomework = submitHomework;
 window.loadStudentHomeTasks = loadStudentHomeTasks;
 window.markTaskComplete = markTaskComplete;
 window.sendStudentMessage = sendStudentMessage;
-window.askAITutor = askAITutor;
+window.updateTutorSubjects = updateTutorSubjects;
+window.fillTutorCommand = fillTutorCommand;
 window.setStudentReply = setStudentReply;
 window.cancelStudentReply = cancelStudentReply;
 window.sendStudentChatMessage = sendStudentChatMessage;

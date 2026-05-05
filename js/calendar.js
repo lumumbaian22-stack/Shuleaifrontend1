@@ -16,19 +16,59 @@ const calendarColors = [
     { bg: 'bg-indigo-100 dark:bg-indigo-900/30', border: 'border-indigo-500', text: 'text-indigo-700', dot: 'bg-indigo-500' }
 ];
 
-// Load events from localStorage
-function loadCalendarEvents() {
+// School-wide backend calendar cache. localStorage is only used as a temporary offline fallback.
+let calendarEventsCache = [];
+let calendarEventsLoaded = false;
+let calendarEventsLoading = false;
+
+function normalizeCalendarEvent(event) {
+    return {
+        ...event,
+        id: String(event.id),
+        title: event.title || event.eventName || 'Untitled Event',
+        date: event.date || event.startDate,
+        description: event.description || '',
+        time: event.time || '',
+        location: event.location || '',
+        type: event.type || event.eventType || 'other'
+    };
+}
+
+async function refreshCalendarEvents() {
+    if (calendarEventsLoading) return calendarEventsCache;
+    calendarEventsLoading = true;
     try {
-        const events = localStorage.getItem('calendarEvents');
-        return events ? JSON.parse(events) : [];
+        const res = await api.calendar.getEvents();
+        calendarEventsCache = Array.isArray(res.data) ? res.data.map(normalizeCalendarEvent) : [];
+        calendarEventsLoaded = true;
+        localStorage.setItem('calendarEventsFallback', JSON.stringify(calendarEventsCache));
+        return calendarEventsCache;
     } catch (error) {
-        console.error('Error loading calendar events:', error);
-        return [];
+        console.error('Error loading school calendar from backend:', error);
+        try {
+            calendarEventsCache = JSON.parse(localStorage.getItem('calendarEventsFallback') || '[]');
+        } catch (_) { calendarEventsCache = []; }
+        return calendarEventsCache;
+    } finally {
+        calendarEventsLoading = false;
     }
 }
 
-function saveCalendarEvents(events) {
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
+function loadCalendarEvents() {
+    if (!calendarEventsLoaded && !calendarEventsLoading) {
+        refreshCalendarEvents().then(() => {
+            if (typeof currentSection !== 'undefined' && (currentSection === 'calendar' || currentSection === 'calendar-management')) {
+                showDashboardSection(currentSection);
+            }
+        });
+    }
+    return calendarEventsCache;
+}
+
+async function saveCalendarEvents(events) {
+    calendarEventsCache = Array.isArray(events) ? events.map(normalizeCalendarEvent) : [];
+    localStorage.setItem('calendarEventsFallback', JSON.stringify(calendarEventsCache));
+    return calendarEventsCache;
 }
 
 function renderAdminCalendar() {
@@ -450,7 +490,7 @@ function closeAddEventModal() {
     if (modal) modal.classList.add('hidden');
 }
 
-function saveCalendarEvent() {
+async function saveCalendarEvent() {
     const title = document.getElementById('event-title')?.value;
     const date = document.getElementById('event-date')?.value;
     const time = document.getElementById('event-time')?.value;
@@ -462,21 +502,27 @@ function saveCalendarEvent() {
         return;
     }
 
-    const events = loadCalendarEvents();
-    const newEvent = {
-        id: Date.now().toString(),
-        title,
-        date,
-        time,
-        location,
-        description,
-        createdAt: new Date().toISOString()
-    };
-
-    events.push(newEvent);
-    saveCalendarEvents(events);
-
-    showToast('Event added successfully', 'success');
+    try {
+        const res = await api.calendar.createEvent({
+            title,
+            eventName: title,
+            date,
+            startDate: date,
+            endDate: date,
+            time,
+            location,
+            description,
+            eventType: 'other',
+            isPublic: true
+        });
+        const events = loadCalendarEvents();
+        events.push(normalizeCalendarEvent(res.data));
+        await saveCalendarEvents(events);
+        showToast('Event added successfully and broadcasted to the school', 'success');
+    } catch (error) {
+        showToast(error.message || 'Could not save event', 'error');
+        return;
+    }
     closeAddEventModal();
 
     if (currentSection === 'calendar') {
@@ -484,14 +530,19 @@ function saveCalendarEvent() {
     }
 }
 
-function deleteEvent(eventId) {
+async function deleteEvent(eventId) {
     if (!confirm('Delete this event?')) return;
 
-    const events = loadCalendarEvents();
-    const filtered = events.filter(e => e.id !== eventId);
-    saveCalendarEvents(filtered);
-
-    showToast('Event deleted', 'success');
+    try {
+        await api.calendar.deleteEvent(eventId);
+        const events = loadCalendarEvents();
+        const filtered = events.filter(e => String(e.id) !== String(eventId));
+        await saveCalendarEvents(filtered);
+        showToast('Event deleted', 'success');
+    } catch (error) {
+        showToast(error.message || 'Could not delete event', 'error');
+        return;
+    }
 
     if (currentSection === 'calendar') {
         showDashboardSection('calendar');
@@ -601,6 +652,7 @@ function calendarGoToDate(year, month, day) {
 window.renderAdminCalendar = renderAdminCalendar;
 window.loadCalendarEvents = loadCalendarEvents;
 window.saveCalendarEvents = saveCalendarEvents;
+window.refreshCalendarEvents = refreshCalendarEvents;
 window.showDayDetails = showDayDetails;
 window.closeDayDetailsModal = closeDayDetailsModal;
 window.showAddEventModal = showAddEventModal;
