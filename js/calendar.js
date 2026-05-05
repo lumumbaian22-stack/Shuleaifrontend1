@@ -426,21 +426,21 @@ function isThisWeek(dateString) {
 
 function showAddEventModal(prefillDate) {
     let modal = document.getElementById('add-event-modal');
-    if (!modal) {
-        createAddEventModal();
-        modal = document.getElementById('add-event-modal');
-    }
+    if (!modal) createAddEventModal();
+    modal = document.getElementById('add-event-modal');
 
-    if (prefillDate) {
-        document.getElementById('event-date').value = prefillDate;
-    } else {
-        document.getElementById('event-date').value = new Date().toISOString().split('T')[0];
-    }
-
-    document.getElementById('event-title').value = '';
-    document.getElementById('event-description').value = '';
-    document.getElementById('event-time').value = '';
-    document.getElementById('event-location').value = '';
+    const today = prefillDate || new Date().toISOString().split('T')[0];
+    const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
+    setValue('event-title', '');
+    setValue('event-date', today);
+    setValue('event-end-date', today);
+    setValue('event-year', new Date(today).getFullYear());
+    setValue('event-time', '');
+    setValue('event-location', '');
+    setValue('event-description', '');
+    setValue('event-type', 'other');
+    setValue('event-term', '');
+    setValue('event-audience', 'whole_school');
 
     modal.classList.remove('hidden');
 }
@@ -448,18 +448,54 @@ function showAddEventModal(prefillDate) {
 function createAddEventModal() {
     const modalHTML = `
         <div id="add-event-modal" class="fixed inset-0 z-50 hidden">
-            <div class="absolute inset-0 bg-black/50" onclick="closeAddEventModal()"></div>
-            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
-                <div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in">
-                    <h3 class="text-lg font-semibold mb-4">Add Calendar Event</h3>
-                    <div class="space-y-4">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeAddEventModal()"></div>
+            <div class="relative flex min-h-screen items-center justify-center p-4">
+                <div class="w-full max-w-2xl rounded-xl bg-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-6">
                         <div>
-                            <label class="block text-sm font-medium mb-1">Event Title *</label>
-                            <input type="text" id="event-title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
+                            <h3 class="text-xl font-semibold">Add School Academic Calendar Event</h3>
+                            <p class="text-sm text-muted-foreground">Saved to the backend and visible to the whole school.</p>
+                        </div>
+                        <button onclick="closeAddEventModal()" class="rounded-lg p-2 hover:bg-muted"><i data-lucide="x" class="h-5 w-5"></i></button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">Event Name *</label>
+                            <input type="text" id="event-title" placeholder="e.g. Term 2 Opening Day" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Date *</label>
-                            <input type="date" id="event-date" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
+                            <label class="block text-sm font-medium mb-1">Event Type</label>
+                            <select id="event-type" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="term_start">Term Opening</option>
+                                <option value="term_end">Term Closing</option>
+                                <option value="exam">Exams / Assessment</option>
+                                <option value="holiday">Holiday / Break</option>
+                                <option value="meeting">Meeting</option>
+                                <option value="sports">Sports</option>
+                                <option value="activity">School Activity</option>
+                                <option value="other" selected>Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Term</label>
+                            <select id="event-term" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="">Not term-specific</option>
+                                <option value="Term 1">Term 1</option>
+                                <option value="Term 2">Term 2</option>
+                                <option value="Term 3">Term 3</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Start Date *</label>
+                            <input type="date" id="event-date" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">End Date</label>
+                            <input type="date" id="event-end-date" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Year</label>
+                            <input type="number" id="event-year" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Time</label>
@@ -467,22 +503,33 @@ function createAddEventModal() {
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Location</label>
-                            <input type="text" id="event-location" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <input type="text" id="event-location" placeholder="e.g. Main Hall" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
                         <div>
+                            <label class="block text-sm font-medium mb-1">Broadcast To</label>
+                            <select id="event-audience" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="whole_school" selected>Whole School</option>
+                                <option value="students">Students</option>
+                                <option value="parents">Parents</option>
+                                <option value="teachers">Teachers</option>
+                                <option value="staff">Staff</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
                             <label class="block text-sm font-medium mb-1">Description</label>
-                            <textarea id="event-description" rows="3" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></textarea>
+                            <textarea id="event-description" rows="3" placeholder="Optional event details..." class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></textarea>
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 mt-6">
                         <button onclick="closeAddEventModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Cancel</button>
-                        <button onclick="saveCalendarEvent()" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save Event</button>
+                        <button onclick="saveCalendarEvent()" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save & Broadcast</button>
                     </div>
                 </div>
             </div>
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function closeAddEventModal() {
@@ -491,14 +538,19 @@ function closeAddEventModal() {
 }
 
 async function saveCalendarEvent() {
-    const title = document.getElementById('event-title')?.value;
+    const title = document.getElementById('event-title')?.value?.trim();
     const date = document.getElementById('event-date')?.value;
+    const endDate = document.getElementById('event-end-date')?.value || date;
     const time = document.getElementById('event-time')?.value;
-    const location = document.getElementById('event-location')?.value;
-    const description = document.getElementById('event-description')?.value;
+    const location = document.getElementById('event-location')?.value?.trim();
+    const description = document.getElementById('event-description')?.value?.trim();
+    const eventType = document.getElementById('event-type')?.value || 'other';
+    const term = document.getElementById('event-term')?.value || null;
+    const year = Number(document.getElementById('event-year')?.value || new Date(date).getFullYear());
+    const audience = document.getElementById('event-audience')?.value || 'whole_school';
 
     if (!title || !date) {
-        showToast('Title and date are required', 'error');
+        showToast('Event name and start date are required', 'error');
         return;
     }
 
@@ -508,11 +560,14 @@ async function saveCalendarEvent() {
             eventName: title,
             date,
             startDate: date,
-            endDate: date,
+            endDate,
             time,
             location,
             description,
-            eventType: 'other',
+            eventType,
+            term,
+            year,
+            audience,
             isPublic: true
         });
         const events = loadCalendarEvents();
