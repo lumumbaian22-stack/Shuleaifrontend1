@@ -696,6 +696,20 @@ const searchAPI = {
 
 
 
+
+// ============ FEE STRUCTURE ENDPOINTS ============
+const feeStructureAPI = {
+    list: (params = {}) => apiRequest('/api/fee-structures' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    get: (id) => apiRequest(`/api/fee-structures/${id}`),
+    create: (data) => apiRequest('/api/fee-structures', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => apiRequest(`/api/fee-structures/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    activate: (id) => apiRequest(`/api/fee-structures/${id}/activate`, { method: 'POST' }),
+    lock: (id) => apiRequest(`/api/fee-structures/${id}/lock`, { method: 'POST' }),
+    assign: (id, data) => apiRequest(`/api/fee-structures/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }),
+    studentAccounts: (params = {}) => apiRequest('/api/fee-structures/student-accounts' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    adjustStudentAccount: (feeId, data) => apiRequest(`/api/fee-structures/student-accounts/${feeId}/adjust`, { method: 'POST', body: JSON.stringify(data) })
+};
+
 // ============ PAYMENT / DARAJA ENDPOINTS ============
 const paymentAPI = {
     getSchoolSettings: () => apiRequest('/api/payments/admin/school-settings'),
@@ -735,6 +749,7 @@ const api = {
     search: searchAPI,            // <-- NEW
     tutor: tutorAPI,              // <-- ENHANCED AI TUTOR
     payments: paymentAPI,          // <-- DARAJA / M-PESA
+    feeStructures: feeStructureAPI, // <-- ADMIN FEE STRUCTURE CONTROL
     homeTasks: {
         getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),
         complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })

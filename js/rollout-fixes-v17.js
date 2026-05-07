@@ -190,6 +190,6 @@
   document.head.appendChild(css);
 
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => { if (currentUser().role === 'teacher') w.v17RefreshTeacherDutyCard?.(); }, 900);
+    setTimeout(() => { const u = currentUser(); if (u && u.role === 'teacher') w.v17RefreshTeacherDutyCard?.(); }, 900);
   });
 })();
