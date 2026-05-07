@@ -324,6 +324,8 @@ async function showDashboardSection(section) {
             chat: 'Study Group Chat',
             'ai-tutor': 'AI Tutor',
             payments: 'Payments',
+            'fee-structures': 'Fee Structures',
+            'payment-settings': 'Payment Settings',
             progress: 'Academic Progress',
             'child-selector': 'Select Child',
             schools: 'School Management',
