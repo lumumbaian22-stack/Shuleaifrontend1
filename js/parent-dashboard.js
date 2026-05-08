@@ -11,7 +11,7 @@ async function renderParentSection(section) {
         case 'payments':
             return await window.v12RenderParentPayments();
         case 'timetable':
-            return await window.v12RenderParentTimetable();
+            return await (window.v12RenderParentTimetable || window.renderParentTimetable || window.renderTeacherTimetable || window.renderAdminTimetable)();
         case 'help':
             return renderHelpSection();
         case 'chat':
@@ -22,7 +22,7 @@ async function renderParentSection(section) {
         case 'analytics':                               // <-- ADDED
             return await renderAnalyticsSection('parent');
         case 'alerts':
-            return await window.v12RenderAlertsCenter('parent');
+            return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('parent');
             default:
             return await renderParentDashboard();
     }

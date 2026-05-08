@@ -53,7 +53,7 @@ async function renderTeacherSection(section) {
     switch(section) {
       case 'dashboard': return await renderTeacherDashboard();
       case 'competency': return await renderTeacherCompetency();
-      case 'my-timetable': return await window.v12RenderTeacherTimetable();
+      case 'my-timetable': return await (window.v12RenderTeacherTimetable || window.renderTeacherTimetable)();
       case 'homework': return await window.v12RenderTeacherHomework();
       case 'students': return isClassTeacher() ? await renderTeacherStudents() : '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><p>Only Class Teachers can manage students.</p></div>';
       case 'attendance': return await renderTeacherAttendance();
@@ -66,7 +66,7 @@ async function renderTeacherSection(section) {
       case 'settings': return await renderProfileSection()
       case 'help': return await renderHelpSection('teacher');
       case 'profile': return await renderProfileSection();
-      case 'alerts': return await window.v12RenderAlertsCenter('teacher');
+      case 'alerts': return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('teacher');
             default: return await renderTeacherDashboard();
     }
   } catch (error) {

@@ -209,3 +209,60 @@ window.deleteNotification = deleteNotification;
 window.clearAllNotifications = clearAllNotifications;
 window.toggleNotifications = toggleNotifications;
 window.renderNotificationsPanel = renderNotificationsPanel;
+
+// Render a full-page alerts center for dashboard sections.
+// Kept here because older dashboard sections call v12RenderAlertsCenter(role).
+// This uses the real alerts API and does not create demo/placeholder alerts.
+async function renderAlertsCenter(role = 'user') {
+  let alerts = [];
+  let errorMessage = '';
+  try {
+    const res = await api.user.getAlerts();
+    alerts = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.alerts) ? res.alerts : []);
+  } catch (error) {
+    errorMessage = error?.message || 'Failed to load alerts';
+  }
+
+  const safe = (value) => typeof escapeHtml === 'function'
+    ? escapeHtml(value ?? '')
+    : String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c]));
+
+  const title = role === 'admin' ? 'Alerts Center' : 'Alerts';
+  const rows = alerts.map(alert => {
+    const severity = alert.severity || alert.type || 'info';
+    const isRead = alert.read || alert.isRead;
+    const created = alert.createdAt || alert.timestamp || alert.date || '';
+    return `
+      <div class="rounded-xl border bg-card p-4 shadow-sm ${!isRead ? 'ring-1 ring-primary/20' : ''}">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="font-semibold text-foreground">${safe(alert.title || 'Alert')}</h3>
+              <span class="rounded-full border px-2 py-0.5 text-xs capitalize text-muted-foreground">${safe(severity)}</span>
+            </div>
+            <p class="mt-1 text-sm text-muted-foreground">${safe(alert.message || alert.description || '')}</p>
+            ${created ? `<p class="mt-2 text-xs text-muted-foreground">${safe(created)}</p>` : ''}
+          </div>
+          ${!isRead && alert.id ? `<button class="rounded-lg border px-3 py-1 text-xs hover:bg-accent" onclick="markAsRead('${safe(alert.id)}')">Mark read</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="space-y-6 animate-fade-in">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-2xl font-bold">${safe(title)}</h2>
+          <p class="text-sm text-muted-foreground">View system, academic, payment, attendance, and operational alerts.</p>
+        </div>
+        <button onclick="loadNotifications && loadNotifications()" class="rounded-lg border px-4 py-2 text-sm hover:bg-accent">Refresh</button>
+      </div>
+      ${errorMessage ? `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200">${safe(errorMessage)}</div>` : ''}
+      <div class="grid gap-3">
+        ${rows || '<div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">No alerts found.</div>'}
+      </div>
+    </div>`;
+}
+
+window.renderAlertsCenter = window.renderAlertsCenter || renderAlertsCenter;
+window.v12RenderAlertsCenter = window.v12RenderAlertsCenter || renderAlertsCenter;

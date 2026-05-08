@@ -88,4 +88,12 @@
   w.v33GenerateTimetable=async function(){try{if(w.showLoading)showLoading();await req('/api/timetable/generate',{method:'POST',body:JSON.stringify({weekStartDate:weekStart()})});await w.showDashboardSection?.('timetable');}catch(e){w.showToast?showToast(e.message,'error'):alert(e.message)}finally{if(w.hideLoading)hideLoading();}};
   w.v33PublishTimetable=async function(){if(!activeTimetableId){alert('Generate or load a timetable first.');return;}try{await req(`/api/timetable/${activeTimetableId}/publish`,{method:'POST'});w.showToast&&showToast('Timetable published','success');}catch(e){w.showToast?showToast(e.message,'error'):alert(e.message)}};
 
+
+  // Compatibility aliases kept because older dashboard sections still call v12 names.
+  // These aliases point to the real current renderers instead of adding fallback placeholder screens.
+  w.v12RenderAdminTimetable = w.v12RenderAdminTimetable || w.renderAdminTimetable;
+  w.v12RenderTeacherTimetable = w.v12RenderTeacherTimetable || w.renderTeacherTimetable || w.renderAdminTimetable;
+  w.v12RenderParentTimetable = w.v12RenderParentTimetable || w.renderParentTimetable || w.renderTeacherTimetable || w.renderAdminTimetable;
+  w.v12RenderStudentTimetable = w.v12RenderStudentTimetable || w.renderStudentTimetable || w.renderTeacherTimetable || w.renderAdminTimetable;
+
 })();

@@ -23,7 +23,7 @@ async function renderSuperAdminSection(section) {
             case 'settings':
                 return renderSuperAdminSettings();
             case 'alerts':
-                return await window.v12RenderAlertsCenter('superadmin');
+                return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('superadmin');
             default:
                 return renderSuperAdminDashboard();
         }

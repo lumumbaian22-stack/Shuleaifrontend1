@@ -39,14 +39,14 @@ async function renderStudentSection(section) {
         case 'ai-tutor':
             return renderStudentAITutor();
         case 'schedule':
-            return await window.v12RenderStudentTimetable();
+            return await (window.v12RenderStudentTimetable || window.renderStudentTimetable || window.renderTeacherTimetable || window.renderAdminTimetable)();
         case 'help':
             return renderHelpSection();
         case 'settings':
         case 'profile':
             return await renderProfileSection();
         case 'alerts':
-            return await window.v12RenderAlertsCenter('student');
+            return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('student');
             default:
             return await renderStudentDashboard();
     }

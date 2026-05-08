@@ -523,7 +523,7 @@ async function renderAdminSection(section) {
             case 'students':
                 return await renderAdminStudents();
             case 'timetable':
-                 return await window.v12RenderAdminTimetable();
+                 return await (window.v12RenderAdminTimetable || window.renderAdminTimetable)();
             case 'calendar':
                 return renderAdminCalendar();
             case 'teachers':
@@ -553,7 +553,7 @@ async function renderAdminSection(section) {
             case 'settings':
                 return renderAdminSettings();
             case 'alerts':
-                return await window.v12RenderAlertsCenter('admin');
+                return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('admin');
             case 'finance-fees':
             case 'fee-structures':
             case 'payment-settings':
