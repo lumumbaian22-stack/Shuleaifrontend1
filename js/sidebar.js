@@ -48,8 +48,7 @@ function updateSidebar(role) {
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
                 { icon: 'clock', label: 'Timetable', section: 'timetable' },
                 { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
-                { icon: 'receipt', label: 'Fee Structures', section: 'fee-structures' },
-                { icon: 'credit-card', label: 'Payment Settings', section: 'payment-settings' }
+                { icon: 'wallet', label: 'Finance & Fees', section: 'finance-fees' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },

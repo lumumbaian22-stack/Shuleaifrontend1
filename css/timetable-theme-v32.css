@@ -1,0 +1,65 @@
+/* V32 Timetable Light/Dark Theme Fix */
+:root{
+  --tt-bg:#f8fafc; --tt-surface:#ffffff; --tt-surface-2:#f1f5f9; --tt-text:#0f172a; --tt-muted:#64748b; --tt-border:#e2e8f0; --tt-primary:#16a34a; --tt-blue:#2563eb; --tt-soft:#ecfdf5; --tt-shadow:0 18px 45px rgba(15,23,42,.08);
+}
+html.dark, body.dark, .dark{
+  --tt-bg:#07111f; --tt-surface:#0f1b2d; --tt-surface-2:#13243a; --tt-text:#e5eefc; --tt-muted:#9fb0c8; --tt-border:rgba(148,163,184,.22); --tt-primary:#22c55e; --tt-blue:#3b82f6; --tt-soft:rgba(34,197,94,.12); --tt-shadow:0 20px 60px rgba(0,0,0,.35);
+}
+#dashboard-content .timetable-container,
+#dashboard-content .timetable-wrapper,
+#dashboard-content .timetable-board,
+#dashboard-content .timetable-grid,
+#dashboard-content .v12-page:has(.v12-timetable-grid),
+#dashboard-content .v12-page:has(.timetable-grid){
+  background:var(--tt-bg)!important;color:var(--tt-text)!important;
+}
+#dashboard-content .timetable-card,
+#dashboard-content .timetable-cell,
+#dashboard-content .timetable-slot,
+#dashboard-content .timetable-day,
+#dashboard-content .v12-card,
+#dashboard-content .v12-child-card,
+#dashboard-content .v12-timetable-cell,
+#dashboard-content .v12-timetable-grid,
+#dashboard-content .v12-list-item{
+  background:var(--tt-surface)!important;color:var(--tt-text)!important;border-color:var(--tt-border)!important;box-shadow:var(--tt-shadow);
+}
+#dashboard-content .v12-hero,
+#dashboard-content .timetable-header,
+#dashboard-content .timetable-toolbar{
+  background:linear-gradient(135deg,var(--tt-surface),var(--tt-surface-2))!important;color:var(--tt-text)!important;border:1px solid var(--tt-border)!important;
+}
+#dashboard-content .v12-title,
+#dashboard-content .v12-value,
+#dashboard-content .timetable-title,
+#dashboard-content .timetable-card h1,
+#dashboard-content .timetable-card h2,
+#dashboard-content .timetable-card h3,
+#dashboard-content .timetable-cell b,
+#dashboard-content .v12-card h3,
+#dashboard-content .v12-list-item b{color:var(--tt-text)!important;}
+#dashboard-content .v12-sub,
+#dashboard-content .v12-label,
+#dashboard-content .text-muted-foreground,
+#dashboard-content .timetable-muted,
+#dashboard-content .timetable-card p,
+#dashboard-content .v12-list-item small{color:var(--tt-muted)!important;}
+#dashboard-content .v12-btn,
+#dashboard-content .timetable-btn,
+#dashboard-content button[class*="timetable"],
+#dashboard-content .v12-pill{
+  background:var(--tt-surface-2)!important;color:var(--tt-text)!important;border:1px solid var(--tt-border)!important;
+}
+#dashboard-content .v12-btn.dark,
+#dashboard-content .v12-btn.primary,
+#dashboard-content .timetable-btn.primary{
+  background:linear-gradient(135deg,var(--tt-primary),#15803d)!important;color:#fff!important;border-color:transparent!important;
+}
+#dashboard-content .v12-pill.green,
+#dashboard-content .timetable-status.green{background:var(--tt-soft)!important;color:var(--tt-primary)!important;border-color:rgba(34,197,94,.28)!important;}
+#dashboard-content table.timetable-table,
+#dashboard-content .timetable-table{background:var(--tt-surface)!important;color:var(--tt-text)!important;border-color:var(--tt-border)!important;}
+#dashboard-content .timetable-table th,
+#dashboard-content .timetable-table td{background:var(--tt-surface)!important;color:var(--tt-text)!important;border-color:var(--tt-border)!important;}
+#dashboard-content .timetable-table th{background:var(--tt-surface-2)!important;}
+@media(max-width:900px){#dashboard-content .v12-grid[style*="grid-template-columns"],#dashboard-content .timetable-layout{grid-template-columns:1fr!important;}#dashboard-content .timetable-grid,#dashboard-content .v12-timetable-grid{overflow-x:auto;}}

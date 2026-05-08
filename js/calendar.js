@@ -147,7 +147,7 @@ function renderAdminCalendar() {
     }).length;
 
     return `
-        <div class="space-y-6 animate-fade-in">
+        <div class="calendar-v31-scope space-y-6 animate-fade-in">
             <div class="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white shadow-xl">
                 <div class="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10"></div>
                 <div class="absolute bottom-0 left-0 -mb-10 -ml-10 h-40 w-40 rounded-full bg-black/10"></div>

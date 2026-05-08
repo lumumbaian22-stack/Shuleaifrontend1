@@ -560,16 +560,14 @@ async function renderAdminSection(section) {
                 return renderAdminSettings();
             case 'alerts':
                 return await window.v12RenderAlertsCenter('admin');
+            case 'finance-fees':
             case 'fee-structures':
-                if (typeof window.v28RenderAdminFeeStructures === 'function') {
-                    await window.v28RenderAdminFeeStructures();
-                    return document.getElementById('dashboard-content')?.innerHTML || '<div class="text-center py-12">Fee Structures loaded.</div>';
-                }
-                return '<div class="text-center py-12 text-red-500">Fee Structure module not loaded. Please refresh the page.</div>';
             case 'payment-settings':
-                if (typeof window.v12RenderAdminPaymentSettings === 'function') return await window.v12RenderAdminPaymentSettings();
-                if (typeof window.v11RenderAdminPaymentSettings === 'function') return await window.v11RenderAdminPaymentSettings();
-                return '<div class="text-center py-12 text-red-500">Payment Settings module not loaded. Please refresh the page.</div>';
+                if (typeof window.v31RenderFinanceFees === 'function') {
+                    await window.v31RenderFinanceFees();
+                    return document.getElementById('dashboard-content')?.innerHTML || '<div class="text-center py-12">Finance & Fees loaded.</div>';
+                }
+                return '<div class="text-center py-12 text-red-500">Finance & Fees module not loaded. Please refresh the page.</div>';
             default:
                 return '<div class="text-center py-12">Section not found</div>';
         }
