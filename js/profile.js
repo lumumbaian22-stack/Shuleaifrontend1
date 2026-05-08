@@ -333,11 +333,9 @@ async function loadUserStats(role) {
 // Profile picture upload function
 async function uploadProfilePicture(file) {
     if (!file) return;
-
     const formData = new FormData();
     formData.append('picture', file);
     const token = localStorage.getItem('authToken');
-
     showLoading();
     try {
         const response = await fetch(`${API_BASE_URL}/api/user/profile-picture`, {
@@ -345,42 +343,30 @@ async function uploadProfilePicture(file) {
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
-
         const data = await response.json();
-        if (!response.ok || !data.success) {
+        if (response.ok && data.success) {
+            const rawProfileUrl = data?.data?.profileImage || data?.profileImage || data?.user?.profileImage || data?.data?.user?.profileImage;
+            if (!rawProfileUrl) throw new Error('Upload succeeded but no profile image URL was returned');
+            const finalProfileUrl = typeof safeResolveMediaUrl === 'function' ? safeResolveMediaUrl(rawProfileUrl) : resolveMediaUrl(rawProfileUrl);
+            const current = getCurrentUser() || {};
+            const merged = { ...current, profileImage: finalProfileUrl, profilePicture: finalProfileUrl };
+            localStorage.setItem('user', JSON.stringify(merged));
+            localStorage.setItem('shule_user', JSON.stringify(merged));
+
+            const preview = document.getElementById('profile-preview');
+            if (preview) {
+                preview.src = finalProfileUrl;
+                preview.classList.add('object-cover', 'rounded-full');
+                preview.dataset.currentUserAvatar = 'true';
+                preview.dataset.profileFull = finalProfileUrl;
+            }
+
+            if (typeof updateUserInfo === 'function') updateUserInfo();
+            if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
+            showToast('Profile picture updated successfully', 'success');
+        } else {
             throw new Error(data.message || 'Upload failed');
         }
-
-        const returnedUrl = data?.data?.profileImage || data?.profileImage || data?.data?.profilePicture || data?.profilePicture;
-        if (!returnedUrl) {
-            throw new Error('Upload succeeded, but no profile image URL was returned.');
-        }
-
-        const currentStoredUser = getCurrentUser() || {};
-        const updatedUser = {
-            ...currentStoredUser,
-            profileImage: returnedUrl,
-            profilePicture: returnedUrl
-        };
-
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        localStorage.setItem('shule_user', JSON.stringify(updatedUser));
-
-        const preview = document.getElementById('profile-preview');
-        const src = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(returnedUrl) : returnedUrl;
-        if (preview) {
-            if (preview.tagName === 'IMG') {
-                preview.src = src;
-                preview.dataset.currentUserAvatar = 'true';
-            } else {
-                preview.innerHTML = `<img src="${escapeHtml(src)}" class="h-full w-full rounded-full object-cover" data-current-user-avatar alt="${escapeHtml(updatedUser.name || 'Profile picture')}">`;
-            }
-        }
-
-        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
-        if (typeof updateUserInfo === 'function') updateUserInfo();
-
-        showToast('Profile picture updated successfully', 'success');
     } catch (error) {
         console.error('Profile picture upload error:', error);
         showToast(error.message || 'Failed to upload profile picture', 'error');

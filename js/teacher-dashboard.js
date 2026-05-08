@@ -236,7 +236,7 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
         html += `<tr class="hover:bg-accent/50">
             <td class="px-2 py-2">
                 <div class="flex items-center gap-1">
-                    ${avatarHTML(student.name, student.photo || student.profileImage || (student.User && student.User.profileImage) || '', 'h-6 w-6')}
+                    ${avatarHTML(student.name, student.profileImage || student.profilePicture || student.photo || student.User?.profileImage || student.User?.profilePicture, 'h-6 w-6')}
                     <div class="min-w-0">
                         <span class="font-medium truncate block" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
                         ${isPrefect ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 mt-0.5"><i data-lucide="shield" class="h-3 w-3 mr-0.5"></i>Prefect</span>' : ''}
@@ -593,7 +593,7 @@ function showMarksEntryModal(className) {
                   <td>${escapeHtml(admission)}</td>
                   <td>
                     <div class="flex items-center gap-2">
-                      ${avatarHTML(name, user.profileImage || user.profilePicture || '', 'h-8 w-8')}
+                      ${avatarHTML(name, user.profileImage || user.profilePicture, 'h-8 w-8')}
                       <strong>${escapeHtml(name)}</strong>
                     </div>
                   </td>
@@ -958,7 +958,7 @@ async function renderStaffChat() {
             </button>
             <div class="pt-2 mt-2 border-t"><p class="text-xs font-medium px-3 mb-2">TEACHERS</p>
               <div id="staff-list">
-                ${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent"><div class="flex items-center gap-3">${avatarHTML(t.name, t.profileImage || t.User?.profileImage || '', 'h-8 w-8')}<div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}
+                ${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent"><div class="flex items-center gap-3">${avatarHTML(t.name, t.profileImage || t.profilePicture || t.User?.profileImage || t.User?.profilePicture, 'h-8 w-8')}<div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}
               </div>
             </div>
           </div>
@@ -1330,14 +1330,27 @@ async function uploadProfilePicture(file) {
       body: formData
     });
     const data = await response.json();
-    if (data.success) {
-      document.getElementById('profile-preview').src = resolveMediaUrl(data.data.profileImage);
-      const user = getCurrentUser();
-      user.profileImage = resolveMediaUrl(data.data.profileImage);
+    if (response.ok && data.success) {
+      const rawProfileUrl = data?.data?.profileImage || data?.profileImage || data?.user?.profileImage || data?.data?.user?.profileImage;
+      if (!rawProfileUrl) throw new Error('Upload succeeded but no profile image URL was returned');
+      const finalProfileUrl = typeof safeResolveMediaUrl === 'function' ? safeResolveMediaUrl(rawProfileUrl) : resolveMediaUrl(rawProfileUrl);
+      const user = getCurrentUser() || {};
+      user.profileImage = finalProfileUrl;
+      user.profilePicture = finalProfileUrl;
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('shule_user', JSON.stringify(user));
+      const preview = document.getElementById('profile-preview');
+      if (preview) {
+        preview.src = finalProfileUrl;
+        preview.classList.add('object-cover', 'rounded-full');
+        preview.dataset.currentUserAvatar = 'true';
+        preview.dataset.profileFull = finalProfileUrl;
+      }
+      if (typeof updateUserInfo === 'function') updateUserInfo();
+      if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
       showToast('Profile picture updated', 'success');
     } else {
-      throw new Error(data.message);
+      throw new Error(data.message || 'Upload failed');
     }
   } catch (error) {
     showToast(error.message || 'Upload failed', 'error');
@@ -1511,7 +1524,7 @@ function showStudentDetailModalFromStudent(student, analytics) {
     modalContent.innerHTML = `
         <div class="space-y-4">
             <div class="flex items-center gap-4 pb-4 border-b">
-                ${avatarHTML(student.name || 'Student', student.photo || student.profileImage || student.User?.profileImage || '', 'h-16 w-16')}
+                ${avatarHTML(student.name || 'Student', student.profileImage || student.profilePicture || student.photo || student.User?.profileImage || student.User?.profilePicture, 'h-16 w-16')}
                 <div>
                     <h4 class="font-medium text-lg">${escapeHtml(student.name)}</h4>
                     <p class="text-sm text-muted-foreground">${escapeHtml(student.email || 'No email')}</p>
@@ -1549,7 +1562,7 @@ function showStudentDetailModal(student, analytics) {
   modalContent.innerHTML = `
     <div class="space-y-6">
       <div class="flex items-center gap-4 pb-4 border-b">
-        ${avatarHTML(user.name || 'User', user.profileImage || user.profilePicture || '', 'h-16 w-16')}
+        ${avatarHTML(user.name || 'User', user.profileImage || user.profilePicture, 'h-16 w-16')}
         <div><h3 class="text-xl font-semibold">${escapeHtml(user.name)}</h3><p class="text-sm text-muted-foreground">${escapeHtml(user.email || 'No email')} • ${student.elimuid}</p><p class="text-sm">Grade: ${student.grade || 'N/A'}</p></div>
       </div>
       <div class="grid grid-cols-3 gap-3 text-center">

@@ -135,9 +135,7 @@ async function renderParentDashboard() {
                 html += `
                     <div class="rounded-xl border bg-card p-4 mb-4">
                         <div class="flex items-center gap-3">
-                            <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <i data-lucide="user" class="h-5 w-5 text-primary"></i>
-                            </div>
+                            ${avatarHTML(classTeacher.name || 'Teacher', classTeacher.profileImage || classTeacher.profilePicture || classTeacher.User?.profileImage || classTeacher.User?.profilePicture, 'h-10 w-10')}
                             <div>
                                 <p class="text-xs text-muted-foreground">Class Teacher</p>
                                 <p class="font-medium">${escapeHtml(classTeacher.name || 'Not Assigned')}</p>
