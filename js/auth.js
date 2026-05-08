@@ -31,6 +31,9 @@ async function checkAuth() {
         currentSchool = response.data.school;
         
         localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('shule_user', JSON.stringify(currentUser));
+        if (typeof updateUserInfo === 'function') updateUserInfo();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
 
         if (currentSchool && currentSchool.status === 'active') {
             localStorage.setItem('school', JSON.stringify(currentSchool));
@@ -64,7 +67,10 @@ async function superAdminLogin(email, password, secretKey) {
         
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('shule_user', JSON.stringify(currentUser));
         localStorage.setItem('userRole', currentUser.role);
+        if (typeof updateUserInfo === 'function') updateUserInfo();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
         
         return response;
     } catch (error) {
@@ -103,7 +109,10 @@ async function checkAdminStatusAfterApproval() {
                     const refreshedUser = response.data.user;
                     if (refreshedUser.isActive === true) {
                         localStorage.setItem('user', JSON.stringify(refreshedUser));
+                        localStorage.setItem('shule_user', JSON.stringify(refreshedUser));
                         localStorage.setItem('userRole', refreshedUser.role);
+                        if (typeof updateUserInfo === 'function') updateUserInfo();
+                        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
                         currentUser = refreshedUser;
                         console.log('✅ Admin account activated successfully');
                         return true;
@@ -155,7 +164,10 @@ async function studentLogin(elimuid, password) {
         
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('shule_user', JSON.stringify(currentUser));
         localStorage.setItem('userRole', currentUser.role);
+        if (typeof updateUserInfo === 'function') updateUserInfo();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
         
         return response;
     } catch (error) {
@@ -205,6 +217,7 @@ async function login(emailOrPhone, password, role) {
 
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('shule_user', JSON.stringify(currentUser));
         localStorage.setItem('school', JSON.stringify(currentSchool));
         localStorage.setItem('userRole', currentUser.role);
 

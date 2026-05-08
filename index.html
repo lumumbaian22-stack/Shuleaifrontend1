@@ -23,6 +23,11 @@
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/landing-premium.css">
+    <link rel="stylesheet" href="css/dashboard-production.css">
+    <link rel="stylesheet" href="css/chat-v9.css">
+    <link rel="stylesheet" href="css/theme-system.css">
     
     <script>
         tailwind.config = {
@@ -328,18 +333,6 @@
             color: hsl(var(--sidebar-accent-foreground));
         }
     </style>
-    <link rel="stylesheet" href="css/landing-premium.css">
-    <link rel="stylesheet" href="css/dashboard-production.css">
-    <link rel="stylesheet" href="css/chat-v9.css">
-    <link rel="stylesheet" href="css/v94-modals-alerts-marks.css">
-    <link rel="stylesheet" href="css/v95-exact-approved-visuals.css">
-    <link rel="stylesheet" href="css/v97-theme-and-stability.css">
-    <link rel="stylesheet" href="css/v11-daraja-payments.css">
-    <link rel="stylesheet" href="css/v12-dashboard-recovery.css">
-    <link rel="stylesheet" href="css/mobile-responsive-v18.css">
-    <link rel="stylesheet" href="css/finance-fees-v31.css">
-    <link rel="stylesheet" href="css/calendar-theme-v31.css">
-    <link rel="stylesheet" href="css/timetable-theme-v32.css">
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
     
@@ -825,7 +818,7 @@
                     
                     <div class="relative">
                         <button onclick="toggleUserMenu()" class="flex items-center gap-2 p-2 hover:bg-accent rounded-lg">
-                            <div class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-medium text-sm">
+                            <div id="sidebar-avatar-wrap" class="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-medium text-sm">
                                 <span id="user-initials">JD</span>
                             </div>
                             <span class="hidden md:block text-sm font-medium" id="user-name">John Doe</span>
@@ -867,64 +860,50 @@
     </div>
 
 <!-- JavaScript Modules -->
-<script src="js/api.js" defer></script>
-<script src="js/auth.js" defer></script>
-<script src="js/websocket.js" defer></script>
-<script src="js/helpers.js" defer></script>
-<script src="js/ui-helpers.js" defer></script>
-<script src="js/curriculum.js" defer></script>
-<script src="js/duty.js" defer></script>
-<script src="js/super-admin-approvals.js" defer></script>
-<script src="js/admin-approval.js" defer></script>
-<script src="js/class-management.js" defer></script>
-<script src="js/student-dashboard.js" defer></script>
-<script src="js/admin-student-management.js" defer></script>
-<script src="js/teacher-student-management.js" defer></script>
-<script src="js/csv-upload.js" defer></script>
-<script src="js/analytics.js" defer></script>
-<script src="js/upload.js" defer></script>
-<script src="js/calendar.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js" defer></script>
-<script src="js/messaging.js" defer></script>
-<script src="js/teacher-dashboard.js" defer></script>
-<script src="js/superadmin-dashboard.js" defer></script>
-<script src="js/admin-dashboard.js" defer></script>
-<script src="js/parent-dashboard.js" defer></script>
-<script src="js/student-dashboard-extended.js" defer></script>
-<script src="js/sidebar.js" defer></script>
-<script src="js/dashboard-core.js" defer></script>
-<script src="js/auth-modal.js" defer></script>
-<script src="js/auth-self-test.js" defer></script>
-<script src="js/global-profile-v92.js" defer></script>
-<script src="js/chat-v9-ui.js" defer></script>
-<script src="js/admin-departments-v92.js" defer></script>
-<script src="js/duty-v93-ui.js" defer></script>
-<script src="js/name-change.js" defer></script>
-<script src="js/notifications.js" defer></script>
-<script src="js/duty-points.js" defer></script>
-<script src="js/chat.js" defer></script>
-<script src="js/profile.js" defer></script>
-<script src="js/tasks.js" defer></script>
-<script src="js/analytics-dashboard.js" defer></script>
-<script src="js/student-details-unified.js" defer></script>
-<script src="js/landing-premium.js" defer></script>
-<script src="js/dashboard-production.js" defer></script>
-<script src="js/main.js" defer></script>
-<script src="js/app-health.js" defer></script>
-<script src="js/v94-modals-alerts-marks.js" defer></script>
-<script src="js/v95-exact-approved-visuals.js" defer></script>
-<script src="js/v96-functional-approved-visuals.js" defer></script>
-<script src="js/v97-modal-stability.js" defer></script>
-<script src="js/v11-daraja-payments.js" defer></script>
-<script src="js/v12-dashboard-recovery.js" defer></script>
-<script src="js/production-stabilizer.js" defer></script>
-    <script src="js/national-full-rollout.js" defer></script>
-<script src="js/scale-upgrades-v15.js" defer></script>
-    <script src="js/rollout-fixes-v16.js" defer></script>
-    <script src="js/rollout-fixes-v17.js" defer></script>
-    <script src="js/mobile-navigation-v18.js" defer></script>
-<script src="js/v26-stability-hotfix.js" defer></script>
-    <script src="js/finance-fees-v31.js" defer></script>
-    <script src="js/v32-finance-timetable-finalizer.js" defer></script>
+    <!-- Clean v34 app loader -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js" defer></script>
+    <script src="js/api.js" defer></script>
+    <script src="js/auth.js" defer></script>
+    <script src="js/websocket.js" defer></script>
+    <script src="js/helpers.js" defer></script>
+    <script src="js/ui-helpers.js" defer></script>
+    <script src="js/curriculum.js" defer></script>
+    <script src="js/duty.js" defer></script>
+    <script src="js/super-admin-approvals.js" defer></script>
+    <script src="js/admin-approval.js" defer></script>
+    <script src="js/class-management.js" defer></script>
+    <script src="js/admin-student-management.js" defer></script>
+    <script src="js/teacher-student-management.js" defer></script>
+    <script src="js/csv-upload.js" defer></script>
+    <script src="js/analytics.js" defer></script>
+    <script src="js/upload.js" defer></script>
+    <script src="js/calendar.js" defer></script>
+    <script src="js/messaging.js" defer></script>
+    <script src="js/teacher-dashboard.js" defer></script>
+    <script src="js/superadmin-dashboard.js" defer></script>
+    <script src="js/admin-dashboard.js" defer></script>
+    <script src="js/parent-dashboard.js" defer></script>
+    <script src="js/student-dashboard.js" defer></script>
+    <script src="js/student-dashboard-extended.js" defer></script>
+    <script src="js/auth-modal.js" defer></script>
+    <script src="js/auth-self-test.js" defer></script>
+    <script src="js/global-profile-v92.js" defer></script>
+    <script src="js/chat-v9-ui.js" defer></script>
+    <script src="js/admin-departments-v92.js" defer></script>
+    <script src="js/duty-v93-ui.js" defer></script>
+    <script src="js/name-change.js" defer></script>
+    <script src="js/notifications.js" defer></script>
+    <script src="js/duty-points.js" defer></script>
+    <script src="js/chat.js" defer></script>
+    <script src="js/profile.js" defer></script>
+    <script src="js/tasks.js" defer></script>
+    <script src="js/analytics-dashboard.js" defer></script>
+    <script src="js/student-details-unified.js" defer></script>
+    <script src="js/finance-fees.js" defer></script>
+    <script src="js/timetable.js" defer></script>
+    <script src="js/dashboard-controller.js" defer></script>
+    <script src="js/landing-premium.js" defer></script>
+    <script src="js/main.js" defer></script>
+    <script src="js/app-health.js" defer></script>
 </body>
 </html>

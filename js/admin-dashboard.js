@@ -45,9 +45,7 @@ if (typeof window.renderStudentsTable !== 'function') {
                                 <tr class="hover:bg-accent/50">
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                <span class="font-medium text-blue-700 text-sm">${initials}</span>
-                                            </div>
+                                            ${avatarHTML(name, user.profileImage || user.profilePicture || user.avatar || '', 'h-8 w-8')}
                                             <span class="font-medium">${escapeHtml(name)}</span>
                                         </div>
                                     </td>
@@ -111,9 +109,7 @@ if (typeof window.renderTeachersTable !== 'function') {
                             <tr class="hover:bg-accent/50 transition-colors">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                            <span class="font-medium text-blue-700 text-sm">${getInitials(teacher.User?.name || 'Unknown')}</span>
-                                        </div>
+                                        ${avatarHTML(teacher.User?.name || 'Unknown', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || '', 'h-8 w-8')}
                                         <span class="font-medium">${teacher.User?.name || 'Unknown'}</span>
                                     </div>
                                 </td>
@@ -170,9 +166,7 @@ if (typeof window.renderPendingTeachersTable !== 'function') {
                             <tr class="hover:bg-accent/50 transition-colors">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        <div class="h-8 w-8 rounded-full bg-violet-100 flex items-center justify-center">
-                                            <span class="font-medium text-violet-700 text-sm">${getInitials(teacher.User?.name || 'Unknown')}</span>
-                                        </div>
+                                        ${avatarHTML(teacher.User?.name || 'Unknown', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || '', 'h-8 w-8')}
                                         <span class="font-medium">${teacher.User?.name || 'Unknown'}</span>
                                     </div>
                                 </td>
@@ -333,9 +327,7 @@ window.adminViewStudentDetails = async function(studentId) {
     const content = document.getElementById('student-details-content');
     content.innerHTML = `
         <div class="flex items-center gap-4 pb-4 border-b">
-            <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                <span class="text-2xl font-bold text-green-600">${getInitials(student.User?.name)}</span>
-            </div>
+            ${avatarHTML(student.User?.name || student.name || 'Student', student.User?.profileImage || student.User?.profilePicture || student.profileImage || '', 'h-16 w-16')}
             <div><p class="text-lg font-semibold">${escapeHtml(student.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(student.User?.email || 'No email')}</p></div>
         </div>
         <div class="grid grid-cols-2 gap-3 text-sm">
@@ -408,9 +400,7 @@ window.viewTeacherDetails = async function(teacherId) {
     const content = document.getElementById('teacher-details-content');
     content.innerHTML = `
         <div class="flex items-center gap-4 pb-4 border-b">
-            <div class="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
-                <span class="text-2xl font-bold text-blue-600">${getInitials(teacher.User?.name)}</span>
-            </div>
+            ${avatarHTML(teacher.User?.name || teacher.name || 'Teacher', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || '', 'h-16 w-16')}
             <div><p class="text-lg font-semibold">${escapeHtml(teacher.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(teacher.User?.email)}</p></div>
         </div>
         <div class="grid grid-cols-2 gap-3 text-sm">
@@ -795,12 +785,7 @@ async function renderAdminStudents() {
                                 <tr class="hover:bg-accent/50 transition-colors">
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            ${photoUrl ? 
-                                                `<img src="${photoUrl}" class="h-8 w-8 rounded-full object-cover">` :
-                                                `<div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                    <span class="font-medium text-blue-700 text-sm">${initials}</span>
-                                                </div>`
-                                            }
+                                            ${avatarHTML(name, user.profileImage || user.profilePicture || student.profileImage || '', 'h-8 w-8')}
                                             <div>
                                                 <span class="font-medium">${escapeHtml(name)}</span>
                                                 ${isPrefect ? '<span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><i data-lucide="shield" class="h-3 w-3 mr-1"></i>Prefect</span>' : ''}

@@ -213,8 +213,33 @@ async function openReportCard(studentId) {
     }
 }
 
+function avatarHTML(name, photoUrl, sizeClass = 'h-10 w-10') {
+    const displayName = name || 'User';
+    const safeDisplayName = typeof escapeHtml === 'function' ? escapeHtml(displayName) : String(displayName).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c] || c));
+    const rawUrl = photoUrl || '';
+    let resolvedUrl = '';
+
+    if (rawUrl) {
+        if (typeof resolveMediaUrl === 'function') {
+            resolvedUrl = resolveMediaUrl(rawUrl);
+        } else if (/^https?:\/\//i.test(rawUrl) || String(rawUrl).startsWith('blob:') || String(rawUrl).startsWith('data:')) {
+            resolvedUrl = rawUrl;
+        } else {
+            resolvedUrl = rawUrl;
+        }
+    }
+
+    if (resolvedUrl) {
+        const safeUrl = typeof escapeHtml === 'function' ? escapeHtml(resolvedUrl) : resolvedUrl;
+        return `<img src="${safeUrl}" class="${sizeClass} rounded-full object-cover data-profile-image" data-profile-image="${safeUrl}" data-user-name="${safeDisplayName}" alt="${safeDisplayName}">`;
+    }
+
+    return `<div class="${sizeClass} rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0"><span>${getInitials(displayName)}</span></div>`;
+}
+
 // Export
 window.getInitials = getInitials;
+window.avatarHTML = avatarHTML;
 window.timeAgo = timeAgo;
 window.formatDate = formatDate;
 window.copyToClipboard = copyToClipboard;

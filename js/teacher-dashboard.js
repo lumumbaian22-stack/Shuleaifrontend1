@@ -236,12 +236,7 @@ function renderStudentsTable(students, isClassTeacher, subjects) {
         html += `<tr class="hover:bg-accent/50">
             <td class="px-2 py-2">
                 <div class="flex items-center gap-1">
-                    ${photoUrl ? 
-                        `<img src="${photoUrl}" class="h-6 w-6 rounded-full object-cover flex-shrink-0">` :
-                        `<div class="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <span class="font-medium text-blue-700 text-xs">${getInitials(student.name)}</span>
-                        </div>`
-                    }
+                    ${avatarHTML(student.name, student.photo || student.profileImage || (student.User && student.User.profileImage) || '', 'h-6 w-6')}
                     <div class="min-w-0">
                         <span class="font-medium truncate block" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
                         ${isPrefect ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 mt-0.5"><i data-lucide="shield" class="h-3 w-3 mr-0.5"></i>Prefect</span>' : ''}
@@ -598,7 +593,7 @@ function showMarksEntryModal(className) {
                   <td>${escapeHtml(admission)}</td>
                   <td>
                     <div class="flex items-center gap-2">
-                      ${user.profileImage ? `<img src="${resolveMediaUrl(user.profileImage)}" class="h-8 w-8 rounded-full object-cover">` : `<span class="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">${getInitials(name)}</span>`}
+                      ${avatarHTML(name, user.profileImage || user.profilePicture || '', 'h-8 w-8')}
                       <strong>${escapeHtml(name)}</strong>
                     </div>
                   </td>
@@ -963,7 +958,7 @@ async function renderStaffChat() {
             </button>
             <div class="pt-2 mt-2 border-t"><p class="text-xs font-medium px-3 mb-2">TEACHERS</p>
               <div id="staff-list">
-                ${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><span class="font-medium text-blue-700 dark:text-blue-400 text-sm">${getInitials(t.name)}</span></div><div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}
+                ${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent"><div class="flex items-center gap-3">${avatarHTML(t.name, t.profileImage || t.User?.profileImage || '', 'h-8 w-8')}<div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}
               </div>
             </div>
           </div>
@@ -1516,9 +1511,7 @@ function showStudentDetailModalFromStudent(student, analytics) {
     modalContent.innerHTML = `
         <div class="space-y-4">
             <div class="flex items-center gap-4 pb-4 border-b">
-                <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                    <span class="text-2xl font-bold text-green-600">${getInitials(student.name)}</span>
-                </div>
+                ${avatarHTML(student.name || 'Student', student.photo || student.profileImage || student.User?.profileImage || '', 'h-16 w-16')}
                 <div>
                     <h4 class="font-medium text-lg">${escapeHtml(student.name)}</h4>
                     <p class="text-sm text-muted-foreground">${escapeHtml(student.email || 'No email')}</p>
@@ -1556,7 +1549,7 @@ function showStudentDetailModal(student, analytics) {
   modalContent.innerHTML = `
     <div class="space-y-6">
       <div class="flex items-center gap-4 pb-4 border-b">
-        <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center"><span class="text-2xl font-bold text-green-600">${getInitials(user.name)}</span></div>
+        ${avatarHTML(user.name || 'User', user.profileImage || user.profilePicture || '', 'h-16 w-16')}
         <div><h3 class="text-xl font-semibold">${escapeHtml(user.name)}</h3><p class="text-sm text-muted-foreground">${escapeHtml(user.email || 'No email')} • ${student.elimuid}</p><p class="text-sm">Grade: ${student.grade || 'N/A'}</p></div>
       </div>
       <div class="grid grid-cols-3 gap-3 text-center">
