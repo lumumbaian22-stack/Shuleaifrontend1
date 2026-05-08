@@ -12,10 +12,10 @@ function mergeTeacherProfile(userData, profile) {
     return userData;
 }
 
-function syncUserVisualState() {
+function syncProfileAvatarUI() {
     setTimeout(() => {
-        try { if (typeof updateUserInfo === 'function') updateUserInfo(); } catch (_) {}
-        try { if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures(); } catch (_) {}
+        if (typeof updateUserInfo === 'function') updateUserInfo();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
     }, 0);
 }
 
@@ -38,7 +38,7 @@ async function checkAuth() {
         currentSchool = response.data.school;
         
         localStorage.setItem('user', JSON.stringify(currentUser));
-        syncUserVisualState();
+        syncProfileAvatarUI();
 
         if (currentSchool && currentSchool.status === 'active') {
             localStorage.setItem('school', JSON.stringify(currentSchool));
@@ -72,7 +72,6 @@ async function superAdminLogin(email, password, secretKey) {
         
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
-        syncUserVisualState();
         localStorage.setItem('userRole', currentUser.role);
         
         return response;
@@ -112,8 +111,8 @@ async function checkAdminStatusAfterApproval() {
                     const refreshedUser = response.data.user;
                     if (refreshedUser.isActive === true) {
                         localStorage.setItem('user', JSON.stringify(refreshedUser));
-        syncUserVisualState();
                         localStorage.setItem('userRole', refreshedUser.role);
+                        syncProfileAvatarUI();
                         currentUser = refreshedUser;
                         console.log('✅ Admin account activated successfully');
                         return true;
@@ -165,7 +164,6 @@ async function studentLogin(elimuid, password) {
         
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
-        syncUserVisualState();
         localStorage.setItem('userRole', currentUser.role);
         
         return response;
@@ -216,7 +214,6 @@ async function login(emailOrPhone, password, role) {
 
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
-        syncUserVisualState();
         localStorage.setItem('school', JSON.stringify(currentSchool));
         localStorage.setItem('userRole', currentUser.role);
 

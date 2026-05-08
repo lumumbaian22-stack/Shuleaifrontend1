@@ -19,7 +19,7 @@ async function renderProfileSection() {
                     <!-- Profile Picture with Upload -->
                     <div class="relative">
                         <div class="h-24 w-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl font-bold border-4 border-white shadow-xl overflow-hidden">
-                            ${profileImageUrl ? `<img src="${profileImageUrl}" alt="Profile" class="h-full w-full object-cover">` : `<span>${getInitials(user.name)}</span>`}
+                            ${profileImageUrl ? `<img id="profile-preview" src="${profileImageUrl}" alt="Profile" class="h-full w-full object-cover" data-current-user-avatar>` : `<span>${getInitials(user.name)}</span>`}
                         </div>
                         <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer hover:bg-primary/90 transition-colors">
                             <i data-lucide="camera" class="h-4 w-4"></i>
@@ -345,20 +345,23 @@ async function uploadProfilePicture(file) {
         });
         const data = await response.json();
         if (response.ok && data.success) {
-            const rawProfileUrl = data?.data?.profileImage || data?.profileImage || data?.user?.profileImage || data?.data?.user?.profileImage;
-            if (!rawProfileUrl) throw new Error('Upload succeeded but no profile image URL was returned');
-            const finalProfileUrl = typeof safeResolveMediaUrl === 'function' ? safeResolveMediaUrl(rawProfileUrl) : resolveMediaUrl(rawProfileUrl);
-            const current = getCurrentUser() || {};
-            const merged = { ...current, profileImage: finalProfileUrl, profilePicture: finalProfileUrl };
-            localStorage.setItem('user', JSON.stringify(merged));
-            localStorage.setItem('shule_user', JSON.stringify(merged));
+            const currentStoredUser = getCurrentUser() || {};
+            const returnedProfileImage = data?.data?.profileImage || data?.profileImage || data?.data?.url || '';
+            if (!returnedProfileImage) throw new Error('Upload succeeded but no profile image URL was returned');
+
+            const mergedUser = {
+                ...currentStoredUser,
+                profileImage: returnedProfileImage,
+                profilePicture: returnedProfileImage
+            };
+            localStorage.setItem('user', JSON.stringify(mergedUser));
+            localStorage.setItem('shule_user', JSON.stringify(mergedUser));
 
             const preview = document.getElementById('profile-preview');
+            const resolvedUrl = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(returnedProfileImage) : returnedProfileImage;
             if (preview) {
-                preview.src = finalProfileUrl;
-                preview.classList.add('object-cover', 'rounded-full');
-                preview.dataset.currentUserAvatar = 'true';
-                preview.dataset.profileFull = finalProfileUrl;
+                preview.src = resolvedUrl;
+                preview.setAttribute('data-current-user-avatar', '');
             }
 
             if (typeof updateUserInfo === 'function') updateUserInfo();

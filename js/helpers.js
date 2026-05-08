@@ -213,40 +213,17 @@ async function openReportCard(studentId) {
     }
 }
 
-
-function getUserPhotoUrl(userLike) {
-    if (!userLike) return '';
-    return userLike.profileImage || userLike.profilePicture || userLike.avatar || userLike.photo || userLike.User?.profileImage || userLike.User?.profilePicture || '';
-}
-
-function safeResolveMediaUrl(url) {
-    if (!url) return '';
-    try {
-        if (typeof resolveMediaUrl === 'function') return resolveMediaUrl(url);
-    } catch (_) {}
-    if (/^(https?:)?\/\//i.test(url) || String(url).startsWith('data:') || String(url).startsWith('blob:')) return url;
-    const base = (window.API_BASE_URL || localStorage.getItem('API_BASE_URL') || '').replace(/\/$/, '');
-    return base ? base + (String(url).startsWith('/') ? url : '/' + url) : url;
-}
-
 function avatarHTML(name, photoUrl, sizeClass = 'h-10 w-10') {
     const displayName = name || 'User';
     const safeDisplayName = escapeHtml(displayName);
-    const resolved = safeResolveMediaUrl(photoUrl || '');
-    if (resolved) {
-        return `<img src="${resolved}" class="${sizeClass} rounded-full object-cover user-avatar" data-profile-image="${resolved}" data-profile-full="${resolved}" data-profile-name="${safeDisplayName}" data-user-name="${safeDisplayName}" alt="${safeDisplayName}">`;
-    }
-    return `<div class="${sizeClass} rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold shrink-0" data-profile-fallback="true" data-user-name="${safeDisplayName}"><span>${getInitials(displayName)}</span></div>`;
-}
+    const rawUrl = photoUrl || '';
+    const resolvedUrl = rawUrl && typeof resolveMediaUrl === 'function' ? resolveMediaUrl(rawUrl) : rawUrl;
 
-function mergeProfileImageIntoStoredUser(profileImageUrl) {
-    if (!profileImageUrl) return null;
-    const resolved = safeResolveMediaUrl(profileImageUrl);
-    const current = getCurrentUser() || {};
-    const merged = { ...current, profileImage: resolved, profilePicture: resolved };
-    localStorage.setItem('user', JSON.stringify(merged));
-    localStorage.setItem('shule_user', JSON.stringify(merged));
-    return merged;
+    if (resolvedUrl) {
+        return `<img src="${escapeHtml(resolvedUrl)}" class="${escapeHtml(sizeClass)} rounded-full object-cover data-profile-image" data-profile-image="${escapeHtml(rawUrl)}" data-user-name="${safeDisplayName}" alt="${safeDisplayName}">`;
+    }
+
+    return `<div class="${escapeHtml(sizeClass)} rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold flex-shrink-0"><span>${getInitials(displayName)}</span></div>`;
 }
 
 // Export
@@ -262,8 +239,5 @@ window.getCurrentSchool = getCurrentSchool;
 window.getCurrentRole = getCurrentRole;
 window.updateAllSchoolNameElements = updateAllSchoolNameElements;
 window.openReportCard = openReportCard;
-window.getUserPhotoUrl = getUserPhotoUrl;
-window.safeResolveMediaUrl = safeResolveMediaUrl;
 window.avatarHTML = avatarHTML;
-window.mergeProfileImageIntoStoredUser = mergeProfileImageIntoStoredUser;
 

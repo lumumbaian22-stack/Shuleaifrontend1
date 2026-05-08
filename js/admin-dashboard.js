@@ -45,7 +45,9 @@ if (typeof window.renderStudentsTable !== 'function') {
                                 <tr class="hover:bg-accent/50">
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            ${avatarHTML(name, user.profileImage || user.profilePicture || student.profileImage || student.profilePicture, 'h-8 w-8')}
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                <span class="font-medium text-blue-700 text-sm">${initials}</span>
+                                            </div>
                                             <span class="font-medium">${escapeHtml(name)}</span>
                                         </div>
                                     </td>
@@ -166,7 +168,9 @@ if (typeof window.renderPendingTeachersTable !== 'function') {
                             <tr class="hover:bg-accent/50 transition-colors">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        ${avatarHTML(teacher.User?.name || 'Unknown', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || teacher.profilePicture, 'h-8 w-8')}
+                                        <div class="h-8 w-8 rounded-full bg-violet-100 flex items-center justify-center">
+                                            <span class="font-medium text-violet-700 text-sm">${getInitials(teacher.User?.name || 'Unknown')}</span>
+                                        </div>
                                         <span class="font-medium">${teacher.User?.name || 'Unknown'}</span>
                                     </div>
                                 </td>
@@ -327,7 +331,7 @@ window.adminViewStudentDetails = async function(studentId) {
     const content = document.getElementById('student-details-content');
     content.innerHTML = `
         <div class="flex items-center gap-4 pb-4 border-b">
-            ${avatarHTML(student.User?.name || student.name || 'Student', student.User?.profileImage || student.User?.profilePicture || student.profileImage || student.profilePicture, 'h-16 w-16')}
+            ${avatarHTML(student.User?.name || 'Student', student.User?.profileImage || student.User?.profilePicture || student.profileImage || student.profilePicture, 'h-16 w-16')}
             <div><p class="text-lg font-semibold">${escapeHtml(student.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(student.User?.email || 'No email')}</p></div>
         </div>
         <div class="grid grid-cols-2 gap-3 text-sm">
@@ -400,7 +404,7 @@ window.viewTeacherDetails = async function(teacherId) {
     const content = document.getElementById('teacher-details-content');
     content.innerHTML = `
         <div class="flex items-center gap-4 pb-4 border-b">
-            ${avatarHTML(teacher.User?.name || teacher.name || 'Teacher', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || teacher.profilePicture, 'h-16 w-16')}
+            ${avatarHTML(teacher.User?.name || 'Teacher', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || teacher.profilePicture, 'h-16 w-16')}
             <div><p class="text-lg font-semibold">${escapeHtml(teacher.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(teacher.User?.email)}</p></div>
         </div>
         <div class="grid grid-cols-2 gap-3 text-sm">
@@ -785,7 +789,12 @@ async function renderAdminStudents() {
                                 <tr class="hover:bg-accent/50 transition-colors">
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            ${avatarHTML(name, user.profileImage || user.profilePicture || student.profileImage || student.profilePicture, 'h-8 w-8')}
+                                            ${photoUrl ? 
+                                                `<img src="${photoUrl}" class="h-8 w-8 rounded-full object-cover">` :
+                                                `<div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                    <span class="font-medium text-blue-700 text-sm">${initials}</span>
+                                                </div>`
+                                            }
                                             <div>
                                                 <span class="font-medium">${escapeHtml(name)}</span>
                                                 ${isPrefect ? '<span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><i data-lucide="shield" class="h-3 w-3 mr-1"></i>Prefect</span>' : ''}
@@ -1307,39 +1316,156 @@ async function uploadProfilePicture(file) {
   formData.append('picture', file);
   showLoading();
   try {
-    const response = await fetch(`${API_BASE_URL || ''}/api/user/profile-picture`, {
+    const response = await fetch('/api/user/profile-picture', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
       body: formData
     });
     const data = await response.json();
-    if (response.ok && data.success) {
-      const rawProfileUrl = data?.data?.profileImage || data?.profileImage || data?.user?.profileImage || data?.data?.user?.profileImage;
-      if (!rawProfileUrl) throw new Error('Upload succeeded but no profile image URL was returned');
-      const finalProfileUrl = typeof safeResolveMediaUrl === 'function' ? safeResolveMediaUrl(rawProfileUrl) : resolveMediaUrl(rawProfileUrl);
-      const user = getCurrentUser() || {};
-      user.profileImage = finalProfileUrl;
-      user.profilePicture = finalProfileUrl;
+    if (data.success) {
+      document.getElementById('profile-preview').src = resolveMediaUrl(data.data.profileImage);
+      // Update local user object
+      const user = getCurrentUser();
+      user.profileImage = resolveMediaUrl(data.data.profileImage);
       localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('shule_user', JSON.stringify(user));
-      const preview = document.getElementById('profile-preview');
-      if (preview) {
-        preview.src = finalProfileUrl;
-        preview.classList.add('object-cover', 'rounded-full');
-        preview.dataset.currentUserAvatar = 'true';
-        preview.dataset.profileFull = finalProfileUrl;
-      }
-      if (typeof updateUserInfo === 'function') updateUserInfo();
-      if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
       showToast('Profile picture updated', 'success');
     } else {
-      throw new Error(data.message || 'Upload failed');
+      throw new Error(data.message);
     }
   } catch (error) {
     showToast(error.message || 'Upload failed', 'error');
   } finally {
     hideLoading();
   }
+}
+
+function renderAdminCustomSubjects() {
+    const curriculum = window.schoolSettings?.curriculum || 'cbc';
+    const schoolLevel = window.schoolSettings?.schoolLevel || 'secondary';
+    const curriculumInfo = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) ? window.CURRICULUMS[curriculum] : { subjects: { secondary: [] } };
+    const subjectInfo = curriculumInfo?.subjects[schoolLevel] || [];
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center"><h2 class="text-2xl font-bold">Custom Subjects</h2></div>
+            <p class="text-sm text-muted-foreground">Add subjects that are not in the standard curriculum</p>
+            <div class="rounded-xl border bg-card p-6">
+                <div class="space-y-4">
+                    <div class="flex gap-2"><input type="text" id="new-subject-name" placeholder="e.g., French, Computer Science, Art" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"><button onclick="addCustomSubject()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Add Subject</button></div>
+                    <div><h4 class="text-sm font-medium mb-3">Curriculum Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">${subjectInfo.map(subject => `<div class="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"><span class="text-sm font-medium">${subject}</span><span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">core</span></div>`).join('')}</div></div>
+                    <div><h4 class="text-sm font-medium mb-3">Custom Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="custom-subjects-container">${customSubjects && customSubjects.length > 0 ? customSubjects.map(subject => `<div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border group" data-subject="${subject}"><span class="text-sm font-medium">${subject}</span><button onclick="removeCustomSubject('${subject}')" class="text-red-500 hover:text-red-700"><i data-lucide="x" class="h-4 w-4"></i></button></div>`).join('') : '<p class="text-sm text-muted-foreground col-span-3 py-4 text-center bg-muted/30 rounded-lg" id="no-custom-subjects-message">No custom subjects added yet</p>'}</div></div>
+                </div>
+            </div>
+            <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2"><i data-lucide="save" class="h-4 w-4"></i> Save Changes</button></div>
+        </div>
+    `;
+}
+
+// ============ CUSTOM SUBJECT ACTIONS ============
+window.addCustomSubject = async function() {
+    const newSubject = document.getElementById('new-subject-name')?.value.trim();
+    if (!newSubject) { showToast('Please enter a subject name', 'error'); return; }
+    const updatedSubjects = [...(customSubjects || []), newSubject];
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ customSubjects: updatedSubjects });
+        if (response?.success) {
+            customSubjects = updatedSubjects;
+            window.customSubjects = updatedSubjects;
+            window.schoolSettings = response.data;
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            await showDashboardSection('custom-subjects');
+            showToast(`Subject "${newSubject}" added`, 'success');
+            await refreshClassManagementIfVisible();
+        } else {
+            throw new Error(response?.message || 'Save failed');
+        }
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { hideLoading(); }
+};
+
+window.removeCustomSubject = async function(subject) {
+    if (!confirm(`Remove "${subject}" from custom subjects?`)) return;
+    const updatedSubjects = (customSubjects || []).filter(s => s !== subject);
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ customSubjects: updatedSubjects });
+        if (response?.success) {
+            customSubjects = updatedSubjects;
+            window.customSubjects = updatedSubjects;
+            window.schoolSettings = response.data;
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            await showDashboardSection('custom-subjects');
+            showToast(`Subject "${subject}" removed`, 'info');
+            await refreshClassManagementIfVisible();
+        } else {
+            throw new Error(response?.message || 'Save failed');
+        }
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { hideLoading(); }
+};
+
+window.saveAllSettings = async function() {
+    const curriculum = document.getElementById('settings-curriculum')?.value;
+    const schoolName = document.getElementById('settings-school-name')?.value;
+    const schoolLevel = document.getElementById('settings-school-level')?.value;
+    if (!schoolName) { showToast('School name is required', 'error'); return; }
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, schoolLevel, customSubjects: customSubjects || [] });
+        if (response && response.success) {
+            window.schoolSettings = response.data;
+            window.customSubjects = response.data.settings?.customSubjects || [];
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            
+            // === ADD THIS BLOCK ===
+            const freshSettings = await api.admin.getSchoolSettings();
+            if (freshSettings && freshSettings.success) {
+                window.schoolSettings = freshSettings.data;
+                window.schoolSettings.curriculum = freshSettings.data.system;
+                window.customSubjects = freshSettings.data.settings?.customSubjects || [];
+                localStorage.setItem('schoolSettings', JSON.stringify(freshSettings.data));
+            }
+            // === END ADD ===
+            
+            const school = JSON.parse(localStorage.getItem('school') || '{}');
+            school.name = schoolName;
+            school.system = curriculum;
+            school.settings = response.data.settings;
+            localStorage.setItem('school', JSON.stringify(school));
+            updateAllSchoolNameElements(schoolName);
+            showToast('✅ Settings saved!', 'success');
+            await updateAdminStats();
+        } else {
+            throw new Error(response?.message || 'Save failed');
+        }
+    } catch (error) {
+        console.error('Save error:', error);
+        showToast(error.message || 'Failed to save settings', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+// ============ HELP SECTION ============
+function renderHelpSection() {
+    const user = getCurrentUser();
+    const role = user?.role || 'user';
+    const helpArticles = {
+        superadmin: [{ title: 'How to approve a new school', content: 'Go to School Approvals, review school details, click Approve. The school will be activated immediately.', keywords: ['approve', 'school', 'activate'] }],
+        admin: [{ title: 'How to add a student', content: 'Go to Students, click Add Student, fill in details. The student receives an ELIMUID automatically.', keywords: ['add', 'student'] }, { title: 'How to approve a teacher', content: 'Go to Teacher Approvals, review teacher details, click Approve or Reject.', keywords: ['teacher', 'approve'] }, { title: 'How to generate duty roster', content: 'Go to Duty Management, select dates, click Generate Roster.', keywords: ['duty', 'roster'] }, { title: 'How to change curriculum', content: 'Go to Settings, select new curriculum, click Save.', keywords: ['curriculum', 'change'] }],
+        teacher: [{ title: 'How to take attendance', content: 'Go to Attendance, mark each student as Present/Absent/Late, add notes, click Save Attendance.', keywords: ['attendance'] }, { title: 'How to enter grades', content: 'Go to Grades, select subject and assessment type, enter scores, click Save.', keywords: ['grade', 'marks'] }, { title: 'How to check in for duty', content: 'Go to Dashboard, find Duty Card, click Check In.', keywords: ['duty', 'checkin'] }],
+        parent: [{ title: 'How to view child progress', content: 'Select your child from the top, view grades, attendance, and teacher comments.', keywords: ['progress', 'grades'] }, { title: 'How to report absence', content: 'Click Report Absence, select date, enter reason, submit.', keywords: ['absence', 'report'] }, { title: 'How to make payment', content: 'Go to Payments, select child, choose plan, enter amount, complete payment.', keywords: ['payment'] }],
+        student: [{ title: 'How to view my grades', content: 'Go to My Grades to see all your scores and performance.', keywords: ['grade'] }, { title: 'How to use AI Tutor', content: 'Type your question in AI Tutor chat, get instant help.', keywords: ['ai', 'tutor'] }, { title: 'How to join study groups', content: 'Go to Study Chat to connect with other students.', keywords: ['study', 'chat'] }]
+    };
+    const articles = helpArticles[role] || helpArticles.admin;
+    return `
+        <div class="space-y-6 animate-fade-in max-w-5xl mx-auto">
+            <div class="text-center"><h2 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Help Center</h2><p class="text-muted-foreground mt-2">Find answers to common questions and learn how to use the platform</p></div>
+            <div class="relative"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"></i><input type="text" id="help-search" placeholder="Search help articles..." onkeyup="searchHelpArticles()" class="w-full pl-10 pr-4 py-3 rounded-xl border bg-card focus:ring-2 focus:ring-primary transition-all"></div>
+            <div id="help-articles-container" class="grid gap-4">${articles.map(article => `<div class="help-article rounded-xl border bg-card p-6 hover:shadow-md transition-all cursor-pointer" data-title="${article.title.toLowerCase()}" data-content="${article.content.toLowerCase()}" data-keywords="${article.keywords.join(' ').toLowerCase()}" onclick="showHelpArticleDetail('${article.title.replace(/'/g, "\\'")}', '${article.content.replace(/'/g, "\\'")}')"><h3 class="font-semibold text-lg mb-2">📚 ${article.title}</h3><p class="text-muted-foreground">${article.content.substring(0, 150)}${article.content.length > 150 ? '...' : ''}</p></div>`).join('')}</div>
+            <div class="rounded-xl border bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 text-center"><h3 class="font-semibold text-lg mb-2">💬 Still Need Help?</h3><p class="text-muted-foreground mb-4">Contact our support team for assistance</p><div class="flex gap-3 justify-center"><button onclick="showToast('Opening support chat...', 'info')" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"><i data-lucide="message-circle" class="h-4 w-4 inline mr-2"></i> Live Chat</button><button onclick="window.location.href='mailto:support@shuleai.com'" class="px-4 py-2 border rounded-lg hover:bg-accent"><i data-lucide="mail" class="h-4 w-4 inline mr-2"></i> Email Support</button></div></div>
+        </div>
+    `;
 }
 
 window.searchHelpArticles = function() {
