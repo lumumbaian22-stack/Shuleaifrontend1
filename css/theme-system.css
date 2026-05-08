@@ -946,3 +946,138 @@ input,select,textarea{background:var(--app-input)!important;color:var(--app-text
 img,svg,canvas,video{max-width:100%;}
 @media(max-width:1024px){.dashboard-layout,.admin-layout,.teacher-layout,.parent-layout,.student-layout{grid-template-columns:1fr!important}.grid{min-width:0}.finance-v31-header,.v12-hero-inner{flex-direction:column;align-items:flex-start!important}.finance-v31-actions,.v12-actions{width:100%;display:flex;flex-wrap:wrap}.finance-v31-actions button,.v12-actions button{flex:1 1 160px}}
 @media(max-width:768px){#dashboard-content{padding:12px!important}.finance-v31-metrics,.finance-v31-grid,.finance-v31-form-grid,.finance-v31-payment-grid,.timetable-v33-layout{grid-template-columns:1fr!important}.finance-v31-modal-inner{width:calc(100vw - 20px)!important;max-height:90vh;overflow:auto}.timetable-v33-grid{min-width:760px}.timetable-v33-scroll{overflow-x:auto;width:100%}}
+
+
+/* Shule AI v36 - Scroll + timetable visibility repair */
+html, body {
+  min-height: 100% !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+}
+body.dashboard-open,
+body.app-loaded,
+body.authenticated,
+#app,
+#dashboard,
+.dashboard-shell,
+.main-content,
+.content-area,
+#dashboard-content {
+  min-height: 0 !important;
+  overflow-y: visible !important;
+}
+#dashboard-content {
+  padding-bottom: 48px !important;
+}
+.sidebar,
+.dashboard-sidebar,
+#sidebar {
+  max-height: 100vh !important;
+  overflow-y: auto !important;
+}
+main,
+.dashboard-main,
+.main-panel {
+  overflow-y: auto !important;
+  max-height: none !important;
+}
+
+:root {
+  --tt-bg: #f8fafc;
+  --tt-card: #ffffff;
+  --tt-border: #e2e8f0;
+  --tt-text: #0f172a;
+  --tt-muted: #64748b;
+  --tt-head: #eef2ff;
+  --tt-lesson: #f8fafc;
+  --tt-break: #ecfdf5;
+}
+.dark, html.dark, body.dark, [data-theme="dark"] {
+  --tt-bg: #020617;
+  --tt-card: #0f172a;
+  --tt-border: #334155;
+  --tt-text: #f8fafc;
+  --tt-muted: #cbd5e1;
+  --tt-head: #1e293b;
+  --tt-lesson: #111827;
+  --tt-break: #052e16;
+}
+.timetable-v33-page,
+.timetable-v33-card,
+.timetable-v33-scroll,
+.timetable-v33-grid,
+.v12-week,
+.v12-card:has(.v12-week) {
+  color: var(--tt-text) !important;
+}
+.timetable-v33-page { background: var(--tt-bg) !important; }
+.timetable-v33-card { background: var(--tt-card) !important; border-color: var(--tt-border) !important; }
+.timetable-v33-scroll {
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  border-radius: 16px !important;
+}
+.timetable-v33-grid {
+  background: var(--tt-card) !important;
+  border-color: var(--tt-border) !important;
+}
+.timetable-v33-cell {
+  background: var(--tt-card) !important;
+  color: var(--tt-text) !important;
+  border-color: var(--tt-border) !important;
+}
+.timetable-v33-head,
+.timetable-v33-time {
+  background: var(--tt-head) !important;
+  color: var(--tt-text) !important;
+}
+.timetable-v33-lesson {
+  background: var(--tt-lesson) !important;
+  color: var(--tt-text) !important;
+  border: 1px solid var(--tt-border) !important;
+}
+.timetable-v33-break {
+  background: var(--tt-break) !important;
+}
+.timetable-v33-meta,
+.timetable-v33-card .text-muted-foreground {
+  color: var(--tt-muted) !important;
+}
+.timetable-v33-layout {
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+@media (max-width: 1100px) {
+  .timetable-v33-layout { grid-template-columns: 1fr !important; }
+  .timetable-v33-grid { min-width: 820px !important; }
+}
+@media (max-width: 640px) {
+  .timetable-v33-grid { min-width: 720px !important; }
+  #dashboard-content { padding-left: 12px !important; padding-right: 12px !important; }
+}
+
+/* v37 dashboard-wide scroll and section safety */
+html, body, #app, #dashboard, #dashboard-content, main {
+  min-height: 0;
+}
+body {
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto;
+}
+#dashboard-content, .dashboard-content, main, .main-content {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+[data-dashboard-section], .dashboard-section, .analytics-container, .timetable-section, .finance-fees-shell {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.table-responsive, .overflow-x-auto, .timetable-scroll, .weekly-grid-wrapper {
+  max-width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
