@@ -205,7 +205,7 @@ window.updateSidebarSchoolName = updateSidebarSchoolName;
 // ============ GLOBAL VARIABLES ============
 let currentRole = null;
 let currentSection = 'dashboard';
-let dashboardData = {};
+var dashboardData = {};
 let schoolSettings = {};
 let customSubjects = [];
 let schoolUpdateCallbacks = [];

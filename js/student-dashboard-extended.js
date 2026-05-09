@@ -1,5 +1,5 @@
 // student-dashboard-extended.js - Student dashboard rendering with dynamic school name
-let dashboardData = window.dashboardData || window.studentDashboardData || {};
+var dashboardData = window.dashboardData || window.studentDashboardData || {};
 
 // Fallback helpers (if not globally defined)
 function formatDate(dateString) {

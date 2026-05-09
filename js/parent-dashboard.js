@@ -1,5 +1,5 @@
 // parent-dashboard.js - Complete Parent Dashboard with Analytics Support
-let dashboardData = window.dashboardData || window.parentDashboardData || {};
+var dashboardData = window.dashboardData || window.parentDashboardData || {};
 
 async function renderParentSection(section) {
     switch(section) {
