@@ -76,7 +76,8 @@
   let profileObserverTimer = null;
   function startProfileMutationObserver() {
     const target = document.getElementById('dashboard-content');
-    if (!target || profileObserver) return;
+    if (!target) { setTimeout(startProfileMutationObserver, 250); return; }
+    if (profileObserver) return;
     profileObserver = new MutationObserver((mutations) => {
       if (!mutations.some(m => m.type === 'childList')) return;
       clearTimeout(profileObserverTimer);
@@ -125,6 +126,11 @@
   document.addEventListener('DOMContentLoaded', function () {
     setTimeout(applyGlobalProfilePictures, 80);
     setTimeout(startProfileMutationObserver, 100);
+    setTimeout(applyGlobalProfilePictures, 500);
+  });
+
+  window.addEventListener('storage', function (e) {
+    if (e.key === 'user' || e.key === 'shule_user') setTimeout(applyGlobalProfilePictures, 50);
   });
 
   window.applyGlobalProfilePictures = applyGlobalProfilePictures;

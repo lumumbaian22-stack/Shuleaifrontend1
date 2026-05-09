@@ -83,6 +83,14 @@ function getCurrentRole() {
 
 function saveUser(userData) {
     if (!userData) return;
+    try {
+        const stored = JSON.parse(localStorage.getItem('user') || localStorage.getItem('shule_user') || '{}') || {};
+        const storedImage = stored.profileImage || stored.profilePicture || '';
+        if (!(userData.profileImage || userData.profilePicture) && storedImage) {
+            userData.profileImage = storedImage;
+            userData.profilePicture = storedImage;
+        }
+    } catch (_) {}
     if (userData.role === 'teacher') {
         userData.teacher = userData.teacher || {};
         userData.teacher.type = userData.teacher.type || 'subject_teacher';
@@ -95,6 +103,9 @@ function saveUser(userData) {
         userData.admin = userData.admin || {};
     }
     localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('shule_user', JSON.stringify(userData));
+    if (typeof updateUserInfo === 'function') setTimeout(updateUserInfo, 0);
+    if (typeof applyGlobalProfilePictures === 'function') setTimeout(applyGlobalProfilePictures, 0);
     return userData;
 }
 

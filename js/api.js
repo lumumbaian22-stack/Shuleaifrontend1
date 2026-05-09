@@ -17,11 +17,15 @@ window.clearShuleApiCache = clearShuleApiCache;
 
 // API request wrapper with authentication
 async function apiRequest(endpoint, options = {}) {
-    // v17: always read the latest token from localStorage. Some dashboard modules login/update
+    // Always read the latest token from localStorage. Some dashboard modules login/update
     // localStorage after api.js has loaded, so the old cached authToken variable can go stale.
     authToken = localStorage.getItem('authToken') || localStorage.getItem('token') || authToken;
-    const method = (options.method || 'GET').toUpperCase();
-    const useCache = method === 'GET' && options.cache !== false;
+
+    // IMPORTANT: app-level cache control is not the same as fetch RequestInit.cache.
+    // Browsers only accept cache values such as 'no-store' or 'default'; boolean false crashes fetch.
+    const { cache: appCacheOption, ...fetchOptions } = options || {};
+    const method = (fetchOptions.method || 'GET').toUpperCase();
+    const useCache = method === 'GET' && appCacheOption !== false;
     const cacheKey = endpoint + '::' + (authToken || '');
     if (useCache) {
         const cached = shuleApiCache.get(cacheKey);
@@ -33,14 +37,14 @@ async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
-        ...options.headers
+        ...fetchOptions.headers
     };
     if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
     }
 
     try {
-        const response = await fetch(url, { ...options, headers });
+        const response = await fetch(url, { ...fetchOptions, headers });
 
         if (response.status === 429) {
             const retryAfter = response.headers.get('Retry-After') || 60;
@@ -793,7 +797,7 @@ console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
 
 function resolveMediaUrl(url) {
     if (!url) return '';
-    if (/^https?:\/\//i.test(url)) return url;
+    if (/^https?:\/\//i.test(url)) return url.replace(/^http:\/\//i, 'https://');
     const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
     if (!base) return url;
     return base + (url.startsWith('/') ? url : '/' + url);
