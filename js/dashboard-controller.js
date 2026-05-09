@@ -378,6 +378,14 @@ function showDPAModal() {
 
 // ============ DASHBOARD RENDERING ============
 async function showDashboard(role) {
+    window.__shuleDashboardRunId = (window.__shuleDashboardRunId || 0) + 1;
+    const __runId = window.__shuleDashboardRunId;
+    const __storedUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
+    const __storedRole = __storedUser?.role || localStorage.getItem('userRole');
+    if (__storedRole && role && __storedRole !== role && !(role === 'superadmin' && __storedRole === 'super_admin')) {
+        console.warn('Ignoring stale dashboard render for role:', role, 'current role:', __storedRole);
+        role = (__storedRole === 'super_admin') ? 'superadmin' : __storedRole;
+    }
     console.log('🔵 showDashboard called with role:', role);
 
     if (!role) {
@@ -440,6 +448,7 @@ async function showDashboard(role) {
 
     showLoading();
     try {
+        if (__runId !== window.__shuleDashboardRunId) return;
         if (role === 'superadmin') {
             const [overview, schools, pending] = await Promise.all([
                 api.superAdmin.getOverview().catch(err => ({ data: {} })),

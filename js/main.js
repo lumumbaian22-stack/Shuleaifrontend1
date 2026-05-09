@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthenticated) {
         let role = null;
         if (currentUser && currentUser.role) role = currentUser.role;
+        // Only use cached role if fresh auth did not set currentUser. This prevents stale teacher/admin role flashes.
         if (!role && typeof getCurrentRole === 'function') role = getCurrentRole();
         if (!role) role = localStorage.getItem('userRole');
         if (!role) {
