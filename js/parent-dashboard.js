@@ -1,5 +1,6 @@
 // parent-dashboard.js - Complete Parent Dashboard with Analytics Support
-var dashboardData = window.dashboardData || window.parentDashboardData || {};
+// Use global dashboardData from dashboard-controller.js
+window.dashboardData = window.dashboardData || {};
 
 async function renderParentSection(section) {
     switch(section) {
@@ -58,21 +59,27 @@ async function renderParentDashboard() {
         const children = childrenResponse.data || [];
 
         let selectedChildSummary = null;
-        let selectedChildId = null;
+        let selectedChildId = localStorage.getItem('shule_selected_child_id') || (children.length > 0 ? children[0].id : null);
 
-        if (children.length > 0) {
-            selectedChildId = children[0].id;
+        if (selectedChildId && children.length > 0) {
+            // Verify child still belongs to parent
+            const childExists = children.find(c => String(c.id) === String(selectedChildId));
+            if (!childExists) {
+                selectedChildId = children[0].id;
+                localStorage.setItem('shule_selected_child_id', selectedChildId);
+            }
+            
             const summaryResponse = await api.parent.getChildSummary(selectedChildId);
             selectedChildSummary = summaryResponse.data;
         }
 
-        dashboardData = {
+        // Update global dashboardData without overwriting the object reference
+        Object.assign(dashboardData, {
             children: children,
             selectedChild: selectedChildSummary,
             selectedChildId: selectedChildId
-        };
+        });
         window.dashboardData = dashboardData;
-        window.parentDashboardData = dashboardData;
 
         let html = `
             <div class="space-y-6 animate-fade-in">
@@ -681,14 +688,14 @@ async function selectChild(childId) {
     }
 
     dashboardData.selectedChildId = childId;
+    localStorage.setItem('shule_selected_child_id', childId);
 
     showLoading();
     try {
         const summaryResponse = await api.parent.getChildSummary(childId);
         dashboardData.selectedChild = summaryResponse.data;
         await showDashboardSection(currentSection);
-    } catch (error) {
-        console.error('Error selecting child:', error);
+    } catch (error) {console.error('Error selecting child:', error);
         showToast('Failed to load child data', 'error');
     } finally {
         hideLoading();

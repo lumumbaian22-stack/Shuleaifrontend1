@@ -5,11 +5,31 @@ const API_BASE_URL = (localStorage.getItem('SHULE_API_BASE_URL') || 'https://shu
 let authToken = localStorage.getItem('authToken');
 let refreshToken = localStorage.getItem('refreshToken');
 
+// v49: small in-memory GET cache to speed dashboard section switching without changing layouts.
+const SHULE_API_CACHE_TTL_MS = 90000;
+const shuleApiCache = new Map();
+function clearShuleApiCache(prefix = '') {
+    for (const key of Array.from(shuleApiCache.keys())) {
+        if (!prefix || key.includes(prefix)) shuleApiCache.delete(key);
+    }
+}
+window.clearShuleApiCache = clearShuleApiCache;
+
 // API request wrapper with authentication
 async function apiRequest(endpoint, options = {}) {
     // v17: always read the latest token from localStorage. Some dashboard modules login/update
     // localStorage after api.js has loaded, so the old cached authToken variable can go stale.
     authToken = localStorage.getItem('authToken') || localStorage.getItem('token') || authToken;
+    const method = (options.method || 'GET').toUpperCase();
+    const useCache = method === 'GET' && options.cache !== false;
+    const cacheKey = endpoint + '::' + (authToken || '');
+    if (useCache) {
+        const cached = shuleApiCache.get(cacheKey);
+        if (cached && Date.now() - cached.time < SHULE_API_CACHE_TTL_MS) {
+            return cached.data;
+        }
+    }
+    if (method !== 'GET') clearShuleApiCache();
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
@@ -52,6 +72,7 @@ async function apiRequest(endpoint, options = {}) {
             throw error;
         }
 
+        if (useCache) shuleApiCache.set(cacheKey, { time: Date.now(), data });
         return data;
     } catch (error) {
         console.error('API Request failed:', error);

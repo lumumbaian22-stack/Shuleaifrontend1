@@ -205,7 +205,7 @@ window.updateSidebarSchoolName = updateSidebarSchoolName;
 // ============ GLOBAL VARIABLES ============
 let currentRole = null;
 let currentSection = 'dashboard';
-var dashboardData = {};
+window.dashboardData = window.dashboardData || {};
 let schoolSettings = {};
 let customSubjects = [];
 let schoolUpdateCallbacks = [];
@@ -228,7 +228,13 @@ async function loadSchoolSettings() {
         }
         
         try {
+            // Add a small debounce/cache check to prevent redundant API calls in same session
+            if (window.__schoolSettingsLoading) return window.schoolSettings;
+            window.__schoolSettingsLoading = true;
+
             const response = await api.admin.getSchoolSettings();
+            window.__schoolSettingsLoading = false;
+
             if (response && response.success && response.data) {
                 // Assign the entire response data
                 window.schoolSettings = response.data;
@@ -242,6 +248,7 @@ async function loadSchoolSettings() {
                 return window.schoolSettings;
             }
         } catch (apiError) {
+            window.__schoolSettingsLoading = false;
             console.warn('⚠️ Cannot fetch school settings:', apiError.message);
         }
         
@@ -473,10 +480,17 @@ async function showDashboard(role) {
         } else if (role === 'parent') {
             const children = await api.parent.getChildren().catch(err => ({ data: [] }));
             let childSummary = null;
-            if (children.data && children.data.length > 0) {
-                childSummary = await api.parent.getChildSummary(children.data[0].id).catch(err => ({ data: {} }));
+            const savedChildId = localStorage.getItem('shule_selected_child_id');
+            const selectedId = savedChildId || (children.data && children.data.length > 0 ? children.data[0].id : null);
+            
+            if (selectedId) {
+                childSummary = await api.parent.getChildSummary(selectedId).catch(err => ({ data: {} }));
             }
-            dashboardData = { children: children.data, selectedChild: childSummary?.data };
+            dashboardData = { 
+                children: children.data, 
+                selectedChild: childSummary?.data,
+                selectedChildId: selectedId 
+            };
         } else if (role === 'student') {
             const [grades, attendance] = await Promise.all([
                 api.student.getGrades().catch(err => ({ data: [] })),

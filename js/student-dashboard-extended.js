@@ -1,5 +1,6 @@
 // student-dashboard-extended.js - Student dashboard rendering with dynamic school name
-var dashboardData = window.dashboardData || window.studentDashboardData || {};
+// Use global dashboardData from dashboard-controller.js
+window.dashboardData = window.dashboardData || {};
 
 // Fallback helpers (if not globally defined)
 function formatDate(dateString) {
@@ -67,7 +68,7 @@ async function renderStudentDashboard() {
         const user = getCurrentUser();
         const school = getCurrentSchool();
         const average = data.stats?.averageScore || data.averageScore || 0;
-        const attendanceRate = data.stats?.attendanceRate || data.attendanceRate || 0;
+        const attendanceRate = data.stats?.attendanceRate || (data.recentAttendance?.length ? Math.round((data.recentAttendance.filter(a => a.status === 'present').length / data.recentAttendance.length) * 100) : 0);
         const studentPoints = data.student?.points || user?.points || 0;
 
         return `

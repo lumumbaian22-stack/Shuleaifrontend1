@@ -100,7 +100,7 @@
   }
   w.renderStudentTimetable = w.renderStudentTimetable || (async function(){ return renderReadOnlyTimetableFrom('/api/timetable/student/me','My Timetable'); });
   w.renderParentTimetable = w.renderParentTimetable || (async function(){
-    const childId = window.dashboardData?.selectedChildId || window.selectedChildId || '';
+    const childId = window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || window.selectedChildId || '';
     return childId ? renderReadOnlyTimetableFrom(`/api/timetable/parent/child/${childId}`,'Child Timetable') : `<div class="timetable-v33-card v12-card"><h2>Child Timetable</h2><p>Select a linked child to view the timetable.</p></div>`;
   });
 
