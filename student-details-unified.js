@@ -1,4 +1,5 @@
 // parent-dashboard.js - Complete Parent Dashboard with Analytics Support
+let dashboardData = window.dashboardData || window.parentDashboardData || {};
 
 async function renderParentSection(section) {
     switch(section) {
@@ -29,7 +30,8 @@ async function renderParentSection(section) {
 }
 
 async function renderParentCompetency() {
-  const selectedChildId = dashboardData.selectedChildId;
+  const selectedChildId = dashboardData?.selectedChildId;
+  if (!selectedChildId) return `<div class="text-center py-8 text-muted-foreground">Select a child first</div>`;
   const progress = await apiRequest(`/api/cbe/student-progress/${selectedChildId}`);
   const compMap = {};
   progress.data.forEach(p => {
@@ -69,6 +71,8 @@ async function renderParentDashboard() {
             selectedChild: selectedChildSummary,
             selectedChildId: selectedChildId
         };
+        window.dashboardData = dashboardData;
+        window.parentDashboardData = dashboardData;
 
         let html = `
             <div class="space-y-6 animate-fade-in">
@@ -831,7 +835,8 @@ async function upgradePlan(planId) {
 
 // Home Tasks Section
 async function renderHomeTasks() {
-  const childId = dashboardData.selectedChildId;
+  const childId = dashboardData?.selectedChildId;
+  if (!childId) return;
   if (!childId) return '<div class="text-center py-4">Select a child first</div>';
   const res = await apiRequest(`/api/home-tasks/today?studentId=${childId}`);
   const tasks = res.data;
@@ -964,7 +969,8 @@ async function loadParentAlerts() {
 }
 
 async function loadLiveAttendance() {
-  const childId = dashboardData.selectedChildId;
+  const childId = dashboardData?.selectedChildId;
+  if (!childId) return;
   if (!childId) return;
 
   const statusDiv = document.getElementById('live-attendance-status');

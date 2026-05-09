@@ -1607,54 +1607,126 @@ function getLevelColorClass(level) {
   return 'bg-red-100 text-red-700';
 }
 
+function normalizeHomeworkAssignmentsResponse(res) {
+    return Array.isArray(res) ? res : (res?.data || res?.assignments || []);
+}
+
+function getHomeworkAssignmentCount(task) {
+    return task.assignedCount ?? task.HomeTaskAssignments?.length ?? task.HomeTaskAssignments?.length ?? 0;
+}
+
+async function getTeacherAssignmentDataForHomework() {
+    try {
+        const res = await api.teacher.getMyAssignments();
+        return res.data || { classes: [], subjects: [] };
+    } catch (e) {
+        console.error('Failed to load teacher assignments:', e);
+        return { classes: [], subjects: [] };
+    }
+}
+
+function renderTeacherSubjectSummary(assignments) {
+    const subjects = assignments?.subjects || [];
+    const classes = assignments?.classes || [];
+    if (!subjects.length && !classes.length) {
+        return `<div class="rounded-xl border bg-card p-4 text-sm text-muted-foreground">No class or subject assignment has been configured for your teacher account yet.</div>`;
+    }
+    const subjectCards = subjects.slice(0, 8).map(item => `
+        <div class="rounded-xl border bg-card p-4">
+            <p class="text-xs text-muted-foreground">Assigned Subject</p>
+            <h4 class="font-semibold">${escapeHtml(item.subject || 'General')}</h4>
+            <p class="text-sm text-muted-foreground mt-1">${escapeHtml(item.className || 'Class')} ${item.grade ? `• ${escapeHtml(item.grade)}` : ''}</p>
+        </div>
+    `).join('');
+    return `
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            ${subjectCards || classes.slice(0, 4).map(cls => `
+                <div class="rounded-xl border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Assigned Class</p>
+                    <h4 class="font-semibold">${escapeHtml(cls.name || 'Class')}</h4>
+                    <p class="text-sm text-muted-foreground mt-1">${escapeHtml((cls.subjects || []).join(', ') || cls.grade || '')}</p>
+                </div>
+            `).join('')}
+        </div>`;
+}
+
 async function renderTeacherHomework() {
     try {
-        const res = await apiRequest('/api/homework/teacher');
-        const assignments = res.data || [];
+        const [taskRes, assignmentData] = await Promise.all([
+            apiRequest('/api/homework/teacher'),
+            getTeacherAssignmentDataForHomework()
+        ]);
+        const assignments = normalizeHomeworkAssignmentsResponse(taskRes);
         return `
             <div class="space-y-6 animate-fade-in">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-2xl font-bold">Homework Assignments</h2>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold">Homework Assignments</h2>
+                        <p class="text-sm text-muted-foreground">Create, track, and review homework for your assigned classes and subjects.</p>
+                    </div>
                     <button onclick="showCreateHomeworkModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ Create New</button>
                 </div>
-                <div id="teacher-homework-list" class="space-y-4">
-                    ${assignments.length === 0 ? '<p class="text-center text-muted-foreground">No assignments yet</p>' :
+                ${renderTeacherSubjectSummary(assignmentData)}
+                <div id="teacher-homework-list" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    ${assignments.length === 0 ? '<div class="md:col-span-2 xl:col-span-3 text-center text-muted-foreground border rounded-xl bg-card py-10">No homework assignments yet</div>' :
                       assignments.map(a => `
-                        <div class="p-4 border rounded-lg">
-                            <h3 class="font-semibold">${escapeHtml(a.title)}</h3>
-                            <p class="text-sm text-muted-foreground">${escapeHtml(a.instructions?.substring(0,100))}</p>
-                            <div class="flex gap-4 mt-2 text-xs">
-                                <span>Subject: ${escapeHtml(a.subject)}</span>
-                                <span>Due: ${formatDate(a.dueDate)}</span>
-                                <span>Class: ${escapeHtml(a.className)}</span>
+                        <div class="p-4 border rounded-xl bg-card hover:shadow-sm transition-shadow">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h3 class="font-semibold">${escapeHtml(a.title)}</h3>
+                                    <p class="text-sm text-muted-foreground mt-1 line-clamp-2">${escapeHtml((a.instructions || '').substring(0,140))}</p>
+                                </div>
+                                <span class="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">${escapeHtml(a.subject || 'General')}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-4 text-xs text-muted-foreground">
+                                <span>Due: <b class="text-foreground">${formatDate(a.dueDate)}</b></span>
+                                <span>Class: <b class="text-foreground">${escapeHtml(a.className || a.gradeLevel || '-')}</b></span>
+                                <span>Assigned: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
+                                <span>Submitted: <b class="text-foreground">${a.submittedCount || 0}</b></span>
                             </div>
                         </div>
                       `).join('')}
                 </div>
             </div>`;
     } catch (e) {
-        return '<div class="text-red-500">Error loading homework</div>';
+        console.error('Homework render error:', e);
+        return `<div class="rounded-xl border bg-card p-6 text-red-500">Error loading homework: ${escapeHtml(e.message || 'Unknown error')}</div>`;
     }
+}
+
+async function buildHomeworkClassOptions() {
+    const data = await getTeacherAssignmentDataForHomework();
+    const options = [];
+    const add = (id, name, grade, subject) => {
+        if (!id) return;
+        const key = `${id}|${subject || ''}`;
+        if (options.some(o => o.key === key)) return;
+        options.push({ key, id, name: name || `Class ${id}`, grade: grade || '', subject: subject || '' });
+    };
+    if (data.classTeacher) add(data.classTeacher.id, data.classTeacher.name, data.classTeacher.grade, '');
+    (data.subjects || []).forEach(s => add(s.classId, s.className, s.grade, s.subject));
+    (data.classes || []).forEach(c => (c.subjects || ['']).forEach(subject => add(c.id, c.name, c.grade, subject)));
+    return { options, data };
 }
 
 function showCreateHomeworkModal() {
     let modal = document.getElementById('create-homework-modal');
     if (!modal) {
-        // Create modal HTML
         const modalHtml = `
         <div id="create-homework-modal" class="fixed inset-0 z-50 hidden">
             <div class="absolute inset-0 bg-black/50" onclick="closeCreateHomeworkModal()"></div>
             <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg p-4">
                 <div class="rounded-xl border bg-card p-6 shadow-xl">
-                    <h3 class="text-lg font-semibold mb-4">Assign Homework</h3>
+                    <h3 class="text-lg font-semibold mb-1">Assign Homework</h3>
+                    <p class="text-sm text-muted-foreground mb-4">Homework is saved under your teacher account and shown in your assignment list immediately.</p>
                     <div class="space-y-4">
-                        <div><label class="block text-sm font-medium">Title</label><input type="text" id="hw-title" class="w-full rounded-lg border p-2"></div>
-                        <div><label class="block text-sm font-medium">Instructions</label><textarea id="hw-instructions" rows="3" class="w-full rounded-lg border p-2"></textarea></div>
+                        <div><label class="block text-sm font-medium">Title</label><input type="text" id="hw-title" class="w-full rounded-lg border p-2 bg-background"></div>
+                        <div><label class="block text-sm font-medium">Instructions</label><textarea id="hw-instructions" rows="3" class="w-full rounded-lg border p-2 bg-background"></textarea></div>
                         <div class="grid grid-cols-2 gap-3">
-                            <div><label class="block text-sm font-medium">Subject</label><input type="text" id="hw-subject" class="w-full rounded-lg border p-2"></div>
-                            <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium">Subject</label><select id="hw-subject" class="w-full rounded-lg border p-2 bg-background"><option value="">Select class first</option></select></div>
+                            <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2 bg-background"></div>
                         </div>
-                        <div><label class="block text-sm font-medium">Class</label><select id="hw-class" class="w-full rounded-lg border p-2"><option value="">Loading...</option></select></div>
+                        <div><label class="block text-sm font-medium">Class</label><select id="hw-class" class="w-full rounded-lg border p-2 bg-background"><option value="">Loading...</option></select></div>
                     </div>
                     <div class="flex justify-end gap-3 mt-6">
                         <button onclick="closeCreateHomeworkModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
@@ -1667,7 +1739,6 @@ function showCreateHomeworkModal() {
         modal = document.getElementById('create-homework-modal');
     }
 
-    // Load teacher's classes into dropdown
     loadTeacherClassesForHomework();
     modal.classList.remove('hidden');
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -1679,46 +1750,38 @@ function closeCreateHomeworkModal() {
 }
 
 async function loadTeacherClassesForHomework() {
+    const select = document.getElementById('hw-class');
+    const subjectSelect = document.getElementById('hw-subject');
+    if (!select) return;
     try {
-        const res = await api.teacher.getMyAssignments();
-        const data = res.data || {};
-        const select = document.getElementById('hw-class');
-        if (!select) return;
-        
+        const { options } = await buildHomeworkClassOptions();
         select.innerHTML = '<option value="">Select class</option>';
-        
-        // Add class teacher's own class if exists
-        if (data.classTeacher) {
-            select.innerHTML += `<option value="${data.classTeacher.id}">${escapeHtml(data.classTeacher.name)} (Grade ${escapeHtml(data.classTeacher.grade)})</option>`;
-        }
-        
-        // Add subject teaching classes
-        if (data.subjects && Array.isArray(data.subjects)) {
-            data.subjects.forEach(sub => {
-                // Check if already added (avoid duplicates)
-                const exists = data.classTeacher && sub.classId == data.classTeacher.id;
-                if (!exists) {
-                    select.innerHTML += `<option value="${sub.classId}">${escapeHtml(sub.className)} (Grade ${escapeHtml(sub.grade)}) - ${escapeHtml(sub.subject)}</option>`;
-                }
-            });
-        }
-        
-        // If no classes at all, show message
-        if (select.options.length <= 1) {
-            select.innerHTML = '<option value="">No classes assigned</option>';
-        }
+        options.forEach(o => {
+            select.innerHTML += `<option value="${escapeHtml(String(o.id))}" data-subject="${escapeHtml(o.subject)}" data-class-name="${escapeHtml(o.name)}">${escapeHtml(o.name)}${o.grade ? ` (${escapeHtml(o.grade)})` : ''}${o.subject ? ` - ${escapeHtml(o.subject)}` : ''}</option>`;
+        });
+        if (select.options.length <= 1) select.innerHTML = '<option value="">No classes assigned</option>';
+        const refreshSubjects = () => {
+            if (!subjectSelect) return;
+            const selectedClassId = select.value;
+            const subjects = [...new Set(options.filter(o => String(o.id) === String(selectedClassId)).map(o => o.subject).filter(Boolean))];
+            subjectSelect.innerHTML = subjects.length ? '<option value="">Select subject</option>' + subjects.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('') : '<option value="General">General</option>';
+        };
+        select.onchange = refreshSubjects;
+        refreshSubjects();
     } catch (e) {
         console.error('Failed to load classes:', e);
-        const select = document.getElementById('hw-class');
-        if (select) select.innerHTML = '<option value="">Error loading classes</option>';
+        select.innerHTML = '<option value="">Error loading classes</option>';
     }
 }
+
 async function createHomework() {
     const title = document.getElementById('hw-title')?.value.trim();
     const instructions = document.getElementById('hw-instructions')?.value.trim();
     const subject = document.getElementById('hw-subject')?.value.trim();
     const dueDate = document.getElementById('hw-due')?.value;
-    const classId = document.getElementById('hw-class')?.value;
+    const classSelect = document.getElementById('hw-class');
+    const classId = classSelect?.value;
+    const className = classSelect?.selectedOptions?.[0]?.dataset?.className || '';
 
     if (!title || !instructions || !subject || !dueDate || !classId) {
         showToast('Please fill all fields', 'error');
@@ -1729,10 +1792,9 @@ async function createHomework() {
     try {
         const res = await apiRequest('/api/homework/assign', {
             method: 'POST',
-            body: JSON.stringify({ title, instructions, subject, dueDate, classId })
+            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className })
         });
         if (res.success) {
-            showToast('Homework assigned successfully!', 'success');
             closeCreateHomeworkModal();
             await showDashboardSection('homework');
         }

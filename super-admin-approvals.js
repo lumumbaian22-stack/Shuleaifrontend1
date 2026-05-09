@@ -1,4 +1,5 @@
 // student-dashboard-extended.js - Student dashboard rendering with dynamic school name
+let dashboardData = window.dashboardData || window.studentDashboardData || {};
 
 // Fallback helpers (if not globally defined)
 function formatDate(dateString) {
@@ -54,6 +55,14 @@ async function renderStudentSection(section) {
 
 async function renderStudentDashboard() {
     try {
+        if (!dashboardData || Object.keys(dashboardData).length === 0) {
+            try {
+                const res = await api.student.getDashboard();
+                dashboardData = res.data || {};
+                window.dashboardData = dashboardData;
+                window.studentDashboardData = dashboardData;
+            } catch(e) { dashboardData = window.dashboardData || {}; }
+        }
         const data = dashboardData || {};
         const user = getCurrentUser();
         const school = getCurrentSchool();
@@ -253,7 +262,7 @@ setTimeout(() => {
     loadStudentHomeTasks();
     loadDashboardLeaderboard();
     loadDashboardBadges();
-    if (typeof initStudentCharts === 'function') initStudentCharts(dashboardData);
+    if (typeof initStudentCharts === 'function') initStudentCharts(window.dashboardData || dashboardData || {});
 }, 200);
 
 async function loadStudentHomeTasks() {
