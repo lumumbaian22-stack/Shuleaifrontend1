@@ -73,26 +73,19 @@
   async function getStudent(id){
     const current = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
     const role = current?.role || localStorage.getItem('userRole');
-    const tryTeacherStudent = async () => {
-      const res = await apiRequest(`/api/teacher/students/${id}`, { cache: false });
-      return res.data || res.student || res;
-    };
+    if (role === 'admin' || role === 'superadmin' || role === 'super_admin') {
+      if (api?.admin?.getStudentDetails) { const res = await api.admin.getStudentDetails(id); return res.data || res.student || res; }
+    }
     if (role === 'teacher') {
-      try { return await tryTeacherStudent(); } catch (e) {
+      try {
+        const res = await apiRequest(`/api/teacher/students/${id}`);
+        if (res?.success) return res.data || res.student || res;
+      } catch (e) {
         const listRes = await api.teacher.getMyStudents();
         const students = listRes.data?.students || listRes.data || [];
         const found = students.find(st => String(st.id) === String(id) || String(st.studentId) === String(id));
         if (found) return found;
         throw e;
-      }
-    }
-    if (role === 'admin' || role === 'superadmin' || role === 'super_admin') {
-      try {
-        if (api?.admin?.getStudentDetails) { const res = await api.admin.getStudentDetails(id); return res.data || res.student || res; }
-      } catch (e) {
-        // If stale role state sends a teacher through an admin-only route, fall through to safe teacher route.
-        if (e.status !== 403 && !String(e.message || '').includes('Forbidden')) throw e;
-        try { return await tryTeacherStudent(); } catch (_) { throw e; }
       }
     }
     if (api?.students?.getFullDetails) { const res = await api.students.getFullDetails(id); return res.data?.student || res.data || res; }

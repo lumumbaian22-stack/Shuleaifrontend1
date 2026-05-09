@@ -1,6 +1,7 @@
 // parent-dashboard.js - Complete Parent Dashboard with Analytics Support
 // Use global dashboardData from dashboard-controller.js
-window.dashboardData = window.dashboardData || {};
+if (typeof window.dashboardData === 'undefined') window.dashboardData = {};
+var dashboardData = window.dashboardData;
 
 async function renderParentSection(section) {
     switch(section) {

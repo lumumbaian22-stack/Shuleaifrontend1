@@ -1653,7 +1653,7 @@ function renderTeacherSubjectSummary(assignments) {
 async function renderTeacherHomework() {
     try {
         const [taskRes, assignmentData] = await Promise.all([
-            apiRequest('/api/homework/teacher', { cache: false }),
+            apiRequest('/api/homework/teacher'),
             getTeacherAssignmentDataForHomework()
         ]);
         const assignments = normalizeHomeworkAssignmentsResponse(taskRes);
@@ -1796,7 +1796,6 @@ async function createHomework() {
         });
         if (res.success) {
             closeCreateHomeworkModal();
-            if (window.clearShuleApiCache) clearShuleApiCache('/api/homework');
             await showDashboardSection('homework');
         }
     } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }

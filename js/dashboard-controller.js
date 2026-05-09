@@ -171,7 +171,7 @@ function updateUserInfo() {
         if (profileUrl) {
             const src = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(profileUrl) : profileUrl;
             avatarWrap.classList.add('overflow-hidden');
-            avatarWrap.innerHTML = `<img src="${escapeHtml(src)}" class="h-full w-full rounded-full object-cover" data-current-user-avatar alt="${escapeHtml(name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{id:'user-initials',textContent:'${initials}'}));">`;
+            avatarWrap.innerHTML = `<img src="${escapeHtml(src)}" class="h-full w-full rounded-full object-cover" data-current-user-avatar alt="${escapeHtml(name)}">`;
         } else {
             avatarWrap.innerHTML = `<span id="user-initials">${initials}</span>`;
             avatarWrap.className = 'h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-medium text-sm overflow-hidden';
@@ -205,7 +205,7 @@ window.updateSidebarSchoolName = updateSidebarSchoolName;
 // ============ GLOBAL VARIABLES ============
 let currentRole = null;
 let currentSection = 'dashboard';
-window.dashboardData = window.dashboardData || {};
+var dashboardData = {};
 let schoolSettings = {};
 let customSubjects = [];
 let schoolUpdateCallbacks = [];

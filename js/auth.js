@@ -12,34 +12,6 @@ function mergeTeacherProfile(userData, profile) {
     return userData;
 }
 
-
-function getStoredUserForProfileMerge() {
-    try { return JSON.parse(localStorage.getItem('user') || localStorage.getItem('shule_user') || '{}') || {}; }
-    catch (_) { return {}; }
-}
-
-function preserveExistingProfileImage(freshUser) {
-    if (!freshUser) return freshUser;
-    const stored = getStoredUserForProfileMerge();
-    const existingImage = stored.profileImage || stored.profilePicture || '';
-    const freshImage = freshUser.profileImage || freshUser.profilePicture || '';
-    if (!freshImage && existingImage) {
-        freshUser.profileImage = existingImage;
-        freshUser.profilePicture = existingImage;
-    }
-    return freshUser;
-}
-
-function storeCurrentUser(userData) {
-    if (!userData) return;
-    const merged = preserveExistingProfileImage({ ...userData });
-    currentUser = merged;
-    localStorage.setItem('user', JSON.stringify(merged));
-    localStorage.setItem('shule_user', JSON.stringify(merged));
-    if (merged.role) localStorage.setItem('userRole', merged.role);
-    syncProfileAvatarUI();
-}
-
 function syncProfileAvatarUI() {
     setTimeout(() => {
         if (typeof updateUserInfo === 'function') updateUserInfo();
@@ -65,7 +37,8 @@ async function checkAuth() {
         currentUser = userData;
         currentSchool = response.data.school;
         
-        storeCurrentUser(currentUser);
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        syncProfileAvatarUI();
 
         if (currentSchool && currentSchool.status === 'active') {
             localStorage.setItem('school', JSON.stringify(currentSchool));
@@ -98,7 +71,8 @@ async function superAdminLogin(email, password, secretKey) {
         currentUser = response.data.user;
         
         localStorage.setItem('authToken', authToken);
-        storeCurrentUser(currentUser);
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('userRole', currentUser.role);
         
         return response;
     } catch (error) {
@@ -136,7 +110,10 @@ async function checkAdminStatusAfterApproval() {
                 if (response.success) {
                     const refreshedUser = response.data.user;
                     if (refreshedUser.isActive === true) {
-                        storeCurrentUser(refreshedUser);
+                        localStorage.setItem('user', JSON.stringify(refreshedUser));
+                        localStorage.setItem('userRole', refreshedUser.role);
+                        syncProfileAvatarUI();
+                        currentUser = refreshedUser;
                         console.log('✅ Admin account activated successfully');
                         return true;
                     }
@@ -186,7 +163,8 @@ async function studentLogin(elimuid, password) {
         currentUser = response.data.user;
         
         localStorage.setItem('authToken', authToken);
-        storeCurrentUser(currentUser);
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('userRole', currentUser.role);
         
         return response;
     } catch (error) {
@@ -235,8 +213,9 @@ async function login(emailOrPhone, password, role) {
         }
 
         localStorage.setItem('authToken', authToken);
-        storeCurrentUser(currentUser);
+        localStorage.setItem('user', JSON.stringify(currentUser));
         localStorage.setItem('school', JSON.stringify(currentSchool));
+        localStorage.setItem('userRole', currentUser.role);
 
         console.log('✅ Login successful, redirecting to dashboard');
 

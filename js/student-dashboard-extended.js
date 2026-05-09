@@ -1,6 +1,7 @@
 // student-dashboard-extended.js - Student dashboard rendering with dynamic school name
 // Use global dashboardData from dashboard-controller.js
-window.dashboardData = window.dashboardData || {};
+if (typeof window.dashboardData === 'undefined') window.dashboardData = {};
+var dashboardData = window.dashboardData;
 
 // Fallback helpers (if not globally defined)
 function formatDate(dateString) {
