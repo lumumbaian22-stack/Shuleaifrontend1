@@ -54,12 +54,12 @@ async function renderTeacherSection(section) {
       case 'dashboard': return await renderTeacherDashboard();
       case 'competency': return await renderTeacherCompetency();
       case 'my-timetable': return await (window.v12RenderTeacherTimetable || window.renderTeacherTimetable)();
-      case 'homework': return await window.v12RenderTeacherHomework();
+      case 'homework': return await (window.v12RenderTeacherHomework || window.renderTeacherHomework)();
       case 'students': return isClassTeacher() ? await renderTeacherStudents() : '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><p>Only Class Teachers can manage students.</p></div>';
       case 'attendance': return await renderTeacherAttendance();
       case 'grades': return await renderTeacherMarksEntry();
       case 'tasks': return await renderTeacherTasks();
-      case 'duty': return await window.v12RenderTeacherDuty();
+      case 'duty': return await (window.v12RenderTeacherDuty || window.renderTeacherDuty)();
       case 'duty-preferences': return renderTeacherDutyPreferences();
       case 'staff-chat': return await renderTeacherV9Messages();
       case 'parent-chat': return await renderParentChat();
@@ -1794,3 +1794,9 @@ window.renderTimetableGrid = renderTimetableGrid;
 window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.closeCreateHomeworkModal = closeCreateHomeworkModal;
 window.createHomework = createHomework;
+
+
+// V42 compatibility aliases: keep original full teacher layouts, only satisfy older v12 callers.
+window.v12RenderTeacherHomework = window.v12RenderTeacherHomework || window.renderTeacherHomework;
+window.v12RenderTeacherDuty = window.v12RenderTeacherDuty || window.renderTeacherDuty;
+

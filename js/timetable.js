@@ -89,11 +89,26 @@
   w.v33PublishTimetable=async function(){if(!activeTimetableId){alert('Generate or load a timetable first.');return;}try{await req(`/api/timetable/${activeTimetableId}/publish`,{method:'POST'});w.showToast&&showToast('Timetable published','success');}catch(e){w.showToast?showToast(e.message,'error'):alert(e.message)}};
 
 
+
+  async function renderReadOnlyTimetableFrom(path, title){
+    try{
+      const r=await req(path);
+      const data=r?.data||r;
+      const slots=normalizeSlots(data);
+      return `<div class="timetable-v33-page timetable-v41-page space-y-4 animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">${esc(title)}</h1><p class="v12-sub">Your published weekly timetable.</p></div></div></section><div class="timetable-v33-card timetable-v41-grid-card v12-card">${renderGrid(slots,{editable:false})}</div></div>`;
+    }catch(e){ return `<div class="timetable-v33-card v12-card"><h2>${esc(title)}</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
+  }
+  w.renderStudentTimetable = w.renderStudentTimetable || (async function(){ return renderReadOnlyTimetableFrom('/api/timetable/student/me','My Timetable'); });
+  w.renderParentTimetable = w.renderParentTimetable || (async function(){
+    const childId = window.dashboardData?.selectedChildId || window.selectedChildId || '';
+    return childId ? renderReadOnlyTimetableFrom(`/api/timetable/parent/child/${childId}`,'Child Timetable') : `<div class="timetable-v33-card v12-card"><h2>Child Timetable</h2><p>Select a linked child to view the timetable.</p></div>`;
+  });
+
   // Compatibility aliases kept because older dashboard sections still call v12 names.
   // These aliases point to the real current renderers instead of adding fallback placeholder screens.
   w.v12RenderAdminTimetable = w.v12RenderAdminTimetable || w.renderAdminTimetable;
   w.v12RenderTeacherTimetable = w.v12RenderTeacherTimetable || w.renderTeacherTimetable || w.renderAdminTimetable;
-  w.v12RenderParentTimetable = w.v12RenderParentTimetable || w.renderParentTimetable || w.renderTeacherTimetable || w.renderAdminTimetable;
-  w.v12RenderStudentTimetable = w.v12RenderStudentTimetable || w.renderStudentTimetable || w.renderTeacherTimetable || w.renderAdminTimetable;
+  w.v12RenderParentTimetable = w.v12RenderParentTimetable || w.renderParentTimetable || w.renderAdminTimetable;
+  w.v12RenderStudentTimetable = w.v12RenderStudentTimetable || w.renderStudentTimetable || w.renderAdminTimetable;
 
 })();

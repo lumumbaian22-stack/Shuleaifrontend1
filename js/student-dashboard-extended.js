@@ -31,7 +31,7 @@ async function renderStudentSection(section) {
         case 'rewards':
             return await renderRewardsStore();
         case 'my-homework':
-            return await window.v12RenderStudentHomework();
+            return await (window.v12RenderStudentHomework || window.renderStudentHomework)();
         case 'attendance':
             return await renderStudentAttendance();
         case 'chat':
@@ -39,7 +39,7 @@ async function renderStudentSection(section) {
         case 'ai-tutor':
             return renderStudentAITutor();
         case 'schedule':
-            return await (window.v12RenderStudentTimetable || window.renderStudentTimetable || window.renderTeacherTimetable || window.renderAdminTimetable)();
+            return await (window.v12RenderStudentTimetable || window.renderStudentTimetable || window.renderAdminTimetable)();
         case 'help':
             return renderHelpSection();
         case 'settings':
@@ -990,3 +990,8 @@ window.sendStudentChatMessage = sendStudentChatMessage;
 window.loadStudentChatMessages = loadStudentChatMessages;
 window.loadDashboardLeaderboard = loadDashboardLeaderboard;
 window.loadDashboardBadges = loadDashboardBadges;
+
+
+// V42 compatibility alias: keep original student homework layout, only satisfy older v12 callers.
+window.v12RenderStudentHomework = window.v12RenderStudentHomework || window.renderStudentHomework;
+

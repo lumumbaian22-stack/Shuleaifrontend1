@@ -9,9 +9,9 @@ async function renderParentSection(section) {
         case 'competency':
             return await renderParentCompetency();    
         case 'payments':
-            return await window.v12RenderParentPayments();
+            return await (window.v12RenderParentPayments || window.renderParentPayments)();
         case 'timetable':
-            return await (window.v12RenderParentTimetable || window.renderParentTimetable || window.renderTeacherTimetable || window.renderAdminTimetable)();
+            return await (window.v12RenderParentTimetable || window.renderParentTimetable || window.renderAdminTimetable)();
         case 'help':
             return renderHelpSection();
         case 'chat':
@@ -1045,3 +1045,8 @@ async function loadParentConversation(otherUserId) {
     }
 }
 window.loadParentConversation = loadParentConversation;
+
+
+// V42 compatibility alias: keep original parent payment layout, only satisfy older v12 callers.
+window.v12RenderParentPayments = window.v12RenderParentPayments || window.renderParentPayments;
+
