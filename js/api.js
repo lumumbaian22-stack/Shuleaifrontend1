@@ -11,22 +11,16 @@ async function apiRequest(endpoint, options = {}) {
     // localStorage after api.js has loaded, so the old cached authToken variable can go stale.
     authToken = localStorage.getItem('authToken') || localStorage.getItem('token') || authToken;
     const url = `${API_BASE_URL}${endpoint}`;
-    const requestOptions = { ...options };
-    // Browser RequestInit.cache only accepts string enum values. Several modules used cache:false
-    // to mean "bypass cache"; normalize it here so homework/section loads never crash.
-    if (requestOptions.cache === false) requestOptions.cache = 'no-store';
-    if (requestOptions.cache === true) delete requestOptions.cache;
-
     const headers = {
         'Content-Type': 'application/json',
-        ...requestOptions.headers
+        ...options.headers
     };
     if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
     }
 
     try {
-        const response = await fetch(url, { ...requestOptions, headers });
+        const response = await fetch(url, { ...options, headers });
 
         if (response.status === 429) {
             const retryAfter = response.headers.get('Retry-After') || 60;
@@ -761,9 +755,13 @@ const api = {
         complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
     },
     subscription: {
-        getPlans: () => apiRequest('/api/subscription/plans'),
+        getPlans: (audience = '') => apiRequest(`/api/subscription/plans${audience ? `?audience=${encodeURIComponent(audience)}` : ''}`),
         getMyStatus: () => apiRequest('/api/subscription/my-status'),
-        upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) })
+        getChildStatus: (studentId) => apiRequest(`/api/subscription/child/${studentId}/status`),
+        requestChildPlan: (data) => apiRequest('/api/subscription/child/request', { method: 'POST', body: JSON.stringify(data) }),
+        upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) }),
+        requestSchoolPlan: (data) => apiRequest('/api/subscription/school/request', { method: 'POST', body: JSON.stringify(data) }),
+        getSchoolStatus: () => apiRequest('/api/subscription/school/status')
     }
 };
 

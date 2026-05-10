@@ -1,8 +1,4 @@
-// Stable Global Profile Picture Manager - V9.4
-// IMPORTANT: Current-user avatars and other-user avatars are intentionally separated.
-// - [data-current-user-avatar] gets only the logged-in user photo.
-// - [data-profile-image] gets only its own bound image URL.
-// Never apply currentUser.profileImage to normal user cards/lists.
+// Stable Global Profile Picture Manager - V9.3
 (function () {
   function getStoredUser() {
     try { return JSON.parse(localStorage.getItem('user') || localStorage.getItem('shule_user') || '{}'); }
@@ -11,13 +7,8 @@
 
   function media(url) {
     if (!url) return '';
-    if (typeof resolveMediaUrl === 'function') {
-      const resolved = resolveMediaUrl(url);
-      return location.protocol === 'https:' ? String(resolved || '').replace(/^http:\/\//i, 'https://') : resolved;
-    }
-    if (/^https?:\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) {
-      return location.protocol === 'https:' ? String(url).replace(/^http:\/\//i, 'https://') : url;
-    }
+    if (typeof resolveMediaUrl === 'function') return resolveMediaUrl(url);
+    if (/^https?:\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url;
     const base = (window.API_BASE_URL || '').replace(/\/$/, '');
     return base ? base + (url.startsWith('/') ? url : '/' + url) : url;
   }
@@ -65,7 +56,7 @@
       }
 
       // Current logged-in user avatars only.
-      document.querySelectorAll('[data-current-user-avatar]').forEach(el => {
+      document.querySelectorAll('[data-current-user-avatar], #profile-preview, #user-avatar, #sidebar-user-avatar, img.user-avatar').forEach(el => {
         if (currentSrc) setImageIntoElement(el, currentSrc, currentName);
       });
 
@@ -121,7 +112,7 @@
   }
 
   document.addEventListener('click', function (e) {
-    const target = e.target.closest('.global-profile-click, img[data-profile-full], img[data-profile-image], [data-current-user-avatar]');
+    const target = e.target.closest('.global-profile-click, img[data-profile-full], img.user-avatar, #profile-preview');
     if (!target) return;
     const src = target.dataset.profileFull || target.getAttribute('src');
     const name = target.dataset.profileName || target.getAttribute('alt') || 'Profile picture';

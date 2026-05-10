@@ -217,18 +217,13 @@ function avatarHTML(name, photoUrl, sizeClass = 'h-10 w-10') {
     const displayName = name || 'User';
     const safeDisplayName = escapeHtml(displayName);
     const rawUrl = photoUrl || '';
-    let resolvedUrl = rawUrl && typeof resolveMediaUrl === 'function' ? resolveMediaUrl(rawUrl) : rawUrl;
-    if (resolvedUrl && typeof window !== 'undefined' && window.location?.protocol === 'https:') {
-        resolvedUrl = String(resolvedUrl).replace(/^http:\/\//i, 'https://');
-    }
+    const resolvedUrl = rawUrl && typeof resolveMediaUrl === 'function' ? resolveMediaUrl(rawUrl) : rawUrl;
 
     if (resolvedUrl) {
-        // This is a bound-user avatar, not the logged-in/current-user avatar.
-        // The image can only be updated from its own data-profile-image value, preventing profile mixing.
-        return `<img src="${escapeHtml(resolvedUrl)}" class="${escapeHtml(sizeClass)} rounded-full object-cover" data-avatar-scope="bound-user" data-profile-image="${escapeHtml(rawUrl)}" data-user-name="${safeDisplayName}" data-profile-name="${safeDisplayName}" alt="${safeDisplayName}">`;
+        return `<img src="${escapeHtml(resolvedUrl)}" class="${escapeHtml(sizeClass)} rounded-full object-cover data-profile-image" data-profile-image="${escapeHtml(rawUrl)}" data-user-name="${safeDisplayName}" alt="${safeDisplayName}">`;
     }
 
-    return `<div class="${escapeHtml(sizeClass)} rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold flex-shrink-0" data-avatar-scope="initials-only" data-user-name="${safeDisplayName}"><span>${getInitials(displayName)}</span></div>`;
+    return `<div class="${escapeHtml(sizeClass)} rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold flex-shrink-0"><span>${getInitials(displayName)}</span></div>`;
 }
 
 // Export
