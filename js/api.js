@@ -718,10 +718,12 @@ const feeStructureAPI = {
 const paymentAPI = {
     getSchoolSettings: () => apiRequest('/api/payments/admin/school-settings'),
     updateSchoolSettings: (data) => apiRequest('/api/payments/admin/school-settings', { method: 'PUT', body: JSON.stringify(data) }),
+    testSchoolConnection: () => apiRequest('/api/payments/admin/test-connection', { method: 'POST' }),
     getPlatformSettings: () => apiRequest('/api/payments/superadmin/platform-settings'),
     updatePlatformSettings: (data) => apiRequest('/api/payments/superadmin/platform-settings', { method: 'PUT', body: JSON.stringify(data) }),
     parentFeeSTK: (data) => apiRequest('/api/payments/parent/fee/stk', { method: 'POST', body: JSON.stringify(data) }),
     parentSubscriptionSTK: (data) => apiRequest('/api/payments/parent/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),
+    schoolSubscriptionSTK: (data) => apiRequest('/api/payments/school/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),
     adminNameChangeSTK: (data) => apiRequest('/api/payments/admin/name-change/stk', { method: 'POST', body: JSON.stringify(data) }),
     platformSTK: (data) => apiRequest('/api/payments/platform/stk', { method: 'POST', body: JSON.stringify(data) }),
     querySTKStatus: (checkoutRequestId) => apiRequest(`/api/payments/stk/${checkoutRequestId}/status`)
@@ -759,8 +761,12 @@ const api = {
         complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
     },
     subscription: {
-        getPlans: () => apiRequest('/api/subscription/plans'),
+        getPlans: (ownerType) => apiRequest(`/api/subscription/plans${ownerType ? `?ownerType=${encodeURIComponent(ownerType)}` : ''}`),
         getMyStatus: () => apiRequest('/api/subscription/my-status'),
+        getSchoolStatus: () => apiRequest('/api/subscription/school/status'),
+        getSchoolBillingHistory: () => apiRequest('/api/subscription/school/billing-history'),
+        requestSchool: (data) => apiRequest('/api/subscription/school/request', { method: 'POST', body: JSON.stringify(data) }),
+        requestChild: (data) => apiRequest('/api/subscription/child/request', { method: 'POST', body: JSON.stringify(data) }),
         upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) })
     }
 };

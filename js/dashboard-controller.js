@@ -55,6 +55,7 @@ function updateSidebar(role) {
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
+                { icon: 'credit-card', label: 'Subscription & Billing', section: 'subscription-billing' },
                 { icon: 'help-circle', label: 'Help', section: 'help' },
                 { icon: 'users', label: 'Classes', section: 'classes' }
             ]
@@ -552,6 +553,7 @@ async function showDashboardSection(section) {
             'finance-fees': 'Finance & Fees',
             'fee-structures': 'Finance & Fees',
             'payment-settings': 'Finance & Fees',
+            'subscription-billing': 'Subscription & Billing',
             progress: 'Academic Progress',
             'child-selector': 'Select Child',
             schools: 'School Management',

@@ -552,6 +552,8 @@ async function renderAdminSection(section) {
                 return await renderAdminTeacherWorkload();
             case 'settings':
                 return renderAdminSettings();
+            case 'subscription-billing':
+                return await renderAdminSubscriptionBilling();
             case 'alerts':
                 return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('admin');
             case 'finance-fees':
@@ -1650,3 +1652,150 @@ window.renderAdminTimetable = renderAdminTimetable;
 window.generateTimetable = generateTimetable;
 window.publishTimetable = publishTimetable;
 window.renderTimetableGrid = renderTimetableGrid;
+
+
+// ============ SCHOOL SUBSCRIPTION & BILLING ============
+function formatKes(value) {
+    return `KES ${Number(value || 0).toLocaleString()}`;
+}
+
+function subscriptionStatusBadge(status) {
+    const value = String(status || 'pending').toLowerCase();
+    const cls = value === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : value === 'expired' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+    return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${escapeHtml(value)}</span>`;
+}
+
+async function renderAdminSubscriptionBilling() {
+    try {
+        const [statusRes, plansRes, historyRes] = await Promise.all([
+            api.subscription.getSchoolStatus().catch(e => ({ success:false, data:null, message:e.message })),
+            api.subscription.getPlans('school').catch(() => ({ data: [] })),
+            api.subscription.getSchoolBillingHistory().catch(() => ({ data: [] }))
+        ]);
+        const status = statusRes.data || {};
+        const plans = plansRes.data || [];
+        const history = historyRes.data || [];
+        const activePlanCode = status.planCode || 'school_starter';
+        return `
+        <div class="space-y-6 animate-fade-in shule-billing-page">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold">Subscription & Billing</h2>
+                    <p class="text-sm text-muted-foreground">Manage the school subscription paid to Shule AI. This is separate from parent school-fee payments.</p>
+                </div>
+                <button onclick="openSchoolBillingModal('${escapeHtml(activePlanCode)}')" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Renew / Upgrade</button>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Current Plan</p>
+                    <h3 class="text-2xl font-bold mt-1">${escapeHtml(status.currentPlan || 'Starter')}</h3>
+                    <div class="mt-2">${subscriptionStatusBadge(status.status)}</div>
+                </div>
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Billing Cycle</p>
+                    <h3 class="text-2xl font-bold mt-1 capitalize">${escapeHtml(status.billingCycle || 'monthly')}</h3>
+                    <p class="text-xs text-muted-foreground mt-2">Maintenance included</p>
+                </div>
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Expires</p>
+                    <h3 class="text-xl font-bold mt-1">${status.expiresAt ? new Date(status.expiresAt).toLocaleDateString() : 'Not active'}</h3>
+                    <p class="text-xs text-muted-foreground mt-2">${Number(status.daysRemaining || 0)} days remaining</p>
+                </div>
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Students</p>
+                    <h3 class="text-2xl font-bold mt-1">${Number(status.studentCount || 0).toLocaleString()}</h3>
+                    <p class="text-xs text-muted-foreground mt-2">School tier: ${escapeHtml(status.schoolTier || status.currentPlan || 'Starter')}</p>
+                </div>
+            </div>
+
+            ${status.gracefulMode ? `
+                <div class="rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-700 p-4">
+                    <h3 class="font-semibold">⚠ School subscription inactive or expired</h3>
+                    <p class="text-sm mt-1">Core operations remain available: attendance, marks, students, teachers, basic reports and fees. Premium features remain locked until renewal.</p>
+                </div>
+            ` : ''}
+
+            <div class="grid gap-4 lg:grid-cols-3">
+                ${plans.map(plan => `
+                    <div class="rounded-xl border bg-card p-5 flex flex-col ${activePlanCode === plan.code ? 'ring-2 ring-primary' : ''}">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-xl font-bold">${escapeHtml(plan.displayName || plan.name)}</h3>
+                                <p class="text-sm text-muted-foreground">${plan.code === 'school_growth' ? 'Recommended' : plan.code === 'school_enterprise' ? 'Premium institutions' : 'Core school operations'}</p>
+                            </div>
+                            ${activePlanCode === plan.code ? '<span class="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">Current</span>' : ''}
+                        </div>
+                        <div class="mt-4 space-y-1">
+                            <p class="text-2xl font-bold">${formatKes(plan.monthlyPriceKes || plan.price)}</p>
+                            <p class="text-sm text-muted-foreground">${plan.yearlyPriceKes ? `${formatKes(plan.yearlyPriceKes)} / year` : 'Custom yearly pricing'}</p>
+                            <p class="text-xs text-muted-foreground">Setup: KES 50,000 – 100,000</p>
+                        </div>
+                        <div class="mt-4 flex-1">
+                            <p class="text-sm font-semibold mb-2">Included</p>
+                            <ul class="text-sm text-muted-foreground space-y-1 max-h-40 overflow-auto">
+                                ${(plan.features || []).slice(0, 8).map(f => `<li>• ${escapeHtml(f)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <button onclick="openSchoolBillingModal('${escapeHtml(plan.code)}')" class="mt-5 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">${activePlanCode === plan.code ? 'Renew Plan' : 'Choose Plan'}</button>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="rounded-xl border bg-card overflow-hidden">
+                <div class="p-4 border-b flex items-center justify-between">
+                    <div><h3 class="font-semibold">Billing History</h3><p class="text-sm text-muted-foreground">Recent school subscription payment attempts and renewals.</p></div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-muted/50"><tr><th class="text-left px-4 py-3">Date</th><th class="text-left px-4 py-3">Plan</th><th class="text-left px-4 py-3">Cycle</th><th class="text-left px-4 py-3">Amount</th><th class="text-left px-4 py-3">Status</th><th class="text-left px-4 py-3">Receipt</th></tr></thead>
+                        <tbody class="divide-y">
+                            ${history.length ? history.map(row => `<tr><td class="px-4 py-3">${new Date(row.createdAt).toLocaleString()}</td><td class="px-4 py-3">${escapeHtml(row.planName || row.planCode)}</td><td class="px-4 py-3 capitalize">${escapeHtml(row.billingCycle || 'monthly')}</td><td class="px-4 py-3">${formatKes(row.amount)}</td><td class="px-4 py-3">${subscriptionStatusBadge(row.status === 'success' ? 'active' : row.status)}</td><td class="px-4 py-3">${escapeHtml(row.mpesaReceiptNumber || '-')}</td></tr>`).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No billing history yet.</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+    } catch (error) {
+        return `<div class="rounded-xl border bg-card p-8 text-red-500">Error loading subscription billing: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+window.openSchoolBillingModal = async function(defaultPlanCode = 'school_growth') {
+    const plansRes = await api.subscription.getPlans('school').catch(() => ({ data: [] }));
+    const plans = plansRes.data || [];
+    const options = plans.map(plan => `<option value="${escapeHtml(plan.code)}" ${plan.code === defaultPlanCode ? 'selected' : ''}>${escapeHtml(plan.displayName || plan.name)} — ${formatKes(plan.monthlyPriceKes || plan.price)}/month</option>`).join('');
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4';
+    modal.id = 'school-billing-modal';
+    modal.innerHTML = `
+        <div class="w-full max-w-lg rounded-2xl border bg-card text-card-foreground shadow-xl">
+            <div class="p-5 border-b flex items-center justify-between">
+                <h3 class="text-lg font-bold">Renew / Upgrade School Subscription</h3>
+                <button onclick="document.getElementById('school-billing-modal')?.remove()" class="text-muted-foreground hover:text-foreground">×</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div><label class="text-sm font-medium">Select Plan</label><select id="school-sub-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${options}</select></div>
+                <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+                <div><label class="text-sm font-medium">M-PESA Phone Number</label><input id="school-sub-phone" placeholder="2547XXXXXXXX" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
+                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This payment goes to the Shule AI platform account, not the school fee account.</div>
+            </div>
+            <div class="p-5 border-t flex justify-end gap-3"><button onclick="document.getElementById('school-billing-modal')?.remove()" class="px-4 py-2 rounded-lg border">Cancel</button><button onclick="submitSchoolSubscriptionSTK()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Pay via M-PESA</button></div>
+        </div>`;
+    document.body.appendChild(modal);
+};
+
+window.submitSchoolSubscriptionSTK = async function() {
+    const planCode = document.getElementById('school-sub-plan')?.value;
+    const billingCycle = document.getElementById('school-sub-cycle')?.value || 'monthly';
+    const phone = document.getElementById('school-sub-phone')?.value?.trim();
+    if (!phone) { alert('Enter M-PESA phone number'); return; }
+    try {
+        const res = await api.payments.schoolSubscriptionSTK({ planCode, billingCycle, phone });
+        alert(res.message || 'M-PESA prompt sent. Approve payment on your phone.');
+        document.getElementById('school-billing-modal')?.remove();
+        setTimeout(() => showDashboardSection('subscription-billing'), 1200);
+    } catch (error) {
+        alert(error.message || 'Could not start M-PESA payment.');
+    }
+};
