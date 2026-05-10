@@ -405,15 +405,19 @@ const parentAPI = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
+    // Subscription payments must use the real Daraja STK route.
+    // The old /api/parent/pay endpoint is intentionally disabled for production safety.
     makePayment: (data) => 
-        apiRequest('/api/parent/pay', {
+        apiRequest('/api/payments/parent/subscription/stk', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
     getPayments: () => apiRequest('/api/parent/payments'),
     getSubscriptionPlans: () => apiRequest('/api/parent/plans'),
+    // Upgrade/renew a child plan through real Daraja STK.
+    // Keeps legacy callers working while avoiding disabled fake payment routes.
     upgradePlan: (data) => 
-        apiRequest('/api/parent/upgrade-plan', {
+        apiRequest('/api/payments/parent/subscription/stk', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
@@ -755,13 +759,9 @@ const api = {
         complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
     },
     subscription: {
-        getPlans: (audience = '') => apiRequest(`/api/subscription/plans${audience ? `?audience=${encodeURIComponent(audience)}` : ''}`),
+        getPlans: () => apiRequest('/api/subscription/plans'),
         getMyStatus: () => apiRequest('/api/subscription/my-status'),
-        getChildStatus: (studentId) => apiRequest(`/api/subscription/child/${studentId}/status`),
-        requestChildPlan: (data) => apiRequest('/api/subscription/child/request', { method: 'POST', body: JSON.stringify(data) }),
-        upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) }),
-        requestSchoolPlan: (data) => apiRequest('/api/subscription/school/request', { method: 'POST', body: JSON.stringify(data) }),
-        getSchoolStatus: () => apiRequest('/api/subscription/school/status')
+        upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) })
     }
 };
 

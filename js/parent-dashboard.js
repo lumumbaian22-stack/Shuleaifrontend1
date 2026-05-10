@@ -540,11 +540,12 @@ async function renderParentPayments() {
                             <select id="payment-plan" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                 <option value="">Select Plan</option>
                                 ${plans.map(plan => `
-                                    <option value="${plan.id}">${escapeHtml(plan.name)} - $${plan.price}/mo</option>
+                                    <option value="${plan.id || plan.name}" data-amount="${Number(plan.price_kes || plan.price || plan.amount || 0)}">${escapeHtml(plan.displayName || plan.name || plan.id)} - KES ${Number(plan.price_kes || plan.price || plan.amount || 0).toLocaleString()}/mo</option>
                                 `).join('')}
                             </select>
                             
                             <input type="number" id="payment-amount" placeholder="Amount" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <input type="tel" id="payment-phone" placeholder="M-Pesa phone e.g. 2547XXXXXXXX" value="${escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : ''))}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                             
                             <select id="payment-method" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                 <option value="mpesa">M-Pesa</option>
@@ -590,7 +591,7 @@ async function renderParentPayments() {
                                 <div class="p-4 border rounded-lg hover:border-primary transition-colors">
                                     <div class="flex justify-between items-center mb-2">
                                         <p class="font-semibold">${escapeHtml(plan.name)}</p>
-                                        <p class="text-lg font-bold text-primary">$${plan.price}<span class="text-xs font-normal text-muted-foreground">/mo</span></p>
+                                        <p class="text-lg font-bold text-primary">KES ${Number(plan.price_kes || plan.price || plan.amount || 0).toLocaleString()}<span class="text-xs font-normal text-muted-foreground">/mo</span></p>
                                     </div>
                                     <ul class="space-y-1 mb-3">
                                         ${plan.features.map(feature => `
@@ -600,7 +601,7 @@ async function renderParentPayments() {
                                             </li>
                                         `).join('')}
                                     </ul>
-                                    <button onclick="upgradePlan('${plan.id}')" class="w-full py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
+                                    <button onclick="upgradePlan('${plan.id || plan.name}', ${Number(plan.price_kes || plan.price || plan.amount || 0)})" class="w-full py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
                                         Select ${escapeHtml(plan.name)}
                                     </button>
                                 </div>
@@ -742,6 +743,24 @@ async function reportAbsence() {
     }
 }
 
+
+function getParentPaymentPhone() {
+    const explicit = document.getElementById('payment-phone')?.value?.trim();
+    if (explicit) return explicit;
+    try {
+        const user = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
+        return user?.phone || user?.phoneNumber || user?.parent?.phone || '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function getPlanAmountFromDom(planId) {
+    const option = document.querySelector(`#payment-plan option[value="${CSS.escape(String(planId || ''))}"]`);
+    const amount = Number(option?.dataset?.amount || 0);
+    return Number.isFinite(amount) ? amount : 0;
+}
+
 async function processPayment() {
     const selectedChildId = dashboardData?.selectedChildId;
     const childSelect = document.getElementById('payment-child');
@@ -751,8 +770,10 @@ async function processPayment() {
 
     const studentId = childSelect?.value || selectedChildId;
     const plan = planSelect?.value;
-    const amount = amountInput?.value;
-    const method = methodSelect?.value;
+    const selectedOption = planSelect?.selectedOptions?.[0];
+    const amount = amountInput?.value || selectedOption?.dataset?.amount;
+    const method = methodSelect?.value || 'mpesa';
+    const phone = getParentPaymentPhone();
 
     if (!studentId) {
         showToast('Please select a child', 'error');
@@ -769,6 +790,11 @@ async function processPayment() {
         return;
     }
 
+    if (!phone) {
+        showToast('Please enter the M-Pesa phone number', 'error');
+        return;
+    }
+
     if (!method) {
         showToast('Please select payment method', 'error');
         return;
@@ -779,26 +805,16 @@ async function processPayment() {
         const response = await api.parent.makePayment({
             studentId: parseInt(studentId),
             amount: parseFloat(amount),
-            method: method,
-            plan: plan,
-            reference: `PAY-${Date.now()}`
+            method: 'mpesa',
+            phone,
+            plan,
+            planCode: plan,
+            billingPeriod: 'monthly',
+            reference: `SUB-${Date.now()}`
         });
 
         if (response.success) {
-            showToast('✅ Payment initiated. Please complete payment using school details.', 'success');
-
-            if (response.data?.school) {
-                const school = response.data.school;
-                alert(`
-Payment Instructions:
-School: ${school.name}
-Bank: ${school.bankDetails?.bankName || 'N/A'}
-Account: ${school.bankDetails?.accountNumber || 'N/A'}
-Amount: $${amount}
-                    
-Please complete the payment and the school will confirm.
-                `);
-            }
+            showToast(response.message || '✅ M-Pesa prompt sent. Complete payment on your phone.', 'success');
         } else {
             throw new Error(response.message || 'Payment initiation failed');
         }
@@ -810,7 +826,7 @@ Please complete the payment and the school will confirm.
     }
 }
 
-async function upgradePlan(planId) {
+async function upgradePlan(planId, amountFromCard = 0) {
     const selectedChildId = dashboardData?.selectedChildId;
 
     if (!selectedChildId) {
@@ -818,15 +834,30 @@ async function upgradePlan(planId) {
         return;
     }
 
+    const phone = getParentPaymentPhone();
+    const amount = Number(amountFromCard || getPlanAmountFromDom(planId));
+    if (!phone) {
+        showToast('Please enter your M-Pesa phone number in the payment form first', 'error');
+        return;
+    }
+    if (!amount || amount <= 0) {
+        showToast('Could not determine the plan amount. Please use the payment form.', 'error');
+        return;
+    }
+
     showLoading();
     try {
         const response = await api.parent.upgradePlan({
             studentId: parseInt(selectedChildId),
-            newPlan: planId
+            plan: planId,
+            planCode: planId,
+            billingPeriod: 'monthly',
+            amount,
+            phone
         });
 
         if (response.success) {
-            showToast(`✅ Upgrade to ${planId} plan initiated`, 'success');
+            showToast(response.message || `✅ M-Pesa prompt sent for ${planId} plan`, 'success');
             if (currentSection === 'payments') {
                 await showDashboardSection('payments');
             }
