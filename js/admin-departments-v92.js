@@ -228,3 +228,200 @@ async function v92DeleteDepartment(departmentId) {
 
 window.renderAdminDepartments = renderAdminDepartments;
 window.v92LoadDepartments = v92LoadDepartments;
+
+// V60: Fully functional Department Group Chat button for Admin Departments
+// Opens the actual department group, loads members/messages, and sends messages using chat-v9 APIs.
+(function () {
+  function v93SafeEscape(value) {
+    if (typeof escapeHtml === 'function') return escapeHtml(value || '');
+    return String(value || '').replace(/[&<>'"]/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char];
+    });
+  }
+
+  function v93Initials(name) {
+    return String(name || 'U')
+      .trim()
+      .split(/\s+/)
+      .map(part => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'U';
+  }
+
+  function v93FormatTime(value) {
+    if (!value) return '';
+    try {
+      return new Date(value).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function v93CurrentUserId() {
+    try {
+      return Number((typeof getCurrentUser === 'function' ? getCurrentUser() : null)?.id || 0);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function v93RenderDepartmentMessages(messages) {
+    const currentUserId = v93CurrentUserId();
+    if (!messages || !messages.length) {
+      return '<div class="text-center py-10 text-muted-foreground">No messages yet. Start the department conversation.</div>';
+    }
+
+    return messages.map(message => {
+      const sender = message.Sender || message.sender || {};
+      const mine = Number(message.senderId) === currentUserId;
+      return `
+        <div class="flex gap-3 ${mine ? 'justify-end' : 'justify-start'}">
+          ${mine ? '' : `<div class="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">${v93Initials(sender.name || 'U')}</div>`}
+          <div class="max-w-[78%] rounded-2xl px-4 py-3 ${mine ? 'bg-primary text-white rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'}">
+            ${mine ? '' : `<div class="font-semibold text-xs mb-1">${v93SafeEscape(sender.name || 'Member')}</div>`}
+            <div class="text-sm whitespace-pre-wrap break-words">${v93SafeEscape(message.content || '')}</div>
+            ${message.attachmentUrl ? `<a class="block mt-2 text-xs underline" href="${v93SafeEscape(resolveMediaUrl ? resolveMediaUrl(message.attachmentUrl) : message.attachmentUrl)}" target="_blank" rel="noopener">📎 Attachment</a>` : ''}
+            <div class="text-[10px] mt-1 opacity-70">${v93FormatTime(message.createdAt)}</div>
+          </div>
+          ${mine ? `<div class="h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold shrink-0">${v93Initials((typeof getCurrentUser === 'function' ? getCurrentUser()?.name : '') || 'Me')}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function v93RenderDepartmentMembers(members) {
+    if (!members || !members.length) return '<div class="text-sm text-muted-foreground">No members found.</div>';
+    return members.map(member => {
+      const user = member.User || member.user || {};
+      return `
+        <div class="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+          <div class="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">${v93Initials(user.name || 'U')}</div>
+          <div class="min-w-0">
+            <div class="text-sm font-semibold truncate">${v93SafeEscape(user.name || 'Member')}</div>
+            <div class="text-xs text-muted-foreground truncate">${v93SafeEscape(user.role || member.role || '')}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function v93DepartmentChatModalHtml(payload) {
+    const department = payload.department || {};
+    const group = payload.group || {};
+    const members = payload.members || [];
+    const messages = payload.messages || [];
+    const title = group.name || department.name || 'Department Group Chat';
+    const description = group.description || department.description || 'Department group conversation';
+
+    return `
+      <div id="v93-department-chat-modal" class="fixed inset-0 z-[9999] bg-black/60 p-3 sm:p-5 flex items-center justify-center">
+        <div class="w-full max-w-6xl h-[88vh] rounded-2xl border bg-background text-foreground shadow-2xl overflow-hidden flex flex-col">
+          <div class="p-4 sm:p-5 border-b flex flex-col md:flex-row gap-3 md:items-center md:justify-between bg-card">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">🏫</span>
+                <div>
+                  <h3 class="text-xl font-bold truncate">${v93SafeEscape(title)}</h3>
+                  <p class="text-sm text-muted-foreground truncate">${v93SafeEscape(description)}</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-2 shrink-0">
+              <button onclick="v93RefreshDepartmentGroupChat(${Number(department.id || group.departmentId || 0)})" class="px-3 py-2 rounded-lg border bg-background hover:bg-accent text-sm">Refresh</button>
+              <button onclick="v93CloseDepartmentGroupChat()" class="px-3 py-2 rounded-lg border bg-background hover:bg-accent text-sm">Close</button>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-[minmax(0,1fr)_300px] flex-1 min-h-0">
+            <section class="flex flex-col min-h-0 border-r">
+              <div id="v93-department-chat-messages" class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-background">
+                ${v93RenderDepartmentMessages(messages)}
+              </div>
+              <form onsubmit="v93SendDepartmentGroupMessage(event, ${Number(group.id || 0)}, ${Number(department.id || group.departmentId || 0)})" class="p-3 sm:p-4 border-t bg-card flex gap-2">
+                <input id="v93-department-chat-input" class="flex-1 rounded-xl border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/40" placeholder="Type a message to ${v93SafeEscape(title)}..." autocomplete="off">
+                <button class="px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:opacity-90" type="submit">Send</button>
+              </form>
+            </section>
+
+            <aside class="hidden md:block overflow-y-auto p-4 bg-muted/20">
+              <div class="rounded-xl border bg-card p-4 mb-4">
+                <h4 class="font-bold mb-1">Department Head</h4>
+                <p class="text-sm text-muted-foreground">${v93SafeEscape(group.headName || 'Not assigned')}</p>
+              </div>
+              <div class="rounded-xl border bg-card p-4">
+                <h4 class="font-bold mb-3">Members (${members.length})</h4>
+                <div class="space-y-2">${v93RenderDepartmentMembers(members)}</div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  window.v93OpenDepartmentGroupChat = async function v93OpenDepartmentGroupChat(departmentId) {
+    const id = Number(departmentId);
+    if (!id) {
+      if (typeof showToast === 'function') showToast('Department is missing. Refresh and try again.', 'error');
+      return;
+    }
+
+    try {
+      if (typeof showLoading === 'function') showLoading();
+      const response = await chatV9API.getDepartmentGroup(id);
+      const payload = response.data || response;
+      const existing = document.getElementById('v93-department-chat-modal');
+      if (existing) existing.remove();
+      document.body.insertAdjacentHTML('beforeend', v93DepartmentChatModalHtml(payload));
+      setTimeout(() => {
+        const list = document.getElementById('v93-department-chat-messages');
+        if (list) list.scrollTop = list.scrollHeight;
+        const input = document.getElementById('v93-department-chat-input');
+        if (input) input.focus();
+      }, 50);
+    } catch (error) {
+      console.error('Open department group chat failed:', error);
+      if (typeof showToast === 'function') showToast(error.message || 'Could not open department group chat', 'error');
+    } finally {
+      if (typeof hideLoading === 'function') hideLoading();
+    }
+  };
+
+  window.v93RefreshDepartmentGroupChat = async function v93RefreshDepartmentGroupChat(departmentId) {
+    return window.v93OpenDepartmentGroupChat(departmentId);
+  };
+
+  window.v93CloseDepartmentGroupChat = function v93CloseDepartmentGroupChat() {
+    const modal = document.getElementById('v93-department-chat-modal');
+    if (modal) modal.remove();
+  };
+
+  window.v93SendDepartmentGroupMessage = async function v93SendDepartmentGroupMessage(event, groupId, departmentId) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const input = document.getElementById('v93-department-chat-input');
+    const content = input?.value?.trim();
+    if (!content) return;
+
+    try {
+      input.disabled = true;
+      await chatV9API.sendGroupMessage(Number(groupId), content);
+      input.value = '';
+      await window.v93RefreshDepartmentGroupChat(Number(departmentId));
+    } catch (error) {
+      console.error('Department group message send failed:', error);
+      if (typeof showToast === 'function') showToast(error.message || 'Message failed', 'error');
+    } finally {
+      const nextInput = document.getElementById('v93-department-chat-input');
+      if (nextInput) {
+        nextInput.disabled = false;
+        nextInput.focus();
+      }
+    }
+  };
+})();
