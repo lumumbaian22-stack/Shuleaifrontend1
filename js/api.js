@@ -803,12 +803,16 @@ const chatV9API = {
     createTeacherGroup: (data) => apiRequest('/api/chat-v9/teacher/groups', { method: 'POST', body: JSON.stringify(data) }),
 
     getDirectMessages: (userId) => apiRequest(`/api/chat-v9/teacher/direct/${userId}`),
-    sendDirectMessage: (receiverId, content, attachmentUrl = null) =>
-        apiRequest('/api/chat-v9/teacher/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl }) }),
+    sendDirectMessage: (receiverId, content, attachmentUrl = null, attachment = null) =>
+        apiRequest('/api/chat-v9/teacher/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl, attachment }) }),
 
     getGroupMessages: (groupId) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`),
-    sendGroupMessage: (groupId, content, attachmentUrl = null) =>
-        apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify({ content, attachmentUrl }) }),
+    getGroupMembers: (groupId) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/members`),
+    updateGroupMembers: (groupId, memberUserIds) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/members`, { method: 'PUT', body: JSON.stringify({ memberUserIds }) }),
+    getAvailableMembers: () => apiRequest('/api/chat-v9/teacher/available-members'),
+    uploadAttachment: (formData) => uploadFile('/api/chat-v9/attachments', formData),
+    sendGroupMessage: (groupId, content, attachmentUrl = null, attachment = null) =>
+        apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify({ content, attachmentUrl, attachment }) }),
 
     getClassroomThreads: () => apiRequest('/api/chat-v9/classroom/threads'),
     createClassroomThread: (data) => apiRequest('/api/chat-v9/classroom/threads', { method: 'POST', body: JSON.stringify(data) }),
@@ -819,6 +823,8 @@ const chatV9API = {
         apiRequest(`/api/chat-v9/classroom/replies/${replyId}/award`, { method: 'POST', body: JSON.stringify({ points, streakDelta, note }) }),
     awardChatMessage: (messageId, points = 0, streakDelta = 0, note = '') =>
         apiRequest(`/api/chat-v9/teacher/messages/${messageId}/award`, { method: 'POST', body: JSON.stringify({ points, streakDelta, note }) }),
+    reactToMessage: (messageId, emoji) =>
+        apiRequest(`/api/chat-v9/teacher/messages/${messageId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
 
     getMyAchievements: () => apiRequest('/api/chat-v9/achievements/me')
 };
