@@ -816,6 +816,7 @@ const chatV9API = {
 
     getClassroomThreads: () => apiRequest('/api/chat-v9/classroom/threads'),
     createClassroomThread: (data) => apiRequest('/api/chat-v9/classroom/threads', { method: 'POST', body: JSON.stringify(data) }),
+    updateClassroomThread: (threadId, data) => apiRequest(`/api/chat-v9/classroom/threads/${threadId}`, { method: 'PUT', body: JSON.stringify(data) }),
     replyToThread: (threadId, content, parentReplyId = null) =>
         apiRequest(`/api/chat-v9/classroom/threads/${threadId}/replies`, { method: 'POST', body: JSON.stringify({ content, parentReplyId }) }),
 
