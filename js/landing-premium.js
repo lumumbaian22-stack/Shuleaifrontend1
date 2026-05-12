@@ -136,3 +136,49 @@
     }
   });
 })();
+
+// v63: Full System Demo launcher — replaces missing inline handler with a real guided demo modal.
+(function () {
+  function demoSafeOpen(role) {
+    const normalized = role === 'superadmin' ? 'superadmin' : role;
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal(normalized, 'signin');
+      return;
+    }
+    if (typeof window.openLandingAuth === 'function') {
+      window.openLandingAuth(normalized, 'signin');
+      return;
+    }
+    alert('Login system is still loading. Please try again in a moment.');
+  }
+
+  window.openFullSystemDemo = function openFullSystemDemo() {
+    let modal = document.getElementById('full-system-demo-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'full-system-demo-modal';
+      modal.className = 'lp-demo-modal hidden';
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = `
+      <div class="lp-demo-card">
+        <button class="lp-demo-close" type="button" onclick="document.getElementById('full-system-demo-modal')?.classList.add('hidden')">×</button>
+        <span class="lp-demo-kicker">Shule AI Full Demo</span>
+        <h2>Choose the dashboard you want to preview</h2>
+        <p>This opens the real login flow for each role. No fake payment or fake money collection is triggered.</p>
+        <div class="lp-demo-grid">
+          <button type="button" onclick="openFullSystemDemoRole('admin')"><strong>🏫 Admin</strong><small>School setup, finance, analytics, users</small></button>
+          <button type="button" onclick="openFullSystemDemoRole('teacher')"><strong>👩‍🏫 Teacher</strong><small>Messages, study rooms, homework, marks</small></button>
+          <button type="button" onclick="openFullSystemDemoRole('parent')"><strong>👨‍👩‍👧 Parent</strong><small>Children, fees, subscription, progress</small></button>
+          <button type="button" onclick="openFullSystemDemoRole('student')"><strong>🎓 Student</strong><small>Study groups, AI tutor, homework, rewards</small></button>
+        </div>
+        <div class="lp-demo-note">Use your school’s real test/demo accounts. Demo mode does not bypass authentication.</div>
+      </div>`;
+    modal.classList.remove('hidden');
+  };
+
+  window.openFullSystemDemoRole = function openFullSystemDemoRole(role) {
+    document.getElementById('full-system-demo-modal')?.classList.add('hidden');
+    demoSafeOpen(role);
+  };
+})();

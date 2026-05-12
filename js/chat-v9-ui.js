@@ -396,14 +396,193 @@ async function v9OpenRewardModal(replyId) { await v9EnsureModal(); const modal=d
 async function v9EnsureModal() { if (!document.getElementById('v9-modal')) { const div=document.createElement('div'); div.id='v9-modal'; div.className='v9-modal hidden'; document.body.appendChild(div); } }
 function v9CloseModal() { document.getElementById('v9-modal')?.classList.add('hidden'); }
 
-// Student classroom threads keep existing access, now aligned with teacher approval rule.
-async function renderStudentV9Classroom() { return `<div class="space-y-6 animate-fade-in"><div class="student-xp-hero"><div class="flex items-center gap-4"><div class="student-xp-avatar">${v9Initials(v9CurrentUser()?.name || 'Student')}</div><div><p class="text-white/70 text-sm font-semibold">Classroom Threads</p><h2 class="text-3xl font-black tracking-tight m-0">Study Discussions</h2><p class="text-white/75 text-sm mt-1">Reply to teacher topics, ask questions, and earn stars or streaks.</p></div></div><div class="student-xp-bar"><div class="flex justify-between gap-3 text-sm"><span class="text-white/75 font-semibold">Achievement Progress</span><strong id="v9-achievement-total">Loading...</strong></div><div class="student-xp-bar-track"><span style="width:72%"></span></div></div></div><div class="v9-thread-layout"><main class="v9-thread-panel" id="v9-thread-root"><div class="v9-empty">Loading classroom threads...</div></main><aside class="v9-achieve-panel" id="v9-achievement-root"><div class="v9-empty">Loading achievements...</div></aside></div></div>`; }
-async function v9LoadStudentThreads() { const root=document.getElementById('v9-thread-root'); const achieve=document.getElementById('v9-achievement-root'); if(!root)return; try{ const [threadsRes, achievementsRes]=await Promise.all([chatV9API.getClassroomThreads(), chatV9API.getMyAchievements()]); const threads=(threadsRes.data||[]).filter(t => v9ThreadApproval(t) !== 'pending'); const achievementData=achievementsRes.data||{totals:{points:0,streak:0},events:[]}; root.innerHTML=v9RenderThreads(threads); if(achieve) achieve.innerHTML=v9RenderAchievements(achievementData); const totalEl=document.getElementById('v9-achievement-total'); if(totalEl) totalEl.textContent=`⭐ ${achievementData.totals?.points||0} pts • 🔥 ${achievementData.totals?.streak||0}`; }catch(err){ root.innerHTML=`<div class="v9-empty text-red-500">Could not load classroom threads: ${v9Safe(err.message)}</div>`; } }
-function v9RenderThreads(threads) { if(!threads.length) return `<div class="v9-empty"><h3 class="font-bold text-lg mb-2">No classroom threads yet</h3><p>Your teacher will post structured study questions here.</p></div>`; return threads.map(t=>`<article class="v9-thread-card"><div class="v9-thread-top"><div><span class="v9-subject-pill">${v9Safe(t.subject||'Subject')}</span><h3 class="text-xl font-bold mt-3">${v9Safe(t.topic||'Classroom Topic')}</h3><p class="text-muted-foreground">${v9Safe(t.content||'')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div>${t.isPinned?'<span class="v9-award-pill">📌 Pinned</span>':''}</div><div class="mt-4">${v9ThreadReplies(t).map(r=>v9RenderReply(r)).join('')}</div><div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Write your reply or question..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div></article>`).join(''); }
-function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)}</small></div><p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<span class="v9-award-pill">👍 ${r.helpfulCount||0}</span></div></div>`; }
-async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; await v9LoadStudentThreads(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
-function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; const events=data.events||[]; return `<h3 class="font-bold text-xl">Achievements</h3><p class="text-muted-foreground text-sm">Stars and streaks awarded by teachers.</p><div class="v9-achievement-stat"><div><span class="text-muted-foreground text-sm">Points</span><strong>⭐ ${totals.points||0}</strong></div><div><span class="text-muted-foreground text-sm">Streak</span><strong>🔥 ${totals.streak||0}</strong></div></div><div class="space-y-3">${events.length?events.slice(0,8).map(e=>`<div class="v9-info-card"><div class="flex justify-between gap-2"><strong>${v9Safe(e.title||'Achievement')}</strong><span class="v9-award-pill">+${e.points||0} pts</span></div><small>${v9Safe(e.note||'Teacher awarded achievement')}</small></div>`).join(''):'<div class="v9-empty">No achievements yet. Participate in threads to earn stars.</div>'}</div>`; }
+// Student study groups: class-based group rooms with participants, student-created topics, teacher moderation, replies, and achievements.
+let v9StudentState = {
+  groups: [],
+  threads: [],
+  selectedGroupId: null,
+  selectedThreadId: null,
+  participants: [],
+  achievements: { totals: { points: 0, streak: 0 }, events: [] },
+  filter: 'all',
+  query: ''
+};
 
+function v9ThreadIsVisibleToStudent(thread) {
+  const approval = v9ThreadApproval(thread);
+  const me = v9CurrentUser();
+  return approval !== 'pending' || Number(thread.createdBy) === Number(me?.id) || Number(thread.Creator?.id) === Number(me?.id);
+}
+function v9ThreadGroupId(thread) { return `class-${Number(thread.classId || thread.Class?.id || 0)}`; }
+function v9ThreadCreatorLabel(thread) {
+  const role = thread.Creator?.role || thread.metadata?.createdByRole || 'student';
+  return role === 'teacher' ? 'Teacher topic' : role === 'student' ? 'Student topic' : 'School topic';
+}
+function v9CurrentStudentGroup() {
+  return v9StudentState.groups.find(g => String(g.id) === String(v9StudentState.selectedGroupId)) || v9StudentState.groups[0] || null;
+}
+function v9CurrentStudentThread() {
+  return v9StudentState.threads.find(t => Number(t.id) === Number(v9StudentState.selectedThreadId)) || v9StudentThreadsForGroup()[0] || null;
+}
+function v9StudentThreadsForGroup() {
+  const group = v9CurrentStudentGroup();
+  if (!group) return [];
+  const query = String(v9StudentState.query || '').toLowerCase();
+  return v9StudentState.threads
+    .filter(v9ThreadIsVisibleToStudent)
+    .filter(t => String(v9ThreadGroupId(t)) === String(group.id))
+    .filter(t => {
+      if (v9StudentState.filter === 'teacher') return (t.Creator?.role || t.metadata?.createdByRole) === 'teacher';
+      if (v9StudentState.filter === 'student') return (t.Creator?.role || t.metadata?.createdByRole) === 'student';
+      if (v9StudentState.filter === 'pending') return v9ThreadApproval(t) === 'pending';
+      return true;
+    })
+    .filter(t => !query || `${t.topic || ''} ${t.content || ''} ${t.subject || ''}`.toLowerCase().includes(query));
+}
+
+async function renderStudentV9Classroom() {
+  return `
+    <div class="v9-student-room animate-fade-in">
+      <div class="student-xp-hero v9-student-hero">
+        <div class="flex items-center gap-4">
+          <div class="student-xp-avatar">${v9Initials(v9CurrentUser()?.name || 'Student')}</div>
+          <div>
+            <p class="text-white/70 text-sm font-semibold">Student Study Groups</p>
+            <h2 class="text-3xl font-black tracking-tight m-0">Study Discussions</h2>
+            <p class="text-white/75 text-sm mt-1">Discuss with classmates, create topics, react to answers, and earn stars or streaks.</p>
+          </div>
+        </div>
+        <div class="student-xp-bar">
+          <div class="flex justify-between gap-3 text-sm"><span class="text-white/75 font-semibold">Achievement Progress</span><strong id="v9-achievement-total">Loading...</strong></div>
+          <div class="student-xp-bar-track"><span style="width:72%"></span></div>
+        </div>
+      </div>
+      <div id="v9-student-study-root" class="v9-student-study-root"><div class="v9-empty">Loading your class study groups...</div></div>
+    </div>`;
+}
+
+async function v9LoadStudentThreads() {
+  const root = document.getElementById('v9-student-study-root') || document.getElementById('v9-thread-root');
+  if (!root) return;
+  root.innerHTML = '<div class="v9-empty">Loading your class study groups...</div>';
+  try {
+    const [threadsRes, achievementsRes] = await Promise.all([chatV9API.getClassroomThreads(), chatV9API.getMyAchievements()]);
+    const allThreads = threadsRes.data || [];
+    const groupsFromApi = threadsRes.meta?.groups || [];
+    let groups = groupsFromApi.length ? groupsFromApi : [];
+    if (!groups.length) {
+      const classIds = [...new Set(allThreads.map(t => Number(t.classId || t.Class?.id || 0)).filter(Boolean))];
+      groups = classIds.map(id => ({ id:`class-${id}`, classId:id, name: allThreads.find(t => Number(t.classId) === id)?.className || 'Class Study Group', participants: [], participantCount: 0 }));
+    }
+    if (!groups.length) groups = [{ id:'class-0', classId:null, name:'My Study Group', participants: [], participantCount:0 }];
+
+    v9StudentState.groups = groups;
+    v9StudentState.threads = allThreads;
+    v9StudentState.achievements = achievementsRes.data || { totals:{ points:0, streak:0 }, events:[] };
+    if (!v9StudentState.selectedGroupId || !groups.some(g => String(g.id) === String(v9StudentState.selectedGroupId))) v9StudentState.selectedGroupId = groups[0].id;
+    const currentThreads = v9StudentThreadsForGroup();
+    if (!v9StudentState.selectedThreadId || !currentThreads.some(t => Number(t.id) === Number(v9StudentState.selectedThreadId))) v9StudentState.selectedThreadId = currentThreads[0]?.id || null;
+    v9RenderStudentStudyRoom();
+  } catch (err) {
+    console.error('Student study groups failed:', err);
+    root.innerHTML = `<div class="v9-empty text-red-500">Could not load study groups: ${v9Safe(err.message)}</div>`;
+  }
+}
+
+function v9RenderStudentStudyRoom() {
+  const root = document.getElementById('v9-student-study-root') || document.getElementById('v9-thread-root');
+  if (!root) return;
+  const group = v9CurrentStudentGroup();
+  const threads = v9StudentThreadsForGroup();
+  const selected = v9CurrentStudentThread();
+  const participants = group?.participants || selected?.participants || [];
+  const achievementData = v9StudentState.achievements || { totals:{points:0,streak:0}, events:[] };
+  const totalEl = document.getElementById('v9-achievement-total');
+  if (totalEl) totalEl.textContent = `⭐ ${achievementData.totals?.points || 0} pts • 🔥 ${achievementData.totals?.streak || 0}`;
+
+  root.innerHTML = `
+    <div class="v9-study-shell">
+      <aside class="v9-study-left">
+        <div class="v9-study-block">
+          <div class="v9-study-title"><div><h3>My Study Groups</h3><p>Your class/subject discussion rooms</p></div><button class="tm6-btn light" onclick="v9LoadStudentThreads()">Refresh</button></div>
+          <div class="v9-study-groups">${v9StudentState.groups.map(g => v9RenderStudyGroupItem(g)).join('')}</div>
+        </div>
+        <div class="v9-study-block compact">
+          <div class="v9-study-title"><div><h3>Classmates</h3><p>${participants.length || 0} participants</p></div></div>
+          ${v9RenderParticipants(participants)}
+        </div>
+      </aside>
+      <main class="v9-study-middle">
+        <div class="v9-study-toolbar">
+          <div><h3>${v9Safe(group?.name || 'Study Group')}</h3><p>Teacher topics and student-created questions appear here.</p></div>
+          <button class="tm6-btn primary" onclick="v9OpenStudentTopicModal()">+ Create Topic</button>
+        </div>
+        <div class="v9-study-tools"><input class="tm6-search" placeholder="Search topics..." value="${v9Safe(v9StudentState.query)}" oninput="v9StudentSearchThreads(this.value)"><div class="tm6-filter-row"><button class="${v9StudentState.filter==='all'?'active':''}" onclick="v9StudentSetFilter('all')">All</button><button class="${v9StudentState.filter==='teacher'?'active':''}" onclick="v9StudentSetFilter('teacher')">Teacher</button><button class="${v9StudentState.filter==='student'?'active':''}" onclick="v9StudentSetFilter('student')">Students</button><button class="${v9StudentState.filter==='pending'?'active':''}" onclick="v9StudentSetFilter('pending')">Pending</button></div></div>
+        <div class="v9-topic-list">${threads.length ? threads.map(t => v9RenderTopicListItem(t)).join('') : '<div class="v9-empty">No topics yet. Create the first class question.</div>'}</div>
+      </main>
+      <section class="v9-study-right">
+        ${selected ? v9RenderStudentThreadDetail(selected) : '<div class="v9-empty">Select or create a topic to start discussing.</div>'}
+        ${v9RenderAchievements(achievementData)}
+      </section>
+    </div>`;
+}
+
+function v9RenderStudyGroupItem(g) {
+  const active = String(g.id) === String(v9StudentState.selectedGroupId);
+  const count = g.participantCount ?? g.participants?.length ?? 0;
+  return `<button class="v9-study-group ${active?'active':''}" onclick="v9SelectStudentGroup('${v9Safe(g.id)}')"><span class="tm6-avatar">👥</span><span><strong>${v9Safe(g.name || 'Study Group')}</strong><small>${count} classmates • self-sustained group</small></span></button>`;
+}
+function v9RenderParticipants(participants = []) {
+  if (!participants.length) return '<div class="v9-empty small">Class participants will appear here once students are linked to this class.</div>';
+  return `<div class="v9-participant-stack">${participants.slice(0,36).map(p => `<span title="${v9Safe(p.name)}" class="v9-participant"><span class="v9-avatar small">${v9Initials(p.name)}</span><small>${v9Safe(p.name)}</small></span>`).join('')}</div>`;
+}
+function v9RenderTopicListItem(t) {
+  const active = Number(t.id) === Number(v9StudentState.selectedThreadId);
+  const replies = v9ThreadReplies(t);
+  const participantCount = t.participants?.length || t.metadata?.participantsCount || '—';
+  const pending = v9ThreadApproval(t) === 'pending';
+  return `<button class="v9-topic-item ${active?'active':''}" onclick="v9SelectStudentThread(${Number(t.id)})"><span class="v9-topic-icon">${t.Creator?.role === 'teacher' ? '🎓' : '💬'}</span><span><strong>${v9Safe(t.topic || 'Topic')}</strong><small>${v9Safe(v9ThreadCreatorLabel(t))} • ${replies.length} replies • ${participantCount} members</small><em>${v9Safe(String(t.content || '').slice(0,90))}${String(t.content || '').length>90?'...':''}</em></span><b>${pending?'Pending':'Open'}</b></button>`;
+}
+function v9RenderStudentThreadDetail(t) {
+  const replies = v9ThreadReplies(t);
+  const pending = v9ThreadApproval(t) === 'pending';
+  return `<article class="v9-open-thread"><div class="v9-open-head"><div><span class="v9-subject-pill">${v9Safe(t.subject || 'Study')}</span><h3>${v9Safe(t.topic || 'Topic')}</h3><p>${v9Safe(v9ThreadCreatorLabel(t))} • ${v9Safe(v9ClassName(t))}</p></div><span class="v9-award-pill">${pending?'⏳ Waiting approval':'✅ Active'}</span></div><div class="v9-question-box"><label>Question / Topic</label><p>${v9Safe(t.content || '')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div><div class="v9-replies-head"><strong>Discussion Feed</strong><span>${replies.length} replies</span></div><div class="v9-discussion-feed">${replies.length ? replies.map(r => v9RenderReply(r)).join('') : '<div class="v9-empty small">No replies yet. Start the discussion.</div>'}</div>${pending ? '<div class="v9-pending-note">This student-created topic is waiting for teacher approval. You can still see it because you created it.</div>' : `<div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Reply to classmates or ask a follow-up..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div>`}</article>`;
+}
+function v9SelectStudentGroup(groupId) { v9StudentState.selectedGroupId = groupId; v9StudentState.selectedThreadId = null; v9RenderStudentStudyRoom(); }
+function v9SelectStudentThread(threadId) { v9StudentState.selectedThreadId = threadId; v9RenderStudentStudyRoom(); }
+function v9StudentSetFilter(filter) { v9StudentState.filter = filter; v9RenderStudentStudyRoom(); }
+function v9StudentSearchThreads(query) { v9StudentState.query = query || ''; v9RenderStudentStudyRoom(); }
+
+async function v9OpenStudentTopicModal() {
+  await v9EnsureModal();
+  const group = v9CurrentStudentGroup();
+  const modal=document.getElementById('v9-modal');
+  modal.innerHTML = `<div class="v9-modal-card"><button class="v9-modal-close" onclick="v9CloseModal()">×</button><h3>Create Study Topic</h3><p>Student topics are sent to the teacher for approval before the whole group continues.</p><input id="v9-student-topic-subject" class="tm-input" placeholder="Subject e.g. Mathematics"><input id="v9-student-topic-title" class="tm-input" placeholder="Topic title"><textarea id="v9-student-topic-content" class="tm-input" placeholder="Ask your question or explain what you want classmates to discuss..."></textarea><button class="tm6-btn primary full" onclick="v9SubmitStudentTopic(${group?.classId ? Number(group.classId) : 'null'})">Create Topic</button></div>`;
+  modal.classList.remove('hidden');
+}
+async function v9SubmitStudentTopic(classId) {
+  const subject=document.getElementById('v9-student-topic-subject')?.value?.trim() || 'Study Group';
+  const topic=document.getElementById('v9-student-topic-title')?.value?.trim();
+  const content=document.getElementById('v9-student-topic-content')?.value?.trim();
+  if(!topic || !content) return v9Toast('Topic and question are required','error');
+  try { await chatV9API.createClassroomThread({ classId, subject, topic, content, metadata:{ approvalStatus:'pending', source:'student-created-topic' } }); v9CloseModal(); await v9LoadStudentThreads(); v9Toast('Topic sent for teacher approval','success'); }
+  catch(err){ v9Toast(err.message || 'Could not create topic','error'); }
+}
+
+function v9RenderThreads(threads) { if(!threads.length) return `<div class="v9-empty"><h3 class="font-bold text-lg mb-2">No classroom threads yet</h3><p>Your teacher will post structured study questions here.</p></div>`; return threads.map(t=>`<article class="v9-thread-card"><div class="v9-thread-top"><div><span class="v9-subject-pill">${v9Safe(t.subject||'Subject')}</span><h3 class="text-xl font-bold mt-3">${v9Safe(t.topic||'Classroom Topic')}</h3><p class="text-muted-foreground">${v9Safe(t.content||'')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div>${t.isPinned?'<span class="v9-award-pill">📌 Pinned</span>':''}</div><div class="mt-4">${v9ThreadReplies(t).map(r=>v9RenderReply(r)).join('')}</div><div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Write your reply or question..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div></article>`).join(''); }
+function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)}</small></div><p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||0}</button></div></div>`; }
+async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) await v9LoadStudentThreads(); else await v9RefreshTeacherChat(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
+async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
+function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; const events=data.events||[]; return `<div class="v9-achievements-card"><h3 class="font-bold text-xl">Achievements</h3><p class="text-muted-foreground text-sm">Stars and streaks awarded by teachers.</p><div class="v9-achievement-stat"><div><span class="text-muted-foreground text-sm">Points</span><strong>⭐ ${totals.points||0}</strong></div><div><span class="text-muted-foreground text-sm">Streak</span><strong>🔥 ${totals.streak||0}</strong></div></div><div class="space-y-3">${events.length?events.slice(0,5).map(e=>`<div class="v9-info-card"><div class="flex justify-between gap-2"><strong>${v9Safe(e.title||'Achievement')}</strong><span class="v9-award-pill">+${e.points||0} pts</span></div><small>${v9Safe(e.note||'Teacher awarded achievement')}</small></div>`).join(''):'<div class="v9-empty small">No achievements yet. Participate in threads to earn stars.</div>'}</div></div>`; }
+
+
+window.v9RenderStudentStudyRoom = v9RenderStudentStudyRoom;
+window.v9SelectStudentGroup = v9SelectStudentGroup;
+window.v9SelectStudentThread = v9SelectStudentThread;
+window.v9StudentSetFilter = v9StudentSetFilter;
+window.v9StudentSearchThreads = v9StudentSearchThreads;
+window.v9OpenStudentTopicModal = v9OpenStudentTopicModal;
+window.v9SubmitStudentTopic = v9SubmitStudentTopic;
 window.renderTeacherV9Messages = renderTeacherV9Messages;
 window.v9RefreshTeacherChat = v9RefreshTeacherChat;
 window.v9SetMainTab = v9SetMainTab;
