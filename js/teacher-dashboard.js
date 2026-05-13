@@ -623,14 +623,14 @@ function showMarksEntryModal(className) {
           <div class="v95-section-card"><span class="text-xs text-muted-foreground">Missing</span><strong id="marks-missing" class="block text-2xl">${currentMarksStudents.length}</strong></div>
           <div class="v95-section-card" style="background:#fff7ed;border-color:#fed7aa">
             <strong>Moderation & Approval</strong>
-            <p class="text-sm text-muted-foreground mt-2">Subject teacher saves marks. Class teacher reviews/publishes final report-card marks.</p>
+            <p class="text-sm text-muted-foreground mt-2">Draft marks can be saved by the assigned teacher. Published marks lock automatically; corrections require admin unlock and are audit logged.</p>
           </div>
         </div>
 
         <div class="mt-5 v95-section-card">
           <h4 class="font-bold mb-2">Actions</h4>
           <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Save Draft</button>
-          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Submit for Review</button>
+          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Save & Lock Draft</button>
           <button onclick="publishAllMarks()" class="v95-btn primary w-full">Publish Marks</button>
         </div>
       </aside>
@@ -728,35 +728,40 @@ async function saveAllMarks() {
   const assessmentDate = document.getElementById('assessment-date')?.value;
   if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
 
-  // Use the custom grading scale that was applied (array, or null)
-  const gradingScale = window.currentGradingScale || null;
-
-  showLoading();
-  let saved = 0, failed = 0;
+  const gradingScale = window.currentGradingScale || window.AcademicCoreV66?.getSchoolAcademicSettings?.().gradingScale || null;
+  const marks = [];
   for (const student of currentMarksStudents) {
     const score = parseFloat(document.getElementById(`score-${student.id}`)?.value);
     if (!isNaN(score) && score >= 0 && score <= 100) {
-      try {
-        await api.teacher.enterMarks({
-          studentId: student.id,
-          subject: currentMarksSubject,
-          assessmentType,
-          assessmentName,
-          score,
-          date: assessmentDate,
-          term: currentMarksTerm,
-          year: currentMarksYear,
-          isPublished: false,
-          gradingScale: gradingScale,       // array of {grade, min, max} or null
-          remarks: document.getElementById(`remark-${student.id}`)?.value || ''
-        });
-        saved++;
-      } catch(e) { failed++; }
+      marks.push({
+        studentId: student.id,
+        score,
+        remarks: document.getElementById(`remark-${student.id}`)?.value || ''
+      });
     }
   }
-  showToast(`Saved ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
-  closeMarksEntryModal();
-  hideLoading();
+  if (!marks.length) { showToast('Enter at least one valid score before saving.', 'error'); return; }
+
+  showLoading();
+  try {
+    const payload = {
+      classId: currentMarksClassId,
+      subject: currentMarksSubject,
+      assessmentType,
+      assessmentName,
+      date: assessmentDate,
+      term: currentMarksTerm,
+      year: currentMarksYear,
+      gradingScale,
+      marks
+    };
+    const res = api.teacher.saveBulkMarks ? await api.teacher.saveBulkMarks(payload) : await Promise.all(marks.map(m => api.teacher.enterMarks({ ...payload, ...m })));
+    const data = res?.data || {};
+    showToast(res?.message || `Saved ${data.saved || marks.length} draft mark(s). Submit/publish to lock them.`, 'success');
+    closeMarksEntryModal();
+  } catch(e) {
+    showToast(e.message || 'Could not save marks', 'error');
+  } finally { hideLoading(); }
 }
 
 async function publishAllMarks() {
@@ -1727,7 +1732,6 @@ function showCreateHomeworkModal() {
                             <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2 bg-background"></div>
                         </div>
                         <div><label class="block text-sm font-medium">Class</label><select id="hw-class" class="w-full rounded-lg border p-2 bg-background"><option value="">Loading...</option></select></div>
-                        <label class="flex items-center gap-2 rounded-lg border p-3 bg-background text-sm"><input type="checkbox" id="hw-open-discussion" checked> Open a study discussion room for this homework</label>
                     </div>
                     <div class="flex justify-end gap-3 mt-6">
                         <button onclick="closeCreateHomeworkModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
@@ -1793,17 +1797,9 @@ async function createHomework() {
     try {
         const res = await apiRequest('/api/homework/assign', {
             method: 'POST',
-            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className, openDiscussion: document.getElementById('hw-open-discussion')?.checked || false })
+            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className })
         });
         if (res.success) {
-            if (document.getElementById('hw-open-discussion')?.checked && window.chatV9API?.createClassroomThread) {
-                try {
-                    await window.chatV9API.createClassroomThread({
-                        classId, subject, topic: title, content: instructions,
-                        metadata: { approvalStatus: 'approved', source: 'homework-discussion', homeworkId: res.data?.id || res.assignment?.id || null, className }
-                    });
-                } catch (threadError) { console.warn('Homework discussion room could not be created:', threadError); }
-            }
             closeCreateHomeworkModal();
             await showDashboardSection('homework');
         }

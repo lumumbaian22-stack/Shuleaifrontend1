@@ -310,57 +310,56 @@ async function loadStudentHomeTasks() {
 // ========== GRADES SECTION ==========
 async function renderStudentGrades() {
     try {
-        const data = dashboardData || {};
+        let data = (typeof dashboardData !== 'undefined' && dashboardData) ? dashboardData : {};
+        try {
+            const live = await api.student.getGrades();
+            data = { ...data, ...(live?.data || live || {}) };
+        } catch(e) { console.warn('Live grades fallback:', e.message); }
         const school = getCurrentSchool();
-        const grades = data.grades || [];
+        const records = window.AcademicCoreV66?.safeRecords(data) || data.grades || [];
+        const settings = window.AcademicCoreV66?.getSchoolAcademicSettings?.() || {};
+        const termControls = window.AcademicCoreV66?.buildTermYearControls?.('student-grades') || '';
+        const alerts = window.AcademicCoreV66?.renderAcademicAlertCards?.(records, 'student') || '';
 
         return `
-            <div class="space-y-6 animate-fade-in">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-2xl font-bold">My Grades</h2>
-                    <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
-                </div>
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-muted/50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left font-medium">Subject</th>
-                                    <th class="px-4 py-3 text-left font-medium">Assessment</th>
-                                    <th class="px-4 py-3 text-center font-medium">Score</th>
-                                    <th class="px-4 py-3 text-center font-medium">Grade</th>
-                                    <th class="px-4 py-3 text-left font-medium">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y" id="grades-table-body">
-                                ${grades.length > 0 ? grades.map(record => {
-                                    const score = record.score || 0;
-                                    const grade = record.grade || 'N/A';
-                                    const gradeClass = getGradeColorClass(grade);
-                                    return `
-                                        <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
-                                            <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
-                                            <td class="px-4 py-3 text-center">${score}%</td>
-                                            <td class="px-4 py-3 text-center">
-                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">${grade}</span>
-                                            </td>
-                                            <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
-                                        </tr>
-                                    `;
-                                }).join('') : `
-                                    <tr>
-                                        <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">
-                                            No grades recorded yet
-                                        </td>
-                                    </tr>
-                                `}
-                            </tbody>
-                        </table>
+            <div class="v66-academic-shell animate-fade-in">
+                <div class="flex justify-between items-center gap-3 flex-wrap">
+                    <div>
+                        <h2 class="text-2xl font-bold">My Grades</h2>
+                        <p class="text-sm text-muted-foreground">${escapeHtml(settings.curriculum || 'CBC').toUpperCase()} • Term and year aware results</p>
                     </div>
+                    <div class="text-sm text-muted-foreground">${escapeHtml((school && school.status === 'active') ? school.name : 'ShuleAI')}</div>
                 </div>
-            </div>
-        `;
+                ${termControls}
+                ${alerts}
+                <div class="v66-table-wrap bg-card">
+                    <table class="v66-table text-sm">
+                        <thead>
+                            <tr>
+                                <th>Term</th><th>Year</th><th>Subject</th><th>Assessment</th><th class="text-center">Score</th><th class="text-center">Grade</th><th>Teacher Comment</th><th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="grades-table-body">
+                            ${records.length > 0 ? records.map(record => {
+                                const score = Number(record.score || 0);
+                                const grade = record.grade || window.AcademicCoreV66?.gradeScore?.(score, settings.curriculum, settings.gradingScale) || 'N/A';
+                                const gradeClass = window.AcademicCoreV66?.gradeBandClass?.(grade) || getGradeColorClass(grade);
+                                return `
+                                    <tr class="hover:bg-accent/50 transition-colors" data-term="${escapeHtml(record.term || '')}" data-year="${escapeHtml(String(record.year || ''))}">
+                                        <td>${escapeHtml(record.term || 'Term 1')}</td>
+                                        <td>${escapeHtml(String(record.year || new Date().getFullYear()))}</td>
+                                        <td class="font-medium">${escapeHtml(record.subject || 'N/A')}</td>
+                                        <td>${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
+                                        <td class="text-center">${score}%</td>
+                                        <td class="text-center"><span class="v66-grade-pill ${gradeClass}">${grade}</span></td>
+                                        <td>${escapeHtml(record.remarks || record.comment || '—')}</td>
+                                        <td>${record.date ? formatDate(record.date) : 'N/A'}</td>
+                                    </tr>`;
+                            }).join('') : `<tr><td colspan="8" class="px-4 py-8 text-center text-muted-foreground">No grades recorded yet</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
     } catch (error) {
         return `<div class="text-center py-12 text-red-500">Error loading grades: ${error.message}</div>`;
     }
