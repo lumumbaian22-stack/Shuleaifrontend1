@@ -18,7 +18,7 @@ async function renderParentSection(section) {
         case 'help':
             return renderHelpSection();
         case 'chat':
-            return await renderParentChat();
+            return await (window.renderParentV68Messages ? window.renderParentV68Messages() : renderParentChat());
         case 'profile':
         case 'settings':
             return await renderProfileSection();

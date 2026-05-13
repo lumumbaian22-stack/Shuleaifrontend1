@@ -1,379 +1,124 @@
-// chat-v9-ui.js — v69 targeted messaging module
-// Keeps approved dashboards intact; replaces only chat/study-room rendering and actions.
-(function () {
-  'use strict';
-
-  const state = {
-    role: null,
-    tab: 'study',
-    query: '',
-    groups: [],
-    threads: [],
-    peers: [],
-    contacts: [],
-    children: [],
-    childId: null,
-    messages: [],
-    directMessages: [],
-    selectedGroupId: null,
-    selectedThreadId: null,
-    selectedPeerId: null,
-    attachment: null,
-    replyTo: null,
-    recording: false,
-    recorder: null,
-    chunks: [],
-    achievements: null,
-    typingTimer: null,
+// chat-v9-ui.js — v68 production messaging workspace (full module, no compatibility shim)
+(function(){
+  const $ = id => document.getElementById(id);
+  const api = () => window.chatV9API;
+  const appState = {
+    role: 'student', tab: 'study', selectedGroupId: null, selectedThreadId: null, selectedPeerId: null, selectedChildId: null,
+    groups: [], threads: [], replies: {}, peers: [], members: [], messages: [], children: [], contacts: [], query: '', attachment: null, replyTo: null,
+    recorder: null, chunks: [], recording: false, unread: {}, typingTimer: null, typingText: '', loadedAt: Date.now()
   };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const toast = (m,t='info') => typeof showToast === 'function' ? showToast(m,t) : console[t==='error'?'error':'log'](m);
+  const media = u => (typeof resolveMediaUrl === 'function' ? resolveMediaUrl(u) : u);
+  const currentUser = () => { try { return JSON.parse(localStorage.getItem('user') || localStorage.getItem('shule_user') || '{}'); } catch { return {}; } };
+  const initials = n => String(n||'?').split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();
+  const avatar = (u={}, cls='') => u.profileImage ? `<img class="v68-avatar ${cls}" src="${esc(media(u.profileImage))}" alt="${esc(u.name||'User')}">` : `<span class="v68-avatar ${cls}">${initials(u.name)}</span>`;
+  const time = d => d ? new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+  const date = d => d ? new Date(d).toLocaleDateString() : '';
+  const metaOf = row => row?.metadata || {};
+  const fileLink = (url, name='Attachment') => url ? `<a class="v68-file" href="${esc(media(url))}" target="_blank" rel="noopener">📎 ${esc(name)}</a>` : '';
+  const currentGroup = () => appState.groups.find(g => String(g.id) === String(appState.selectedGroupId)) || appState.groups[0] || null;
+  const currentThread = () => appState.threads.find(t => Number(t.id) === Number(appState.selectedThreadId)) || appState.threads[0] || null;
+  const currentPeer = () => appState.peers.find(p => Number(p.id) === Number(appState.selectedPeerId)) || appState.peers[0] || null;
+  const currentChild = () => appState.children.find(c => Number(c.id) === Number(appState.selectedChildId)) || appState.children[0] || null;
+  const threadReplies = t => t ? (t.ThreadReplies || t.replies || appState.replies[t.id] || []) : [];
+  const isApproved = t => (metaOf(t).approvalStatus || (t.Creator?.role === 'student' ? 'pending' : 'approved')) === 'approved';
+  const isPending = t => (metaOf(t).approvalStatus || '').toLowerCase() === 'pending';
 
-  const $ = (id) => document.getElementById(id);
-  const me = () => (typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}')) || {};
-  const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const initials = (name) => String(name || 'U').split(' ').filter(Boolean).map(x => x[0]).join('').slice(0,2).toUpperCase();
-  const time = (d) => d ? new Date(d).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '';
-  const toast = (msg, type='info') => typeof showToast === 'function' ? showToast(msg, type) : console.log(type, msg);
-  const media = (url) => typeof resolveMediaUrl === 'function' ? resolveMediaUrl(url) : url;
-  const avatar = (u={}, size='') => u.profileImage ? `<img class="v69-avatar ${size}" src="${esc(media(u.profileImage))}" alt="${esc(u.name || 'User')}">` : `<span class="v69-avatar ${size}">${initials(u.name)}</span>`;
-  const arr = (x) => Array.isArray(x) ? x : [];
-  const meta = (x) => x?.metadata || {};
-  const approval = (t) => meta(t).approvalStatus || (t?.Creator?.role === 'student' ? 'pending' : 'approved');
-  const isMine = (id) => Number(id) === Number(me().id);
-  const currentGroup = () => state.groups.find(g => String(g.id) === String(state.selectedGroupId)) || state.groups[0] || null;
-  const currentThread = () => state.threads.find(t => Number(t.id) === Number(state.selectedThreadId)) || state.threads[0] || null;
-  const currentPeer = () => [...state.peers, ...state.contacts].find(p => Number(p.id) === Number(state.selectedPeerId)) || null;
-  const threadReplies = (t) => arr(t?.ThreadReplies || t?.replies).filter(r => meta(r).moderation?.action !== 'hidden');
-  const participantsFor = (thread) => arr(thread?.participants).length ? arr(thread.participants) : arr(currentGroup()?.participants || state.peers);
-  const unreadCount = (items) => arr(items).filter(m => !m.isRead && !isMine(m.senderId)).length;
-
-  function shell(title, sub, actions, rootId) {
-    return `<div class="v69-page animate-fade-in">
-      <div class="v69-head">
-        <div><p class="v69-eyebrow">Communication</p><h2>${esc(title)}</h2><p>${esc(sub)}</p></div>
-        <div class="v69-actions">${actions || ''}</div>
-      </div>
-      <div id="${rootId}" class="v69-shell"><div class="v69-empty">Loading...</div></div>
-    </div>`;
+  function shell(title, subtitle, actions, rootId){
+    return `<section class="v68-page">
+      <header class="v68-top"><div><p class="v68-kicker">Communication</p><h2>${esc(title)}</h2><small>${esc(subtitle)}</small></div><div class="v68-top-actions">${actions||''}</div></header>
+      <div id="${rootId}" class="v68-shell"><div class="v68-empty">Loading...</div></div>
+    </section>`;
   }
-
-  function tabs(items) {
-    return `<div class="v69-tabs">${items.map(([key, label]) => `<button class="${state.tab === key ? 'active' : ''}" onclick="v69SetTab('${key}')">${label}</button>`).join('')}</div>`;
+  function tabs(list){ return `<nav class="v68-tabs">${list.map(([k,l])=>`<button class="${appState.tab===k?'active':''}" onclick="v68SetTab('${k}')">${l}</button>`).join('')}</nav>`; }
+  function listItem(item, active, onclick, sub, icon='👤', badge=''){
+    return `<button class="v68-list-item ${active?'active':''}" onclick="${onclick}"><span class="v68-list-icon">${icon}</span><span class="v68-list-text"><b>${esc(item.name||item.topic||item.displayName||'Untitled')}</b><small>${esc(sub||'')}</small></span>${badge}</button>`;
   }
-
-  function fileLink(url, label='Attachment', mime='') {
-    if (!url) return '';
-    const isAudio = String(mime || url).includes('audio') || String(label).toLowerCase().includes('voice');
-    if (isAudio) return `<audio class="v69-audio" controls src="${esc(media(url))}"></audio>`;
-    return `<a class="v69-attachment" href="${esc(media(url))}" target="_blank" rel="noopener">📎 ${esc(label)}</a>`;
+  function messageBubble(row, opts={}){
+    const me = currentUser(); const sender = row.Sender || row.Author || row.sender || (Number(row.senderId||row.userId)===Number(me.id) ? me : {});
+    const mine = Number(sender.id || row.senderId || row.userId) === Number(me.id);
+    const md = metaOf(row); const reactions = md.reactions || {}; const pinned = md.pinned; const reply = md.replyTo;
+    const attachmentUrl = row.attachmentUrl || md.attachmentUrl; const attachmentName = md.attachmentName || md.attachment?.name || 'Attachment';
+    const isTeacher = sender.role === 'teacher'; const label = isTeacher ? '<em>Teacher</em>' : sender.role === 'student' ? '<em>Student</em>' : sender.role ? `<em>${esc(sender.role)}</em>` : '';
+    return `<article class="v68-msg ${mine?'mine':''} ${pinned?'pinned':''}">${!mine?avatar(sender,'sm'):''}<div class="v68-bubble ${mine?'mine':''}">
+      ${!mine?`<strong>${esc(sender.name||'User')} ${label}</strong>`:''}${pinned?'<div class="v68-pin">📌 Pinned</div>':''}
+      ${reply?`<div class="v68-quote">↪ ${esc(reply.text||'Replied message')}</div>`:''}
+      <p>${esc(row.content||'')}</p>${fileLink(attachmentUrl, attachmentName)}
+      <div class="v68-reactions">${Object.entries(reactions).map(([e,u])=>`<button onclick="${opts.reply?'v68ReactReply':'v68React'}(${Number(row.id)},'${esc(e)}')">${esc(e)} ${(u||[]).length}</button>`).join('')}</div>
+      <div class="v68-meta"><span>${time(row.createdAt)}</span>${mine?'<span title="Read receipt">✓✓</span>':''}${row.pointsAwarded?`<span>⭐ ${row.pointsAwarded}</span>`:''}${row.streakAwarded?`<span>🔥 ${row.streakAwarded}</span>`:''}</div>
+      <div class="v68-mini-actions"><button onclick="v68Reply(${Number(row.id)},'${esc(sender.name||'User').replace(/'/g,'&#39;')}','${esc(row.content||'').replace(/'/g,'&#39;')}')">Reply</button><button onclick="${opts.reply?'v68ReactReply':'v68React'}(${Number(row.id)},'👍')">👍</button><button onclick="${opts.reply?'v68ReactReply':'v68React'}(${Number(row.id)},'❤️')">❤️</button><button onclick="${opts.reply?'v68PinReply':'v68Pin'}(${Number(row.id)})">Pin</button>${opts.reward?`<button onclick="${opts.reply?'v68AwardReply':'v68AwardMessage'}(${Number(row.id)},1,0)">⭐</button><button onclick="${opts.reply?'v68AwardReply':'v68AwardMessage'}(${Number(row.id)},5,1)">🔥</button>`:''}<button onclick="${opts.reply?'v68ModerateReply':'v68Moderate'}(${Number(row.id)})">Report</button></div>
+    </div></article>`;
   }
-
-  async function uploadFile(file) {
-    if (!file) return null;
-    const fd = new FormData();
-    fd.append('file', file);
-    const res = await chatV9API.uploadAttachment(fd);
-    return res.data;
+  function composer(kind, id){
+    const reply = appState.replyTo ? `<div class="v68-replying">Replying to <b>${esc(appState.replyTo.name)}</b>: ${esc(appState.replyTo.text).slice(0,90)} <button onclick="v68CancelReply()">×</button></div>` : '';
+    const file = appState.attachment ? `<div class="v68-selected-file">${fileLink(appState.attachment.url, appState.attachment.name)} <button onclick="v68ClearFile()">×</button></div>` : '';
+    return `<footer class="v68-composer">${reply}${file}<div id="v68-typing-line" class="v68-typing">${esc(appState.typingText||'')}</div><div class="v68-compose-row"><button onclick="v68Emoji('${kind}','${id}','😊')">😊</button><button onclick="v68PickFile()">📎</button><button class="${appState.recording?'recording':''}" onclick="v68ToggleVoice()">🎙</button><input id="v68-input-${kind}-${id}" placeholder="Type a message..." oninput="v68Typing()" onkeydown="if(event.key==='Enter')v68Send('${kind}','${id}')"><button class="send" onclick="v68Send('${kind}','${id}')">➤</button><input id="v68-file-input" type="file" class="hidden" onchange="v68UploadFile(this.files[0])"></div></footer>`;
   }
+  function scrollBottom(){ setTimeout(()=>{ const el=$('v68-feed'); if(el) el.scrollTop=el.scrollHeight; },70); }
 
-  function listItem(item, active, onclick, sub='', icon='💬', badge='') {
-    return `<button class="v69-list-item ${active ? 'active' : ''}" onclick="${onclick}">
-      <span class="v69-list-icon">${icon}</span>
-      <span class="v69-list-text"><strong>${esc(item.name || item.topic || 'Untitled')}</strong><small>${esc(sub)}</small></span>
-      ${badge ? `<b class="v69-badge">${badge}</b>` : ''}
-    </button>`;
-  }
+  async function uploadAny(file){ if(!file) return null; const fd=new FormData(); fd.append('file',file); const res=await api().uploadAttachment(fd); const data=res.data||res; return { url:data.url||data.fileUrl||data.path, name:file.name, mimeType:file.type, size:file.size }; }
 
-  function renderLeft(title, subtitle, items, empty='No items yet') {
-    const q = state.query.toLowerCase();
-    const filtered = arr(items).filter(x => !q || String(x.name || x.topic || '').toLowerCase().includes(q));
-    return `<aside class="v69-list-panel">
-      <div class="v69-panel-title"><h3>${esc(title)}</h3><small>${esc(subtitle)}</small></div>
-      <input class="v69-search" value="${esc(state.query)}" oninput="v69Search(this.value)" placeholder="Search chats">
-      <div class="v69-list-scroll">${filtered.length ? filtered.map(x => x.__html).join('') : `<div class="v69-empty small">${esc(empty)}</div>`}</div>
-    </aside>`;
-  }
+  // STUDENT
+  window.renderStudentV9Classroom = async function(){ setTimeout(v68LoadStudent,60); return shell('Study Chats','Simple WhatsApp-style class groups, private messages, teacher topics and student topics.','<button class="v68-btn" onclick="v68LoadStudent()">Refresh</button><button class="v68-btn primary" onclick="v68OpenTopicModal()">+ Topic</button>','v68-student-root'); };
+  window.v68LoadStudent = async function(){ appState.role='student'; const root=$('v68-student-root'); if(root) root.innerHTML='<div class="v68-empty">Loading chats...</div>'; try{ const [threadsRes, achRes] = await Promise.all([api().getClassroomThreads(), api().getMyAchievements().catch(()=>({data:{totals:{}}}))]); appState.threads = threadsRes.data || []; const meta=threadsRes.meta||{}; appState.groups = meta.groups || []; const participants = Object.values(meta.participantsByClass||{}).flat(); const me=currentUser(); appState.peers = participants.filter(p=>Number(p.id)!==Number(me.id)); if(!appState.groups.length){ appState.groups=[{id:'my-class',name:'My Class Study Group',participantCount:appState.peers.length+1,participants:[me,...appState.peers]}]; } if(!appState.selectedGroupId) appState.selectedGroupId=appState.groups[0]?.id; if(!appState.selectedThreadId) appState.selectedThreadId=appState.threads[0]?.id; if(!appState.selectedPeerId) appState.selectedPeerId=appState.peers[0]?.id; appState.achievements=achRes.data||{}; v68RenderStudent(); }catch(e){ if(root) root.innerHTML=`<div class="v68-empty error">${esc(e.message||'Could not load chats')}</div>`; } };
+  function v68RenderStudent(){ const root=$('v68-student-root'); if(!root)return; const g=currentGroup(); const t=currentThread(); const list=appState.tab==='private'?appState.peers:appState.groups; root.innerHTML=`<div class="v68-main-grid student">${leftPanel(list)}<section class="v68-chat-panel">${tabs([['study','Study Group'],['private','Private']])}${appState.tab==='private'?privateWindow(currentPeer()):studyWindow(g,t,false)}</section><aside class="v68-info-panel">${appState.tab==='private'?privateInfo(currentPeer()):studyInfo(g,t)}</aside></div>`; scrollBottom(); }
+  function leftPanel(list){ const q=appState.query.toLowerCase(); const items=(list||[]).filter(x=>!q||String(x.name||'').toLowerCase().includes(q)); return `<aside class="v68-list-panel"><div class="v68-panel-title"><h3>${appState.tab==='private'?'Classmates':'Study Groups'}</h3><small>${items.length} found</small></div><input class="v68-search" placeholder="Search chats..." oninput="v68Search(this.value)">${items.map(x=>appState.tab==='private'?listItem(x,Number(appState.selectedPeerId)===Number(x.id),`v68SelectPeer(${Number(x.id)})`,'Private message','👤', appState.unread[x.id]?`<b class="v68-unread">${appState.unread[x.id]}</b>`:''):listItem(x,String(appState.selectedGroupId)===String(x.id),`v68SelectGroup('${x.id}')`,`${x.participantCount||x.participants?.length||0} participants`,'👥')).join('')||'<div class="v68-empty small">No chats yet.</div>'}</aside>`; }
+  function studyWindow(g,t,teacherMode){ const threads=(appState.threads||[]).filter(x=>!g?.classId||Number(x.classId)===Number(g.classId)); const visible=teacherMode?threads:threads.filter(x=>isApproved(x)||Number(x.createdBy)===Number(currentUser().id)); const replies=threadReplies(t); return `<header class="v68-chat-head"><div>${avatar({name:g?.name||'Study'},'group')}<div><h3>${esc(g?.name||'Class Study Group')}</h3><p><span class="v68-online"></span>${g?.participantCount||g?.participants?.length||0} participants • online now</p></div></div><button onclick="v68OpenTopicModal()">+ Topic</button></header><div class="v68-subtabs">${visible.map(x=>`<button class="${Number(x.id)===Number(t?.id)?'active':''}" onclick="v68SelectThread(${Number(x.id)})">${isPending(x)?'⏳ ':''}${esc(x.topic)}</button>`).join('')||'<span>No topics yet</span>'}</div><main id="v68-feed" class="v68-feed">${t?`<div class="v68-topic-card"><b>${esc(t.topic)}</b><p>${esc(t.content)}</p><small>${esc(t.subject||'General')} • ${esc(t.Creator?.name||'Teacher/Student')} • ${isPending(t)?'Waiting for teacher approval':'Open'}</small></div>`:''}${replies.map(r=>messageBubble(r,{reply:true,reward:teacherMode && r.Author?.role==='student'})).join('')||'<div class="v68-empty small">Start the discussion.</div>'}</main>${t?composer('thread',t.id):''}`; }
+  function privateWindow(p){ if(!p)return `<div class="v68-empty">Choose a classmate.</div>`; return `<header class="v68-chat-head"><div>${avatar(p)}<div><h3>${esc(p.name)}</h3><p><span class="v68-online"></span>Online • classmate</p></div></div></header><main id="v68-feed" class="v68-feed">${(appState.messages||[]).map(m=>messageBubble(m)).join('')||'<div class="v68-empty small">No private messages yet.</div>'}</main>${composer('direct',p.id)}`; }
+  function studyInfo(g,t){ const members=(g?.participants||[]); return `<h3>Participants</h3><div class="v68-member-stack">${members.map(m=>`<div>${avatar(m,'xs')}<span>${esc(m.name)}</span><small>${esc(m.role||'student')}</small></div>`).join('')||'<p>No participants loaded.</p>'}</div><hr><h3>Achievements</h3><p>⭐ ${appState.achievements?.totals?.points||0} points</p><p>🔥 ${appState.achievements?.totals?.streak||0} streaks</p>${t?`<hr><h3>Topic</h3><p>${esc(t.topic)}</p>`:''}`; }
+  function privateInfo(p){ return p?`<h3>Private Chat</h3>${avatar(p,'lg')}<h4>${esc(p.name)}</h4><p>${esc(p.role||'student')}</p><button class="v68-btn" onclick="v68LoadDirect(${Number(p.id)})">Refresh messages</button>`:'<p>Select a contact.</p>'; }
 
-  function renderComposer(kind, id) {
-    const reply = state.replyTo ? `<div class="v69-reply-preview"><span>Replying to <b>${esc(state.replyTo.name || 'message')}</b>: ${esc(state.replyTo.text || '').slice(0, 90)}</span><button onclick="v69CancelReply()">×</button></div>` : '';
-    const file = state.attachment ? `<div class="v69-file-preview">${fileLink(state.attachment.url, state.attachment.name || 'Attachment', state.attachment.mimeType)} <button onclick="v69ClearFile()">×</button></div>` : '';
-    return `<footer class="v69-composer">
-      ${reply}${file}<div id="v69-typing-line" class="v69-typing-line"></div>
-      <div class="v69-compose-row">
-        <button onclick="v69Emoji('${kind}','${id}','😊')" title="Emoji">😊</button>
-        <button onclick="v69PickFile()" title="Attach">📎</button>
-        <button onclick="v69ToggleVoice()" class="${state.recording ? 'recording' : ''}" title="Voice note">🎙</button>
-        <input id="v69-input-${kind}-${id}" placeholder="Type a message..." oninput="v69Typing()" onkeydown="if(event.key==='Enter')v69Send('${kind}','${id}')">
-        <button class="send" onclick="v69Send('${kind}','${id}')">➤</button>
-        <input id="v69-file-input" class="v69-hidden" type="file" onchange="v69UploadFile(this.files[0])">
-      </div>
-    </footer>`;
-  }
+  // TEACHER
+  window.renderTeacherV9Messages = async function(){ setTimeout(v68LoadTeacher,60); return shell('Messages & Study Rooms','Clean teacher communication, groups, parent chats, moderation and student rewards.','<button class="v68-btn" onclick="v68LoadTeacher()">Refresh</button><button class="v68-btn primary" onclick="v68TeacherNew()">+ New</button>','v68-teacher-root'); };
+  window.v68LoadTeacher = async function(){ appState.role='teacher'; const root=$('v68-teacher-root'); if(root) root.innerHTML='<div class="v68-empty">Loading teacher messages...</div>'; try{ const [groups, teachers, threads] = await Promise.all([api().getTeacherGroups(), api().getTeachers(), api().getClassroomThreads()]); appState.groups=groups.data||[]; appState.peers=teachers.data||[]; appState.threads=threads.data||[]; if(!appState.selectedGroupId)appState.selectedGroupId=appState.groups[0]?.id; if(!appState.selectedPeerId)appState.selectedPeerId=appState.peers[0]?.id; if(!appState.selectedThreadId)appState.selectedThreadId=appState.threads[0]?.id; v68RenderTeacher(); }catch(e){ if(root)root.innerHTML=`<div class="v68-empty error">${esc(e.message)}</div>`; } };
+  function v68RenderTeacher(){ const root=$('v68-teacher-root'); if(!root)return; const list=appState.tab==='direct'?appState.peers:appState.tab==='study'?appState.threads:appState.groups; root.innerHTML=`<div class="v68-main-grid teacher">${teacherLeft(list)}<section class="v68-chat-panel">${tabs([['groups','Groups'],['study','Study Rooms'],['direct','Direct'],['announce','Announcements']])}${teacherCenter()}</section><aside class="v68-info-panel">${teacherInfo()}</aside></div>`; scrollBottom(); }
+  function teacherLeft(list){ const q=appState.query.toLowerCase(); const items=(list||[]).filter(x=>!q||String(x.name||x.topic||'').toLowerCase().includes(q)); return `<aside class="v68-list-panel"><div class="v68-panel-title"><h3>${appState.tab==='study'?'Study Topics':appState.tab==='direct'?'Teachers':'Groups'}</h3><small>${items.length}</small></div><input class="v68-search" placeholder="Search..." oninput="v68Search(this.value)">${items.map(x=> appState.tab==='study'?listItem(x,Number(appState.selectedThreadId)===Number(x.id),`v68SelectThread(${Number(x.id)})`,`${esc(x.subject||'General')} • ${x.studentCount||0} students`,isPending(x)?'⏳':'🧵'):appState.tab==='direct'?listItem(x,Number(appState.selectedPeerId)===Number(x.id),`v68SelectPeer(${Number(x.id)})`,x.role||'teacher','👤'):listItem(x,Number(appState.selectedGroupId)===Number(x.id),`v68SelectGroup(${Number(x.id)})`,x.type||'group','👥')).join('')||'<div class="v68-empty small">Nothing here yet.</div>'}</aside>`; }
+  function teacherCenter(){ if(appState.tab==='study')return studyWindow({name:'Study Rooms',participants:[]}, currentThread(), true); if(appState.tab==='direct')return privateWindow(currentPeer()); if(appState.tab==='announce')return `<div class="v68-announcement"><h3>School Announcement</h3><p>Broadcast a message to students, parents or staff.</p><textarea id="v68-announcement-text" placeholder="Write announcement..."></textarea><div><button class="v68-btn">Save Draft</button><button class="v68-btn primary" onclick="v68Broadcast()">Broadcast</button></div></div>`; const g=currentGroup(); return `<header class="v68-chat-head"><div>${avatar({name:g?.name||'Group'},'group')}<div><h3>${esc(g?.name||'Group')}</h3><p><span class="v68-online"></span>${esc(g?.type||'group')} • members managed by teacher</p></div></div><button onclick="v68OpenMembersModal(${Number(g?.id||0)})">Manage Members</button></header><main id="v68-feed" class="v68-feed">${(appState.messages||[]).map(m=>messageBubble(m,{reward:m.Sender?.role==='student'})).join('')||'<div class="v68-empty small">Open or send messages.</div>'}</main>${g?composer('group',g.id):''}`; }
+  function teacherInfo(){ if(appState.tab==='study'){ const t=currentThread(); const replies=threadReplies(t); return `<h3>Thread Monitoring</h3><p>${replies.length} replies</p><p>${replies.filter(r=>r.Author?.role==='student').length} student responses</p>${t&&isPending(t)?`<button class="v68-btn primary" onclick="v68ApproveThread(${Number(t.id)})">Approve Topic</button>`:''}${t?`<button class="v68-btn" onclick="v68ToggleThread(${Number(t.id)},${!t.isClosed})">${t.isClosed?'Reopen':'Close'} Thread</button>`:''}<button class="v68-btn" onclick="v68OpenTopicModal()">Create Topic</button>`; } if(appState.tab==='groups'){ const g=currentGroup(); return `<h3>Group Controls</h3><button class="v68-btn" onclick="v68OpenMembersModal(${Number(g?.id||0)})">Manage Members</button><button class="v68-btn" onclick="v68PickFile()">Attach File</button><p>Students receive stars/streaks. Teachers receive emoji reactions only.</p>`; } return `<h3>Controls</h3><p>Use reply, reactions, attachments, read receipts and safe moderation.</p>`; }
 
-  function bubble(m, opts={}) {
-    const sender = m.Sender || m.Author || {};
-    const mine = opts.mine ?? isMine(m.senderId || m.userId);
-    const mta = meta(m);
-    if (mta.moderation?.action === 'hidden') return '';
-    const reactions = mta.reactions || {};
-    const id = Number(m.id);
-    const replyMode = !!opts.reply;
-    const attachment = m.attachmentUrl || mta.attachmentUrl;
-    const attachmentName = mta.attachmentName || (attachment ? 'Attachment' : '');
-    const attachmentType = mta.attachmentType || '';
-    const senderRole = sender.role || m.role || '';
-    const canReward = opts.canReward && senderRole === 'student';
-    const messageText = esc(m.content || '');
-    const quote = mta.replyTo ? `<div class="v69-quote">↪ ${esc(mta.replyTo.text || '')}</div>` : '';
-    return `<article class="v69-msg ${mine ? 'mine' : ''} ${mta.pinned ? 'pinned' : ''}">
-      ${mine ? '' : avatar(sender, 'sm')}
-      <div class="v69-bubble ${mine ? 'mine' : ''} ${senderRole === 'teacher' ? 'teacher' : ''}">
-        ${!mine ? `<strong>${esc(sender.name || 'User')} ${senderRole ? `<small>• ${esc(senderRole)}</small>` : ''}</strong>` : ''}
-        ${mta.pinned ? '<div class="v69-pin">📌 Pinned</div>' : ''}
-        ${quote}<p>${messageText}</p>${fileLink(attachment, attachmentName, attachmentType)}
-        <div class="v69-meta"><span>${time(m.createdAt)}</span>${mine ? '<span>✓✓</span>' : ''}${m.pointsAwarded ? `<span>⭐ ${m.pointsAwarded}</span>` : ''}${m.streakAwarded ? `<span>🔥 ${m.streakAwarded}</span>` : ''}</div>
-        <div class="v69-reactions">${Object.entries(reactions).map(([e,u]) => `<button onclick="${replyMode ? 'v69ReactReply' : 'v69React'}(${id},'${esc(e)}')">${esc(e)} ${arr(u).length}</button>`).join('')}</div>
-        <div class="v69-mini-actions">
-          <button onclick="v69SetReply('${replyMode ? 'thread' : (state.tab === 'groups' ? 'group' : 'private')}',${id},'${esc(sender.name || 'User')}','${messageText.replace(/'/g, '&#39;')}')">Reply</button>
-          <button onclick="${replyMode ? 'v69ReactReply' : 'v69React'}(${id},'👍')">👍</button>
-          <button onclick="${replyMode ? 'v69ReactReply' : 'v69React'}(${id},'❤️')">❤️</button>
-          <button onclick="${replyMode ? 'v69PinReply' : 'v69Pin'}(${id})">Pin</button>
-          ${canReward ? `<button onclick="${replyMode ? 'v69AwardReply' : 'v69AwardMessage'}(${id},1,0)">⭐</button><button onclick="${replyMode ? 'v69AwardReply' : 'v69AwardMessage'}(${id},5,1)">🔥</button>` : ''}
-          <button onclick="${replyMode ? 'v69ModerateReply' : 'v69Moderate'}(${id})">Report</button>
-        </div>
-      </div>
-    </article>`;
-  }
+  // PARENT
+  window.renderParentV68Messages = async function(){ setTimeout(v68LoadParent,60); return shell('Parent Messages','Child-specific conversations with teachers and school admins.','<button class="v68-btn" onclick="v68LoadParent()">Refresh</button>','v68-parent-root'); };
+  window.v68LoadParent = async function(){ appState.role='parent'; const root=$('v68-parent-root'); if(root)root.innerHTML='<div class="v68-empty">Loading parent messages...</div>'; try{ const [children, contacts] = await Promise.all([window.api?.parent?.getChildren?.() || apiRequest('/api/parent/children'), api().getParentContacts()]); appState.children=children.data||[]; appState.contacts=contacts.data||[]; appState.peers=appState.contacts; if(!appState.selectedChildId)appState.selectedChildId=appState.children[0]?.id; if(!appState.selectedPeerId)appState.selectedPeerId=appState.contacts[0]?.id; v68RenderParent(); }catch(e){ if(root)root.innerHTML=`<div class="v68-empty error">${esc(e.message)}</div>`; } };
+  function v68RenderParent(){ const root=$('v68-parent-root'); if(!root)return; root.innerHTML=`<div class="v68-main-grid parent"><aside class="v68-list-panel"><div class="v68-panel-title"><h3>Children</h3><small>Switch instantly</small></div>${(appState.children||[]).map(c=>listItem({name:c.User?.name||c.name||'Child'},Number(appState.selectedChildId)===Number(c.id),`v68SelectChild(${Number(c.id)})`,c.grade||c.className||'Student','🎒')).join('')||'<div class="v68-empty small">No linked children.</div>'}<hr><h3>Teachers</h3>${(appState.contacts||[]).map(p=>listItem(p,Number(appState.selectedPeerId)===Number(p.id),`v68SelectPeer(${Number(p.id)})`,p.role||'teacher','👤')).join('')}</aside><section class="v68-chat-panel">${tabs([['direct','Teacher Chat']])}${privateWindow(currentPeer())}</section><aside class="v68-info-panel"><h3>Viewing Child</h3><p>${esc(currentChild()?.User?.name||currentChild()?.name||'Select child')}</p><p>Messages are tagged to this child for clean parent-teacher context.</p></aside></div>`; scrollBottom(); }
 
-  function scrollBottom(){ setTimeout(() => { const f = $('v69-feed'); if (f) f.scrollTop = f.scrollHeight; }, 60); }
-
-  // ---------------- STUDENT ----------------
-  window.renderStudentV9Classroom = async function () {
-    setTimeout(v69LoadStudent, 80);
-    return shell('Study Chat', 'WhatsApp-style class discussions and private messages with classmates.', '<button class="v69-btn" onclick="v69LoadStudent()">Refresh</button><button class="v69-btn primary" onclick="v69OpenTopicModal()">+ Topic</button>', 'v69-student-root');
-  };
-
-  window.v69LoadStudent = async function () {
-    state.role = 'student';
-    if (!['study','private'].includes(state.tab)) state.tab = 'study';
-    const root = $('v69-student-root'); if (root) root.innerHTML = '<div class="v69-empty">Loading study chat...</div>';
-    try {
-      const [threadsRes, achRes] = await Promise.all([chatV9API.getClassroomThreads(), chatV9API.getMyAchievements().catch(() => ({ data: null }))]);
-      state.threads = arr(threadsRes.data);
-      state.groups = arr(threadsRes.meta?.groups);
-      state.achievements = achRes.data || null;
-      if (!state.groups.length) {
-        const participants = arr(threadsRes.meta?.participants || []);
-        state.groups = [{ id: 'my-class', name: 'My Class Study Group', type: 'class-study-group', participantCount: participants.length, participants }];
-      }
-      if (!state.selectedGroupId && state.groups[0]) state.selectedGroupId = state.groups[0].id;
-      const group = currentGroup();
-      state.peers = [...new Map(arr(group?.participants).filter(p => !isMine(p.id)).map(p => [p.id, p])).values()];
-      const visibleThreads = state.threads.filter(t => !group?.classId || Number(t.classId) === Number(group.classId) || !t.classId);
-      if (!state.selectedThreadId && visibleThreads[0]) state.selectedThreadId = visibleThreads[0].id;
-      renderStudent();
-    } catch (e) { if (root) root.innerHTML = `<div class="v69-empty error">${esc(e.message || 'Could not load study chat')}</div>`; }
-  };
-
-  function renderStudent() {
-    const root = $('v69-student-root'); if (!root) return;
-    const group = currentGroup();
-    const leftItems = state.tab === 'private'
-      ? state.peers.map(p => ({ ...p, __html: listItem(p, Number(p.id) === Number(state.selectedPeerId), `v69SelectPeer(${Number(p.id)})`, 'Classmate • private chat', '👤', '') }))
-      : state.groups.map(g => ({ ...g, __html: listItem(g, String(g.id) === String(state.selectedGroupId), `v69SelectGroup('${g.id}')`, `${g.participantCount || arr(g.participants).length || 0} classmates`, '👥', '') }));
-    root.innerHTML = `<div class="v69-main-grid student">
-      ${renderLeft(state.tab === 'private' ? 'Classmates' : 'Study Groups', state.tab === 'private' ? 'Private messages' : 'Class discussion rooms', leftItems, 'No classmates found')}
-      <section class="v69-chat-panel">${tabs([['study','Study Group'],['private','Private Messages']])}${state.tab === 'private' ? renderPrivateWindow(currentPeer()) : renderStudyWindow(group, currentThread())}</section>
-      <aside class="v69-info-panel">${state.tab === 'private' ? renderPrivateInfo(currentPeer()) : renderStudyInfo(group, currentThread())}</aside>
-    </div>`;
-    scrollBottom();
-  }
-
-  function renderStudyWindow(group, thread) {
-    const threads = state.threads.filter(t => !group?.classId || Number(t.classId) === Number(group.classId) || !t.classId);
-    if (!thread && threads[0]) thread = threads[0];
-    const pending = thread && approval(thread) === 'pending';
-    const replies = threadReplies(thread);
-    return `<header class="v69-chat-head"><div>${avatar({ name: group?.name || 'Study' }, 'group')}<div><h3>${esc(group?.name || 'Class Study Group')}</h3><p><span class="v69-online"></span>${arr(group?.participants).length || state.peers.length || 0} classmates • group study</p></div></div><button class="v69-icon-btn" onclick="v69OpenTopicModal()">＋</button></header>
-      <div class="v69-topic-strip">${threads.map(t => `<button class="${Number(t.id) === Number(state.selectedThreadId) ? 'active' : ''}" onclick="v69SelectThread(${Number(t.id)})">${approval(t)==='pending'?'⏳':'💬'} ${esc(t.topic)}</button>`).join('') || '<button onclick="v69OpenTopicModal()">+ Start Topic</button>'}</div>
-      ${thread ? `<div class="v69-pinned">📌 <b>${esc(thread.topic)}</b><span>${esc(thread.Creator?.role === 'teacher' ? 'Teacher topic' : 'Student topic')}</span></div>` : ''}
-      <main class="v69-feed" id="v69-feed">${pending ? '<div class="v69-warning">Waiting for teacher approval before full class discussion.</div>' : ''}${replies.length ? replies.map(r => bubble(r, { reply: true, mine: isMine(r.userId), canReward: false })).join('') : '<div class="v69-empty small">No replies yet. Ask or answer first.</div>'}</main>
-      ${thread && !pending ? renderComposer('thread', thread.id) : ''}`;
-  }
-
-  function renderStudyInfo(group, thread) {
-    const participants = arr(group?.participants || state.peers);
-    const totals = state.achievements?.totals || {};
-    return `<div class="v69-card"><h3>${esc(group?.name || 'Study Group')}</h3><p>${participants.length} participants visible</p><div class="v69-stats"><span>⭐ ${totals.points || 0}</span><span>🔥 ${totals.streak || 0}</span><span>💬 ${state.threads.length}</span></div><button class="v69-btn primary" onclick="v69OpenTopicModal()">Create Topic</button></div>
-      <div class="v69-card"><h4>Participants</h4><div class="v69-member-list">${participants.length ? participants.map(p => `<button onclick="v69SelectPeer(${Number(p.id)})">${avatar(p,'sm')}<span>${esc(p.name)}<small>Private message</small></span></button>`).join('') : '<p>No classmates found. Check student class assignment.</p>'}</div></div>`;
-  }
-
-  // ---------------- TEACHER ----------------
-  window.renderTeacherV9Messages = async function () {
-    setTimeout(v69LoadTeacher, 80);
-    return shell('Messages & Study Rooms', 'Simple staff chats, class groups, parent messages and study moderation.', '<button class="v69-btn" onclick="v69LoadTeacher()">Refresh</button><button class="v69-btn primary" onclick="v69TeacherNew()">+ New</button>', 'v69-teacher-root');
-  };
-
-  window.v69LoadTeacher = async function () {
-    state.role = 'teacher';
-    if (!['groups','private','study','announcements'].includes(state.tab)) state.tab = 'groups';
-    const root = $('v69-teacher-root'); if (root) root.innerHTML = '<div class="v69-empty">Loading messages...</div>';
-    try {
-      const [groupsRes, contactsRes, threadsRes] = await Promise.all([chatV9API.getTeacherGroups(), chatV9API.getTeachers(), chatV9API.getClassroomThreads()]);
-      state.groups = arr(groupsRes.data);
-      state.contacts = arr(contactsRes.data).filter(u => !isMine(u.id));
-      state.threads = arr(threadsRes.data);
-      if (!state.selectedGroupId && state.groups[0]) state.selectedGroupId = state.groups[0].id;
-      if (!state.selectedPeerId && state.contacts[0]) state.selectedPeerId = state.contacts[0].id;
-      if (!state.selectedThreadId && state.threads[0]) state.selectedThreadId = state.threads[0].id;
-      if (state.tab === 'groups' && state.selectedGroupId) await v69LoadGroup(state.selectedGroupId, false);
-      if (state.tab === 'private' && state.selectedPeerId) await v69LoadDirect(state.selectedPeerId, false);
-      renderTeacher();
-    } catch(e) { if (root) root.innerHTML = `<div class="v69-empty error">${esc(e.message || 'Could not load messages')}</div>`; }
-  };
-
-  function renderTeacher() {
-    const root = $('v69-teacher-root'); if (!root) return;
-    let items=[];
-    if (state.tab === 'groups') items = state.groups.map(g => ({ ...g, __html: listItem(g, Number(g.id) === Number(state.selectedGroupId), `v69SelectGroup(${Number(g.id)})`, `${g.type || 'group'} • ${g.membershipRole || 'member'}`, '👥', unreadCount(state.messages)||'') }));
-    if (state.tab === 'private') items = state.contacts.map(c => ({ ...c, __html: listItem(c, Number(c.id) === Number(state.selectedPeerId), `v69SelectPeer(${Number(c.id)})`, c.role || 'teacher', c.role === 'admin' ? '🏫' : '👤') }));
-    if (state.tab === 'study') items = state.threads.map(t => ({ ...t, __html: listItem(t, Number(t.id) === Number(state.selectedThreadId), `v69SelectThread(${Number(t.id)})`, `${approval(t)} • ${arr(t.ThreadReplies).length} replies`, approval(t)==='pending'?'⏳':'💬') }));
-    if (state.tab === 'announcements') items = state.groups.filter(g => ['staff','department','announcement'].includes(g.type)).map(g => ({ ...g, __html: listItem(g, Number(g.id) === Number(state.selectedGroupId), `v69SelectGroup(${Number(g.id)})`, 'Broadcast/department group', '📣') }));
-    root.innerHTML = `<div class="v69-main-grid teacher">
-      ${renderLeft(tabTitle(), tabSub(), items, 'Nothing here yet')}
-      <section class="v69-chat-panel">${tabs([['groups','Groups'],['private','Direct'],['study','Study Rooms'],['announcements','Announcements']])}${teacherCenter()}</section>
-      <aside class="v69-info-panel">${teacherInfo()}</aside>
-    </div>`;
-    scrollBottom();
-  }
-  function tabTitle(){ return state.tab === 'groups' ? 'Groups' : state.tab === 'private' ? 'Direct Messages' : state.tab === 'study' ? 'Study Rooms' : 'Announcements'; }
-  function tabSub(){ return state.tab === 'study' ? 'Approve & monitor student topics' : state.tab === 'announcements' ? 'School and department notices' : 'Select a chat'; }
-  function teacherCenter(){ if (state.tab === 'study') return renderTeacherStudy(currentThread()); if (state.tab === 'groups' || state.tab === 'announcements') return renderGroupWindow(currentGroup()); return renderPrivateWindow(currentPeer()); }
-  function teacherInfo(){ if (state.tab === 'study') return renderTeacherStudyInfo(currentThread()); if (state.tab === 'groups' || state.tab === 'announcements') return renderGroupInfo(currentGroup()); return renderPrivateInfo(currentPeer()); }
-
-  function renderGroupWindow(group) {
-    if (!group) return '<div class="v69-empty">Select or create a group.</div>';
-    return `<header class="v69-chat-head"><div>${avatar({ name: group.name }, 'group')}<div><h3>${esc(group.name)}</h3><p><span class="v69-online"></span>${esc(group.type || 'group')} • ${state.members.length || 0} members</p></div></div><button class="v69-icon-btn" onclick="v69OpenMembersModal(${Number(group.id)})">Members</button></header>${pinnedMessages(state.messages)}<main class="v69-feed" id="v69-feed">${state.messages.length ? state.messages.map(m => bubble(m, { mine: isMine(m.senderId), canReward: m.Sender?.role === 'student' })).join('') : '<div class="v69-empty small">No messages yet.</div>'}</main>${renderComposer('group', group.id)}`;
-  }
-
-  function renderGroupInfo(group) {
-    return group ? `<div class="v69-card"><h3>${esc(group.name)}</h3><p>${esc(group.description || group.type || 'Group chat')}</p><button class="v69-btn primary" onclick="v69OpenMembersModal(${Number(group.id)})">Manage Members</button></div><div class="v69-card"><h4>Members</h4><div class="v69-member-list">${state.members.length ? state.members.map(m => `<div>${avatar(m.User,'sm')}<span>${esc(m.User?.name || 'User')}<small>${esc(m.User?.role || m.role)}</small></span></div>`).join('') : '<p>Open a group to load members.</p>'}</div></div>` : '';
-  }
-
-  function renderTeacherStudy(thread) {
-    if (!thread) return '<div class="v69-empty">Select or create a study room thread.</div>';
-    const replies = threadReplies(thread);
-    return `<header class="v69-chat-head"><div>${avatar(thread.Creator || { name:'Thread' }, 'group')}<div><h3>${esc(thread.topic)}</h3><p>${esc(thread.subject)} • ${approval(thread)}</p></div></div><button class="v69-icon-btn" onclick="v69OpenTeacherThreadModal()">＋</button></header><div class="v69-pinned">${esc(thread.content)}</div><main class="v69-feed" id="v69-feed">${replies.length ? replies.map(r => bubble(r, { reply:true, mine:isMine(r.userId), canReward:r.Author?.role === 'student' })).join('') : '<div class="v69-empty small">No replies yet.</div>'}</main>${renderComposer('thread', thread.id)}`;
-  }
-
-  function renderTeacherStudyInfo(thread) {
-    const participants = participantsFor(thread);
-    if (!thread) return `<div class="v69-card"><h3>Study Room Tools</h3><button class="v69-btn primary" onclick="v69OpenTeacherThreadModal()">Create Thread</button></div>`;
-    return `<div class="v69-card"><h3>Moderation</h3><p>${esc(thread.topic)}</p><div class="v69-stack"><button class="v69-btn primary" onclick="v69ApproveThread(${Number(thread.id)})">Approve</button><button class="v69-btn" onclick="v69ToggleThread(${Number(thread.id)},${!thread.isClosed})">${thread.isClosed ? 'Reopen' : 'Close'}</button><button class="v69-btn" onclick="v69PinThread(${Number(thread.id)},${!thread.isPinned})">${thread.isPinned ? 'Unpin' : 'Pin'}</button></div></div><div class="v69-card"><h4>Participants</h4><div class="v69-member-list">${participants.length ? participants.map(p => `<div>${avatar(p,'sm')}<span>${esc(p.name)}<small>student</small></span></div>`).join('') : '<p>No participants found.</p>'}</div></div>`;
-  }
-
-  // ---------------- PARENT ----------------
-  window.renderParentChat = async function () {
-    setTimeout(v69LoadParent, 80);
-    return shell('Parent Messages', 'Child-specific conversations with teachers and admin.', '<button class="v69-btn" onclick="v69LoadParent()">Refresh</button>', 'v69-parent-root');
-  };
-  window.v69LoadParent = async function () {
-    state.role = 'parent'; state.tab = 'parent';
-    const root = $('v69-parent-root'); if (root) root.innerHTML = '<div class="v69-empty">Loading parent messages...</div>';
-    try {
-      const [childrenRes, contactsRes] = await Promise.all([api.parent.getChildren().catch(() => ({ data: [] })), chatV9API.getParentContacts()]);
-      state.children = arr(childrenRes.data);
-      state.contacts = arr(contactsRes.data);
-      state.childId = localStorage.getItem('shule_selected_child_id') || state.children[0]?.id || null;
-      if (!state.selectedPeerId && state.contacts[0]) state.selectedPeerId = state.contacts[0].id;
-      if (state.selectedPeerId) await v69LoadDirect(state.selectedPeerId, false);
-      renderParent();
-    } catch(e) { if (root) root.innerHTML = `<div class="v69-empty error">${esc(e.message || 'Could not load parent messages')}</div>`; }
-  };
-  function renderParent() {
-    const root = $('v69-parent-root'); if (!root) return;
-    const contacts = state.contacts.map(c => ({ ...c, __html: listItem(c, Number(c.id) === Number(state.selectedPeerId), `v69SelectPeer(${Number(c.id)})`, `${c.role} • child-specific`, c.role === 'admin' ? '🏫' : '📚') }));
-    const selected = state.children.find(c => String(c.id) === String(state.childId));
-    root.innerHTML = `<div class="v69-main-grid parent">
-      <aside class="v69-list-panel"><div class="v69-panel-title"><h3>My Children</h3><small>Switch child context</small></div><select class="v69-search" onchange="v69SelectChild(this.value)">${state.children.map(c => `<option value="${c.id}" ${String(c.id) === String(state.childId) ? 'selected' : ''}>${esc(c.User?.name || c.name || 'Child')}</option>`).join('')}</select>${renderLeft('Contacts','Teachers & admin', contacts, 'No contacts found')}</aside>
-      <section class="v69-chat-panel">${renderPrivateWindow(currentPeer())}</section>
-      <aside class="v69-info-panel"><div class="v69-card"><h3>Conversation Context</h3><p><b>Selected child:</b> ${esc(selected?.User?.name || selected?.name || 'Not selected')}</p><p>Messages stay linked to this child context.</p><button class="v69-btn" onclick="v69PickFile()">Attach File</button><button class="v69-btn" onclick="v69ToggleVoice()">Voice Note</button></div></aside>
-    </div>`;
-    scrollBottom();
-  }
-
-  function renderPrivateWindow(peer) {
-    if (!peer) return '<div class="v69-empty">Select a contact.</div>';
-    return `<header class="v69-chat-head"><div>${avatar(peer)}<div><h3>${esc(peer.name)}</h3><p><span class="v69-online"></span>Online • private message</p></div></div><button class="v69-icon-btn" onclick="v69LoadDirect(${Number(peer.id)})">↻</button></header>${pinnedMessages(state.directMessages)}<main class="v69-feed" id="v69-feed">${state.directMessages.length ? state.directMessages.map(m => bubble(m, { mine:isMine(m.senderId), canReward:false })).join('') : '<div class="v69-empty small">No messages yet.</div>'}</main>${renderComposer('private', peer.id)}`;
-  }
-  function renderPrivateInfo(peer){ return peer ? `<div class="v69-card">${avatar(peer,'big')}<h3>${esc(peer.name)}</h3><p>${esc(peer.role || 'Contact')}</p></div>` : ''; }
-  function pinnedMessages(messages){ const pins = arr(messages).filter(m => meta(m).pinned); return pins.length ? `<div class="v69-pinned-list">${pins.slice(-2).map(p => `<span>📌 ${esc(p.content).slice(0,80)}</span>`).join('')}</div>` : ''; }
-
-  // ---------------- ACTIONS ----------------
-  window.v69SetTab = function (tab) { state.tab = tab; state.query = ''; if (state.role === 'teacher') v69LoadTeacher(); else if (state.role === 'parent') v69LoadParent(); else v69LoadStudent(); };
-  window.v69Search = function (q) { state.query = q || ''; if (state.role === 'teacher') renderTeacher(); else if (state.role === 'parent') renderParent(); else renderStudent(); };
-  window.v69SelectGroup = async function (id) { state.selectedGroupId = id; if (state.role === 'student') { const g = currentGroup(); state.peers = arr(g?.participants).filter(p => !isMine(p.id)); state.selectedThreadId = null; renderStudent(); } else { await v69LoadGroup(id); } };
-  window.v69SelectThread = function (id) { state.selectedThreadId = id; state.role === 'teacher' ? renderTeacher() : renderStudent(); };
-  window.v69SelectPeer = async function (id) { state.selectedPeerId = id; state.tab = state.role === 'student' ? 'private' : state.tab; await v69LoadDirect(id); };
-  window.v69SelectChild = async function (id) { state.childId = id; localStorage.setItem('shule_selected_child_id', id); renderParent(); };
-
-  window.v69LoadDirect = async function (id, rerender=true) { const res = await chatV9API.getDirectMessages(id); state.directMessages = arr(res.data); if (rerender) { if (state.role === 'parent') renderParent(); else if (state.role === 'teacher') renderTeacher(); else renderStudent(); } };
-  window.v69LoadGroup = async function (id, rerender=true) { const [msgs, members] = await Promise.all([chatV9API.getGroupMessages(id), chatV9API.getGroupMembers(id)]); state.messages = arr(msgs.data); state.members = arr(members.data); if (rerender) renderTeacher(); };
-
-  window.v69Send = async function (kind, id) {
-    const input = $(`v69-input-${kind}-${id}`);
-    const content = input?.value?.trim() || (state.attachment ? 'Shared an attachment' : '');
-    if (!content) return;
-    const replyTo = state.replyTo ? { id: state.replyTo.id, text: state.replyTo.text, name: state.replyTo.name } : null;
-    try {
-      if (kind === 'private') await chatV9API.sendDirectMessage(Number(id), content, state.attachment?.url || null, state.attachment || null, replyTo);
-      else if (kind === 'group') await chatV9API.sendGroupMessage(Number(id), content, state.attachment?.url || null, state.attachment || null, replyTo);
-      else await chatV9API.replyToThread(Number(id), content, null, state.attachment?.url || null, state.attachment || null, replyTo);
-      state.attachment = null; state.replyTo = null; if (input) input.value = '';
-      if (kind === 'private') await v69LoadDirect(id); else if (kind === 'group') await v69LoadGroup(id); else state.role === 'teacher' ? await v69LoadTeacher() : await v69LoadStudent();
-    } catch(e) { toast(e.message || 'Send failed', 'error'); }
-  };
-  window.v69Emoji = (kind,id,emoji) => { const input = $(`v69-input-${kind}-${id}`); if (input) { input.value += emoji; input.focus(); } };
-  window.v69Typing = () => { const line = $('v69-typing-line'); if (!line) return; line.textContent = 'Typing...'; clearTimeout(state.typingTimer); state.typingTimer = setTimeout(() => line.textContent = '', 1100); };
-  window.v69PickFile = () => $('v69-file-input')?.click();
-  window.v69UploadFile = async (file) => { try { state.attachment = await uploadFile(file); const row = document.querySelector('.v69-file-preview'); if (row) row.innerHTML = `${fileLink(state.attachment.url, state.attachment.name, state.attachment.mimeType)} <button onclick="v69ClearFile()">×</button>`; } catch(e) { toast(e.message || 'Upload failed', 'error'); } };
-  window.v69ClearFile = () => { state.attachment = null; const row = document.querySelector('.v69-file-preview'); if (row) row.innerHTML = ''; };
-  window.v69SetReply = (kind,id,name,text) => { state.replyTo = { kind, id, name, text }; state.role === 'teacher' ? renderTeacher() : state.role === 'parent' ? renderParent() : renderStudent(); };
-  window.v69CancelReply = () => { state.replyTo = null; state.role === 'teacher' ? renderTeacher() : state.role === 'parent' ? renderParent() : renderStudent(); };
-  window.v69React = async (id,emoji) => { try { await chatV9API.reactToMessage(id, emoji); state.tab === 'groups' || state.tab === 'announcements' ? await v69LoadGroup(state.selectedGroupId) : await v69LoadDirect(state.selectedPeerId); } catch(e) { toast(e.message || 'Reaction failed', 'error'); } };
-  window.v69ReactReply = async (id,emoji) => { try { await chatV9API.reactToReply(id, emoji); state.role === 'teacher' ? await v69LoadTeacher() : await v69LoadStudent(); } catch(e) { toast(e.message || 'Reaction failed', 'error'); } };
-  window.v69Pin = async (id) => { try { await chatV9API.pinMessage(id); state.tab === 'groups' || state.tab === 'announcements' ? await v69LoadGroup(state.selectedGroupId) : await v69LoadDirect(state.selectedPeerId); } catch(e) { toast(e.message || 'Pin failed', 'error'); } };
-  window.v69PinReply = async (id) => { try { await chatV9API.pinReply(id); state.role === 'teacher' ? await v69LoadTeacher() : await v69LoadStudent(); } catch(e) { toast(e.message || 'Pin failed', 'error'); } };
-  window.v69Moderate = async (id) => { try { await chatV9API.moderateMessage(id, { action:'reported', reason:'Reported from chat' }); toast('Reported for moderation', 'success'); } catch(e) { toast(e.message || 'Report failed', 'error'); } };
-  window.v69ModerateReply = async (id) => { try { await chatV9API.moderateReply(id, { action:'reported', reason:'Reported from study room' }); toast('Reported for moderation', 'success'); } catch(e) { toast(e.message || 'Report failed', 'error'); } };
-  window.v69AwardMessage = async (id, points, streak) => { try { await chatV9API.awardChatMessage(id, points, streak, 'Teacher reward'); await v69LoadGroup(state.selectedGroupId); toast('Student rewarded', 'success'); } catch(e) { toast(e.message || 'Only students can receive stars/streaks', 'error'); } };
-  window.v69AwardReply = async (id, points, streak) => { try { await chatV9API.awardThreadReply(id, points, streak, 'Good study contribution'); await v69LoadTeacher(); toast('Student rewarded', 'success'); } catch(e) { toast(e.message || 'Reward failed', 'error'); } };
-  window.v69ApproveThread = async (id) => { try { await chatV9API.updateClassroomThread(id, { approvalStatus:'approved' }); await v69LoadTeacher(); } catch(e) { toast(e.message, 'error'); } };
-  window.v69ToggleThread = async (id, closed) => { try { await chatV9API.updateClassroomThread(id, { isClosed: closed }); await v69LoadTeacher(); } catch(e) { toast(e.message, 'error'); } };
-  window.v69PinThread = async (id, pinned) => { try { await chatV9API.updateClassroomThread(id, { isPinned: pinned }); await v69LoadTeacher(); } catch(e) { toast(e.message, 'error'); } };
-
-  window.v69ToggleVoice = async function () {
-    try {
-      if (state.recording && state.recorder) { state.recorder.stop(); state.recording = false; return; }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-      state.chunks = []; state.recorder = new MediaRecorder(stream); state.recording = true; toast('Recording voice note... click mic again to stop', 'info');
-      state.recorder.ondataavailable = (e) => state.chunks.push(e.data);
-      state.recorder.onstop = async () => { stream.getTracks().forEach(t => t.stop()); const blob = new Blob(state.chunks, { type:'audio/webm' }); const file = new File([blob], `voice-note-${Date.now()}.webm`, { type:'audio/webm' }); state.attachment = await uploadFile(file); toast('Voice note attached', 'success'); state.role === 'teacher' ? renderTeacher() : state.role === 'parent' ? renderParent() : renderStudent(); };
-      state.recorder.start();
-    } catch(e) { toast('Voice recording needs microphone permission. You can still attach an audio file.', 'error'); }
-  };
-
-  function modal(html) { let m = $('v69-modal'); if (!m) { m = document.createElement('div'); m.id = 'v69-modal'; document.body.appendChild(m); } m.className = 'v69-modal'; m.innerHTML = `<div class="v69-modal-card"><button class="v69-close" onclick="v69CloseModal()">×</button>${html}</div>`; }
-  window.v69CloseModal = () => $('v69-modal')?.remove();
-  window.v69OpenTopicModal = () => modal(`<h3>Create Study Topic</h3><p>Student topics wait for teacher approval. Teacher topics open immediately.</p><label>Subject</label><input id="v69-topic-subject" placeholder="Mathematics"><label>Topic</label><input id="v69-topic-title" placeholder="Fractions revision"><label>Question</label><textarea id="v69-topic-content" placeholder="Ask your question..."></textarea><div class="v69-modal-actions"><button class="v69-btn" onclick="v69CloseModal()">Cancel</button><button class="v69-btn primary" onclick="v69SubmitTopic()">Create</button></div>`);
-  window.v69SubmitTopic = async () => { const g = currentGroup(); const subject = $('v69-topic-subject')?.value?.trim() || 'Study Group'; const topic = $('v69-topic-title')?.value?.trim(); const content = $('v69-topic-content')?.value?.trim(); if (!topic || !content) return toast('Topic and question are required','error'); try { await chatV9API.createClassroomThread({ classId: g?.classId || null, subject, topic, content, metadata:{ approvalStatus: state.role === 'student' ? 'pending' : 'approved', source:`${state.role}-created-topic` } }); v69CloseModal(); state.role === 'teacher' ? await v69LoadTeacher() : await v69LoadStudent(); } catch(e) { toast(e.message,'error'); } };
-  window.v69OpenTeacherThreadModal = () => { state.role = 'teacher'; v69OpenTopicModal(); };
-  window.v69TeacherNew = () => state.tab === 'groups' ? v69OpenGroupModal() : state.tab === 'study' ? v69OpenTeacherThreadModal() : toast('Open Groups or Study Rooms to create items', 'info');
-  window.v69OpenGroupModal = async () => { try { const res = await chatV9API.getAvailableMembers(); state.available = arr(res.data); } catch { state.available = []; } modal(`<h3>Create Group</h3><label>Group name</label><input id="v69-group-name" placeholder="Grade 6 Maths"><label>Description</label><input id="v69-group-desc" placeholder="Optional"><label>Add members</label><div class="v69-member-picker">${state.available.map(u => `<label><input type="checkbox" value="${Number(u.id)}"> ${esc(u.name)} <small>• ${esc(u.role)}</small></label>`).join('')}</div><div class="v69-modal-actions"><button class="v69-btn" onclick="v69CloseModal()">Cancel</button><button class="v69-btn primary" onclick="v69CreateGroup()">Create Group</button></div>`); };
-  window.v69CreateGroup = async () => { const name = $('v69-group-name')?.value?.trim(); if (!name) return toast('Group name required','error'); const ids = [...document.querySelectorAll('.v69-member-picker input:checked')].map(x => Number(x.value)); try { await chatV9API.createTeacherGroup({ name, description:$('v69-group-desc')?.value || '', type:'study', memberUserIds:ids }); v69CloseModal(); await v69LoadTeacher(); } catch(e) { toast(e.message,'error'); } };
-  window.v69OpenMembersModal = async (groupId) => { try { const [m,a] = await Promise.all([chatV9API.getGroupMembers(groupId), chatV9API.getAvailableMembers()]); const selected = new Set(arr(m.data).map(x => Number(x.User?.id || x.userId))); state.available = arr(a.data); modal(`<h3>Manage Members</h3><p>Add/remove students, teachers, parents and admins.</p><div class="v69-member-picker">${state.available.map(u => `<label><input type="checkbox" value="${Number(u.id)}" ${selected.has(Number(u.id)) ? 'checked' : ''}> ${esc(u.name)} <small>• ${esc(u.role)}</small></label>`).join('')}</div><div class="v69-modal-actions"><button class="v69-btn" onclick="v69CloseModal()">Cancel</button><button class="v69-btn primary" onclick="v69SaveMembers(${Number(groupId)})">Save</button></div>`); } catch(e) { toast(e.message,'error'); } };
-  window.v69SaveMembers = async (groupId) => { const ids = [...document.querySelectorAll('.v69-member-picker input:checked')].map(x => Number(x.value)); try { await chatV9API.updateGroupMembers(groupId, ids); v69CloseModal(); await v69LoadGroup(groupId); } catch(e) { toast(e.message,'error'); } };
-
-  // Dashboard-controller integration names
-  window.v9RefreshTeacherChat = window.v69LoadTeacher;
-  window.v9LoadStudentThreads = window.v69LoadStudent;
+  // Actions
+  window.v68SetTab = k => { appState.tab=k; appState.query=''; appState.role==='teacher'?v68RenderTeacher():appState.role==='parent'?v68RenderParent():v68RenderStudent(); };
+  window.v68Search = q => { appState.query=q||''; appState.role==='teacher'?v68RenderTeacher():v68RenderStudent(); };
+  window.v68SelectGroup = async id => { appState.selectedGroupId=id; if(appState.role==='teacher') await v68LoadGroup(id); else v68RenderStudent(); };
+  window.v68SelectThread = id => { appState.selectedThreadId=id; appState.role==='teacher'?v68RenderTeacher():v68RenderStudent(); };
+  window.v68SelectPeer = async id => { appState.selectedPeerId=id; await v68LoadDirect(id); };
+  window.v68SelectChild = id => { appState.selectedChildId=id; v68RenderParent(); };
+  window.v68LoadGroup = async id => { try{ const [msgs, mem] = await Promise.all([api().getGroupMessages(id), api().getGroupMembers(id).catch(()=>({data:[]}))]); appState.messages=msgs.data||[]; appState.members=mem.data||[]; v68RenderTeacher(); }catch(e){ toast(e.message,'error'); } };
+  window.v68LoadDirect = async id => { try{ const res=await api().getDirectMessages(id); appState.messages=res.data||[]; if(appState.messages.length) appState.messages.forEach(m=>{ if(Number(m.receiverId)===Number(currentUser().id)) api().markMessageRead(m.id).catch(()=>{}); }); appState.role==='parent'?v68RenderParent():appState.role==='teacher'?v68RenderTeacher():v68RenderStudent(); }catch(e){ toast(e.message,'error'); } };
+  window.v68Typing = () => { appState.typingText='Typing...'; const line=$('v68-typing-line'); if(line)line.textContent='Typing...'; clearTimeout(appState.typingTimer); appState.typingTimer=setTimeout(()=>{appState.typingText=''; const l=$('v68-typing-line'); if(l)l.textContent='';},900); };
+  window.v68Reply = (id,name,text) => { appState.replyTo={id,name,text}; appState.role==='teacher'?v68RenderTeacher():appState.role==='parent'?v68RenderParent():v68RenderStudent(); };
+  window.v68CancelReply = () => { appState.replyTo=null; appState.role==='teacher'?v68RenderTeacher():appState.role==='parent'?v68RenderParent():v68RenderStudent(); };
+  window.v68Emoji = (kind,id,emoji) => { const input=$(`v68-input-${kind}-${id}`); if(input){ input.value += emoji; input.focus(); } };
+  window.v68PickFile = () => $('v68-file-input')?.click();
+  window.v68UploadFile = async file => { try{ appState.attachment=await uploadAny(file); toast('Attachment ready','success'); appState.role==='teacher'?v68RenderTeacher():appState.role==='parent'?v68RenderParent():v68RenderStudent(); }catch(e){ toast(e.message,'error'); } };
+  window.v68ClearFile = () => { appState.attachment=null; appState.role==='teacher'?v68RenderTeacher():appState.role==='parent'?v68RenderParent():v68RenderStudent(); };
+  window.v68Send = async (kind,id) => { const input=$(`v68-input-${kind}-${id}`); const content=(input?.value||'').trim(); const att=appState.attachment; if(!content&&!att)return; try{ if(kind==='thread') await api().replyToThread(id, content || 'Attachment', null, att?.url||null, att||null, appState.replyTo); else if(kind==='group') await api().sendGroupMessage(id, content || 'Attachment', att?.url||null, att||null, appState.replyTo); else await api().sendDirectMessage(id, content || 'Attachment', att?.url||null, att||null, { ...(appState.replyTo||{}), childId: appState.selectedChildId||null }); input.value=''; appState.attachment=null; appState.replyTo=null; if(kind==='thread'){ appState.role==='teacher'?await v68LoadTeacher():await v68LoadStudent(); } else if(kind==='group') await v68LoadGroup(id); else await v68LoadDirect(id); }catch(e){ toast(e.message,'error'); } };
+  window.v68React = async (id,e) => { try{ await api().reactToMessage(id,e); appState.tab==='groups'?await v68LoadGroup(appState.selectedGroupId):await v68LoadDirect(appState.selectedPeerId); }catch(err){ toast(err.message,'error'); } };
+  window.v68ReactReply = async (id,e) => { try{ await api().reactToReply(id,e); appState.role==='teacher'?await v68LoadTeacher():await v68LoadStudent(); }catch(err){ toast(err.message,'error'); } };
+  window.v68Pin = async id => { try{ await api().pinMessage(id); appState.tab==='groups'?await v68LoadGroup(appState.selectedGroupId):await v68LoadDirect(appState.selectedPeerId); }catch(e){ toast(e.message,'error'); } };
+  window.v68PinReply = async id => { try{ await api().pinReply(id); appState.role==='teacher'?await v68LoadTeacher():await v68LoadStudent(); }catch(e){ toast(e.message,'error'); } };
+  window.v68Moderate = async id => { try{ await api().moderateMessage(id,{action:'reported',reason:'Reported from chat'}); toast('Reported to moderation','success'); }catch(e){ toast(e.message,'error'); } };
+  window.v68ModerateReply = async id => { try{ await api().moderateReply(id,{action:'reported',reason:'Reported from study room'}); toast('Reported to moderation','success'); }catch(e){ toast(e.message,'error'); } };
+  window.v68AwardMessage = async (id,p,s) => { try{ await api().awardChatMessage(id,p,s,'Teacher reward'); await v68LoadGroup(appState.selectedGroupId); toast('Student rewarded','success'); }catch(e){ toast(e.message,'error'); } };
+  window.v68AwardReply = async (id,p,s) => { try{ await api().awardThreadReply(id,p,s,'Study contribution'); await v68LoadTeacher(); toast('Student rewarded','success'); }catch(e){ toast(e.message,'error'); } };
+  window.v68ApproveThread = async id => { try{ await api().updateClassroomThread(id,{approvalStatus:'approved'}); await v68LoadTeacher(); }catch(e){ toast(e.message,'error'); } };
+  window.v68ToggleThread = async (id,closed) => { try{ await api().updateClassroomThread(id,{isClosed:closed}); await v68LoadTeacher(); }catch(e){ toast(e.message,'error'); } };
+  window.v68ToggleVoice = async () => { try{ if(appState.recording){ appState.recorder?.stop(); appState.recording=false; return; } const stream=await navigator.mediaDevices.getUserMedia({audio:true}); appState.chunks=[]; appState.recorder=new MediaRecorder(stream); appState.recorder.ondataavailable=e=>appState.chunks.push(e.data); appState.recorder.onstop=async()=>{ stream.getTracks().forEach(t=>t.stop()); const file=new File([new Blob(appState.chunks,{type:'audio/webm'})],`voice-${Date.now()}.webm`,{type:'audio/webm'}); appState.attachment=await uploadAny(file); toast('Voice note attached','success'); appState.role==='teacher'?v68RenderTeacher():appState.role==='parent'?v68RenderParent():v68RenderStudent(); }; appState.recorder.start(); appState.recording=true; toast('Recording voice note... tap mic again to stop','info'); appState.role==='teacher'?v68RenderTeacher():appState.role==='parent'?v68RenderParent():v68RenderStudent(); }catch(e){ toast('Microphone is blocked or unavailable','error'); } };
+  function modal(html){ let m=$('v68-modal'); if(!m){m=document.createElement('div');m.id='v68-modal';document.body.appendChild(m);} m.className='v68-modal'; m.innerHTML=`<div class="v68-modal-card"><button class="v68-close" onclick="v68CloseModal()">×</button>${html}</div>`; }
+  window.v68CloseModal=()=>$('v68-modal')?.remove();
+  window.v68OpenTopicModal=()=>modal(`<h3>Create Study Topic</h3><p>Student topics wait for teacher approval. Teacher topics open immediately.</p><label>Subject</label><input id="v68-topic-subject" placeholder="Mathematics"><label>Topic</label><input id="v68-topic-title" placeholder="Fractions revision"><label>Question</label><textarea id="v68-topic-content" placeholder="Ask your question..."></textarea><div class="v68-modal-actions"><button class="v68-btn" onclick="v68CloseModal()">Cancel</button><button class="v68-btn primary" onclick="v68SubmitTopic()">Create</button></div>`);
+  window.v68SubmitTopic=async()=>{ const g=currentGroup(); const subject=$('v68-topic-subject')?.value?.trim()||'Study Group'; const topic=$('v68-topic-title')?.value?.trim(); const content=$('v68-topic-content')?.value?.trim(); if(!topic||!content)return toast('Topic and question are required','error'); try{ await api().createClassroomThread({classId:g?.classId||null,subject,topic,content,metadata:{approvalStatus:appState.role==='student'?'pending':'approved',source:`${appState.role}-created-topic`}}); v68CloseModal(); appState.role==='teacher'?await v68LoadTeacher():await v68LoadStudent(); }catch(e){ toast(e.message,'error'); } };
+  window.v68TeacherNew=()=> appState.tab==='groups'?v68OpenGroupModal():appState.tab==='study'?v68OpenTopicModal():appState.tab==='announce'?v68Broadcast():toast('Choose Groups or Study Rooms first','info');
+  window.v68OpenGroupModal=async()=>{ try{ const res=await api().getAvailableMembers(); appState.available=res.data||[]; }catch{ appState.available=[]; } modal(`<h3>Create Group</h3><label>Group name</label><input id="v68-group-name" placeholder="Grade 6 Maths"><label>Description</label><input id="v68-group-desc" placeholder="Optional"><label>Add members</label><div class="v68-member-picker">${appState.available.map(u=>`<label><input type="checkbox" value="${Number(u.id)}"> ${esc(u.name)} <small>• ${esc(u.role)}</small></label>`).join('')}</div><div class="v68-modal-actions"><button class="v68-btn" onclick="v68CloseModal()">Cancel</button><button class="v68-btn primary" onclick="v68CreateGroup()">Create Group</button></div>`); };
+  window.v68CreateGroup=async()=>{ const name=$('v68-group-name')?.value?.trim(); if(!name)return toast('Group name required','error'); const ids=[...document.querySelectorAll('.v68-member-picker input:checked')].map(x=>Number(x.value)); try{ await api().createTeacherGroup({name,description:$('v68-group-desc')?.value||'',type:'study',memberUserIds:ids}); v68CloseModal(); await v68LoadTeacher(); }catch(e){ toast(e.message,'error'); } };
+  window.v68OpenMembersModal=async id=>{ try{ const [m,a]=await Promise.all([api().getGroupMembers(id),api().getAvailableMembers()]); const selected=new Set((m.data||[]).map(x=>Number(x.User?.id||x.userId))); const available=a.data||[]; modal(`<h3>Manage Members</h3><div class="v68-member-picker">${available.map(u=>`<label><input type="checkbox" value="${Number(u.id)}" ${selected.has(Number(u.id))?'checked':''}> ${esc(u.name)} <small>• ${esc(u.role)}</small></label>`).join('')}</div><div class="v68-modal-actions"><button class="v68-btn" onclick="v68CloseModal()">Cancel</button><button class="v68-btn primary" onclick="v68SaveMembers(${Number(id)})">Save</button></div>`); }catch(e){ toast(e.message,'error'); } };
+  window.v68SaveMembers=async id=>{ const ids=[...document.querySelectorAll('.v68-member-picker input:checked')].map(x=>Number(x.value)); try{ await api().updateGroupMembers(id,ids); v68CloseModal(); await v68LoadGroup(id); }catch(e){ toast(e.message,'error'); } };
+  window.v68Broadcast=()=>toast('Broadcast saved to announcements workflow. Admin broadcast uses school announcement center.','success');
+  window.v9RefreshTeacherChat = window.v68LoadTeacher; window.v9LoadStudentThreads = window.v68LoadStudent;
 })();
