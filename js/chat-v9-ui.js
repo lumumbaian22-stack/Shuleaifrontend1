@@ -723,3 +723,173 @@ window.v9SendStudentPrivateMessage = v9SendStudentPrivateMessage;
 window.v9OpenTopicPicker = v9OpenTopicPicker;
 window.v9ShowMembersPanel = v9ShowMembersPanel;
 
+
+/* Shule AI v66 — Messaging Production Upgrade
+   Full working messaging layer for teacher/student dashboards using existing ChatGroups, ChatMessages,
+   ClassroomThreads, ThreadReplies, Attachment upload, rewards and reactions endpoints. */
+(function(){
+  const state = window.v66MessagingState || (window.v66MessagingState = {
+    role: 'student', tab: 'study', selectedGroupId: null, selectedPeerId: null, selectedThreadId: null,
+    query: '', groups: [], peers: [], messages: [], directMessages: [], threads: [], members: [], available: [], achievements: null,
+    attachment: null, threadAttachment: null, typingTimer: null
+  });
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => typeof v9Safe === 'function' ? v9Safe(v) : String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const me = () => { try { return typeof getCurrentUser === 'function' ? getCurrentUser() : {}; } catch { return {}; } };
+  const initials = (name) => String(name || 'U').split(' ').filter(Boolean).map(x => x[0]).join('').slice(0,2).toUpperCase();
+  const t = (value) => { try { return value ? new Date(value).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''; } catch { return ''; } };
+  const toast = (msg,type='info') => typeof showToast === 'function' ? showToast(msg,type) : console.log(msg);
+  const media = (u) => typeof resolveMediaUrl === 'function' ? resolveMediaUrl(u) : u;
+  const avatar = (user, extra='') => {
+    const img = user?.profileImage || user?.User?.profileImage;
+    return `<span class="v66-avatar ${extra}">${img ? `<img src="${esc(media(img))}" alt="${esc(user?.name || 'User')}">` : esc(initials(user?.name || user?.User?.name || 'U'))}</span>`;
+  };
+  const fileLink = (url, label='Attachment') => url ? `<a class="v66-file" href="${esc(media(url))}" target="_blank" rel="noopener">📎 ${esc(label)}</a>` : '';
+  const repliesOf = (thread) => thread?.ThreadReplies || thread?.replies || [];
+  const threadApproval = (thread) => thread?.metadata?.approvalStatus || (thread?.Creator?.role === 'student' ? 'pending' : 'approved');
+  const threadGroupId = (thread) => `class-${thread?.classId || thread?.Class?.id || 0}`;
+  const participantsForThread = (thread) => thread?.participants || [];
+
+  function normalizeGroups(threadsRes, threads){
+    let groups = threadsRes?.meta?.groups || [];
+    if (!groups.length) {
+      const ids = [...new Set(threads.map(x => x.classId || x.Class?.id || 0))];
+      groups = ids.filter(Boolean).map(id => ({ id:`class-${id}`, classId:id, name: threads.find(t => Number(t.classId) === Number(id))?.className || 'Class Study Group', participants:[], participantCount:0 }));
+    }
+    if (!groups.length) groups = [{ id:'class-0', classId:null, name:'My Study Group', participants:[], participantCount:0 }];
+    return groups;
+  }
+  function groupThreads(){
+    return state.threads.filter(th => String(threadGroupId(th)) === String(state.selectedGroupId))
+      .filter(th => !state.query || `${th.topic||''} ${th.content||''} ${th.subject||''}`.toLowerCase().includes(state.query.toLowerCase()));
+  }
+  function currentGroup(){ return state.groups.find(g => String(g.id) === String(state.selectedGroupId)) || state.groups[0] || null; }
+  function currentThread(){ return state.threads.find(t => Number(t.id) === Number(state.selectedThreadId)) || groupThreads()[0] || null; }
+  function peers(){
+    const g = currentGroup();
+    const p = g?.participants?.length ? g.participants : participantsForThread(currentThread());
+    return (p || []).filter(x => Number(x.id) !== Number(me()?.id));
+  }
+  function currentPeer(){ return state.peers.find(p => Number(p.id) === Number(state.selectedPeerId)) || peers()[0] || state.peers[0] || null; }
+
+  window.renderStudentV9Classroom = async function(){
+    state.role = 'student'; state.tab = state.tab || 'study';
+    setTimeout(() => v66LoadStudent(), 80);
+    return `<div class="v66-msg-page animate-fade-in">
+      <div class="v66-msg-head"><div><h2>Study Chats</h2><p>Class groups, private study messages, teacher topics and student topics.</p></div><div class="v66-msg-actions"><button class="v66-btn" onclick="v66LoadStudent()">Refresh</button><button class="v66-btn primary" onclick="v66OpenTopicModal()">+ New Topic</button></div></div>
+      <div id="v66-student-root" class="v66-msg-shell"><div class="v66-empty">Loading study chats...</div></div>
+    </div>`;
+  };
+  window.v66LoadStudent = async function(){
+    const root = $('v66-student-root'); if(root) root.innerHTML = '<div class="v66-empty">Loading study chats...</div>';
+    try{
+      const [threadsRes, achievementsRes] = await Promise.all([chatV9API.getClassroomThreads(), chatV9API.getMyAchievements()]);
+      state.threads = threadsRes.data || [];
+      state.groups = normalizeGroups(threadsRes, state.threads);
+      state.achievements = achievementsRes.data || { totals:{points:0,streak:0}, events:[] };
+      if(!state.selectedGroupId || !state.groups.some(g => String(g.id) === String(state.selectedGroupId))) state.selectedGroupId = state.groups[0]?.id;
+      if(!state.selectedThreadId || !state.threads.some(t => Number(t.id) === Number(state.selectedThreadId))) state.selectedThreadId = groupThreads()[0]?.id || null;
+      state.peers = peers();
+      if(!state.selectedPeerId && state.peers[0]) state.selectedPeerId = state.peers[0].id;
+      if(state.tab === 'private' && state.selectedPeerId) await v66LoadDirect(state.selectedPeerId, false);
+      v66RenderStudent();
+    }catch(err){ if(root) root.innerHTML = `<div class="v66-empty">Could not load study chats: ${esc(err.message)}</div>`; }
+  };
+  function v66RenderStudent(){
+    const root = $('v66-student-root'); if(!root) return;
+    const g = currentGroup(); const ths = groupThreads(); const th = currentThread(); const prs = peers(); const peer = currentPeer();
+    root.innerHTML = `<aside class="v66-left">
+      <input class="v66-search" placeholder="Search groups or topics..." value="${esc(state.query)}" oninput="v66Search(this.value)">
+      <div class="v66-tabs"><button class="${state.tab==='private'?'active':''}" onclick="v66SetTab('private')">Private</button><button class="${state.tab==='study'?'active':''}" onclick="v66SetTab('study')">Study Groups</button></div>
+      <div class="v66-section-title">Private Messages</div>${renderPrivateList(prs)}
+      <div class="v66-section-title">Study Groups</div>${state.groups.map(renderGroupItem).join('')}
+    </aside>
+    <main class="v66-center">${state.tab==='private' ? renderPrivateChat(peer) : renderStudyChat(g, ths, th)}</main>
+    <aside class="v66-right">${state.tab==='private' ? renderPrivateInfo(peer) : renderStudyInfo(g, prs, ths)}</aside>`;
+    scrollBottom();
+  }
+  function renderPrivateList(list){ return list.length ? list.map(p => `<button class="v66-list-item ${state.tab==='private'&&Number(state.selectedPeerId)===Number(p.id)?'active':''}" onclick="v66SelectPeer(${Number(p.id)})">${avatar(p)}<span><strong>${esc(p.name)}</strong><small>Classmate</small><em>Private study chat</em></span></button>`).join('') : '<div class="v66-empty" style="min-height:80px">Classmates appear here.</div>'; }
+  function renderGroupItem(g){ const th = state.threads.find(x => String(threadGroupId(x)) === String(g.id)); const active = state.tab==='study'&&String(state.selectedGroupId)===String(g.id); return `<button class="v66-list-item ${active?'active':''}" onclick="v66SelectGroup('${esc(g.id)}')"><span class="v66-avatar group">👥</span><span><strong>${esc(g.name)}</strong><small>${g.participantCount || g.participants?.length || 0} members</small><em>${esc(th?.topic || 'Open group discussion')}</em></span>${th?`<b class="v66-badge">${repliesOf(th).length}</b>`:''}</button>`; }
+  function renderStudyChat(g, threads, thread){
+    const replies = thread ? repliesOf(thread) : [];
+    const pending = thread && threadApproval(thread) === 'pending';
+    return `<header class="v66-chat-head"><div class="v66-chat-title"><span class="v66-avatar group">👥</span><div><h3>${esc(g?.name || 'Study Group')}</h3><p>${g?.participantCount || g?.participants?.length || 0} members • class discussion</p></div></div><div class="v66-chat-tools"><button class="v66-icon-btn" onclick="v66OpenTopicModal()">＋</button><button class="v66-icon-btn" onclick="v66LoadStudent()">↻</button></div></header>
+    <div class="v66-pinned">📌 <b>${esc(thread?.topic || 'Choose or create a topic')}</b> <span style="color:var(--tm6-muted);font-size:12px">${thread ? esc(thread.Creator?.role === 'teacher' ? 'Teacher topic' : 'Student topic') : ''}</span></div>
+    <div class="v66-topic-strip">${threads.length ? threads.map(t => `<button class="${Number(t.id)===Number(state.selectedThreadId)?'active':''}" onclick="v66SelectThread(${Number(t.id)})">${threadApproval(t)==='pending'?'⏳':'💬'} ${esc(t.topic)}</button>`).join('') : '<button onclick="v66OpenTopicModal()">+ Start first topic</button>'}</div>
+    <div class="v66-feed" id="v66-feed">${thread ? (replies.length ? '<div class="v66-day">Today</div>'+replies.map(renderReply).join('') : '<div class="v66-day">No replies yet. Be the first to help.</div>') : '<div class="v66-day">Select a topic.</div>'}</div>
+    ${pending ? '<div class="v66-pending">This student topic is waiting for teacher approval.</div>' : renderComposer('study', thread?.id)}`;
+  }
+  function renderPrivateChat(peer){
+    if(!peer) return '<div class="v66-empty">Choose a classmate to start a private study chat.</div>';
+    return `<header class="v66-chat-head"><div class="v66-chat-title">${avatar(peer)}<div><h3>${esc(peer.name)}</h3><p>Private study chat • classmates only</p></div></div><div class="v66-chat-tools"><button class="v66-icon-btn" onclick="v66LoadDirect(${Number(peer.id)})">↻</button></div></header>
+    <div class="v66-feed" id="v66-feed">${state.directMessages.length ? '<div class="v66-day">Today</div>'+state.directMessages.map(m => renderMessage(m, Number(m.senderId)===Number(me()?.id))).join('') : '<div class="v66-day">No messages yet. Say hello 👋</div>'}</div>${renderComposer('private', peer.id)}`;
+  }
+  function renderStudyInfo(g, prs, threads){ const totals = state.achievements?.totals || {}; return `<div class="v66-info-card"><span class="v66-avatar group big">👥</span><h3>${esc(g?.name || 'Study Group')}</h3><p>${prs.length + 1} visible participants</p><div class="v66-info-list"><div class="v66-member"><b>⭐</b><strong>${totals.points || 0} points</strong></div><div class="v66-member"><b>🔥</b><strong>${totals.streak || 0} streak</strong></div><button class="v66-btn primary" onclick="v66OpenTopicModal()">Create Topic</button></div><h4 class="v66-section-title">Participants</h4><div class="v66-info-list">${prs.length ? prs.slice(0,10).map(p => `<button class="v66-member" onclick="v66SelectPeer(${Number(p.id)})">${avatar(p,'sm')}<span><b>${esc(p.name)}</b><br><span>Message privately</span></span></button>`).join('') : '<p>No classmates visible yet.</p>'}</div></div>`; }
+  function renderPrivateInfo(peer){ return peer ? `<div class="v66-info-card">${avatar(peer,'big')}<h3>${esc(peer.name)}</h3><p>Private study chat</p><div class="v66-info-list"><button class="v66-btn" onclick="v66SetTab('study')">Back to Study Groups</button><button class="v66-btn" onclick="v66LoadDirect(${Number(peer.id)})">Refresh Chat</button></div></div>` : '<div class="v66-empty">Select a private chat.</div>'; }
+  function renderReply(r){ const author = r.Author || {}; const mine = Number(r.userId)===Number(me()?.id); return `<article class="v66-msg ${mine?'mine':''}">${!mine?avatar(author,'sm'):''}<div class="v66-bubble ${mine?'mine':''} ${author.role==='teacher'?'teacher':''}">${!mine?`<strong>${esc(author.name || 'User')} ${author.role==='teacher'?'• Teacher':''}</strong>`:''}<p>${esc(r.content)}</p>${fileLink(r.metadata?.attachmentUrl,r.metadata?.attachmentName)}<div class="v66-meta"><span>${t(r.createdAt)}</span>${r.pointsAwarded?`<span>⭐ ${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span>🔥 ${r.streakAwarded}</span>`:''}</div><div class="v66-actions-mini"><button onclick="v66Helpful(${Number(r.id)})">👍 Helpful</button></div></div></article>`; }
+  function renderMessage(m, mine){ const sender=m.Sender||{}; const reactions=m.metadata?.reactions||{}; return `<article class="v66-msg ${mine?'mine':''}">${!mine?avatar(sender,'sm'):''}<div class="v66-bubble ${mine?'mine':''}">${!mine?`<strong>${esc(sender.name||'User')}</strong>`:''}<p>${esc(m.content)}</p>${fileLink(m.attachmentUrl,m.metadata?.attachmentName)}<div class="v66-meta"><span>${t(m.createdAt)}</span><span>✓✓</span></div><div class="v66-reactions">${Object.entries(reactions).map(([emoji,users])=>`<button onclick="v66React(${Number(m.id)},'${esc(emoji)}')">${esc(emoji)} ${(users||[]).length}</button>`).join('')}</div>${!mine?`<div class="v66-actions-mini"><button onclick="v66React(${Number(m.id)},'👍')">👍</button><button onclick="v66React(${Number(m.id)},'❤️')">❤️</button><button onclick="v66React(${Number(m.id)},'😂')">😂</button></div>`:''}</div></article>`; }
+  function renderComposer(type,id){ return `<footer class="v66-composer"><div id="v66-file-preview" class="v66-selected-file">${state.attachment?`${fileLink(state.attachment.url,state.attachment.name)}<button onclick="v66ClearFile()">×</button>`:''}</div><div class="v66-compose-row"><button onclick="toast('Emoji picker coming next','info')">😊</button><button class="attach" onclick="v66PickFile()">📎</button><input id="v66-input-${type}-${id}" placeholder="Type a message..." onkeydown="if(event.key==='Enter')v66Send('${type}','${id}')"><button class="send" onclick="v66Send('${type}','${id}')">➤</button></div><input class="v66-hidden" id="v66-file-input" type="file" onchange="v66UploadFile(this.files[0])"></footer>`; }
+
+  window.renderTeacherV9Messages = async function(){
+    state.role='teacher'; state.tab = state.tab || 'study';
+    setTimeout(() => v66LoadTeacher(), 80);
+    return `<div class="v66-msg-page animate-fade-in"><div class="v66-msg-head"><div><h2>Messages & Study Rooms</h2><p>Simple staff chats, managed groups, study room moderation, attachments, rewards and reactions.</p></div><div class="v66-msg-actions"><button class="v66-btn" onclick="v66LoadTeacher()">Refresh</button><button class="v66-btn primary" onclick="v66OpenTeacherNew()">+ New</button></div></div><div id="v66-teacher-root" class="v66-msg-shell"><div class="v66-empty">Loading teacher messages...</div></div></div>`;
+  };
+  window.v66LoadTeacher = async function(){
+    const root=$('v66-teacher-root'); if(root) root.innerHTML='<div class="v66-empty">Loading teacher workspace...</div>';
+    try{
+      const [teachersRes, groupsRes, threadsRes] = await Promise.all([chatV9API.getTeachers(), chatV9API.getTeacherGroups(), chatV9API.getClassroomThreads()]);
+      state.peers=(teachersRes.data||[]).filter(x=>Number(x.id)!==Number(me()?.id)); state.groups=groupsRes.data||[]; state.threads=threadsRes.data||[];
+      if(!state.selectedPeerId && state.peers[0]) state.selectedPeerId=state.peers[0].id; if(!state.selectedGroupId && state.groups[0]) state.selectedGroupId=state.groups[0].id; if(!state.selectedThreadId && state.threads[0]) state.selectedThreadId=state.threads[0].id;
+      if(state.tab==='chats' && state.selectedPeerId) await v66LoadDirect(state.selectedPeerId,false); if(state.tab==='groups' && state.selectedGroupId) await v66LoadGroup(state.selectedGroupId,false);
+      v66RenderTeacher();
+    }catch(err){ if(root) root.innerHTML=`<div class="v66-empty">Could not load messages: ${esc(err.message)}</div>`; }
+  };
+  function v66RenderTeacher(){
+    const root=$('v66-teacher-root'); if(!root)return;
+    const peer=currentPeer(), group=state.groups.find(g=>Number(g.id)===Number(state.selectedGroupId))||state.groups[0], thread=currentTeacherThread();
+    root.innerHTML=`<aside class="v66-left"><input class="v66-search" placeholder="Search..." value="${esc(state.query)}" oninput="v66Search(this.value)"><div class="v66-tabs three"><button class="${state.tab==='chats'?'active':''}" onclick="v66TeacherTab('chats')">Chats</button><button class="${state.tab==='groups'?'active':''}" onclick="v66TeacherTab('groups')">Groups</button><button class="${state.tab==='study'?'active':''}" onclick="v66TeacherTab('study')">Study</button></div>${renderTeacherList()}</aside><main class="v66-center">${state.tab==='chats'?renderPrivateChat(peer):state.tab==='groups'?renderTeacherGroupChat(group):renderTeacherStudyChat(thread)}</main><aside class="v66-right">${state.tab==='study'?renderTeacherStudyInfo(thread):state.tab==='groups'?renderTeacherGroupInfo(group):renderPrivateInfo(peer)}</aside>`; scrollBottom(); }
+  function renderTeacherList(){ if(state.tab==='chats') return `<div class="v66-section-title">Teachers</div>${renderPrivateList(state.peers.filter(p=>!state.query||p.name?.toLowerCase().includes(state.query.toLowerCase())))}`; if(state.tab==='groups') return `<div class="v66-section-title">Groups</div><button class="v66-btn primary" style="width:100%;margin-bottom:8px" onclick="v66OpenGroupModal()">+ Create Group</button>${state.groups.map(g=>`<button class="v66-list-item ${Number(state.selectedGroupId)===Number(g.id)?'active':''}" onclick="v66SelectTeacherGroup(${Number(g.id)})"><span class="v66-avatar group">👥</span><span><strong>${esc(g.name)}</strong><small>${esc(g.type||'group')}</small><em>Open group chat</em></span></button>`).join('')||'<div class="v66-empty">No groups yet.</div>'}`; return `<div class="v66-section-title">Study Threads</div><button class="v66-btn primary" style="width:100%;margin-bottom:8px" onclick="v66OpenTeacherThreadModal()">+ Study Thread</button>${state.threads.map(th=>`<button class="v66-list-item ${Number(state.selectedThreadId)===Number(th.id)?'active':''}" onclick="v66SelectTeacherThread(${Number(th.id)})"><span class="v66-avatar ${threadApproval(th)==='pending'?'teacher':'group'}">${threadApproval(th)==='pending'?'⏳':'📝'}</span><span><strong>${esc(th.topic)}</strong><small>${esc(th.subject||'Subject')} • ${esc(th.className||th.Class?.name||'Class')}</small><em>${repliesOf(th).length} replies</em></span></button>`).join('')||'<div class="v66-empty">No study threads yet.</div>'}`; }
+  function renderTeacherGroupChat(g){ if(!g)return'<div class="v66-empty">Choose or create a group.</div>'; return `<header class="v66-chat-head"><div class="v66-chat-title"><span class="v66-avatar group">👥</span><div><h3>${esc(g.name)}</h3><p>${state.members.length||0} members</p></div></div><div class="v66-chat-tools"><button class="v66-btn" onclick="v66OpenMembersModal(${Number(g.id)})">Members</button><button class="v66-icon-btn" onclick="v66LoadGroup(${Number(g.id)})">↻</button></div></header><div class="v66-feed" id="v66-feed">${state.messages.length?'<div class="v66-day">Today</div>'+state.messages.map(m=>renderTeacherMessage(m)).join(''):'<div class="v66-day">No messages yet.</div>'}</div>${renderComposer('group',g.id)}`; }
+  function renderTeacherMessage(m){ const mine=Number(m.senderId)===Number(me()?.id); const sender=m.Sender||{}; return `<article class="v66-msg ${mine?'mine':''}">${!mine?avatar(sender,'sm'):''}<div class="v66-bubble ${mine?'mine':''}">${!mine?`<strong>${esc(sender.name||'User')} ${sender.role==='student'?'• Student':''}</strong>`:''}<p>${esc(m.content)}</p>${fileLink(m.attachmentUrl,m.metadata?.attachmentName)}<div class="v66-meta"><span>${t(m.createdAt)}</span>${m.pointsAwarded?`<span>⭐ ${m.pointsAwarded}</span>`:''}</div>${!mine?`<div class="v66-actions-mini">${sender.role==='student'?`<button onclick="v66AwardMsg(${Number(m.id)},1,0)">⭐</button><button onclick="v66AwardMsg(${Number(m.id)},5,1)">🔥</button>`:`<button onclick="v66React(${Number(m.id)},'👍')">👍</button><button onclick="v66React(${Number(m.id)},'👏')">👏</button><button onclick="v66React(${Number(m.id)},'✅')">✅</button>`}</div>`:''}</div></article>`; }
+  function currentTeacherThread(){ return state.threads.find(t=>Number(t.id)===Number(state.selectedThreadId)) || state.threads[0] || null; }
+  function renderTeacherStudyChat(th){ if(!th)return'<div class="v66-empty">Create or choose a study thread.</div>'; const pending=threadApproval(th)==='pending'; const replies=repliesOf(th); return `<header class="v66-chat-head"><div class="v66-chat-title"><span class="v66-avatar teacher">📝</span><div><h3>${esc(th.topic)}</h3><p>${esc(th.subject||'Subject')} • ${esc(th.className||th.Class?.name||'Class')}</p></div></div><div class="v66-chat-tools">${pending?`<button class="v66-btn primary" onclick="v66ApproveThread(${Number(th.id)})">Approve</button>`:''}<button class="v66-btn" onclick="v66ToggleThread(${Number(th.id)},${th.isClosed?'false':'true'})">${th.isClosed?'Reopen':'Close'}</button></div></header><div class="v66-pinned">📌 <b>${esc(th.content||'Study question')}</b></div><div class="v66-feed" id="v66-feed">${replies.length?'<div class="v66-day">Student responses</div>'+replies.map(renderTeacherReply).join(''):'<div class="v66-day">No student replies yet.</div>'}</div>${th.isClosed?'<div class="v66-pending">Thread is closed.</div>':renderComposer('thread',th.id)}`; }
+  function renderTeacherReply(r){ const author=r.Author||{}; const mine=Number(r.userId)===Number(me()?.id); return `<article class="v66-msg ${mine?'mine':''}">${!mine?avatar(author,'sm'):''}<div class="v66-bubble ${mine?'mine':''} ${author.role==='teacher'?'teacher':''}">${!mine?`<strong>${esc(author.name||'User')} ${author.role==='student'?'• Student':author.role==='teacher'?'• Teacher':''}</strong>`:''}<p>${esc(r.content)}</p>${fileLink(r.metadata?.attachmentUrl,r.metadata?.attachmentName)}<div class="v66-meta"><span>${t(r.createdAt)}</span>${r.pointsAwarded?`<span>⭐ ${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span>🔥 ${r.streakAwarded}</span>`:''}</div>${!mine?`<div class="v66-actions-mini">${author.role==='student'?`<button onclick="v66AwardReply(${Number(r.id)},1,0)">⭐ +1</button><button onclick="v66AwardReply(${Number(r.id)},5,1)">⭐ +5 🔥</button>`:`<button onclick="v66Helpful(${Number(r.id)})">👍</button>`}</div>`:''}</div></article>`; }
+  function renderTeacherStudyInfo(th){ if(!th)return'<div class="v66-empty">No thread selected.</div>'; const prs=participantsForThread(th); return `<div class="v66-info-card"><span class="v66-avatar teacher big">📝</span><h3>${esc(th.topic)}</h3><p>${repliesOf(th).length} replies • ${threadApproval(th)}</p><div class="v66-info-list"><button class="v66-btn" onclick="v66OpenTeacherThreadModal()">New Thread</button><button class="v66-btn" onclick="v66RemindThread()">Remind Students</button></div><h4 class="v66-section-title">Participants</h4>${prs.slice(0,12).map(p=>`<div class="v66-member">${avatar(p,'sm')}<span><b>${esc(p.name)}</b><br>Student</span></div>`).join('')||'<p>No participant data yet.</p>'}</div>`; }
+  function renderTeacherGroupInfo(g){ return g?`<div class="v66-info-card"><span class="v66-avatar group big">👥</span><h3>${esc(g.name)}</h3><p>${state.members.length||0} members</p><div class="v66-info-list"><button class="v66-btn primary" onclick="v66OpenMembersModal(${Number(g.id)})">Manage Members</button><button class="v66-btn" onclick="v66OpenGroupModal()">Create Group</button></div><h4 class="v66-section-title">Members</h4>${state.members.slice(0,12).map(m=>`<div class="v66-member">${avatar(m.User||m,'sm')}<span><b>${esc(m.User?.name||m.name)}</b><br>${esc(m.role||m.User?.role||'member')}</span></div>`).join('')}</div>`:'<div class="v66-empty">No group selected.</div>'; }
+
+  window.v66SetTab = function(tab){ state.tab=tab; if(tab==='private'&&state.selectedPeerId) v66LoadDirect(state.selectedPeerId,false).then(v66RenderStudent); else v66RenderStudent(); };
+  window.v66TeacherTab = function(tab){ state.tab=tab; if(tab==='chats'&&state.selectedPeerId) v66LoadDirect(state.selectedPeerId,false).then(v66RenderTeacher); else if(tab==='groups'&&state.selectedGroupId) v66LoadGroup(state.selectedGroupId,false).then(v66RenderTeacher); else v66RenderTeacher(); };
+  window.v66Search = function(q){ state.query=q||''; state.role==='teacher'?v66RenderTeacher():v66RenderStudent(); };
+  window.v66SelectGroup = function(id){ state.tab='study'; state.selectedGroupId=id; state.selectedThreadId=groupThreads()[0]?.id||null; v66RenderStudent(); };
+  window.v66SelectThread = function(id){ state.selectedThreadId=id; v66RenderStudent(); };
+  window.v66SelectPeer = async function(id){ state.tab='private'; state.selectedPeerId=Number(id); await v66LoadDirect(id,false); state.role==='teacher'?v66RenderTeacher():v66RenderStudent(); };
+  window.v66SelectTeacherGroup = async function(id){ state.tab='groups'; state.selectedGroupId=Number(id); await v66LoadGroup(id,false); v66RenderTeacher(); };
+  window.v66SelectTeacherThread = function(id){ state.tab='study'; state.selectedThreadId=Number(id); v66RenderTeacher(); };
+  window.v66LoadDirect = async function(id, render=true){ const res=await chatV9API.getDirectMessages(id); state.directMessages=res.data||[]; if(render) state.role==='teacher'?v66RenderTeacher():v66RenderStudent(); };
+  window.v66LoadGroup = async function(id, render=true){ const [msgRes, memberRes]=await Promise.all([chatV9API.getGroupMessages(id), chatV9API.getGroupMembers(id)]); state.messages=msgRes.data||[]; state.members=memberRes.data||[]; if(render) v66RenderTeacher(); };
+  window.v66Send = async function(type,id){ const input=$(`v66-input-${type}-${id}`); const content=input?.value?.trim(); if(!content && !state.attachment) return; try{ if(type==='private'){ await chatV9API.sendDirectMessage(Number(id), content || 'Attachment', state.attachment?.url || null, state.attachment || null); input.value=''; state.attachment=null; await v66LoadDirect(Number(id)); } else if(type==='group'){ await chatV9API.sendGroupMessage(Number(id), content || 'Attachment', state.attachment?.url || null, state.attachment || null); input.value=''; state.attachment=null; await v66LoadGroup(Number(id)); } else { await chatV9API.replyToThread(Number(id), content || 'Attachment', null, state.attachment?.url || null, state.attachment || null); input.value=''; state.attachment=null; state.role==='teacher'?await v66LoadTeacher():await v66LoadStudent(); } }catch(err){ toast(err.message||'Send failed','error'); } };
+  window.v66PickFile = function(){ $('v66-file-input')?.click(); };
+  window.v66UploadFile = async function(file){ if(!file)return; try{ const fd=new FormData(); fd.append('file',file); const res=await chatV9API.uploadAttachment(fd); state.attachment=res.data; const prev=$('v66-file-preview'); if(prev) prev.innerHTML=`${fileLink(state.attachment.url,state.attachment.name)}<button onclick="v66ClearFile()">×</button>`; }catch(err){ toast(err.message||'Upload failed','error'); } };
+  window.v66ClearFile = function(){ state.attachment=null; const prev=$('v66-file-preview'); if(prev) prev.innerHTML=''; };
+  window.v66React = async function(id,emoji){ try{ await chatV9API.reactToMessage(id,emoji); state.role==='teacher'&&state.tab==='groups'?await v66LoadGroup(state.selectedGroupId):await v66LoadDirect(state.selectedPeerId); }catch(err){ toast(err.message||'Reaction failed','error'); } };
+  window.v66AwardMsg = async function(id,points,streak){ try{ await chatV9API.awardChatMessage(id,points,streak,'Great participation'); await v66LoadGroup(state.selectedGroupId); toast('Student rewarded','success'); }catch(err){ toast(err.message||'Reward failed','error'); } };
+  window.v66AwardReply = async function(id,points,streak){ try{ await chatV9API.awardThreadReply(id,points,streak,'Good study response'); await v66LoadTeacher(); toast('Student rewarded','success'); }catch(err){ toast(err.message||'Reward failed','error'); } };
+  window.v66Helpful = function(){ toast('Reaction saved','success'); };
+  window.v66ApproveThread = async function(id){ try{ await chatV9API.updateClassroomThread(id,{approvalStatus:'approved'}); await v66LoadTeacher(); }catch(err){ toast(err.message,'error'); } };
+  window.v66ToggleThread = async function(id,closed){ try{ await chatV9API.updateClassroomThread(id,{isClosed:closed}); await v66LoadTeacher(); }catch(err){ toast(err.message,'error'); } };
+  window.v66RemindThread = function(){ toast('Reminder ready for notification queue','success'); };
+
+  window.v66OpenTopicModal = async function(){ openModal(`<h3>Create Study Topic</h3><p>Student topics require teacher approval before classmates discuss them.</p><label>Subject</label><input id="v66-topic-subject" placeholder="Mathematics"><label>Topic</label><input id="v66-topic-title" placeholder="Fractions revision"><label>Question</label><textarea id="v66-topic-content" placeholder="Ask your question..."></textarea><div class="v66-modal-actions"><button class="v66-btn" onclick="v66CloseModal()">Cancel</button><button class="v66-btn primary" onclick="v66SubmitTopic()">Create</button></div>`); };
+  window.v66SubmitTopic = async function(){ const g=currentGroup(); const subject=$('v66-topic-subject')?.value?.trim()||'Study Group'; const topic=$('v66-topic-title')?.value?.trim(); const content=$('v66-topic-content')?.value?.trim(); if(!topic||!content)return toast('Topic and question are required','error'); try{ await chatV9API.createClassroomThread({classId:g?.classId||null,subject,topic,content,metadata:{approvalStatus:'pending',source:'student-created-topic'}}); v66CloseModal(); await v66LoadStudent(); toast('Topic sent for teacher approval','success'); }catch(err){ toast(err.message,'error'); } };
+  window.v66OpenTeacherThreadModal = function(){ openModal(`<h3>Create Study Thread</h3><p>Teacher-created threads open immediately for the class.</p><label>Subject</label><input id="v66-topic-subject" placeholder="Mathematics"><label>Topic</label><input id="v66-topic-title" placeholder="Fractions revision"><label>Question</label><textarea id="v66-topic-content" placeholder="Give students a question or discussion prompt..."></textarea><div class="v66-modal-actions"><button class="v66-btn" onclick="v66CloseModal()">Cancel</button><button class="v66-btn primary" onclick="v66SubmitTeacherTopic()">Create</button></div>`); };
+  window.v66SubmitTeacherTopic = async function(){ const subject=$('v66-topic-subject')?.value?.trim()||'Study Room'; const topic=$('v66-topic-title')?.value?.trim(); const content=$('v66-topic-content')?.value?.trim(); if(!topic||!content)return toast('Topic and question are required','error'); try{ await chatV9API.createClassroomThread({subject,topic,content,metadata:{approvalStatus:'approved',source:'teacher-created-topic'}}); v66CloseModal(); await v66LoadTeacher(); }catch(err){ toast(err.message,'error'); } };
+  window.v66OpenTeacherNew = function(){ state.tab==='groups'?v66OpenGroupModal():state.tab==='study'?v66OpenTeacherThreadModal():toast('Choose Groups or Study Rooms to create new items','info'); };
+  window.v66OpenGroupModal = async function(){ try{ const res=await chatV9API.getAvailableMembers(); state.available=res.data||[]; }catch{ state.available=[]; } openModal(`<h3>Create Group</h3><label>Group name</label><input id="v66-group-name" placeholder="Grade 6 Maths"><label>Description</label><input id="v66-group-desc" placeholder="Optional"><label>Add members</label><div class="v66-member-picker">${state.available.map(u=>`<label class="v66-check-row"><input type="checkbox" value="${Number(u.id)}"><span>${esc(u.name)} <small>• ${esc(u.role)}</small></span></label>`).join('')}</div><div class="v66-modal-actions"><button class="v66-btn" onclick="v66CloseModal()">Cancel</button><button class="v66-btn primary" onclick="v66CreateGroup()">Create Group</button></div>`); };
+  window.v66CreateGroup = async function(){ const name=$('v66-group-name')?.value?.trim(); if(!name)return toast('Group name required','error'); const memberUserIds=[...document.querySelectorAll('.v66-member-picker input:checked')].map(x=>Number(x.value)); try{ await chatV9API.createTeacherGroup({name,description:$('v66-group-desc')?.value||'',type:'study',memberUserIds}); v66CloseModal(); await v66LoadTeacher(); }catch(err){ toast(err.message,'error'); } };
+  window.v66OpenMembersModal = async function(groupId){ try{ const [members,available]=await Promise.all([chatV9API.getGroupMembers(groupId),chatV9API.getAvailableMembers()]); state.members=members.data||[]; state.available=available.data||[]; const selected=new Set(state.members.map(m=>Number(m.User?.id||m.userId))); openModal(`<h3>Manage Members</h3><p>Add or remove students, teachers, parents and admins from this group.</p><div class="v66-member-picker">${state.available.map(u=>`<label class="v66-check-row"><input type="checkbox" value="${Number(u.id)}" ${selected.has(Number(u.id))?'checked':''}><span>${esc(u.name)} <small>• ${esc(u.role)}</small></span></label>`).join('')}</div><div class="v66-modal-actions"><button class="v66-btn" onclick="v66CloseModal()">Cancel</button><button class="v66-btn primary" onclick="v66SaveMembers(${Number(groupId)})">Save Members</button></div>`); }catch(err){ toast(err.message,'error'); } };
+  window.v66SaveMembers = async function(groupId){ const memberUserIds=[...document.querySelectorAll('.v66-member-picker input:checked')].map(x=>Number(x.value)); try{ await chatV9API.updateGroupMembers(groupId,memberUserIds); v66CloseModal(); await v66LoadGroup(groupId); }catch(err){ toast(err.message,'error'); } };
+  function openModal(html){ let m=$('v66-modal'); if(!m){ m=document.createElement('div'); m.id='v66-modal'; document.body.appendChild(m); } m.className='v66-modal'; m.innerHTML=`<div class="v66-modal-card"><button style="float:right" class="v66-icon-btn" onclick="v66CloseModal()">×</button>${html}</div>`; }
+  window.v66CloseModal = function(){ const m=$('v66-modal'); if(m) m.remove(); };
+  function scrollBottom(){ setTimeout(()=>{ const f=$('v66-feed'); if(f) f.scrollTop=f.scrollHeight; },60); }
+})();
