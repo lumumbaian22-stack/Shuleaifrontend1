@@ -284,3 +284,245 @@ textarea.tm-input { min-height:100px; padding:12px 13px; resize:vertical; }
 .v9-wa-member-grid button { display:flex; align-items:center; gap:8px; border:1px solid var(--tm6-border); background:var(--tm6-card-2); color:var(--tm6-text); border-radius:14px !important; padding:8px; text-align:left; cursor:pointer; }
 @media (max-width: 1220px) { .v9-wa-shell { grid-template-columns:320px minmax(0,1fr); } .v9-wa-info { display:none; } }
 @media (max-width: 860px) { .v9-wa-topbar { flex-direction:column; align-items:stretch; } .v9-wa-shell { grid-template-columns:1fr; } .v9-wa-list { border-right:0; border-bottom:1px solid var(--tm6-border); max-height:360px; } .v9-wa-chat-card { min-height:620px; } .v9-wa-msg-row { max-width:96%; } }
+
+/* v65 — fixed internal scroll for every chat/message section.
+   Keeps chat windows inside the dashboard viewport instead of stretching the page. */
+:root { --chat-fixed-offset: 118px; }
+
+#dashboard-content:has(.tm6-page),
+#dashboard-content:has(.v9-wa-page),
+#dashboard-content:has(.messages-container),
+.dashboard-content:has(.tm6-page),
+.dashboard-content:has(.v9-wa-page) {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tm6-page,
+.v9-wa-page {
+  height: calc(100vh - var(--chat-fixed-offset));
+  max-height: calc(100vh - var(--chat-fixed-offset));
+  min-height: 560px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tm6-header,
+.tm6-tabs,
+.v9-wa-topbar {
+  flex: 0 0 auto;
+}
+
+.tm6-root,
+.v9-student-study-root {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+.tm6-chat-layout,
+.tm6-study-layout,
+.v9-study-shell,
+.v9-wa-shell {
+  height: 100%;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.tm6-list-panel,
+.tm6-study-main,
+.tm6-thread-side,
+.v9-study-sidebar,
+.v9-study-middle,
+.v9-study-right,
+.v9-wa-list,
+.v9-wa-info {
+  height: 100%;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tm6-chat-panel,
+.v9-open-thread,
+.v9-wa-chat,
+.v9-wa-chat-card {
+  height: 100%;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.tm6-chat-panel,
+.v9-wa-chat-card,
+.v9-open-thread {
+  display: flex;
+  flex-direction: column;
+}
+
+.tm6-chat-head,
+.tm6-composer,
+.v9-wa-chat-head,
+.v9-wa-pinned,
+.v9-wa-topic-strip,
+.v9-wa-composer,
+.v9-open-head,
+.v9-question-box,
+.v9-replies-head,
+.v9-pending-note {
+  flex: 0 0 auto;
+}
+
+.tm6-messages,
+.v9-wa-feed,
+.v9-discussion-feed,
+#staff-chat-messages,
+#chat-messages-container,
+#parent-chat-messages,
+#student-chat-messages,
+#ai-chat-container,
+#chat-messages,
+#ai-chat-messages,
+#conversation-messages,
+#parent-chat-msgs,
+#v93-department-chat-messages {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+.v9-wa-feed { max-height: none !important; }
+.v9-discussion-feed { max-height: none !important; }
+
+/* Legacy dashboard chat cards and modal chats */
+#staff-chat-messages,
+#chat-messages-container,
+#parent-chat-messages,
+#student-chat-messages,
+#ai-chat-container,
+#chat-messages,
+#ai-chat-messages,
+#conversation-messages,
+#parent-chat-msgs {
+  max-height: calc(100vh - 285px) !important;
+}
+
+/* Keep input bars visible while the message history scrolls. */
+.tm6-composer,
+.v9-wa-composer,
+.chat-input-bar,
+.chat-composer,
+.message-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  flex-shrink: 0;
+}
+
+/* Better scrollbars: visible but neat in light and dark mode. */
+.tm6-page *,
+.v9-wa-page *,
+#staff-chat-messages,
+#chat-messages-container,
+#parent-chat-messages,
+#student-chat-messages,
+#ai-chat-container,
+#chat-messages,
+#ai-chat-messages,
+#conversation-messages,
+#parent-chat-msgs,
+#v93-department-chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--tm6-muted) 42%, transparent) transparent;
+}
+
+.tm6-page *::-webkit-scrollbar,
+.v9-wa-page *::-webkit-scrollbar,
+#staff-chat-messages::-webkit-scrollbar,
+#chat-messages-container::-webkit-scrollbar,
+#parent-chat-messages::-webkit-scrollbar,
+#student-chat-messages::-webkit-scrollbar,
+#ai-chat-container::-webkit-scrollbar,
+#chat-messages::-webkit-scrollbar,
+#ai-chat-messages::-webkit-scrollbar,
+#conversation-messages::-webkit-scrollbar,
+#parent-chat-msgs::-webkit-scrollbar,
+#v93-department-chat-messages::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tm6-page *::-webkit-scrollbar-thumb,
+.v9-wa-page *::-webkit-scrollbar-thumb,
+#staff-chat-messages::-webkit-scrollbar-thumb,
+#chat-messages-container::-webkit-scrollbar-thumb,
+#parent-chat-messages::-webkit-scrollbar-thumb,
+#student-chat-messages::-webkit-scrollbar-thumb,
+#ai-chat-container::-webkit-scrollbar-thumb,
+#chat-messages::-webkit-scrollbar-thumb,
+#ai-chat-messages::-webkit-scrollbar-thumb,
+#conversation-messages::-webkit-scrollbar-thumb,
+#parent-chat-msgs::-webkit-scrollbar-thumb,
+#v93-department-chat-messages::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tm6-muted) 40%, transparent);
+}
+
+@media (max-width: 1220px) {
+  .tm6-page,
+  .v9-wa-page {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .tm6-chat-layout,
+  .tm6-study-layout,
+  .v9-study-shell,
+  .v9-wa-shell {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .tm6-list-panel,
+  .tm6-study-main,
+  .tm6-thread-side,
+  .v9-study-sidebar,
+  .v9-study-middle,
+  .v9-study-right,
+  .v9-wa-list,
+  .v9-wa-info {
+    max-height: none;
+  }
+
+  .tm6-chat-panel,
+  .v9-wa-chat-card,
+  .v9-open-thread {
+    height: min(720px, calc(100vh - 120px));
+  }
+}
+
+@media (max-width: 860px) {
+  .tm6-chat-panel,
+  .v9-wa-chat-card,
+  .v9-open-thread {
+    height: min(680px, calc(100vh - 110px));
+  }
+
+  #staff-chat-messages,
+  #chat-messages-container,
+  #parent-chat-messages,
+  #student-chat-messages,
+  #ai-chat-container,
+  #chat-messages,
+  #ai-chat-messages,
+  #conversation-messages,
+  #parent-chat-msgs {
+    max-height: 58vh !important;
+  }
+}
