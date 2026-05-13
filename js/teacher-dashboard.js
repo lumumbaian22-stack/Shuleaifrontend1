@@ -623,14 +623,14 @@ function showMarksEntryModal(className) {
           <div class="v95-section-card"><span class="text-xs text-muted-foreground">Missing</span><strong id="marks-missing" class="block text-2xl">${currentMarksStudents.length}</strong></div>
           <div class="v95-section-card" style="background:#fff7ed;border-color:#fed7aa">
             <strong>Moderation & Approval</strong>
-            <p class="text-sm text-muted-foreground mt-2">Draft marks can be saved by the assigned teacher. Published marks lock automatically; corrections require admin unlock and are audit logged.</p>
+            <p class="text-sm text-muted-foreground mt-2">Subject teacher saves marks. Class teacher reviews/publishes final report-card marks.</p>
           </div>
         </div>
 
         <div class="mt-5 v95-section-card">
           <h4 class="font-bold mb-2">Actions</h4>
           <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Save Draft</button>
-          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Save & Lock Draft</button>
+          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Submit for Review</button>
           <button onclick="publishAllMarks()" class="v95-btn primary w-full">Publish Marks</button>
         </div>
       </aside>
@@ -728,40 +728,35 @@ async function saveAllMarks() {
   const assessmentDate = document.getElementById('assessment-date')?.value;
   if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
 
-  const gradingScale = window.currentGradingScale || window.AcademicCoreV66?.getSchoolAcademicSettings?.().gradingScale || null;
-  const marks = [];
+  // Use the custom grading scale that was applied (array, or null)
+  const gradingScale = window.currentGradingScale || null;
+
+  showLoading();
+  let saved = 0, failed = 0;
   for (const student of currentMarksStudents) {
     const score = parseFloat(document.getElementById(`score-${student.id}`)?.value);
     if (!isNaN(score) && score >= 0 && score <= 100) {
-      marks.push({
-        studentId: student.id,
-        score,
-        remarks: document.getElementById(`remark-${student.id}`)?.value || ''
-      });
+      try {
+        await api.teacher.enterMarks({
+          studentId: student.id,
+          subject: currentMarksSubject,
+          assessmentType,
+          assessmentName,
+          score,
+          date: assessmentDate,
+          term: currentMarksTerm,
+          year: currentMarksYear,
+          isPublished: false,
+          gradingScale: gradingScale,       // array of {grade, min, max} or null
+          remarks: document.getElementById(`remark-${student.id}`)?.value || ''
+        });
+        saved++;
+      } catch(e) { failed++; }
     }
   }
-  if (!marks.length) { showToast('Enter at least one valid score before saving.', 'error'); return; }
-
-  showLoading();
-  try {
-    const payload = {
-      classId: currentMarksClassId,
-      subject: currentMarksSubject,
-      assessmentType,
-      assessmentName,
-      date: assessmentDate,
-      term: currentMarksTerm,
-      year: currentMarksYear,
-      gradingScale,
-      marks
-    };
-    const res = api.teacher.saveBulkMarks ? await api.teacher.saveBulkMarks(payload) : await Promise.all(marks.map(m => api.teacher.enterMarks({ ...payload, ...m })));
-    const data = res?.data || {};
-    showToast(res?.message || `Saved ${data.saved || marks.length} draft mark(s). Submit/publish to lock them.`, 'success');
-    closeMarksEntryModal();
-  } catch(e) {
-    showToast(e.message || 'Could not save marks', 'error');
-  } finally { hideLoading(); }
+  showToast(`Saved ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
+  closeMarksEntryModal();
+  hideLoading();
 }
 
 async function publishAllMarks() {
