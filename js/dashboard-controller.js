@@ -599,6 +599,10 @@ async function showDashboardSection(section) {
         if (currentRole === 'student' && (section === 'chat' || section === 'classroom')) {
             setTimeout(() => { if (typeof v9LoadStudentThreads === 'function') v9LoadStudentThreads(); }, 100);
         }
+        if (currentRole === 'parent' && (section === 'chat' || section === 'messages')) {
+            setTimeout(() => { if (typeof v68LoadParent === 'function') v68LoadParent(); }, 100);
+        }
+
 
         if (section === 'analytics') {
             setTimeout(() => {

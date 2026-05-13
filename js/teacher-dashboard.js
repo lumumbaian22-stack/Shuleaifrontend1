@@ -1727,6 +1727,7 @@ function showCreateHomeworkModal() {
                             <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2 bg-background"></div>
                         </div>
                         <div><label class="block text-sm font-medium">Class</label><select id="hw-class" class="w-full rounded-lg border p-2 bg-background"><option value="">Loading...</option></select></div>
+                        <label class="flex items-center gap-2 rounded-lg border p-3 bg-background text-sm"><input type="checkbox" id="hw-open-discussion" checked> Open a study discussion room for this homework</label>
                     </div>
                     <div class="flex justify-end gap-3 mt-6">
                         <button onclick="closeCreateHomeworkModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
@@ -1792,9 +1793,17 @@ async function createHomework() {
     try {
         const res = await apiRequest('/api/homework/assign', {
             method: 'POST',
-            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className })
+            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className, openDiscussion: document.getElementById('hw-open-discussion')?.checked || false })
         });
         if (res.success) {
+            if (document.getElementById('hw-open-discussion')?.checked && window.chatV9API?.createClassroomThread) {
+                try {
+                    await window.chatV9API.createClassroomThread({
+                        classId, subject, topic: title, content: instructions,
+                        metadata: { approvalStatus: 'approved', source: 'homework-discussion', homeworkId: res.data?.id || res.assignment?.id || null, className }
+                    });
+                } catch (threadError) { console.warn('Homework discussion room could not be created:', threadError); }
+            }
             closeCreateHomeworkModal();
             await showDashboardSection('homework');
         }
