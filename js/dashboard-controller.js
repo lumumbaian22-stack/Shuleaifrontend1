@@ -3,20 +3,65 @@
 // ===== sidebar.js merged into dashboard-controller.js =====
 // sidebar.js - Sidebar navigation and user info
 
+function getResolvedSchoolName() {
+    try {
+        const school = typeof getCurrentSchool === 'function' ? getCurrentSchool() : null;
+        const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+        const storedSchool = JSON.parse(localStorage.getItem('school') || 'null');
+        const storedSettings = JSON.parse(localStorage.getItem('schoolSettings') || 'null');
+        const candidates = [
+            school?.name,
+            school?.schoolName,
+            storedSchool?.name,
+            storedSchool?.schoolName,
+            user?.schoolName,
+            user?.school?.name,
+            user?.school?.schoolName,
+            storedSettings?.schoolName,
+            storedSettings?.name,
+            storedSettings?.settings?.schoolName,
+            window.schoolSettings?.schoolName,
+            window.schoolSettings?.name,
+            window.schoolSettings?.settings?.schoolName
+        ];
+        return candidates.find(v => String(v || '').trim()) || 'Shule AI';
+    } catch (error) {
+        return 'Shule AI';
+    }
+}
+
+function ensureSidebarBrand() {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+
+    const brandRow = sidebar.querySelector('.h-16 .flex.items-center.gap-3') || sidebar.querySelector('.h-16 .flex') || sidebar.querySelector('[data-sidebar-brand]');
+    if (!brandRow) return;
+
+    if (!brandRow.querySelector('img')) {
+        brandRow.insertAdjacentHTML('afterbegin', `
+            <img src="assets/logo-light.png" alt="Shule AI Logo" class="h-10 w-10 object-contain block dark:hidden">
+            <img src="assets/logo-dark.png" alt="Shule AI Logo" class="h-10 w-10 object-contain hidden dark:block">
+        `);
+    }
+
+    let nameEl = document.getElementById('sidebar-school-name');
+    if (!nameEl) {
+        brandRow.insertAdjacentHTML('beforeend', `
+            <span id="sidebar-school-name" class="text-lg font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent truncate max-w-[150px]">Shule AI</span>
+        `);
+        nameEl = document.getElementById('sidebar-school-name');
+    }
+
+    const name = getResolvedSchoolName();
+    nameEl.textContent = name;
+    nameEl.title = name;
+}
+
 function updateSidebar(role) {
+    ensureSidebarBrand();
     const nav = document.getElementById('sidebar-nav');
     const settingsNav = document.getElementById('settings-nav');
     const mobileNav = document.getElementById('mobile-nav');
-    
-    // Update sidebar school name
-    const schoolNameSpan = document.getElementById('sidebar-school-name');
-    const school = getCurrentSchool();
-    
-    if (schoolNameSpan && school && school.status === 'active' && school.name) {
-        schoolNameSpan.textContent = school.name;
-    } else if (schoolNameSpan) {
-        schoolNameSpan.textContent = 'ShuleAI';
-    }
 
     if (!nav) return;
 
@@ -186,10 +231,12 @@ function updateUserInfo() {
 
 // Function to update sidebar school name (called when school name changes)
 function updateSidebarSchoolName(newName) {
+    ensureSidebarBrand();
     const schoolNameSpan = document.getElementById('sidebar-school-name');
-    if (schoolNameSpan && newName) {
-        schoolNameSpan.textContent = newName;
-        console.log('Sidebar school name updated to:', newName);
+    const finalName = String(newName || getResolvedSchoolName() || 'Shule AI').trim();
+    if (schoolNameSpan) {
+        schoolNameSpan.textContent = finalName;
+        schoolNameSpan.title = finalName;
     }
 }
 
@@ -1208,3 +1255,6 @@ window.checkConsentAndDPA = checkConsentAndDPA;
   const mo=new MutationObserver(cleanupSidebar);
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
 })();
+
+window.getResolvedSchoolName = getResolvedSchoolName;
+window.ensureSidebarBrand = ensureSidebarBrand;

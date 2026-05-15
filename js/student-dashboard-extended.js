@@ -848,7 +848,10 @@ async function renderStudentHomework() {
                             <div class="mt-2">
                                 Status: <span class="font-medium">${a.status === 'submitted' ? 'Submitted' : a.status === 'pending' ? 'Pending' : a.status}</span>
                             </div>
-                            ${a.status !== 'submitted' ? `<button onclick="submitHomework(${a.id})" class="mt-2 px-4 py-1 bg-primary text-white rounded">Submit</button>` : '' }
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                ${a.status !== 'submitted' ? `<button onclick="submitHomework(${a.id})" class="px-4 py-1 bg-primary text-white rounded">Submit</button>` : '' }
+                                <button onclick="openStudentHomeworkDiscussion('${escapeHtml((a.HomeTask.subject || 'Homework')).replace(/'/g, '&#39;')}', '${escapeHtml((a.HomeTask.title || 'Homework')).replace(/'/g, '&#39;')}')" class="px-4 py-1 border rounded hover:bg-accent">Study Discussion</button>
+                            </div>
                         </div>
                       `).join('')}
                 </div>
@@ -869,6 +872,23 @@ async function submitHomework(assignmentId) {
     } catch (e) {
         hideLoading();
         showToast(e.message, 'error');
+    }
+}
+
+
+function openStudentHomeworkDiscussion(subject, title) {
+    try {
+        if (typeof showDashboardSection === 'function') {
+            showDashboardSection('chat');
+            setTimeout(() => {
+                if (window.v9StudentSearchThreads) window.v9StudentSearchThreads(title || subject || 'homework');
+                if (typeof showToast === 'function') showToast('Opened study discussion. Search is focused on this homework.', 'info');
+            }, 300);
+            return;
+        }
+        if (typeof showToast === 'function') showToast('Study discussion is available from Study Chat.', 'info');
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Could not open study discussion', 'error');
     }
 }
 
@@ -991,6 +1011,7 @@ window.renderStudentHomework = renderStudentHomework;
 window.redeemReward = redeemReward;
 window.submitHomework = submitHomework;
 window.loadStudentHomeTasks = loadStudentHomeTasks;
+window.openStudentHomeworkDiscussion = openStudentHomeworkDiscussion;
 window.markTaskComplete = markTaskComplete;
 window.sendStudentMessage = sendStudentMessage;
 window.updateTutorSubjects = updateTutorSubjects;

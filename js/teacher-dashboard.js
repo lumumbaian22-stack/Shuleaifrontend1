@@ -1684,6 +1684,11 @@ async function renderTeacherHomework() {
                                 <span>Assigned: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
                                 <span>Submitted: <b class="text-foreground">${a.submittedCount || 0}</b></span>
                             </div>
+                            <div class="flex flex-wrap gap-2 mt-4">
+                                <button type="button" onclick='viewTeacherHomework(${JSON.stringify(a).replace(/'/g, "&#39;")})' class="px-3 py-1 text-xs border rounded-lg hover:bg-accent">View</button>
+                                <button type="button" onclick='editTeacherHomework(${JSON.stringify(a).replace(/'/g, "&#39;")})' class="px-3 py-1 text-xs border rounded-lg hover:bg-accent">Edit</button>
+                                <button type="button" onclick='openHomeworkDiscussion(${JSON.stringify(a).replace(/'/g, "&#39;")})' class="px-3 py-1 text-xs bg-primary text-white rounded-lg">Study Discussion</button>
+                            </div>
                         </div>
                       `).join('')}
                 </div>
@@ -1772,6 +1777,54 @@ async function loadTeacherClassesForHomework() {
     } catch (e) {
         console.error('Failed to load classes:', e);
         select.innerHTML = '<option value="">Error loading classes</option>';
+    }
+}
+
+
+function viewTeacherHomework(task) {
+    const title = task?.title || 'Homework';
+    const details = [
+        `Title: ${title}`,
+        `Subject: ${task?.subject || 'General'}`,
+        `Class: ${task?.className || task?.gradeLevel || '-'}`,
+        `Due: ${task?.dueDate ? formatDate(task.dueDate) : '-'}`,
+        '',
+        task?.instructions || 'No instructions'
+    ].join('\n');
+    alert(details);
+}
+
+function editTeacherHomework(task) {
+    if (!task) return;
+    showCreateHomeworkModal();
+    setTimeout(() => {
+        const title = document.getElementById('hw-title');
+        const instructions = document.getElementById('hw-instructions');
+        const due = document.getElementById('hw-due');
+        if (title) title.value = task.title || '';
+        if (instructions) instructions.value = task.instructions || '';
+        if (due && task.dueDate) due.value = String(task.dueDate).slice(0, 10);
+        showToast('Edit loaded. Re-assign to save a corrected version.', 'info');
+    }, 120);
+}
+
+async function openHomeworkDiscussion(task) {
+    try {
+        if (window.chatV9API?.createClassroomThread) {
+            await chatV9API.createClassroomThread({
+                classId: task?.classId || null,
+                subject: task?.subject || 'Homework',
+                topic: task?.title || 'Homework Discussion',
+                content: `Homework discussion: ${task?.instructions || task?.title || ''}`,
+                metadata: { source: 'homework', homeworkTaskId: task?.id || task?.taskId || null, homeworkTitle: task?.title || '', className: task?.className || task?.gradeLevel || '', approvalStatus: 'approved' }
+            });
+            showToast('Study discussion opened for this homework', 'success');
+            if (typeof showDashboardSection === 'function') showDashboardSection('staff-chat');
+            return;
+        }
+        showToast('Study discussion is not available yet on this page.', 'error');
+    } catch (e) {
+        showToast(e.message || 'Could not open study discussion', 'error');
     }
 }
 
@@ -1870,6 +1923,9 @@ window.cancelReply = cancelReply;
 window.renderTimetableGrid = renderTimetableGrid;
 window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.closeCreateHomeworkModal = closeCreateHomeworkModal;
+window.viewTeacherHomework = viewTeacherHomework;
+window.editTeacherHomework = editTeacherHomework;
+window.openHomeworkDiscussion = openHomeworkDiscussion;
 window.createHomework = createHomework;
 
 

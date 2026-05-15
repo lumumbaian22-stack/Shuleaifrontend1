@@ -814,9 +814,9 @@
                         <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
                     </button>
                     
-                    <button onclick="toggleTheme()" class="p-2 hover:bg-accent rounded-lg touch-target">
-                        <i data-lucide="sun" class="h-5 w-5 hidden dark:block"></i>
-                        <i data-lucide="moon" class="h-5 w-5 block dark:hidden"></i>
+                    <button onclick="toggleTheme()" id="global-theme-toggle" class="p-2 rounded-lg touch-target border border-border bg-background text-foreground hover:bg-accent shadow-sm relative z-50" title="Toggle theme">
+                        <i data-lucide="sun" class="h-5 w-5 hidden dark:block text-yellow-300"></i>
+                        <i data-lucide="moon" class="h-5 w-5 block dark:hidden text-blue-700"></i>
                     </button>
                     
                     <div class="relative">
