@@ -768,8 +768,9 @@
                 <!-- Sidebar Header -->
                 <div class="flex h-16 items-center border-b border-sidebar-border px-6">
                     <div class="flex items-center gap-3">
-                        <img src="assets/logo-light.png" alt="Logo" class="h-10 w-10 object-contain shrink-0">
-                        <span id="sidebar-school-name" class="text-lg font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">ShuleAI</span>
+                        <img src="assets/logo-light.png" alt="Logo" class="h-10 w-10 object-contain block dark:hidden">
+                        <img src="assets/logo-dark.png" alt="Logo" class="h-10 w-10 object-contain hidden dark:block">
+                        <span id="sidebar-school-name" class="text-lg font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent truncate max-w-[160px]" data-school-name>ShuleAI</span>
                     </div>
                 </div>
                 
@@ -813,10 +814,9 @@
                         <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
                     </button>
                     
-                    <button onclick="toggleTheme()" id="global-theme-toggle" class="p-2 rounded-lg touch-target border border-border bg-background text-foreground hover:bg-accent shadow-sm relative z-50" title="Toggle theme">
-                        <i data-lucide="sun" class="h-5 w-5 hidden dark:block text-yellow-300"></i>
-                        <i data-lucide="moon" class="h-5 w-5 block dark:hidden text-blue-700"></i>
-                        <span class="sr-only">Toggle theme</span>
+                    <button onclick="toggleTheme()" id="global-theme-toggle" class="theme-toggle-btn p-2 border border-border bg-background text-foreground hover:bg-accent rounded-lg touch-target" aria-label="Toggle dark/light mode">
+                        <i data-lucide="sun" class="h-5 w-5 hidden dark:block"></i>
+                        <i data-lucide="moon" class="h-5 w-5 block dark:hidden"></i>
                     </button>
                     
                     <div class="relative">
@@ -870,6 +870,7 @@
     <script src="js/websocket.js" defer></script>
     <script src="js/helpers.js" defer></script>
     <script src="js/ui-helpers.js" defer></script>
+    <script src="js/branding-manager.js" defer></script>
     <script src="js/curriculum.js" defer></script>
     <script src="js/duty.js" defer></script>
     <script src="js/super-admin-approvals.js" defer></script>

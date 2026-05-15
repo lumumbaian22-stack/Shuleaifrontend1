@@ -1256,3 +1256,11 @@ html:not(.dark) body:not(.dark) .finance-v31,
 .finance-v31-badge.paid { background:rgba(34,197,94,.16); color:#22c55e; }
 .finance-v31-badge.partial { background:rgba(245,158,11,.16); color:#f59e0b; }
 .finance-v31-badge.unpaid { background:rgba(239,68,68,.14); color:#ef4444; }
+
+/* ===== v66 global branding + theme toggle stability ===== */
+#sidebar-school-name,[data-school-name]{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.brand-logo-pair img,#sidebar img[alt="Shule AI Logo"],#sidebar img[alt="Logo"]{display:block;flex-shrink:0;max-width:2.5rem;max-height:2.5rem;}
+.theme-toggle-btn{color:hsl(var(--foreground))!important;background:hsl(var(--background))!important;border:1px solid hsl(var(--border))!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;}
+.theme-toggle-btn svg,.theme-toggle-btn i{color:currentColor!important;stroke:currentColor!important;opacity:1!important;visibility:visible!important;}
+.dark .theme-toggle-btn,[data-theme="dark"] .theme-toggle-btn{color:#e5e7eb!important;background:#0f172a!important;border-color:#334155!important;}
+.dark .theme-toggle-btn:hover,[data-theme="dark"] .theme-toggle-btn:hover{background:#1e293b!important;}

@@ -3,64 +3,23 @@
 // ===== sidebar.js merged into dashboard-controller.js =====
 // sidebar.js - Sidebar navigation and user info
 
-function getResolvedSchoolName() {
-    try {
-        const school = typeof getCurrentSchool === 'function' ? getCurrentSchool() : null;
-        const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
-        const storedSchool = JSON.parse(localStorage.getItem('school') || 'null');
-        const storedSettings = JSON.parse(localStorage.getItem('schoolSettings') || 'null');
-        const candidates = [
-            school?.name,
-            school?.schoolName,
-            storedSchool?.name,
-            storedSchool?.schoolName,
-            user?.schoolName,
-            user?.school?.name,
-            user?.school?.schoolName,
-            storedSettings?.schoolName,
-            storedSettings?.name,
-            storedSettings?.settings?.schoolName,
-            window.schoolSettings?.schoolName,
-            window.schoolSettings?.name,
-            window.schoolSettings?.settings?.schoolName
-        ];
-        return candidates.find(v => String(v || '').trim()) || 'Shule AI';
-    } catch (error) {
-        return 'Shule AI';
-    }
-}
-
-function ensureSidebarBrand() {
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-
-    const brandRow = sidebar.querySelector('.h-16 .flex.items-center.gap-3') || sidebar.querySelector('.h-16 .flex') || sidebar.querySelector('[data-sidebar-brand]');
-    if (!brandRow) return;
-
-    if (!brandRow.querySelector('img')) {
-        brandRow.insertAdjacentHTML('afterbegin', `
-            <img src="assets/logo-light.png" alt="Shule AI Logo" class="h-10 w-10 object-contain shrink-0" data-sidebar-logo="true">
-        `);
-    }
-
-    let nameEl = document.getElementById('sidebar-school-name');
-    if (!nameEl) {
-        brandRow.insertAdjacentHTML('beforeend', `
-            <span id="sidebar-school-name" class="text-lg font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent truncate max-w-[150px]">Shule AI</span>
-        `);
-        nameEl = document.getElementById('sidebar-school-name');
-    }
-
-    const name = getResolvedSchoolName();
-    nameEl.textContent = name;
-    nameEl.title = name;
-}
-
 function updateSidebar(role) {
-    ensureSidebarBrand();
     const nav = document.getElementById('sidebar-nav');
     const settingsNav = document.getElementById('settings-nav');
     const mobileNav = document.getElementById('mobile-nav');
+    
+    // Update sidebar brand identity from the single BrandingManager source.
+    if (window.BrandingManager && typeof window.BrandingManager.apply === 'function') {
+        window.BrandingManager.apply();
+    } else {
+        const schoolNameSpan = document.getElementById('sidebar-school-name');
+        const school = typeof getCurrentSchool === 'function' ? getCurrentSchool() : null;
+        if (schoolNameSpan && school && school.status === 'active' && school.name) {
+            schoolNameSpan.textContent = school.name;
+        } else if (schoolNameSpan) {
+            schoolNameSpan.textContent = 'ShuleAI';
+        }
+    }
 
     if (!nav) return;
 
@@ -230,12 +189,13 @@ function updateUserInfo() {
 
 // Function to update sidebar school name (called when school name changes)
 function updateSidebarSchoolName(newName) {
-    ensureSidebarBrand();
+    if (window.BrandingManager && typeof window.BrandingManager.updateSidebarSchoolName === 'function') {
+        return window.BrandingManager.updateSidebarSchoolName(newName);
+    }
     const schoolNameSpan = document.getElementById('sidebar-school-name');
-    const finalName = String(newName || getResolvedSchoolName() || 'Shule AI').trim();
-    if (schoolNameSpan) {
-        schoolNameSpan.textContent = finalName;
-        schoolNameSpan.title = finalName;
+    if (schoolNameSpan && newName) {
+        schoolNameSpan.textContent = newName;
+        console.log('Sidebar school name updated to:', newName);
     }
 }
 
@@ -1253,42 +1213,4 @@ window.checkConsentAndDPA = checkConsentAndDPA;
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', cleanupSidebar); else cleanupSidebar();
   const mo=new MutationObserver(cleanupSidebar);
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
-})();
-
-window.getResolvedSchoolName = getResolvedSchoolName;
-window.ensureSidebarBrand = ensureSidebarBrand;
-
-
-// v70 emergency logic fix: keep sidebar brand and global theme icon visible after dark/light toggles.
-(function v70EnsureThemeToggleVisibility(){
-  function apply(){
-    try {
-      if (typeof ensureSidebarBrand === 'function') ensureSidebarBrand();
-      const btn = document.getElementById('global-theme-toggle');
-      if (btn) {
-        btn.style.display = 'inline-flex';
-        btn.style.alignItems = 'center';
-        btn.style.justifyContent = 'center';
-        btn.style.position = 'relative';
-        btn.style.zIndex = '9999';
-        btn.style.opacity = '1';
-        btn.classList.remove('text-transparent');
-        btn.querySelectorAll('svg,i').forEach(icon => {
-          icon.style.display = '';
-          icon.style.opacity = '1';
-          icon.style.visibility = 'visible';
-        });
-      }
-    } catch(e) {}
-  }
-  document.addEventListener('DOMContentLoaded', apply);
-  document.addEventListener('shule:section-rendered', apply);
-  setTimeout(apply, 300);
-  const oldToggle = window.toggleTheme;
-  window.toggleTheme = function(){
-    const result = typeof oldToggle === 'function' ? oldToggle.apply(this, arguments) : undefined;
-    setTimeout(apply, 50);
-    setTimeout(apply, 300);
-    return result;
-  };
 })();

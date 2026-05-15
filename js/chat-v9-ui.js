@@ -138,7 +138,7 @@ function v9RenderTeacherShell() {
     <div class="tm6-chat-layout">
       <aside class="tm6-list-panel">
         <div class="tm6-panel-title">
-          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Direct Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Teacher-to-teacher messages' : 'Class and staff groups'}</p></div>
+          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Direct Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Teacher-to-teacher messages' : 'Class, parent and staff groups'}</p></div>
           ${v9ChatState.activeTab === 'groups' ? '<button onclick="v9OpenCreateGroupModal()">+</button>' : ''}
         </div>
         <input class="tm6-search" placeholder="Search..." oninput="v9FilterConversations(this.value)">
@@ -318,20 +318,6 @@ async function v9UploadAttachment(file) {
     v9RenderTeacherShell();
   } catch (err) { v9Toast(err.message || 'Upload failed', 'error'); }
 }
-function v70AppendTeacherMessage(message) {
-  if (!message) return;
-  const me = v9CurrentUser();
-  message.Sender = message.Sender || { id: me?.id, name: me?.name || 'You', role: me?.role || 'teacher', profileImage: me?.profileImage || null };
-  v9ChatState.messages = [...(v9ChatState.messages || []), message];
-  const list = document.getElementById('v9-message-list');
-  if (list) {
-    list.innerHTML = v9RenderMessages(me) + v70TypingText(v9ChatState.typing);
-    list.scrollTop = list.scrollHeight;
-  } else {
-    v9RenderTeacherShell();
-  }
-}
-
 async function v9SendMessage() {
   const input = document.getElementById('v9-message-input');
   const content = input?.value?.trim() || (v9ChatState.attachment ? 'Shared an attachment' : '');
@@ -500,13 +486,6 @@ async function v9LoadStudentThreads() {
       groups = classIds.map(id => ({ id:`class-${id}`, classId:id, name: allThreads.find(t => Number(t.classId) === id)?.className || 'Class Study Group', participants: [], participantCount: 0 }));
     }
     if (!groups.length) groups = [{ id:'class-0', classId:null, name:'My Study Group', participants: [], participantCount:0 }];
-    if (!groups.some(g => (g.participants || []).length)) {
-      try {
-        const peersRes = await chatV9API.getTeachers();
-        const peers = (peersRes.data || []).filter(p => Number(p.id) !== Number(v9CurrentUser()?.id)).map(p => ({ id:p.id, name:p.name, role:p.role || 'student', profileImage:p.profileImage, studentId:p.Student?.id || p.studentId, classId:p.Student?.classId || p.classId }));
-        if (peers.length) groups = groups.map(g => ({ ...g, participants: (g.participants && g.participants.length) ? g.participants : peers, participantCount: (g.participantCount || peers.length) }));
-      } catch(e) {}
-    }
 
     v9StudentState.groups = groups;
     v9StudentState.threads = allThreads;
@@ -680,10 +659,14 @@ async function v9SubmitStudentTopic(classId) {
   try { await chatV9API.createClassroomThread({ classId, subject, topic, content, metadata:{ approvalStatus:'pending', source:'student-created-topic' } }); v9CloseModal(); await v9LoadStudentThreads(); v9Toast('Topic sent for teacher approval','success'); }
   catch(err){ v9Toast(err.message || 'Could not create topic','error'); }
 }
+async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; await v9LoadStudentThreads(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
+async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; return `<div class="v9-wa-stats"><span>⭐ ${totals.points||0}</span><span>🔥 ${totals.streak||0}</span></div>`; }
 
 function v9RenderThreads(threads) { if(!threads.length) return `<div class="v9-empty"><h3 class="font-bold text-lg mb-2">No classroom threads yet</h3><p>Your teacher will post structured study questions here.</p></div>`; return threads.map(t=>`<article class="v9-thread-card"><div class="v9-thread-top"><div><span class="v9-subject-pill">${v9Safe(t.subject||'Subject')}</span><h3 class="text-xl font-bold mt-3">${v9Safe(t.topic||'Classroom Topic')}</h3><p class="text-muted-foreground">${v9Safe(t.content||'')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div>${t.isPinned?'<span class="v9-award-pill">📌 Pinned</span>':''}</div><div class="mt-4">${v9ThreadReplies(t).map(r=>v9RenderReply(r)).join('')}</div><div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Write your reply or question..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div></article>`).join(''); }
 function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)}</small></div><p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||0}</button></div></div>`; }
+async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) await v9LoadStudentThreads(); else await v9RefreshTeacherChat(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
+async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; const events=data.events||[]; return `<div class="v9-achievements-card"><h3 class="font-bold text-xl">Achievements</h3><p class="text-muted-foreground text-sm">Stars and streaks awarded by teachers.</p><div class="v9-achievement-stat"><div><span class="text-muted-foreground text-sm">Points</span><strong>⭐ ${totals.points||0}</strong></div><div><span class="text-muted-foreground text-sm">Streak</span><strong>🔥 ${totals.streak||0}</strong></div></div><div class="space-y-3">${events.length?events.slice(0,5).map(e=>`<div class="v9-info-card"><div class="flex justify-between gap-2"><strong>${v9Safe(e.title||'Achievement')}</strong><span class="v9-award-pill">+${e.points||0} pts</span></div><small>${v9Safe(e.note||'Teacher awarded achievement')}</small></div>`).join(''):'<div class="v9-empty small">No achievements yet. Participate in threads to earn stars.</div>'}</div></div>`; }
 
 
@@ -740,193 +723,3 @@ window.v9SendStudentPrivateMessage = v9SendStudentPrivateMessage;
 window.v9OpenTopicPicker = v9OpenTopicPicker;
 window.v9ShowMembersPanel = v9ShowMembersPanel;
 
-
-/* v70 emergency rollout completion: complete the missing chat behaviors inside the approved v65 chat module. */
-v9ChatState.replyToMessage = null;
-v9ChatState.voiceRecorder = null;
-v9ChatState.voiceChunks = [];
-v9ChatState.typing = [];
-v9ChatState.presence = {};
-v9StudentState.replyToMessage = null;
-v9StudentState.voiceRecorder = null;
-v9StudentState.voiceChunks = [];
-v9StudentState.typing = [];
-v9StudentState.presence = {};
-
-function v70MessageReplyPreview(m) {
-  const replyId = m?.metadata?.replyToMessageId;
-  if (!replyId) return '';
-  const all = [...(v9ChatState.messages || []), ...(v9StudentState.directMessages || [])];
-  const reply = all.find(x => Number(x.id) === Number(replyId));
-  return `<div class="v70-reply-preview"><strong>Replying to ${v9Safe(reply?.Sender?.name || 'message')}</strong><span>${v9Safe((reply?.content || 'Original message').slice(0, 80))}</span></div>`;
-}
-function v70ReactionButtons(messageId, existing = {}) {
-  const emojis = ['👍','👏','❤️','😂','✅','🔥'];
-  return `<div class="v70-reaction-row">${emojis.map(e => `<button onclick="v9ReactToMessage(${Number(messageId)}, '${e}')">${e} ${Array.isArray(existing[e]) ? existing[e].length : ''}</button>`).join('')}</div>`;
-}
-function v70ReadLabel(m, mine) {
-  if (!mine) return '';
-  const readBy = Object.keys(m?.metadata?.readBy || {}).length;
-  if (m.isRead || readBy) return `<span class="v70-seen">Seen</span>`;
-  if (m?.metadata?.deliveredTo && Object.keys(m.metadata.deliveredTo).length) return `<span class="v70-delivered">Delivered</span>`;
-  return `<span class="v70-delivered">Sent</span>`;
-}
-function v70MessageMedia(m) {
-  const url = m.attachmentUrl;
-  if (!url) return '';
-  const label = m.metadata?.attachmentName || 'Attachment';
-  const mime = m.metadata?.attachmentType || '';
-  const safe = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(url) : url;
-  if (m.messageType === 'voice' || mime.startsWith('audio/')) return `<audio controls class="v70-audio"><source src="${v9Safe(safe)}" type="${v9Safe(mime || 'audio/webm')}"></audio>`;
-  if (mime.startsWith('image/')) return `<a href="${v9Safe(safe)}" target="_blank"><img class="v70-img-preview" src="${v9Safe(safe)}" alt="${v9Safe(label)}"></a>`;
-  return v9AttachmentLink(url, label);
-}
-function v70PresenceDot(userId) {
-  const p = v9ChatState.presence?.[userId] || v9StudentState.presence?.[userId];
-  return `<span class="v70-presence ${p?.status === 'online' ? 'online' : ''}"></span>`;
-}
-async function v70RefreshPresence(ids, studentMode = false) {
-  try {
-    if (!ids?.length || !window.chatV9API?.getPresence) return;
-    const res = await chatV9API.getPresence(ids);
-    const map = {};
-    (res.data || []).forEach(p => map[p.userId] = p);
-    if (studentMode) v9StudentState.presence = map; else v9ChatState.presence = map;
-  } catch (e) {}
-}
-function v70TypingText(list = []) {
-  const active = (list || []).filter(x => x && x.name).slice(0, 3);
-  if (!active.length) return '';
-  return `<div class="v70-typing">${active.map(x => v9Safe(x.name)).join(', ')} typing...</div>`;
-}
-let v70TypingTimer = null;
-function v70NotifyTyping(scope, targetId) {
-  clearTimeout(v70TypingTimer);
-  v70TypingTimer = setTimeout(() => { try { chatV9API.updateTyping(scope, targetId); } catch(e){} }, 120);
-}
-async function v70LoadTyping(scope, targetId, studentMode = false) {
-  try {
-    if (!window.chatV9API?.getTyping) return;
-    const res = await chatV9API.getTyping(scope, targetId);
-    if (studentMode) v9StudentState.typing = res.data || []; else v9ChatState.typing = res.data || [];
-  } catch(e) {}
-}
-
-function v9RenderChatWindow(selected) {
-  const isGroup = v9ChatState.activeTab === 'groups';
-  const userIds = isGroup ? (v9ChatState.members || []).map(m => m.User?.id || m.userId).filter(Boolean) : [selected.id];
-  v70RefreshPresence(userIds, false);
-  return `
-    <header class="tm6-chat-head">
-      <div class="tm6-title-row"><span class="tm6-avatar big">${isGroup ? '👥' : v9Initials(selected.name)}${!isGroup ? v70PresenceDot(selected.id) : ''}</span><div><h3>${v9Safe(selected.name || 'Conversation')}</h3><p>${isGroup ? `${v9ChatState.members.length} members • managed group` : 'Teacher chat • emoji reactions only'}</p></div></div>
-      <div class="tm6-chat-actions">
-        ${isGroup ? `<button class="tm6-btn light" onclick="v9OpenManageMembersModal(${Number(selected.id)})">Manage Members</button>` : ''}
-        <button class="tm6-btn light" onclick="v9PickAttachment()">Attach</button>
-        <button class="tm6-btn light" onclick="v70StartVoiceNote(false)">🎙️ Voice</button>
-        <input id="v9-file-input" type="file" class="hidden" onchange="v9UploadAttachment(this.files[0])">
-      </div>
-    </header>
-    <main class="tm6-messages" id="v9-message-list">${v9RenderMessages(v9CurrentUser())}${v70TypingText(v9ChatState.typing)}</main>
-    <footer class="tm6-composer">
-      <div id="v9-selected-attachment" class="tm6-selected-file">${v9ChatState.attachment ? `${v9AttachmentLink(v9ChatState.attachment.url, v9AttachmentLabel(v9ChatState.attachment))}<button onclick="v9ClearAttachment()">×</button>` : ''}</div>
-      <div id="v70-reply-box" class="v70-compose-reply ${v9ChatState.replyToMessage ? '' : 'hidden'}">${v9ChatState.replyToMessage ? `Replying to ${v9Safe(v9ChatState.replyToMessage.Sender?.name || 'message')}: ${v9Safe((v9ChatState.replyToMessage.content || '').slice(0,60))}<button onclick="v70ClearReply(false)">×</button>` : ''}</div>
-      <div id="v70-voice-status" class="v70-voice-status hidden">Recording voice note... <button onclick="v70StopVoiceNote(false)">Stop & Attach</button></div>
-      <div class="tm6-compose-row"><input id="v9-message-input" placeholder="Type a message..." oninput="v70NotifyTyping('${isGroup ? 'group' : 'direct'}','${isGroup ? selected.id : selected.id}')" onkeydown="if(event.key==='Enter')v9SendMessage()"><button onclick="v9SendMessage()">➤</button></div>
-    </footer>`;
-}
-function v9RenderMessages(currentUser) {
-  if (!v9ChatState.messages.length) return '<div class="tm6-empty">No messages yet. Start the conversation.</div>';
-  return v9ChatState.messages.map(m => {
-    const mine = Number(m.senderId) === Number(currentUser?.id);
-    const sender = m.Sender || {};
-    const reactions = m.metadata?.reactions || {};
-    return `<article class="tm6-msg ${mine ? 'mine' : ''}">
-      <span class="tm6-avatar small">${v9Initials(sender.name || 'U')}${v70PresenceDot(sender.id)}</span>
-      <div class="tm6-bubble">
-        ${!mine ? `<strong>${v9Safe(sender.name || 'User')}</strong>` : ''}
-        ${v70MessageReplyPreview(m)}
-        <p>${v9Safe(m.content || '')}</p>
-        ${v70MessageMedia(m)}
-        <div class="tm6-meta"><span>${v9Time(m.createdAt)}</span>${v70ReadLabel(m, mine)}${m.pointsAwarded ? `<span>⭐ ${m.pointsAwarded}</span>` : ''}${m.streakAwarded ? `<span>🔥 ${m.streakAwarded}</span>` : ''}</div>
-        ${v70ReactionButtons(Number(m.id), reactions)}
-        <div class="tm6-mini-actions"><button onclick="v70SetReply(${Number(m.id)}, false)">↩ Reply</button><button onclick="v70ReportMessage(${Number(m.id)})">Report</button>${!mine ? v9RenderMessageActions(m, sender) : ''}</div>
-      </div>
-    </article>`;
-  }).join('');
-}
-function v70SetReply(messageId, studentMode = false) {
-  if (studentMode) v9StudentState.replyToMessage = (v9StudentState.directMessages || []).find(m => Number(m.id) === Number(messageId));
-  else v9ChatState.replyToMessage = (v9ChatState.messages || []).find(m => Number(m.id) === Number(messageId));
-  studentMode ? v9RenderStudentStudyRoom() : v9RenderTeacherShell();
-}
-function v70ClearReply(studentMode = false) { if (studentMode) v9StudentState.replyToMessage = null; else v9ChatState.replyToMessage = null; studentMode ? v9RenderStudentStudyRoom() : v9RenderTeacherShell(); }
-async function v70ReportMessage(messageId) { const reason = prompt('Why are you reporting this message?'); if (!reason) return; try { await chatV9API.reportMessage(messageId, reason); v9Toast('Report sent to moderation', 'success'); } catch(e){ v9Toast(e.message || 'Report failed', 'error'); } }
-async function v70ReportReply(replyId) { const reason = prompt('Why are you reporting this reply?'); if (!reason) return; try { await chatV9API.reportReply(replyId, reason); v9Toast('Report sent to moderation', 'success'); } catch(e){ v9Toast(e.message || 'Report failed', 'error'); } }
-async function v9SendMessage() {
-  const input = document.getElementById('v9-message-input');
-  const content = input?.value?.trim() || (v9ChatState.attachment ? 'Shared an attachment' : '');
-  if (!content) return;
-  try {
-    const attachmentUrl = v9ChatState.attachment?.url || null;
-    const attachment = v9ChatState.attachment || null;
-    const options = { messageType: attachment?.mimeType?.startsWith?.('audio/') ? 'voice' : undefined, replyToMessageId: v9ChatState.replyToMessage?.id || null };
-    let res = null;
-    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) {
-      res = await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, attachment, options);
-    }
-    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) {
-      res = await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, attachment, options);
-    }
-    input.value = '';
-    v9ChatState.attachment = null;
-    v9ChatState.replyToMessage = null;
-    const selectedAttachment = document.getElementById('v9-selected-attachment');
-    if (selectedAttachment) selectedAttachment.innerHTML = '';
-    v70AppendTeacherMessage(res?.data || null);
-  } catch (err) { v9Toast(err.message || 'Message failed', 'error'); }
-}
-async function v70StartVoiceNote(studentMode = false) {
-  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return v9Toast('Voice recording is not supported by this browser', 'error');
-  const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-  const state = studentMode ? v9StudentState : v9ChatState;
-  state.voiceChunks = [];
-  state.voiceRecorder = new MediaRecorder(stream);
-  state.voiceRecorder.ondataavailable = e => { if (e.data?.size) state.voiceChunks.push(e.data); };
-  state.voiceRecorder.start();
-  const el = document.getElementById(studentMode ? 'v70-student-voice-status' : 'v70-voice-status'); if (el) el.classList.remove('hidden');
-}
-async function v70StopVoiceNote(studentMode = false) {
-  const state = studentMode ? v9StudentState : v9ChatState;
-  if (!state.voiceRecorder) return;
-  await new Promise(resolve => { state.voiceRecorder.onstop = resolve; state.voiceRecorder.stop(); });
-  state.voiceRecorder.stream.getTracks().forEach(t => t.stop());
-  const blob = new Blob(state.voiceChunks, { type:'audio/webm' });
-  const file = new File([blob], `voice-note-${Date.now()}.webm`, { type:'audio/webm' });
-  const fd = new FormData(); fd.append('file', file);
-  const res = await chatV9API.uploadAttachment(fd);
-  state.attachment = { ...res.data, mimeType:'audio/webm', name:'Voice note.webm' };
-  state.voiceRecorder = null; state.voiceChunks = [];
-  studentMode ? v9RenderStudentStudyRoom() : v9RenderTeacherShell();
-}
-
-function v9RenderStudentPrivateChat(peer) {
-  if (!peer) return '<div class="v9-empty">Choose a classmate to start a private message.</div>';
-  v70RefreshPresence([peer.id], true);
-  const me = v9CurrentUser();
-  return `<section class="v9-wa-chat-panel"><header class="v9-wa-chat-head"><div class="v9-avatar">${v9Initials(peer.name)}${v70PresenceDot(peer.id)}</div><div><h3>${v9Safe(peer.name)}</h3><small>${v9StudentState.presence?.[peer.id]?.status === 'online' ? 'Online' : 'Classmate'}</small></div></header><main class="v9-wa-feed">${v9StudentState.directMessages.length ? v9StudentState.directMessages.map(m => v9RenderWhatsAppMessage(m, Number(m.senderId || m.Sender?.id) === Number(me?.id))).join('') : '<div class="v9-wa-day">No messages yet. Say hello 👋</div>'}${v70TypingText(v9StudentState.typing)}</main><footer class="v9-wa-composer"><div class="v70-compose-reply ${v9StudentState.replyToMessage ? '' : 'hidden'}">${v9StudentState.replyToMessage ? `Replying to ${v9Safe(v9StudentState.replyToMessage.Sender?.name || 'message')}: ${v9Safe((v9StudentState.replyToMessage.content || '').slice(0,60))}<button onclick="v70ClearReply(true)">×</button>` : ''}</div><div id="v70-student-voice-status" class="v70-voice-status hidden">Recording... <button onclick="v70StopVoiceNote(true)">Stop & Attach</button></div>${v9StudentState.attachment ? `<div class="tm6-selected-file">${v9AttachmentLink(v9StudentState.attachment.url, v9StudentState.attachment.name)}<button onclick="v9StudentState.attachment=null;v9RenderStudentStudyRoom()">×</button></div>`:''}<input id="v9-private-input-${Number(peer.id)}" placeholder="Message ${v9Safe(peer.name)}..." oninput="v70NotifyTyping('direct','${peer.id}')" onkeydown="if(event.key==='Enter')v9SendStudentPrivateMessage(${Number(peer.id)})"><button onclick="v70StartVoiceNote(true)">🎙️</button><button onclick="v9SendStudentPrivateMessage(${Number(peer.id)})">➤</button></footer></section>`;
-}
-function v9RenderWhatsAppMessage(m, mine) {
-  const reactions = m.metadata?.reactions || {};
-  return `<article class="v9-wa-msg ${mine ? 'mine' : ''}"><div class="v9-wa-bubble">${!mine ? `<strong>${v9Safe(m.Sender?.name || 'Student')}</strong>`:''}${v70MessageReplyPreview(m)}<p>${v9Safe(m.content || '')}</p>${v70MessageMedia(m)}<div class="v9-wa-meta"><span>${v9Time(m.createdAt)}</span>${v70ReadLabel(m, mine)}</div>${v70ReactionButtons(Number(m.id), reactions)}<div class="v70-msg-actions"><button onclick="v70SetReply(${Number(m.id)}, true)">↩</button><button onclick="v9ReactToMessage(${Number(m.id)}, '👍')">👍</button><button onclick="v9ReactToMessage(${Number(m.id)}, '❤️')">❤️</button><button onclick="v70ReportMessage(${Number(m.id)})">Report</button></div></div></article>`;
-}
-async function v9SendStudentPrivateMessage(userId) {
-  const input = document.getElementById(`v9-private-input-${Number(userId)}`);
-  const content = input?.value?.trim() || (v9StudentState.attachment ? 'Shared an attachment' : '');
-  if (!content) return;
-  try { const options={ messageType:v9StudentState.attachment?.mimeType?.startsWith?.('audio/')?'voice':undefined, replyToMessageId:v9StudentState.replyToMessage?.id || null }; await chatV9API.sendDirectMessage(userId, content, v9StudentState.attachment?.url || null, v9StudentState.attachment || null, options); input.value = ''; v9StudentState.attachment = null; v9StudentState.replyToMessage = null; await v9LoadStudentPrivateMessages(userId); }
-  catch (err) { v9Toast(err.message || 'Private message failed', 'error'); }
-}
-async function v9HelpfulReply(replyId) { try { await chatV9API.reactToReply(replyId, '👍'); const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) await v9LoadStudentThreads(); else await v9RefreshTeacherChat(); } catch(e){ v9Toast(e.message || 'Reaction failed','error'); } }
-function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; const reactions=r.metadata?.reactions||{}; return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)}</small></div><p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${(reactions['👍']||[]).length || r.helpfulCount || 0}</button><button class="v9-award-pill" onclick="chatV9API.reactToReply(${Number(r.id)}, '❤️').then(()=>v9LoadStudentThreads())">❤️ ${(reactions['❤️']||[]).length || 0}</button><button class="v9-award-pill" onclick="v70ReportReply(${Number(r.id)})">Report</button></div></div>`; }
-setInterval(() => { try { chatV9API.updatePresence('online'); } catch(e){} }, 45000);
-try { chatV9API.updatePresence('online'); } catch(e) {}

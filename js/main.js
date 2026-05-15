@@ -190,76 +190,15 @@ window.addEventListener('school-name-changed', function(event) {
 
 // Function to update all school name elements across the entire application
 function updateAllSchoolNameElements(newName) {
-    console.log('🔄 Updating all school name elements to:', newName);
-    
-    // Update sidebar school name (by ID)
-    const sidebarSchoolName = document.getElementById('sidebar-school-name');
-    if (sidebarSchoolName) {
-        sidebarSchoolName.textContent = newName;
-        console.log('✅ Updated sidebar school name');
+    if (window.BrandingManager && typeof window.BrandingManager.updateAllSchoolNameElements === 'function') {
+        return window.BrandingManager.updateAllSchoolNameElements(newName);
     }
-    
-    // Update admin dashboard school name
-    const adminSchoolName = document.getElementById('dashboard-school-name');
-    if (adminSchoolName) {
-        adminSchoolName.textContent = newName;
-        console.log('✅ Updated admin dashboard school name');
-    }
-    
-    // Update teacher dashboard school name
-    const teacherSchoolName = document.getElementById('teacher-school-name');
-    if (teacherSchoolName) {
-        teacherSchoolName.textContent = newName;
-        console.log('✅ Updated teacher dashboard school name');
-    }
-    
-    // Update parent dashboard school name
-    const parentSchoolName = document.getElementById('parent-school-name');
-    if (parentSchoolName) {
-        parentSchoolName.textContent = newName;
-        console.log('✅ Updated parent dashboard school name');
-    }
-    
-    // Update student dashboard school name
-    const studentSchoolName = document.getElementById('student-school-name');
-    if (studentSchoolName) {
-        studentSchoolName.textContent = newName;
-        console.log('✅ Updated student dashboard school name');
-    }
-    
-    // Update any elements with class .school-name
-    document.querySelectorAll('.school-name, .school-name-display, [data-school-name]').forEach(el => {
-        el.textContent = newName;
-        console.log('✅ Updated element with class:', el.className);
+    const displayName = newName || 'ShuleAI';
+    document.querySelectorAll('#sidebar-school-name, #school-name, #dashboard-school-name, #teacher-school-name, #parent-school-name, #parent-school-name-progress, #parent-school-name-payments, #student-school-name, .school-name, .school-name-display, [data-school-name], .profile-school-name').forEach(el => {
+        el.textContent = displayName;
+        el.setAttribute('title', displayName);
     });
-    
-    // Update the main school name in admin dashboard card (fallback)
-    const adminCardSchoolName = document.querySelector('.rounded-xl.border.bg-card.p-6 h2.text-2xl.font-bold');
-    if (adminCardSchoolName && adminCardSchoolName.id !== 'dashboard-school-name') {
-        adminCardSchoolName.textContent = newName;
-        console.log('✅ Updated admin card school name');
-    }
-    
-    // Update school name in profile section if visible
-    const profileSchoolName = document.querySelector('#profile-section .school-name, .profile-school-name');
-    if (profileSchoolName) {
-        profileSchoolName.textContent = newName;
-        console.log('✅ Updated profile school name');
-    }
-    
-    // Update landing page school name if visible (for super admin preview)
-    const landingSchoolName = document.querySelector('.landing-school-name, #landing-school-name');
-    if (landingSchoolName) {
-        landingSchoolName.textContent = newName;
-        console.log('✅ Updated landing page school name');
-    }
-    
-    // Force a re-render of the current section to catch any dynamically loaded elements
-    setTimeout(() => {
-        if (typeof showDashboardSection === 'function' && window.currentSection) {
-            showDashboardSection(window.currentSection);
-        }
-    }, 100);
+    return displayName;
 }
 
 // Make the function globally available

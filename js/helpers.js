@@ -99,29 +99,15 @@ function saveUser(userData) {
 }
 
 function updateAllSchoolNameElements(newName) {
-    console.log('Updating all school name elements to:', newName);
-    const sidebarSchoolName = document.getElementById('sidebar-school-name');
-    if (sidebarSchoolName) sidebarSchoolName.textContent = newName;
-    const adminSchoolName = document.getElementById('dashboard-school-name');
-    if (adminSchoolName) adminSchoolName.textContent = newName;
-    const teacherSchoolName = document.getElementById('teacher-school-name');
-    if (teacherSchoolName) teacherSchoolName.textContent = newName;
-    const parentSchoolName = document.getElementById('parent-school-name');
-    if (parentSchoolName) parentSchoolName.textContent = newName;
-    const studentSchoolName = document.getElementById('student-school-name');
-    if (studentSchoolName) studentSchoolName.textContent = newName;
-    document.querySelectorAll('.school-name, .school-name-display, [data-school-name]').forEach(el => {
-        el.textContent = newName;
+    if (window.BrandingManager && typeof window.BrandingManager.updateAllSchoolNameElements === 'function') {
+        return window.BrandingManager.updateAllSchoolNameElements(newName);
+    }
+    const displayName = newName || 'ShuleAI';
+    document.querySelectorAll('#sidebar-school-name, #school-name, #dashboard-school-name, #teacher-school-name, #parent-school-name, #parent-school-name-progress, #parent-school-name-payments, #student-school-name, .school-name, .school-name-display, [data-school-name], .profile-school-name').forEach(el => {
+        el.textContent = displayName;
+        el.setAttribute('title', displayName);
     });
-    const adminCardSchoolName = document.querySelector('.rounded-xl.border.bg-card.p-6 h2.text-2xl.font-bold');
-    if (adminCardSchoolName) adminCardSchoolName.textContent = newName;
-    const profileSchoolName = document.querySelector('#profile-section .school-name');
-    if (profileSchoolName) profileSchoolName.textContent = newName;
-    setTimeout(() => {
-        if (typeof showDashboardSection === 'function' && window.currentSection) {
-            showDashboardSection(window.currentSection);
-        }
-    }, 100);
+    return displayName;
 }
 
 async function openReportCard(studentId) {
