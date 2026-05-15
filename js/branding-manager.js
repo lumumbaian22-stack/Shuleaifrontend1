@@ -51,8 +51,12 @@
     const school = getStoredSchool();
     const settings = getStoredSettings();
     const user = getStoredUser();
+    const dashboardData = window.dashboardData || window.studentDashboardData || {};
 
     return (
+      cleanName(dashboardData?.school?.name) ||
+      cleanName(dashboardData?.schoolName) ||
+      cleanName(dashboardData?.student?.school?.name) ||
       cleanName(school?.name) ||
       cleanName(school?.schoolName) ||
       cleanName(school?.settings?.schoolName) ||
@@ -76,6 +80,8 @@
 
     if (role === 'superadmin') return false;
     if (school?.status === 'active' && hasSchoolName) return true;
+    const dashboardData = window.dashboardData || window.studentDashboardData || {};
+    if (dashboardData?.schoolName || dashboardData?.school?.name || dashboardData?.student?.school?.name) return true;
     if (settings.schoolName || settings.name) return true;
     if (user?.schoolName || user?.school?.name) return true;
     if (user?.student?.school?.name || user?.teacher?.school?.name || user?.parent?.school?.name) return true;
@@ -115,9 +121,22 @@
 
   function ensureLogoPair(container) {
     if (!container) return;
-    const hasLight = container.querySelector('[data-brand-logo-light]');
-    const hasDark = container.querySelector('[data-brand-logo-dark]');
-    if (hasLight && hasDark) return;
+
+    // Do NOT inject a new logo if the approved sidebar already has one.
+    // The previous v66 attempt prepended a second logo pair here, which caused double logos.
+    const existingImgs = Array.from(container.querySelectorAll('img'));
+    if (existingImgs.length) {
+      existingImgs.forEach((img, index) => {
+        const isDarkLogo = img.classList.contains('dark:block') || index === 1 || /dark/i.test(img.src || '');
+        img.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT;
+        img.alt = `${PLATFORM_NAME} Logo`;
+        img.loading = 'eager';
+        img.decoding = 'async';
+        if (isDarkLogo) img.setAttribute('data-brand-logo-dark', 'true');
+        else img.setAttribute('data-brand-logo-light', 'true');
+      });
+      return;
+    }
 
     const wrapper = document.createElement('span');
     wrapper.className = 'brand-logo-pair inline-flex items-center shrink-0';
@@ -183,10 +202,33 @@
     return apply(newName);
   }
 
+  let applyTimer = null;
+
+  function scheduleApply(newName) {
+    if (applyTimer) clearTimeout(applyTimer);
+    applyTimer = setTimeout(function () {
+      applyTimer = null;
+      apply(newName);
+    }, 30);
+  }
+
+  function observeDashboardContent() {
+    const targets = [document.getElementById('dashboard-content'), document.getElementById('dashboard-container')].filter(Boolean);
+    targets.forEach((target) => {
+      if (target.dataset.brandingObserved === 'true') return;
+      target.dataset.brandingObserved = 'true';
+      new MutationObserver(function () {
+        scheduleApply();
+      }).observe(target, { childList: true, subtree: true });
+    });
+  }
+
   function boot() {
     apply();
+    observeDashboardContent();
     setTimeout(apply, 0);
     setTimeout(apply, 250);
+    setTimeout(apply, 1000);
   }
 
   window.BrandingManager = {
