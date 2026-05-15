@@ -311,59 +311,227 @@ async function loadStudentHomeTasks() {
 async function renderStudentGrades() {
     try {
         const data = dashboardData || {};
-        const school = getCurrentSchool();
-        const grades = data.grades || [];
+        let grades = Array.isArray(data.grades) ? data.grades : [];
+
+        // If dashboard payload did not include grades, load the official published student-grade endpoint.
+        if (!grades.length) {
+            try {
+                const res = await apiRequest('/api/student/grades');
+                grades = Array.isArray(res.data) ? res.data : [];
+            } catch (gradeLoadError) {
+                console.warn('Could not load /api/student/grades, falling back to dashboard grades:', gradeLoadError.message);
+            }
+        }
+
+        window.v66StudentGrades = grades.map(v66NormalizeStudentGrade);
+        const filters = v66BuildGradeFilters(window.v66StudentGrades);
+        const initial = v66PickInitialGradeFilter(filters);
+        window.v66StudentGradeFilter = initial;
 
         return `
-            <div class="space-y-6 animate-fade-in">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-2xl font-bold">My Grades</h2>
-                    <div class="text-sm text-muted-foreground">${escapeHtml((window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : ((school && school.status === 'active') ? school.name : 'ShuleAI')))}</div>
-                </div>
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-muted/50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left font-medium">Subject</th>
-                                    <th class="px-4 py-3 text-left font-medium">Assessment</th>
-                                    <th class="px-4 py-3 text-center font-medium">Score</th>
-                                    <th class="px-4 py-3 text-center font-medium">Grade</th>
-                                    <th class="px-4 py-3 text-left font-medium">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y" id="grades-table-body">
-                                ${grades.length > 0 ? grades.map(record => {
-                                    const score = record.score || 0;
-                                    const grade = record.grade || 'N/A';
-                                    const gradeClass = getGradeColorClass(grade);
-                                    return `
-                                        <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
-                                            <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
-                                            <td class="px-4 py-3 text-center">${score}%</td>
-                                            <td class="px-4 py-3 text-center">
-                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">${grade}</span>
-                                            </td>
-                                            <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
-                                        </tr>
-                                    `;
-                                }).join('') : `
-                                    <tr>
-                                        <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">
-                                            No grades recorded yet
-                                        </td>
-                                    </tr>
-                                `}
-                            </tbody>
-                        </table>
+            <div class="space-y-6 animate-fade-in student-grades-section">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold">My Grades</h2>
+                        <p class="text-sm text-muted-foreground">Choose academic year, term, and test type to view the exact results for that period.</p>
                     </div>
+                    <button onclick="openReportCard && openReportCard()" class="px-3 py-2 bg-primary text-white text-sm rounded-lg inline-flex items-center gap-2 w-fit">
+                        <i data-lucide="file-text" class="h-4 w-4"></i> View Report Card
+                    </button>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-3 rounded-xl border bg-card p-4">
+                    ${v66RenderSelect('Academic Year', 'year', filters.years, initial.year)}
+                    ${v66RenderSelect('Term', 'term', filters.terms, initial.term)}
+                    ${v66RenderSelect('Assessment/Test', 'assessment', filters.assessments, initial.assessment)}
+                </div>
+
+                <div id="student-grades-results">
+                    ${v66RenderGradesResults(window.v66StudentGrades, initial)}
                 </div>
             </div>
         `;
     } catch (error) {
-        return `<div class="text-center py-12 text-red-500">Error loading grades: ${error.message}</div>`;
+        return `<div class="text-center py-12 text-red-500">Error loading grades: ${escapeHtml(error.message)}</div>`;
     }
+}
+
+function v66NormalizeStudentGrade(record) {
+    const rawDate = record.date || record.createdAt || record.updatedAt || record.assessmentDate || null;
+    const d = rawDate ? new Date(rawDate) : null;
+    const year = String(record.academicYear || record.year || record.schoolYear || (d && !isNaN(d) ? d.getFullYear() : new Date().getFullYear()));
+    const term = String(record.term || record.termName || record.schoolTerm || record.Term?.name || 'Term 1');
+    const assessment = String(record.assessmentName || record.assessmentType || record.testType || record.examType || record.type || 'Assessment');
+    const scoreRaw = record.score ?? record.marks ?? record.mark ?? record.percentage ?? 0;
+    const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 0;
+    return {
+        id: record.id || `${record.subject || 'subject'}-${year}-${term}-${assessment}`,
+        subject: record.subject || record.Subject?.name || 'N/A',
+        year,
+        term,
+        assessment,
+        score,
+        totalMarks: Number(record.totalMarks || record.outOf || record.maxScore || 100),
+        grade: record.grade || 'N/A',
+        teacher: record.teacherName || record.Teacher?.User?.name || record.teacher || 'Teacher',
+        remark: record.remark || record.teacherRemark || record.comments || '',
+        date: rawDate
+    };
+}
+
+function v66BuildGradeFilters(grades) {
+    const unique = (arr) => [...new Set(arr.filter(Boolean))];
+    const years = unique(grades.map(g => g.year)).sort((a, b) => Number(b) - Number(a));
+    const terms = unique(grades.map(g => g.term)).sort();
+    const assessments = unique(grades.map(g => g.assessment)).sort();
+    return {
+        years: years.length ? years : [String(new Date().getFullYear())],
+        terms: terms.length ? terms : ['Term 1'],
+        assessments: assessments.length ? assessments : ['Assessment']
+    };
+}
+
+function v66PickInitialGradeFilter(filters) {
+    return {
+        year: filters.years[0] || String(new Date().getFullYear()),
+        term: filters.terms[0] || 'Term 1',
+        assessment: filters.assessments[0] || 'Assessment'
+    };
+}
+
+function v66RenderSelect(label, key, options, selected) {
+    return `
+        <label class="space-y-1">
+            <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">${escapeHtml(label)}</span>
+            <select id="student-grade-filter-${key}" onchange="v66ApplyStudentGradeFilters()" class="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                ${options.map(opt => `<option value="${escapeHtml(opt)}" ${String(opt) === String(selected) ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
+            </select>
+        </label>`;
+}
+
+function v66ApplyStudentGradeFilters() {
+    const filter = {
+        year: document.getElementById('student-grade-filter-year')?.value,
+        term: document.getElementById('student-grade-filter-term')?.value,
+        assessment: document.getElementById('student-grade-filter-assessment')?.value
+    };
+    window.v66StudentGradeFilter = filter;
+    const target = document.getElementById('student-grades-results');
+    if (target) target.innerHTML = v66RenderGradesResults(window.v66StudentGrades || [], filter);
+    if (window.lucide) lucide.createIcons();
+}
+
+function v66RenderGradesResults(grades, filter) {
+    const selected = grades.filter(g => String(g.year) === String(filter.year) && String(g.term) === String(filter.term) && String(g.assessment) === String(filter.assessment));
+    const average = selected.length ? Math.round(selected.reduce((sum, g) => sum + Number(g.score || 0), 0) / selected.length) : 0;
+    const sorted = [...selected].sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+    const strongest = sorted[0]?.subject || 'N/A';
+    const weakest = sorted[sorted.length - 1]?.subject || 'N/A';
+    const recommendations = v66BuildGradeRecommendations(selected);
+
+    if (!grades.length) {
+        return `
+            <div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">
+                <i data-lucide="clipboard-list" class="h-10 w-10 mx-auto mb-3 opacity-70"></i>
+                <p class="font-medium">No published grades yet.</p>
+                <p class="text-sm mt-1">Published marks will appear here grouped by year, term, and assessment.</p>
+            </div>`;
+    }
+
+    return `
+        <div class="space-y-4">
+            <div class="grid gap-4 md:grid-cols-4">
+                <div class="rounded-xl border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Average Score</p>
+                    <h3 class="text-2xl font-bold mt-1">${average}%</h3>
+                </div>
+                <div class="rounded-xl border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Subjects</p>
+                    <h3 class="text-2xl font-bold mt-1">${selected.length}</h3>
+                </div>
+                <div class="rounded-xl border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Strongest</p>
+                    <h3 class="text-base font-semibold mt-1 truncate">${escapeHtml(strongest)}</h3>
+                </div>
+                <div class="rounded-xl border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Needs Focus</p>
+                    <h3 class="text-base font-semibold mt-1 truncate">${escapeHtml(weakest)}</h3>
+                </div>
+            </div>
+
+            ${selected.length ? `
+                <div class="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+                    <div class="rounded-xl border bg-card overflow-hidden">
+                        <div class="p-4 border-b flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold">${escapeHtml(filter.term)} • ${escapeHtml(filter.assessment)} Results</h3>
+                                <p class="text-xs text-muted-foreground">Academic year ${escapeHtml(filter.year)}</p>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-muted/50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">Subject</th>
+                                        <th class="px-4 py-3 text-center font-medium">Marks</th>
+                                        <th class="px-4 py-3 text-center font-medium">Grade</th>
+                                        <th class="px-4 py-3 text-left font-medium">Teacher</th>
+                                        <th class="px-4 py-3 text-left font-medium">Remark</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${selected.map(g => `
+                                        <tr class="hover:bg-accent/50 transition-colors">
+                                            <td class="px-4 py-3 font-medium">${escapeHtml(g.subject)}</td>
+                                            <td class="px-4 py-3 text-center">${Number(g.score || 0)}/${Number(g.totalMarks || 100)}</td>
+                                            <td class="px-4 py-3 text-center"><span class="px-2 py-1 ${getGradeColorClass(g.grade)} text-xs rounded-full">${escapeHtml(g.grade)}</span></td>
+                                            <td class="px-4 py-3">${escapeHtml(g.teacher)}</td>
+                                            <td class="px-4 py-3 text-muted-foreground">${escapeHtml(g.remark || '-')}</td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border bg-card p-4 space-y-4">
+                        <div>
+                            <h3 class="font-semibold">Subject Performance</h3>
+                            <p class="text-xs text-muted-foreground">Quick visual comparison</p>
+                        </div>
+                        <div class="space-y-3">
+                            ${selected.map(g => `
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1"><span>${escapeHtml(g.subject)}</span><span>${Number(g.score || 0)}%</span></div>
+                                    <div class="h-2 rounded-full bg-muted overflow-hidden"><div class="h-full bg-primary" style="width:${Math.max(0, Math.min(100, Number(g.score || 0)))}%"></div></div>
+                                </div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border bg-card p-4">
+                    <h3 class="font-semibold mb-3">Recommended Actions</h3>
+                    <div class="grid gap-3 md:grid-cols-3">
+                        ${recommendations.map(item => `
+                            <div class="rounded-lg border bg-background p-3">
+                                <p class="text-sm font-medium">${escapeHtml(item.title)}</p>
+                                <p class="text-xs text-muted-foreground mt-1">${escapeHtml(item.detail)}</p>
+                            </div>`).join('')}
+                    </div>
+                </div>` : `
+                <div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">
+                    <p class="font-medium">No records for this exact selection.</p>
+                    <p class="text-sm mt-1">Try a different year, term, or assessment type.</p>
+                </div>`}
+        </div>`;
+}
+
+function v66BuildGradeRecommendations(selected) {
+    if (!selected.length) return [{ title: 'Wait for published marks', detail: 'Your teacher has not published results for this selection yet.' }];
+    const weak = [...selected].sort((a, b) => Number(a.score || 0) - Number(b.score || 0)).slice(0, 2);
+    const strong = [...selected].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0];
+    const items = weak.map(g => ({ title: `Revise ${g.subject}`, detail: `Focus here first because the score is ${Number(g.score || 0)}%.` }));
+    if (strong) items.push({ title: `Maintain ${strong.subject}`, detail: `This is currently your strongest subject. Keep the momentum.` });
+    return items.slice(0, 3);
 }
 
 function getGradeColorClass(grade) {
@@ -831,31 +999,164 @@ async function redeemReward(rewardId) {
 async function renderStudentHomework() {
     try {
         const res = await apiRequest('/api/homework/student');
-        const assignments = res.data || [];
+        const assignments = Array.isArray(res.data) ? res.data : [];
+        window.v66StudentHomework = assignments.map(v66NormalizeHomeworkAssignment);
+        window.v66StudentHomeworkTab = window.v66StudentHomeworkTab || 'all';
+
         return `
-            <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">My Homework</h2>
-                <div class="space-y-4">
-                    ${assignments.length === 0 ? '<p class="text-center text-muted-foreground">No homework assigned</p>' :
-                      assignments.map(a => `
-                        <div class="p-4 border rounded-lg">
-                            <h3 class="font-semibold">${escapeHtml(a.HomeTask.title)}</h3>
-                            <p class="text-sm">${escapeHtml(a.HomeTask.instructions)}</p>
-                            <div class="flex gap-4 mt-2 text-xs">
-                                <span>Subject: ${escapeHtml(a.HomeTask.subject)}</span>
-                                <span>Due: ${formatDate(a.HomeTask.dueDate)}</span>
-                            </div>
-                            <div class="mt-2">
-                                Status: <span class="font-medium">${a.status === 'submitted' ? 'Submitted' : a.status === 'pending' ? 'Pending' : a.status}</span>
-                            </div>
-                            ${a.status !== 'submitted' ? `<button onclick="submitHomework(${a.id})" class="mt-2 px-4 py-1 bg-primary text-white rounded">Submit</button>` : '' }
-                        </div>
-                      `).join('')}
+            <div class="space-y-6 animate-fade-in student-homework-section">
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold">My Homework</h2>
+                        <p class="text-sm text-muted-foreground">Track pending, submitted, late, and graded assignments in one place.</p>
+                    </div>
+                    <div class="text-xs text-muted-foreground">${v66HomeworkCompletionText(window.v66StudentHomework)}</div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-4">
+                    ${v66HomeworkStatCard('Pending', window.v66StudentHomework.filter(a => a.smartStatus === 'pending').length, 'clock')}
+                    ${v66HomeworkStatCard('Submitted', window.v66StudentHomework.filter(a => a.smartStatus === 'submitted').length, 'check-circle')}
+                    ${v66HomeworkStatCard('Late', window.v66StudentHomework.filter(a => a.smartStatus === 'late').length, 'alert-triangle')}
+                    ${v66HomeworkStatCard('Graded', window.v66StudentHomework.filter(a => a.smartStatus === 'graded').length, 'star')}
+                </div>
+
+                <div class="rounded-xl border bg-card p-2 flex gap-2 overflow-x-auto">
+                    ${['all','pending','submitted','late','graded'].map(tab => `
+                        <button onclick="v66SetHomeworkTab('${tab}')" id="homework-tab-${tab}" class="px-4 py-2 rounded-lg text-sm font-medium ${window.v66StudentHomeworkTab === tab ? 'bg-primary text-white' : 'hover:bg-accent text-muted-foreground'}">
+                            ${tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        </button>`).join('')}
+                </div>
+
+                <div id="student-homework-list">
+                    ${v66RenderHomeworkList(window.v66StudentHomework, window.v66StudentHomeworkTab)}
                 </div>
             </div>`;
     } catch (e) {
-        return '<div class="rounded-lg border p-4 text-muted-foreground">Homework could not load yet. Ask your teacher to confirm it was assigned to your class/student account.</div>';
+        return `<div class="rounded-lg border p-4 text-muted-foreground">Homework could not load yet. Ask your teacher to confirm it was assigned to your class/student account.<br><span class="text-xs">${escapeHtml(e.message || '')}</span></div>`;
     }
+}
+
+function v66NormalizeHomeworkAssignment(assignment) {
+    const task = assignment.HomeTask || assignment.homeTask || assignment.task || assignment;
+    const dueRaw = task.dueDate || assignment.dueDate || null;
+    const due = dueRaw ? new Date(dueRaw) : null;
+    const status = String(assignment.status || task.status || 'pending').toLowerCase();
+    const isLate = due && !isNaN(due) && due < new Date() && !['submitted','graded','completed'].includes(status);
+    const smartStatus = status === 'graded' ? 'graded' : (['submitted','completed'].includes(status) ? 'submitted' : (isLate ? 'late' : 'pending'));
+    return {
+        id: assignment.id || assignment.assignmentId || task.id,
+        taskId: task.id,
+        title: task.title || 'Untitled Homework',
+        instructions: task.instructions || task.description || 'No instructions provided yet.',
+        subject: task.subject || task.Subject?.name || 'General',
+        teacher: task.teacherName || task.Teacher?.User?.name || task.teacher || 'Teacher',
+        dueDate: dueRaw,
+        assignedAt: assignment.assignedAt || task.createdAt || task.assignedAt,
+        status,
+        smartStatus,
+        feedback: assignment.studentFeedback || assignment.feedback || null,
+        teacherComment: assignment.teacherComment || assignment.remark || '',
+        score: assignment.score ?? assignment.marks ?? null,
+        attachments: task.attachments || assignment.attachments || []
+    };
+}
+
+function v66HomeworkStatCard(label, value, icon) {
+    return `
+        <div class="rounded-xl border bg-card p-4">
+            <div class="flex items-center justify-between">
+                <div><p class="text-xs text-muted-foreground">${label}</p><h3 class="text-2xl font-bold mt-1">${value}</h3></div>
+                <i data-lucide="${icon}" class="h-5 w-5 text-muted-foreground"></i>
+            </div>
+        </div>`;
+}
+
+function v66HomeworkCompletionText(assignments) {
+    if (!assignments.length) return 'No assignments yet';
+    const done = assignments.filter(a => ['submitted','graded'].includes(a.smartStatus)).length;
+    return `${done}/${assignments.length} completed`;
+}
+
+function v66SetHomeworkTab(tab) {
+    window.v66StudentHomeworkTab = tab;
+    ['all','pending','submitted','late','graded'].forEach(t => {
+        const btn = document.getElementById(`homework-tab-${t}`);
+        if (!btn) return;
+        btn.className = `px-4 py-2 rounded-lg text-sm font-medium ${t === tab ? 'bg-primary text-white' : 'hover:bg-accent text-muted-foreground'}`;
+    });
+    const target = document.getElementById('student-homework-list');
+    if (target) target.innerHTML = v66RenderHomeworkList(window.v66StudentHomework || [], tab);
+    if (window.lucide) lucide.createIcons();
+}
+
+function v66RenderHomeworkList(assignments, tab = 'all') {
+    const filtered = tab === 'all' ? assignments : assignments.filter(a => a.smartStatus === tab);
+    if (!assignments.length) {
+        return `
+            <div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">
+                <i data-lucide="book-open" class="h-10 w-10 mx-auto mb-3 opacity-70"></i>
+                <p class="font-medium">No homework assigned yet.</p>
+                <p class="text-sm mt-1">Assignments from your teachers will appear here.</p>
+            </div>`;
+    }
+    if (!filtered.length) {
+        return `<div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">No ${escapeHtml(tab)} homework right now.</div>`;
+    }
+    return `
+        <div class="grid gap-4 lg:grid-cols-2">
+            ${filtered.map(a => v66RenderHomeworkCard(a)).join('')}
+        </div>`;
+}
+
+function v66RenderHomeworkCard(a) {
+    const statusClass = a.smartStatus === 'late' ? 'bg-red-100 text-red-700' : a.smartStatus === 'submitted' ? 'bg-blue-100 text-blue-700' : a.smartStatus === 'graded' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+    const dueText = a.dueDate ? formatDate(a.dueDate) : 'No due date';
+    const canSubmit = !['submitted','graded'].includes(a.smartStatus);
+    return `
+        <div class="rounded-xl border bg-card p-4 space-y-4 homework-card" id="homework-card-${a.id}">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold text-primary uppercase tracking-wide">${escapeHtml(a.subject)}</p>
+                    <h3 class="text-lg font-bold mt-1">${escapeHtml(a.title)}</h3>
+                    <p class="text-xs text-muted-foreground mt-1">Teacher: ${escapeHtml(a.teacher)} • Due: ${escapeHtml(dueText)}</p>
+                </div>
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${escapeHtml(a.smartStatus)}</span>
+            </div>
+
+            <p class="text-sm text-muted-foreground line-clamp-2">${escapeHtml(a.instructions)}</p>
+
+            <div class="rounded-lg bg-muted/40 p-3 text-xs">
+                <p class="font-medium mb-1">Recommended next step</p>
+                <p class="text-muted-foreground">${escapeHtml(v66HomeworkRecommendation(a))}</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <button onclick="v66ToggleHomeworkDetails('${a.id}')" class="px-3 py-2 rounded-lg border text-sm hover:bg-accent">View Details</button>
+                ${canSubmit ? `<button onclick="submitHomework(${a.id})" class="px-3 py-2 rounded-lg bg-primary text-white text-sm">Submit Homework</button>` : ''}
+            </div>
+
+            <div id="homework-details-${a.id}" class="hidden border-t pt-3 text-sm space-y-3">
+                <div>
+                    <p class="font-semibold">Instructions</p>
+                    <p class="text-muted-foreground mt-1 whitespace-pre-line">${escapeHtml(a.instructions)}</p>
+                </div>
+                ${a.teacherComment ? `<div><p class="font-semibold">Teacher Comment</p><p class="text-muted-foreground mt-1">${escapeHtml(a.teacherComment)}</p></div>` : ''}
+                ${a.score !== null ? `<div><p class="font-semibold">Score</p><p class="text-muted-foreground mt-1">${escapeHtml(String(a.score))}</p></div>` : ''}
+                <div class="text-xs text-muted-foreground">Assigned: ${a.assignedAt ? formatDate(a.assignedAt) : 'N/A'}</div>
+            </div>
+        </div>`;
+}
+
+function v66ToggleHomeworkDetails(id) {
+    const el = document.getElementById(`homework-details-${id}`);
+    if (el) el.classList.toggle('hidden');
+}
+
+function v66HomeworkRecommendation(a) {
+    if (a.smartStatus === 'late') return `Submit ${a.subject} as soon as possible, then ask your teacher if corrections are allowed.`;
+    if (a.smartStatus === 'submitted') return `Wait for teacher feedback, then review corrections when it is returned.`;
+    if (a.smartStatus === 'graded') return `Review your score and teacher comment before the next ${a.subject} task.`;
+    return `Start with the instructions, finish the main task, then submit before the due date.`;
 }
 
 async function submitHomework(assignmentId) {
