@@ -138,7 +138,7 @@ function v9RenderTeacherShell() {
     <div class="tm6-chat-layout">
       <aside class="tm6-list-panel">
         <div class="tm6-panel-title">
-          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Direct Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Teacher-to-teacher messages' : 'Class and subject groups'}</p></div>
+          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Direct Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Teacher-to-teacher messages' : 'Class, parent and staff groups'}</p></div>
           ${v9ChatState.activeTab === 'groups' ? '<button onclick="v9OpenCreateGroupModal()">+</button>' : ''}
         </div>
         <input class="tm6-search" placeholder="Search..." oninput="v9FilterConversations(this.value)">
@@ -318,29 +318,6 @@ async function v9UploadAttachment(file) {
     v9RenderTeacherShell();
   } catch (err) { v9Toast(err.message || 'Upload failed', 'error'); }
 }
-function v9RenderOnlyMessageList(scrollToBottom = true) {
-  const msgList = document.getElementById('v9-message-list');
-  if (!msgList) return;
-  msgList.innerHTML = `${v9RenderMessages(v9CurrentUser())}${v70TypingText(v9ChatState.typing)}`;
-  if (scrollToBottom) msgList.scrollTop = msgList.scrollHeight;
-}
-function v9NormalizeSentMessage(message, content, attachment) {
-  const me = v9CurrentUser() || {};
-  return {
-    id: message?.id || `local-${Date.now()}`,
-    schoolCode: message?.schoolCode || me.schoolCode,
-    senderId: message?.senderId || me.id,
-    receiverId: message?.receiverId || (v9ChatState.mode === 'direct' ? v9ChatState.selectedTeacher?.id : null),
-    groupId: message?.groupId || (v9ChatState.mode === 'group' ? v9ChatState.selectedGroup?.id : null),
-    content: message?.content || content,
-    attachmentUrl: message?.attachmentUrl || attachment?.url || null,
-    messageType: message?.messageType || (attachment?.mimeType?.startsWith?.('audio/') ? 'voice' : (attachment?.url ? 'file' : 'text')),
-    metadata: message?.metadata || (attachment ? { attachmentName: attachment.name, attachmentType: attachment.mimeType, attachmentSize: attachment.size } : {}),
-    Sender: message?.Sender || { id: me.id, name: me.name || 'You', role: me.role, profileImage: me.profileImage },
-    createdAt: message?.createdAt || new Date().toISOString()
-  };
-}
-
 async function v9SendMessage() {
   const input = document.getElementById('v9-message-input');
   const content = input?.value?.trim() || (v9ChatState.attachment ? 'Shared an attachment' : '');
@@ -366,15 +343,9 @@ async function v9OpenCreateMenu() {
 async function v9OpenCreateGroupModal() {
   await v9EnsureModal();
   const modal = document.getElementById('v9-modal');
-  modal.innerHTML = `<div class="v9-modal-card"><button class="v9-modal-close" onclick="v9CloseModal()">×</button><h3>Create Group</h3><p>Loading allowed teachers and students...</p></div>`;
+  const teachers = v9ChatState.teachers || [];
+  modal.innerHTML = `<div class="v9-modal-card"><button class="v9-modal-close" onclick="v9CloseModal()">×</button><h3>Create Group</h3><p>Start simple. Add members now or manage them later.</p><input id="v9-new-group-name" placeholder="Group name" class="tm-input"><textarea id="v9-new-group-desc" placeholder="Description" class="tm-input"></textarea><div class="tm-member-picker">${teachers.map(t => `<label><input type="checkbox" value="${Number(t.id)}"> ${v9Safe(t.name)}</label>`).join('') || '<small>No teachers loaded yet.</small>'}</div><button class="tm6-btn primary full" onclick="v9SubmitCreateGroup()">Create Group</button></div>`;
   modal.classList.remove('hidden');
-  try {
-    const res = await chatV9API.getAvailableMembers();
-    const users = (res.data || []).filter(u => ['teacher','student'].includes(u.role));
-    modal.innerHTML = `<div class="v9-modal-card"><button class="v9-modal-close" onclick="v9CloseModal()">×</button><h3>Create Group</h3><p>Add only teachers/students in your assigned class or subject scope.</p><input id="v9-new-group-name" placeholder="Group name" class="tm-input"><textarea id="v9-new-group-desc" placeholder="Description" class="tm-input"></textarea><input class="tm-input" placeholder="Search allowed members..." oninput="v9FilterMemberPicker(this.value)"><div class="tm-member-picker" id="v9-member-picker">${users.map(u => `<label><input type="checkbox" value="${Number(u.id)}"> <span>${v9Safe(u.name)}</span><small>${v9Safe(u.role)}${u.className ? ' • '+v9Safe(u.className) : ''}</small></label>`).join('') || '<small>No allowed teachers/students found for your class or subject.</small>'}</div><button class="tm6-btn primary full" onclick="v9SubmitCreateGroup()">Create Group</button></div>`;
-  } catch (err) {
-    modal.innerHTML = `<div class="v9-modal-card"><button class="v9-modal-close" onclick="v9CloseModal()">×</button><h3>Create Group</h3><p class="tm6-empty error">${v9Safe(err.message || 'Could not load members')}</p></div>`;
-  }
 }
 async function v9SubmitCreateGroup() {
   const name = document.getElementById('v9-new-group-name')?.value?.trim();
@@ -879,22 +850,11 @@ async function v9SendMessage() {
   const content = input?.value?.trim() || (v9ChatState.attachment ? 'Shared an attachment' : '');
   if (!content) return;
   try {
-    const attachment = v9ChatState.attachment;
-    const attachmentUrl = attachment?.url || null;
-    const options = { messageType: attachment?.mimeType?.startsWith?.('audio/') ? 'voice' : undefined, replyToMessageId: v9ChatState.replyToMessage?.id || null };
-    let res = null;
-    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) res = await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, attachment, options);
-    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) res = await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, attachment, options);
-    const sent = v9NormalizeSentMessage(res?.data, content, attachment);
-    v9ChatState.messages = [...(v9ChatState.messages || []), sent];
-    if (input) input.value = '';
-    v9ChatState.attachment = null;
-    v9ChatState.replyToMessage = null;
-    const attachmentBox = document.getElementById('v9-selected-attachment');
-    if (attachmentBox) attachmentBox.innerHTML = '';
-    const replyBox = document.getElementById('v70-reply-box');
-    if (replyBox) { replyBox.classList.add('hidden'); replyBox.innerHTML = ''; }
-    v9RenderOnlyMessageList(true);
+    const attachmentUrl = v9ChatState.attachment?.url || null;
+    const options = { messageType: v9ChatState.attachment?.mimeType?.startsWith?.('audio/') ? 'voice' : undefined, replyToMessageId: v9ChatState.replyToMessage?.id || null };
+    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, v9ChatState.attachment, options);
+    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, v9ChatState.attachment, options);
+    input.value = ''; v9ChatState.attachment = null; v9ChatState.replyToMessage = null; await v9LoadCurrentMessages();
   } catch (err) { v9Toast(err.message || 'Message failed', 'error'); }
 }
 async function v70StartVoiceNote(studentMode = false) {

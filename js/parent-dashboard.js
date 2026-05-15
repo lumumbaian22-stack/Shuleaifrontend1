@@ -622,7 +622,7 @@ async function renderParentChat() {
                           (dashboardData?.children && dashboardData.children[0]?.User);
     const childName = selectedChild?.name || 'your child';
     const classTeacher = dashboardData?.selectedChild?.classTeacher;
-    const conversations = await api.parent.getConversations(dashboardData?.selectedChildId || null);
+    const conversations = await api.parent.getConversations();
     const messages = [];
     const parentConversations = conversations.data || [];
 
@@ -1072,7 +1072,7 @@ async function loadParentConversation(otherUserId) {
     if (!container) return;
     container.innerHTML = '<div class="text-center text-muted-foreground py-8">Loading conversation...</div>';
     try {
-        const res = await api.parent.getMessages(otherUserId, dashboardData?.selectedChildId || null);
+        const res = await api.parent.getMessages(otherUserId);
         const messages = res.data || [];
         container.innerHTML = messages.length ? messages.map(msg => `
             <div class="flex ${msg.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}">

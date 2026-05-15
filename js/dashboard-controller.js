@@ -18,20 +18,6 @@ function updateSidebar(role) {
         schoolNameSpan.textContent = 'ShuleAI';
     }
 
-    const sidebar = document.getElementById('sidebar');
-    const sidebarHeader = sidebar?.querySelector('.h-16');
-    if (role === 'teacher' && sidebarHeader && !sidebarHeader.querySelector('.shule-sidebar-logo')) {
-        const brandWrap = sidebarHeader.querySelector('.flex.items-center.gap-3') || sidebarHeader.firstElementChild;
-        if (brandWrap) {
-            const hasImg = brandWrap.querySelector('img');
-            if (!hasImg) {
-                brandWrap.insertAdjacentHTML('afterbegin', '<img src="assets/logo-light.png" alt="Shule AI" class="shule-sidebar-logo h-10 w-10 object-contain block dark:hidden"><img src="assets/logo-dark.png" alt="Shule AI" class="shule-sidebar-logo h-10 w-10 object-contain hidden dark:block">');
-            } else {
-                hasImg.classList.add('shule-sidebar-logo');
-            }
-        }
-    }
-
     if (!nav) return;
 
     const sidebarConfig = {
@@ -839,30 +825,9 @@ window.checkConsentAndDPA = checkConsentAndDPA;
       } else {
         document.documentElement.classList.toggle('dark');
       }
-      const dark = document.documentElement.classList.contains('dark');
-      document.body.classList.toggle('dark-mode', dark);
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-      localStorage.setItem('shule_theme', dark ? 'dark' : 'light');
-      const btn = document.getElementById('global-theme-toggle');
-      if (btn) btn.innerHTML = dark ? '<i data-lucide="sun" class="h-4 w-4"></i><span>Light</span>' : '<i data-lucide="moon" class="h-4 w-4"></i><span>Dark</span>';
-      if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+      localStorage.setItem('shule_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
       setTimeout(applyRoleClass, 0);
     };
-
-    const activeDark = document.documentElement.classList.contains('dark');
-    document.body.classList.toggle('dark-mode', activeDark);
-    document.documentElement.dataset.theme = activeDark ? 'dark' : 'light';
-    if (!document.getElementById('global-theme-toggle')) {
-      const btn = document.createElement('button');
-      btn.id = 'global-theme-toggle';
-      btn.type = 'button';
-      btn.className = 'global-theme-toggle';
-      btn.setAttribute('aria-label', 'Toggle theme');
-      btn.innerHTML = activeDark ? '<i data-lucide="sun" class="h-4 w-4"></i><span>Light</span>' : '<i data-lucide="moon" class="h-4 w-4"></i><span>Dark</span>';
-      btn.addEventListener('click', () => window.toggleTheme());
-      document.body.appendChild(btn);
-      if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-    }
   }
 
   function markActiveLinks() {

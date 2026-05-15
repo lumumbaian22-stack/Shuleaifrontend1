@@ -848,10 +848,7 @@ async function renderStudentHomework() {
                             <div class="mt-2">
                                 Status: <span class="font-medium">${a.status === 'submitted' ? 'Submitted' : a.status === 'pending' ? 'Pending' : a.status}</span>
                             </div>
-                            <div class="mt-3 flex flex-wrap gap-2">
-                                ${a.status !== 'submitted' ? `<button onclick="submitHomework(${a.id})" class="px-4 py-1 bg-primary text-white rounded">Submit</button>` : '' }
-                                ${a.HomeTask?.discussionThreadId ? `<button onclick="openStudentHomeworkDiscussion(${Number(a.HomeTask.discussionThreadId)})" class="px-4 py-1 border rounded hover:bg-accent">Open Study Discussion</button>` : ''}
-                            </div>
+                            ${a.status !== 'submitted' ? `<button onclick="submitHomework(${a.id})" class="mt-2 px-4 py-1 bg-primary text-white rounded">Submit</button>` : '' }
                         </div>
                       `).join('')}
                 </div>
@@ -874,19 +871,6 @@ async function submitHomework(assignmentId) {
         showToast(e.message, 'error');
     }
 }
-
-
-function openStudentHomeworkDiscussion(threadId) {
-    showDashboardSection('chat');
-    setTimeout(() => {
-        if (window.v9StudentState) {
-            v9StudentState.mode = 'study';
-            v9StudentState.selectedThreadId = Number(threadId);
-            if (typeof v9RenderStudentStudyRoom === 'function') v9RenderStudentStudyRoom();
-        }
-    }, 400);
-}
-window.openStudentHomeworkDiscussion = openStudentHomeworkDiscussion;
 
 // ============ HELPERS ============
 function escapeHtml(text) {

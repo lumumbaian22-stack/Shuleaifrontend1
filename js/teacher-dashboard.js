@@ -1684,12 +1684,6 @@ async function renderTeacherHomework() {
                                 <span>Assigned: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
                                 <span>Submitted: <b class="text-foreground">${a.submittedCount || 0}</b></span>
                             </div>
-                            <div class="mt-4 flex flex-wrap gap-2">
-                                <button onclick="viewHomeworkAssignment(${Number(a.id)})" class="px-3 py-1.5 rounded-lg border text-sm hover:bg-accent">View</button>
-                                <button onclick="editHomeworkAssignment(${Number(a.id)})" class="px-3 py-1.5 rounded-lg border text-sm hover:bg-accent">Edit</button>
-                                ${a.discussionThreadId ? `<button onclick="openHomeworkDiscussion(${Number(a.discussionThreadId)})" class="px-3 py-1.5 rounded-lg bg-primary text-white text-sm">Discussion</button>` : ''}
-                                <button onclick="deleteHomeworkAssignment(${Number(a.id)})" class="px-3 py-1.5 rounded-lg border text-sm text-red-600 hover:bg-red-50">Delete</button>
-                            </div>
                         </div>
                       `).join('')}
                 </div>
@@ -1800,80 +1794,26 @@ async function createHomework() {
     try {
         const res = await apiRequest('/api/homework/assign', {
             method: 'POST',
-            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className, openDiscussion })
+            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className })
         });
         if (res.success) {
+            if (openDiscussion && window.chatV9API?.createClassroomThread) {
+                try {
+                    await chatV9API.createClassroomThread({
+                        classId,
+                        subject,
+                        topic: title,
+                        content: `Homework discussion: ${instructions}`,
+                        metadata: { source: 'homework', homeworkTitle: title, homeworkDueDate: dueDate, className, approvalStatus: 'approved' }
+                    });
+                } catch (discussionError) {
+                    console.warn('Homework discussion creation failed:', discussionError);
+                }
+            }
             closeCreateHomeworkModal();
             await showDashboardSection('homework');
-            showToast(res.message || 'Homework assigned successfully', 'success');
         }
     } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }
-}
-
-
-async function ensureHomeworkModal() {
-    let modal = document.getElementById('homework-detail-modal');
-    if (!modal) {
-        document.body.insertAdjacentHTML('beforeend', `<div id="homework-detail-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeHomeworkDetailModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl p-4"><div id="homework-detail-card" class="rounded-xl border bg-card p-6 shadow-xl max-h-[85vh] overflow-y-auto"></div></div></div>`);
-        modal = document.getElementById('homework-detail-modal');
-    }
-    return modal;
-}
-function closeHomeworkDetailModal() { document.getElementById('homework-detail-modal')?.classList.add('hidden'); }
-async function viewHomeworkAssignment(taskId) {
-    const modal = await ensureHomeworkModal();
-    const card = document.getElementById('homework-detail-card');
-    card.innerHTML = '<div class="text-center text-muted-foreground py-8">Loading homework...</div>';
-    modal.classList.remove('hidden');
-    try {
-        const res = await apiRequest(`/api/homework/teacher/${Number(taskId)}`);
-        const task = res.data;
-        const submissions = task.HomeTaskAssignments || [];
-        card.innerHTML = `<div class="flex justify-between gap-3"><div><h3 class="text-xl font-bold">${escapeHtml(task.title || 'Homework')}</h3><p class="text-sm text-muted-foreground">${escapeHtml(task.subject || 'General')} • Due ${formatDate(task.dueDate)}</p></div><button onclick="closeHomeworkDetailModal()" class="text-2xl">×</button></div><div class="mt-4 rounded-lg border p-4 bg-background"><p>${escapeHtml(task.instructions || '')}</p></div><div class="grid grid-cols-3 gap-3 mt-4 text-center"><div class="rounded-lg border p-3"><p class="text-xs text-muted-foreground">Assigned</p><b>${task.assignedCount || 0}</b></div><div class="rounded-lg border p-3"><p class="text-xs text-muted-foreground">Submitted</p><b>${task.submittedCount || 0}</b></div><div class="rounded-lg border p-3"><p class="text-xs text-muted-foreground">Pending</p><b>${task.pendingCount || 0}</b></div></div>${task.discussionThreadId ? `<button onclick="openHomeworkDiscussion(${Number(task.discussionThreadId)})" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Open Study Discussion</button>` : ''}<div class="mt-5"><h4 class="font-semibold mb-2">Student Submissions</h4>${submissions.length ? submissions.map(a => `<div class="rounded-lg border p-3 mb-2"><b>${escapeHtml(a.Student?.User?.name || 'Student')}</b><span class="ml-2 text-xs text-muted-foreground">${escapeHtml(a.status || 'pending')}</span>${a.studentFeedback?.comment ? `<p class="text-sm mt-1">${escapeHtml(a.studentFeedback.comment)}</p>` : ''}</div>`).join('') : '<p class="text-sm text-muted-foreground">No student assignment rows yet.</p>'}</div>`;
-    } catch (e) {
-        card.innerHTML = `<button onclick="closeHomeworkDetailModal()" class="float-right text-2xl">×</button><div class="text-red-500 p-4">${escapeHtml(e.message || 'Failed to load homework')}</div>`;
-    }
-}
-async function editHomeworkAssignment(taskId) {
-    const modal = await ensureHomeworkModal();
-    const card = document.getElementById('homework-detail-card');
-    card.innerHTML = '<div class="text-center text-muted-foreground py-8">Loading editor...</div>';
-    modal.classList.remove('hidden');
-    try {
-        const res = await apiRequest(`/api/homework/teacher/${Number(taskId)}`);
-        const task = res.data;
-        const due = task.dueDate ? String(task.dueDate).slice(0,10) : '';
-        card.innerHTML = `<div class="flex justify-between"><h3 class="text-xl font-bold">Edit Homework</h3><button onclick="closeHomeworkDetailModal()" class="text-2xl">×</button></div><div class="space-y-3 mt-4"><div><label class="text-sm font-medium">Title</label><input id="edit-hw-title" class="w-full rounded-lg border p-2 bg-background" value="${escapeHtml(task.title || '')}"></div><div><label class="text-sm font-medium">Instructions</label><textarea id="edit-hw-instructions" rows="4" class="w-full rounded-lg border p-2 bg-background">${escapeHtml(task.instructions || '')}</textarea></div><div class="grid grid-cols-2 gap-3"><div><label class="text-sm font-medium">Subject</label><input id="edit-hw-subject" class="w-full rounded-lg border p-2 bg-background" value="${escapeHtml(task.subject || '')}"></div><div><label class="text-sm font-medium">Due Date</label><input id="edit-hw-due" type="date" class="w-full rounded-lg border p-2 bg-background" value="${escapeHtml(due)}"></div></div><button onclick="saveHomeworkEdit(${Number(taskId)})" class="px-4 py-2 bg-primary text-white rounded-lg">Save Changes</button></div>`;
-    } catch (e) { card.innerHTML = `<div class="text-red-500 p-4">${escapeHtml(e.message || 'Failed to load homework')}</div>`; }
-}
-async function saveHomeworkEdit(taskId) {
-    showLoading();
-    try {
-        await apiRequest(`/api/homework/teacher/${Number(taskId)}`, { method:'PUT', body: JSON.stringify({ title: document.getElementById('edit-hw-title')?.value.trim(), instructions: document.getElementById('edit-hw-instructions')?.value.trim(), subject: document.getElementById('edit-hw-subject')?.value.trim(), dueDate: document.getElementById('edit-hw-due')?.value }) });
-        closeHomeworkDetailModal();
-        await showDashboardSection('homework');
-        showToast('Homework updated', 'success');
-    } catch (e) { showToast(e.message || 'Update failed', 'error'); } finally { hideLoading(); }
-}
-async function deleteHomeworkAssignment(taskId) {
-    if (!confirm('Delete this homework and its assignment records?')) return;
-    showLoading();
-    try {
-        await apiRequest(`/api/homework/teacher/${Number(taskId)}`, { method:'DELETE' });
-        await showDashboardSection('homework');
-        showToast('Homework deleted', 'success');
-    } catch (e) { showToast(e.message || 'Delete failed', 'error'); } finally { hideLoading(); }
-}
-function openHomeworkDiscussion(threadId) {
-    window.currentSection = 'staff-chat';
-    showDashboardSection('staff-chat');
-    setTimeout(() => {
-        if (window.v9ChatState) {
-            v9ChatState.activeTab = 'study';
-            v9ChatState.selectedThread = (v9ChatState.threads || []).find(t => Number(t.id) === Number(threadId)) || v9ChatState.selectedThread;
-            if (typeof v9RenderTeacherShell === 'function') v9RenderTeacherShell();
-        }
-    }, 400);
 }
 
 // ============ EXPORTS ============
@@ -1931,13 +1871,6 @@ window.renderTimetableGrid = renderTimetableGrid;
 window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.closeCreateHomeworkModal = closeCreateHomeworkModal;
 window.createHomework = createHomework;
-window.closeHomeworkDetailModal = closeHomeworkDetailModal;
-window.viewHomeworkAssignment = viewHomeworkAssignment;
-window.editHomeworkAssignment = editHomeworkAssignment;
-window.saveHomeworkEdit = saveHomeworkEdit;
-window.deleteHomeworkAssignment = deleteHomeworkAssignment;
-window.openHomeworkDiscussion = openHomeworkDiscussion;
-
 
 
 // V42 compatibility aliases: keep original full teacher layouts, only satisfy older v12 callers.

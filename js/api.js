@@ -426,9 +426,9 @@ const parentAPI = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    getConversations: (studentId = null) => apiRequest('/api/parent/conversations' + (studentId ? `?studentId=${encodeURIComponent(studentId)}` : '')),
-    getMessages: (otherUserId, studentId = null) => 
-        apiRequest(`/api/parent/messages/${otherUserId}` + (studentId ? `?studentId=${encodeURIComponent(studentId)}` : '')),
+    getConversations: () => apiRequest('/api/parent/conversations'),
+    getMessages: (otherUserId) => 
+        apiRequest(`/api/parent/messages/${otherUserId}`),
     confirmPayment: (data) => 
         apiRequest('/api/parent/payment-confirm', {
             method: 'POST',
