@@ -826,6 +826,14 @@ const chatV9API = {
         apiRequest(`/api/chat-v9/teacher/messages/${messageId}/award`, { method: 'POST', body: JSON.stringify({ points, streakDelta, note }) }),
     reactToMessage: (messageId, emoji) =>
         apiRequest(`/api/chat-v9/teacher/messages/${messageId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
+    reactToReply: (replyId, emoji) =>
+        apiRequest(`/api/chat-v9/classroom/replies/${replyId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
+    reportReply: (replyId, reason = '') =>
+        apiRequest(`/api/chat-v9/classroom/replies/${replyId}/report`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    reportMessage: (messageId, reason = '') =>
+        apiRequest(`/api/chat-v9/messages/${messageId}/report`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    markMessageRead: (messageId) =>
+        apiRequest(`/api/chat-v9/messages/${messageId}/read`, { method: 'POST' }),
 
     getMyAchievements: () => apiRequest('/api/chat-v9/achievements/me')
 };

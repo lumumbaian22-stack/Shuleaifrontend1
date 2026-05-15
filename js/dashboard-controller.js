@@ -39,8 +39,7 @@ function ensureSidebarBrand() {
 
     if (!brandRow.querySelector('img')) {
         brandRow.insertAdjacentHTML('afterbegin', `
-            <img src="assets/logo-light.png" alt="Shule AI Logo" class="h-10 w-10 object-contain block dark:hidden">
-            <img src="assets/logo-dark.png" alt="Shule AI Logo" class="h-10 w-10 object-contain hidden dark:block">
+            <img src="assets/logo-light.png" alt="Shule AI Logo" class="h-10 w-10 object-contain shrink-0" data-sidebar-logo="true">
         `);
     }
 
@@ -1258,3 +1257,38 @@ window.checkConsentAndDPA = checkConsentAndDPA;
 
 window.getResolvedSchoolName = getResolvedSchoolName;
 window.ensureSidebarBrand = ensureSidebarBrand;
+
+
+// v70 emergency logic fix: keep sidebar brand and global theme icon visible after dark/light toggles.
+(function v70EnsureThemeToggleVisibility(){
+  function apply(){
+    try {
+      if (typeof ensureSidebarBrand === 'function') ensureSidebarBrand();
+      const btn = document.getElementById('global-theme-toggle');
+      if (btn) {
+        btn.style.display = 'inline-flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.position = 'relative';
+        btn.style.zIndex = '9999';
+        btn.style.opacity = '1';
+        btn.classList.remove('text-transparent');
+        btn.querySelectorAll('svg,i').forEach(icon => {
+          icon.style.display = '';
+          icon.style.opacity = '1';
+          icon.style.visibility = 'visible';
+        });
+      }
+    } catch(e) {}
+  }
+  document.addEventListener('DOMContentLoaded', apply);
+  document.addEventListener('shule:section-rendered', apply);
+  setTimeout(apply, 300);
+  const oldToggle = window.toggleTheme;
+  window.toggleTheme = function(){
+    const result = typeof oldToggle === 'function' ? oldToggle.apply(this, arguments) : undefined;
+    setTimeout(apply, 50);
+    setTimeout(apply, 300);
+    return result;
+  };
+})();

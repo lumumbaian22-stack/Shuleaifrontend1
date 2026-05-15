@@ -310,59 +310,70 @@ async function loadStudentHomeTasks() {
 // ========== GRADES SECTION ==========
 async function renderStudentGrades() {
     try {
-        const data = dashboardData || {};
+        let grades = [];
+        try {
+            const res = await api.student.getGrades();
+            grades = res.data || [];
+        } catch(e) {
+            const data = dashboardData || {};
+            grades = data.grades || data.recentRecords || [];
+        }
         const school = getCurrentSchool();
-        const grades = data.grades || [];
-
+        const groups = {};
+        grades.forEach(record => {
+            const term = record.term || 'No Term';
+            const year = record.year || (record.date ? new Date(record.date).getFullYear() : new Date().getFullYear());
+            const type = record.assessmentType || record.assessmentName || 'Assessment';
+            const key = `${year} • ${term} • ${type}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(record);
+        });
+        const entries = Object.entries(groups).sort((a,b) => String(b[0]).localeCompare(String(a[0])));
         return `
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">My Grades</h2>
-                    <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
+                    <div class="text-sm text-muted-foreground">${(school && (school.name || school.schoolName)) || 'Shule AI'}</div>
                 </div>
-                <div class="rounded-xl border bg-card overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-muted/50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left font-medium">Subject</th>
-                                    <th class="px-4 py-3 text-left font-medium">Assessment</th>
-                                    <th class="px-4 py-3 text-center font-medium">Score</th>
-                                    <th class="px-4 py-3 text-center font-medium">Grade</th>
-                                    <th class="px-4 py-3 text-left font-medium">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y" id="grades-table-body">
-                                ${grades.length > 0 ? grades.map(record => {
-                                    const score = record.score || 0;
-                                    const grade = record.grade || 'N/A';
-                                    const gradeClass = getGradeColorClass(grade);
-                                    return `
-                                        <tr class="hover:bg-accent/50 transition-colors">
-                                            <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
-                                            <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
-                                            <td class="px-4 py-3 text-center">${score}%</td>
-                                            <td class="px-4 py-3 text-center">
-                                                <span class="px-2 py-1 ${gradeClass} text-xs rounded-full">${grade}</span>
-                                            </td>
-                                            <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
-                                        </tr>
-                                    `;
-                                }).join('') : `
+                ${entries.length ? entries.map(([label, rows], index) => `
+                    <details class="rounded-xl border bg-card overflow-hidden" ${index === 0 ? 'open' : ''}>
+                        <summary class="cursor-pointer px-4 py-3 bg-muted/40 font-semibold flex justify-between items-center">
+                            <span>${escapeHtml(label)}</span>
+                            <span class="text-xs text-muted-foreground">${rows.length} record${rows.length === 1 ? '' : 's'}</span>
+                        </summary>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-muted/30">
                                     <tr>
-                                        <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">
-                                            No grades recorded yet
-                                        </td>
+                                        <th class="px-4 py-3 text-left font-medium">Subject</th>
+                                        <th class="px-4 py-3 text-left font-medium">Assessment</th>
+                                        <th class="px-4 py-3 text-center font-medium">Score</th>
+                                        <th class="px-4 py-3 text-center font-medium">Grade</th>
+                                        <th class="px-4 py-3 text-left font-medium">Date</th>
                                     </tr>
-                                `}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${rows.sort((a,b)=>String(a.subject||'').localeCompare(String(b.subject||''))).map(record => {
+                                        const score = record.score ?? 0;
+                                        const grade = record.grade || 'N/A';
+                                        const gradeClass = getGradeColorClass(grade);
+                                        return `
+                                            <tr class="hover:bg-accent/50 transition-colors">
+                                                <td class="px-4 py-3 font-medium">${escapeHtml(record.subject || 'N/A')}</td>
+                                                <td class="px-4 py-3">${escapeHtml(record.assessmentName || record.assessmentType || 'N/A')}</td>
+                                                <td class="px-4 py-3 text-center">${score}%</td>
+                                                <td class="px-4 py-3 text-center"><span class="px-2 py-1 ${gradeClass} text-xs rounded-full">${escapeHtml(grade)}</span></td>
+                                                <td class="px-4 py-3">${record.date ? formatDate(record.date) : 'N/A'}</td>
+                                            </tr>`;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                `).join('') : `<div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">No grades recorded yet</div>`}
+            </div>`;
     } catch (error) {
-        return `<div class="text-center py-12 text-red-500">Error loading grades: ${error.message}</div>`;
+        return `<div class="text-center py-12 text-red-500">Error loading grades: ${escapeHtml(error.message)}</div>`;
     }
 }
 
@@ -567,89 +578,48 @@ async function sendStudentChatMessage() {
 
 // ============ AI TUTOR ============
 function renderStudentAITutor() {
-    const curriculum = schoolSettings.curriculum || 'cbc';
     const school = getCurrentSchool();
     const user = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
-    const grade = user.grade || user.class || 'Grade 5';
-
+    const grade = user.grade || user.class || dashboardData?.student?.grade || 'your class';
     return `
-        <div class="max-w-6xl mx-auto space-y-6 animate-fade-in">
+        <div class="max-w-5xl mx-auto space-y-6 animate-fade-in">
             <div class="flex flex-wrap justify-between items-center gap-3">
                 <div>
-                    <h2 class="text-2xl font-bold">Enhanced AI Tutor</h2>
-                    <p class="text-sm text-muted-foreground">Subject-aware tutor for all levels with command detection.</p>
+                    <h2 class="text-2xl font-bold">Shule AI Tutor</h2>
+                    <p class="text-sm text-muted-foreground">The tutor detects you from your student dashboard, class, curriculum, and question.</p>
                 </div>
-                <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
+                <div class="text-sm text-muted-foreground">${(school && (school.name || school.schoolName)) || 'Shule AI'} • ${escapeHtml(grade)}</div>
             </div>
-
-            <div class="grid gap-4 lg:grid-cols-4">
-                <div class="rounded-xl border bg-card p-4 lg:col-span-1 space-y-4">
-                    <div>
-                        <label class="text-xs font-semibold text-muted-foreground">Education Level</label>
-                        <select id="ai-level-select" onchange="updateTutorSubjects()" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <option value="early_years">Early Years: PP1 - Grade 3</option>
-                            <option value="upper_primary" selected>Upper Primary: Grade 4 - 6</option>
-                            <option value="junior_secondary">Junior Secondary: Grade 7 - 9</option>
-                            <option value="senior_school">Senior / Exam Classes</option>
-                        </select>
+            <div class="rounded-xl border bg-card p-4 h-[680px] flex flex-col">
+                <div class="flex items-center gap-3 mb-4 pb-2 border-b">
+                    <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                        <i data-lucide="bot" class="h-6 w-6 text-white"></i>
                     </div>
                     <div>
-                        <label class="text-xs font-semibold text-muted-foreground">Subject</label>
-                        <select id="ai-subject-select" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></select>
+                        <h3 class="font-semibold text-lg">AI Tutor</h3>
+                        <p class="text-xs text-muted-foreground">No manual student selection. Ask naturally: explain, solve, quiz me, summarize, revision plan.</p>
                     </div>
-                    <div>
-                        <label class="text-xs font-semibold text-muted-foreground">Command</label>
-                        <select id="ai-command-select" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <option value="ask">Auto detect</option>
-                            <option value="explain">Explain</option>
-                            <option value="solve">Solve</option>
-                            <option value="quiz">Quiz me</option>
-                            <option value="summarize">Summarize</option>
-                            <option value="revise">Revision</option>
-                            <option value="homework">Give homework</option>
-                            <option value="weakness">Show weak areas</option>
-                            <option value="plan">Study plan</option>
-                        </select>
-                    </div>
-                    <div class="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground space-y-2">
-                        <p class="font-semibold text-foreground">Commands it understands:</p>
-                        <p>“explain fractions”, “quiz me in science”, “summarize nouns”, “make revision plan”, “show my weak areas”.</p>
-                    </div>
-                    <button onclick="loadTutorProgress()" class="w-full rounded-lg border px-3 py-2 text-sm hover:bg-accent">Load My Progress</button>
-                    <div id="ai-progress-panel" class="text-xs space-y-2"></div>
                 </div>
-
-                <div class="rounded-xl border bg-card p-4 h-[680px] flex flex-col lg:col-span-3">
-                    <div class="flex items-center gap-3 mb-4 pb-2 border-b">
-                        <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                            <i data-lucide="bot" class="h-6 w-6 text-white"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-lg">Shule AI Tutor</h3>
-                            <p class="text-xs text-muted-foreground">Curriculum: ${CURRICULUMS[curriculum]?.name || 'CBC'} • Grade: ${grade}</p>
+                <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="ai-chat-container">
+                    <div class="flex justify-start">
+                        <div class="chat-bubble-received max-w-[80%]">
+                            <p class="text-sm">Hi ${escapeHtml(user?.name || 'there')}! I’ll use your class and dashboard data automatically. Try: <b>“explain photosynthesis”</b> or <b>“quiz me in Mathematics.”</b></p>
                         </div>
                     </div>
-                    <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="ai-chat-container">
-                        <div class="flex justify-start">
-                            <div class="chat-bubble-received max-w-[80%]">
-                                <p class="text-sm">Hi! I can detect subjects and commands. Try: <b>“quiz me in Mathematics”</b>, <b>“explain photosynthesis”</b>, or <b>“make a revision plan for English.”</b></p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap gap-2 mb-2">
-                        ${['Explain this', 'Quiz me', 'Summarize topic', 'Revision plan', 'Give homework', 'Show weak areas'].map(label => `<button onclick="fillTutorCommand('${label}')" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">${label}</button>`).join('')}
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="text" id="ai-question-input" placeholder="Ask me anything or type a command..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                        <button onclick="askAITutor()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
-                            <i data-lucide="send" class="h-4 w-4"></i>
-                            Ask
-                        </button>
-                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2 mb-2">
+                    ${['Explain this', 'Quiz me', 'Summarize topic', 'Revision plan', 'Give homework', 'Show weak areas'].map(label => `<button onclick="fillTutorCommand('${label}')" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">${label}</button>`).join('')}
+                    <button onclick="loadTutorProgress()" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">My Progress</button>
+                </div>
+                <div id="ai-progress-panel" class="text-xs space-y-2 mb-2"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="ai-question-input" placeholder="Ask me anything..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" onkeydown="if(event.key==='Enter')askAITutor()">
+                    <button onclick="askAITutor()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                        <i data-lucide="send" class="h-4 w-4"></i> Ask
+                    </button>
                 </div>
             </div>
-        </div>
-    `;
+        </div>`;
 }
 
 const SHULE_TUTOR_SUBJECTS = {
@@ -684,55 +654,36 @@ function fillTutorCommand(label) {
 
 setTimeout(updateTutorSubjects, 0);
 
-function renderStudentSchedule() {
+async function renderStudentSchedule() {
     const school = getCurrentSchool();
-    
-    return `
-        <div class="space-y-6 animate-fade-in">
-            <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold">My Schedule</h2>
-                <div class="text-sm text-muted-foreground">${(school && school.status === 'active') ? school.name : 'ShuleAI'}</div>
-            </div>
-            <div class="rounded-xl border bg-card p-6">
-                <h3 class="font-semibold mb-4">Today's Classes</h3>
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                        <div>
-                            <p class="font-medium">Mathematics</p>
-                            <p class="text-sm text-muted-foreground">Mr. Kamau • Room 101</p>
-                        </div>
-                        <span class="text-sm font-medium">8:00 AM - 9:30 AM</span>
-                    </div>
-                    <div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                        <div>
-                            <p class="font-medium">English</p>
-                            <p class="text-sm text-muted-foreground">Ms. Atieno • Room 203</p>
-                        </div>
-                        <span class="text-sm font-medium">10:00 AM - 11:30 AM</span>
-                    </div>
-                    <div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                        <div>
-                            <p class="font-medium">Science</p>
-                            <p class="text-sm text-muted-foreground">Mr. Omondi • Lab 1</p>
-                        </div>
-                        <span class="text-sm font-medium">12:00 PM - 1:30 PM</span>
-                    </div>
+    try {
+        const res = await apiRequest('/api/timetable/student/me');
+        const payload = res.data || {};
+        const timetable = payload.timetable || [];
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">My Schedule</h2>
+                    <div class="text-sm text-muted-foreground">${(school && (school.name || school.schoolName)) || 'Shule AI'}</div>
                 </div>
-            </div>
-            <div class="rounded-xl border bg-card p-6">
-                <h3 class="font-semibold mb-4">Upcoming Exams</h3>
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                            <p class="font-medium">Mathematics Mid-term</p>
-                            <p class="text-sm text-muted-foreground">Topics: Algebra, Calculus</p>
+                ${timetable.length ? timetable.map(day => `
+                    <div class="rounded-xl border bg-card p-6">
+                        <h3 class="font-semibold mb-4 capitalize">${escapeHtml(day.day || 'Day')}</h3>
+                        <div class="space-y-3">
+                            ${(day.periods || []).map(period => {
+                                if (period.break) return `<div class="flex items-center justify-between p-3 bg-muted/30 rounded-lg"><span class="font-medium">${escapeHtml(period.label || 'Break')}</span><span class="text-sm">${escapeHtml(period.start || period.startTime || '')} - ${escapeHtml(period.end || period.endTime || '')}</span></div>`;
+                                const lesson = (period.classes || [])[0] || period;
+                                return `<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                                    <div><p class="font-medium">${escapeHtml(lesson.subject || period.subject || 'Free Period')}</p><p class="text-sm text-muted-foreground">${escapeHtml(lesson.teacherName || lesson.teacher || 'Teacher')} ${lesson.room ? '• ' + escapeHtml(lesson.room) : ''}</p></div>
+                                    <span class="text-sm font-medium">${escapeHtml(lesson.startTime || period.start || '')} - ${escapeHtml(lesson.endTime || period.end || '')}</span>
+                                </div>`;
+                            }).join('')}
                         </div>
-                        <span class="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-full">in 3 days</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+                    </div>`).join('') : `<div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">No published timetable found for your class yet.</div>`}
+            </div>`;
+    } catch (e) {
+        return `<div class="rounded-xl border p-4 text-muted-foreground">Could not load timetable: ${escapeHtml(e.message)}</div>`;
+    }
 }
 
 // ============ GAMIFICATION SECTIONS ============
@@ -839,18 +790,18 @@ async function renderStudentHomework() {
                     ${assignments.length === 0 ? '<p class="text-center text-muted-foreground">No homework assigned</p>' :
                       assignments.map(a => `
                         <div class="p-4 border rounded-lg">
-                            <h3 class="font-semibold">${escapeHtml(a.HomeTask.title)}</h3>
-                            <p class="text-sm">${escapeHtml(a.HomeTask.instructions)}</p>
+                            <h3 class="font-semibold">${escapeHtml((a.HomeTask?.title || a.title || 'Homework'))}</h3>
+                            <p class="text-sm">${escapeHtml((a.HomeTask?.instructions || a.instructions || ''))}</p>
                             <div class="flex gap-4 mt-2 text-xs">
-                                <span>Subject: ${escapeHtml(a.HomeTask.subject)}</span>
-                                <span>Due: ${formatDate(a.HomeTask.dueDate)}</span>
+                                <span>Subject: ${escapeHtml((a.HomeTask?.subject || a.subject || 'General'))}</span>
+                                <span>Due: ${formatDate((a.HomeTask?.dueDate || a.dueDate || a.assignedAt))}</span>
                             </div>
                             <div class="mt-2">
                                 Status: <span class="font-medium">${a.status === 'submitted' ? 'Submitted' : a.status === 'pending' ? 'Pending' : a.status}</span>
                             </div>
                             <div class="flex flex-wrap gap-2 mt-2">
                                 ${a.status !== 'submitted' ? `<button onclick="submitHomework(${a.id})" class="px-4 py-1 bg-primary text-white rounded">Submit</button>` : '' }
-                                <button onclick="openStudentHomeworkDiscussion('${escapeHtml((a.HomeTask.subject || 'Homework')).replace(/'/g, '&#39;')}', '${escapeHtml((a.HomeTask.title || 'Homework')).replace(/'/g, '&#39;')}')" class="px-4 py-1 border rounded hover:bg-accent">Study Discussion</button>
+                                <button onclick="openStudentHomeworkDiscussion('${escapeHtml(((a.HomeTask?.subject || a.subject || 'General') || 'Homework')).replace(/'/g, '&#39;')}', '${escapeHtml(((a.HomeTask?.title || a.title || 'Homework') || 'Homework')).replace(/'/g, '&#39;')}')" class="px-4 py-1 border rounded hover:bg-accent">Study Discussion</button>
                             </div>
                         </div>
                       `).join('')}
@@ -955,8 +906,8 @@ window.askAITutor = async function() {
             subject,
             command: command === 'ask' ? undefined : command,
             level,
-            grade: currentUser.grade || currentUser.class || undefined,
-            studentId: currentUser.studentId || currentUser.id || undefined
+            grade: currentUser.grade || currentUser.class || dashboardData?.student?.grade || undefined,
+            context: { source: 'student-dashboard', studentName: currentUser.name, className: currentUser.grade || currentUser.class || dashboardData?.student?.grade }
         });
         typingDiv.remove();
         const data = res.data || {};
@@ -995,6 +946,29 @@ window.loadTutorProgress = async function() {
         panel.innerHTML = `<p class="text-red-600">${escapeHtml(e.message)}</p>`;
     }
 };
+
+
+function openReportCard() {
+    try {
+        const records = (dashboardData?.recentRecords || dashboardData?.grades || []);
+        const student = dashboardData?.student || (typeof getCurrentUser === 'function' ? getCurrentUser() : {});
+        const school = (typeof getCurrentSchool === 'function' ? getCurrentSchool() : {}) || {};
+        const html = `
+            <div class="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4" id="report-card-modal">
+                <div class="bg-card text-card-foreground rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto p-6">
+                    <div class="flex justify-between items-start border-b pb-4 mb-4">
+                        <div><h2 class="text-2xl font-bold">${escapeHtml(school.name || school.schoolName || 'Shule AI')} Report Card</h2><p class="text-sm text-muted-foreground">${escapeHtml(student.name || 'Student')}</p></div>
+                        <button onclick="document.getElementById('report-card-modal')?.remove()" class="px-3 py-1 rounded border">Close</button>
+                    </div>
+                    ${records.length ? `<table class="w-full text-sm"><thead><tr class="bg-muted/40"><th class="p-2 text-left">Subject</th><th class="p-2">Term</th><th class="p-2">Year</th><th class="p-2">Type</th><th class="p-2">Score</th><th class="p-2">Grade</th></tr></thead><tbody>${records.map(r=>`<tr class="border-t"><td class="p-2">${escapeHtml(r.subject||'')}</td><td class="p-2 text-center">${escapeHtml(r.term||'')}</td><td class="p-2 text-center">${escapeHtml(String(r.year||''))}</td><td class="p-2 text-center">${escapeHtml(r.assessmentName||r.assessmentType||'')}</td><td class="p-2 text-center">${r.score ?? ''}%</td><td class="p-2 text-center font-semibold">${escapeHtml(r.grade||'N/A')}</td></tr>`).join('')}</tbody></table>` : '<div class="text-center text-muted-foreground py-8">No published grades available yet.</div>'}
+                </div>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+    } catch(e) {
+        if (typeof showToast === 'function') showToast('Failed to load report card', 'error');
+    }
+}
+window.openReportCard = openReportCard;
 
 // ============ EXPORT FUNCTIONS ============
 window.renderStudentSection = renderStudentSection;

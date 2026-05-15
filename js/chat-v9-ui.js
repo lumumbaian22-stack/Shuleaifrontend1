@@ -500,6 +500,13 @@ async function v9LoadStudentThreads() {
       groups = classIds.map(id => ({ id:`class-${id}`, classId:id, name: allThreads.find(t => Number(t.classId) === id)?.className || 'Class Study Group', participants: [], participantCount: 0 }));
     }
     if (!groups.length) groups = [{ id:'class-0', classId:null, name:'My Study Group', participants: [], participantCount:0 }];
+    if (!groups.some(g => (g.participants || []).length)) {
+      try {
+        const peersRes = await chatV9API.getTeachers();
+        const peers = (peersRes.data || []).filter(p => Number(p.id) !== Number(v9CurrentUser()?.id)).map(p => ({ id:p.id, name:p.name, role:p.role || 'student', profileImage:p.profileImage, studentId:p.Student?.id || p.studentId, classId:p.Student?.classId || p.classId }));
+        if (peers.length) groups = groups.map(g => ({ ...g, participants: (g.participants && g.participants.length) ? g.participants : peers, participantCount: (g.participantCount || peers.length) }));
+      } catch(e) {}
+    }
 
     v9StudentState.groups = groups;
     v9StudentState.threads = allThreads;
@@ -673,14 +680,10 @@ async function v9SubmitStudentTopic(classId) {
   try { await chatV9API.createClassroomThread({ classId, subject, topic, content, metadata:{ approvalStatus:'pending', source:'student-created-topic' } }); v9CloseModal(); await v9LoadStudentThreads(); v9Toast('Topic sent for teacher approval','success'); }
   catch(err){ v9Toast(err.message || 'Could not create topic','error'); }
 }
-async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; await v9LoadStudentThreads(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
-async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; return `<div class="v9-wa-stats"><span>⭐ ${totals.points||0}</span><span>🔥 ${totals.streak||0}</span></div>`; }
 
 function v9RenderThreads(threads) { if(!threads.length) return `<div class="v9-empty"><h3 class="font-bold text-lg mb-2">No classroom threads yet</h3><p>Your teacher will post structured study questions here.</p></div>`; return threads.map(t=>`<article class="v9-thread-card"><div class="v9-thread-top"><div><span class="v9-subject-pill">${v9Safe(t.subject||'Subject')}</span><h3 class="text-xl font-bold mt-3">${v9Safe(t.topic||'Classroom Topic')}</h3><p class="text-muted-foreground">${v9Safe(t.content||'')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div>${t.isPinned?'<span class="v9-award-pill">📌 Pinned</span>':''}</div><div class="mt-4">${v9ThreadReplies(t).map(r=>v9RenderReply(r)).join('')}</div><div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Write your reply or question..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div></article>`).join(''); }
 function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)}</small></div><p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||0}</button></div></div>`; }
-async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) await v9LoadStudentThreads(); else await v9RefreshTeacherChat(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
-async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; const events=data.events||[]; return `<div class="v9-achievements-card"><h3 class="font-bold text-xl">Achievements</h3><p class="text-muted-foreground text-sm">Stars and streaks awarded by teachers.</p><div class="v9-achievement-stat"><div><span class="text-muted-foreground text-sm">Points</span><strong>⭐ ${totals.points||0}</strong></div><div><span class="text-muted-foreground text-sm">Streak</span><strong>🔥 ${totals.streak||0}</strong></div></div><div class="space-y-3">${events.length?events.slice(0,5).map(e=>`<div class="v9-info-card"><div class="flex justify-between gap-2"><strong>${v9Safe(e.title||'Achievement')}</strong><span class="v9-award-pill">+${e.points||0} pts</span></div><small>${v9Safe(e.note||'Teacher awarded achievement')}</small></div>`).join(''):'<div class="v9-empty small">No achievements yet. Participate in threads to earn stars.</div>'}</div></div>`; }
 
 
