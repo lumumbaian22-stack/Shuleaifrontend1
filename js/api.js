@@ -817,6 +817,9 @@ const chatV9API = {
     getDirectMessages: (userId) => apiRequest(`/api/chat-v9/teacher/direct/${userId}`),
     sendDirectMessage: (receiverId, content, attachmentUrl = null, attachment = null) =>
         apiRequest('/api/chat-v9/teacher/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl, attachment }) }),
+    getStudentDirectMessages: (userId) => apiRequest(`/api/chat-v9/student/direct/${userId}`),
+    sendStudentDirectMessage: (receiverId, content, attachmentUrl = null, attachment = null) =>
+        apiRequest('/api/chat-v9/student/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl, attachment }) }),
 
     getGroupMessages: (groupId) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`),
     getGroupMembers: (groupId) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/members`),

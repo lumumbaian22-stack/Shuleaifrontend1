@@ -672,7 +672,7 @@ async function v9StudentSelectPeer(userId) {
 }
 async function v9LoadStudentPrivateMessages(userId, rerender = true) {
   if (!userId) return;
-  try { const res = await chatV9API.getDirectMessages(userId); v9StudentState.directMessages = res.data || []; }
+  try { const res = await chatV9API.getStudentDirectMessages(userId); v9StudentState.directMessages = res.data || []; }
   catch (err) { console.error('Student private messages failed:', err); v9StudentState.directMessages = []; }
   if (rerender) v9RenderStudentStudyRoom();
 }
@@ -682,7 +682,7 @@ async function v9SendStudentPrivateMessage(userId) {
   if (!content) return;
   const previous = input.value;
   try {
-    const res = await chatV9API.sendDirectMessage(userId, content);
+    const res = await chatV9API.sendStudentDirectMessage(userId, content);
     input.value = '';
     if (res?.data) {
       if (!Array.isArray(v9StudentState.directMessages)) v9StudentState.directMessages = [];
