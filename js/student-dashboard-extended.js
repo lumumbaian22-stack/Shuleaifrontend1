@@ -310,18 +310,13 @@ async function loadStudentHomeTasks() {
 // ========== GRADES SECTION ==========
 async function renderStudentGrades() {
     try {
-        const data = dashboardData || {};
-        let grades = Array.isArray(data.grades) ? data.grades : [];
+        let grades = [];
 
-        // If dashboard payload did not include grades, load the official published student-grade endpoint.
-        if (!grades.length) {
-            try {
-                const res = await apiRequest('/api/student/grades');
-                grades = Array.isArray(res.data) ? res.data : [];
-            } catch (gradeLoadError) {
-                console.warn('Could not load /api/student/grades, falling back to dashboard grades:', gradeLoadError.message);
-            }
-        }
+        // Stage 1C: use only the official student endpoint for this section.
+        // No mock/demo/dashboard fallback data is used here, so the screen either
+        // shows real published marks or an honest empty state.
+        const res = await apiRequest('/api/student/grades');
+        grades = Array.isArray(res.data) ? res.data : [];
 
         window.v66StudentGrades = grades.map(v66NormalizeStudentGrade);
         const filters = v66BuildGradeFilters(window.v66StudentGrades);
@@ -352,7 +347,7 @@ async function renderStudentGrades() {
             </div>
         `;
     } catch (error) {
-        return `<div class="text-center py-12 text-red-500">Error loading grades: ${escapeHtml(error.message)}</div>`;
+        return `<div class="rounded-xl border bg-card p-8 text-center text-red-500"><p class="font-medium">Could not load published grades.</p><p class="text-xs mt-1">${escapeHtml(error.message)}</p></div>`;
     }
 }
 
@@ -362,19 +357,19 @@ function v66NormalizeStudentGrade(record) {
     const year = String(record.academicYear || record.year || record.schoolYear || (d && !isNaN(d) ? d.getFullYear() : new Date().getFullYear()));
     const term = String(record.term || record.termName || record.schoolTerm || record.Term?.name || 'Term 1');
     const assessment = String(record.assessmentName || record.assessmentType || record.testType || record.examType || record.type || 'Assessment');
-    const scoreRaw = record.score ?? record.marks ?? record.mark ?? record.percentage ?? 0;
+    const scoreRaw = record.score ?? record.marks ?? record.mark ?? record.percentage ?? null;
     const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 0;
     return {
         id: record.id || `${record.subject || 'subject'}-${year}-${term}-${assessment}`,
-        subject: record.subject || record.Subject?.name || 'N/A',
+        subject: record.subject || record.Subject?.name || 'Unknown Subject',
         year,
         term,
         assessment,
         score,
         totalMarks: Number(record.totalMarks || record.outOf || record.maxScore || 100),
         grade: record.grade || 'N/A',
-        teacher: record.teacherName || record.Teacher?.User?.name || record.teacher || 'Teacher',
-        remark: record.remark || record.teacherRemark || record.comments || '',
+        teacher: record.teacherName || record.Teacher?.User?.name || record.Teacher?.name || record.teacher || 'Not assigned',
+        remark: record.remark || record.remarks || record.teacherRemark || record.comments || '',
         date: rawDate
     };
 }
@@ -1037,8 +1032,8 @@ async function renderStudentHomework() {
 }
 
 function v66NormalizeHomeworkAssignment(assignment) {
-    const task = assignment.HomeTask || assignment.homeTask || assignment.task || assignment;
-    const dueRaw = task.dueDate || assignment.dueDate || null;
+    const task = assignment.HomeTask || assignment.homeTask || assignment.task || assignment.homeTaskData || assignment;
+    const dueRaw = task.dueDate || assignment.dueDate || assignment.deadline || null;
     const due = dueRaw ? new Date(dueRaw) : null;
     const status = String(assignment.status || task.status || 'pending').toLowerCase();
     const isLate = due && !isNaN(due) && due < new Date() && !['submitted','graded','completed'].includes(status);
@@ -1047,9 +1042,9 @@ function v66NormalizeHomeworkAssignment(assignment) {
         id: assignment.id || assignment.assignmentId || task.id,
         taskId: task.id,
         title: task.title || 'Untitled Homework',
-        instructions: task.instructions || task.description || 'No instructions provided yet.',
+        instructions: task.instructions || task.description || assignment.instructions || '',
         subject: task.subject || task.Subject?.name || 'General',
-        teacher: task.teacherName || task.Teacher?.User?.name || task.teacher || 'Teacher',
+        teacher: task.teacherName || assignment.teacherName || task.Teacher?.User?.name || task.teacher || 'Not assigned',
         dueDate: dueRaw,
         assignedAt: assignment.assignedAt || task.createdAt || task.assignedAt,
         status,
@@ -1057,7 +1052,7 @@ function v66NormalizeHomeworkAssignment(assignment) {
         feedback: assignment.studentFeedback || assignment.feedback || null,
         teacherComment: assignment.teacherComment || assignment.remark || '',
         score: assignment.score ?? assignment.marks ?? null,
-        attachments: task.attachments || assignment.attachments || []
+        attachments: Array.isArray(task.attachments) ? task.attachments : (Array.isArray(assignment.attachments) ? assignment.attachments : [])
     };
 }
 
@@ -1123,7 +1118,7 @@ function v66RenderHomeworkCard(a) {
                 <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${escapeHtml(a.smartStatus)}</span>
             </div>
 
-            <p class="text-sm text-muted-foreground line-clamp-2">${escapeHtml(a.instructions)}</p>
+            ${a.instructions ? `<p class="text-sm text-muted-foreground line-clamp-2">${escapeHtml(a.instructions)}</p>` : '<p class="text-sm text-muted-foreground">No written instructions were attached to this homework.</p>'}
 
             <div class="rounded-lg bg-muted/40 p-3 text-xs">
                 <p class="font-medium mb-1">Recommended next step</p>
@@ -1138,7 +1133,7 @@ function v66RenderHomeworkCard(a) {
             <div id="homework-details-${a.id}" class="hidden border-t pt-3 text-sm space-y-3">
                 <div>
                     <p class="font-semibold">Instructions</p>
-                    <p class="text-muted-foreground mt-1 whitespace-pre-line">${escapeHtml(a.instructions)}</p>
+                    <p class="text-muted-foreground mt-1 whitespace-pre-line">${escapeHtml(a.instructions || 'No written instructions were attached to this homework.')}</p>
                 </div>
                 ${a.teacherComment ? `<div><p class="font-semibold">Teacher Comment</p><p class="text-muted-foreground mt-1">${escapeHtml(a.teacherComment)}</p></div>` : ''}
                 ${a.score !== null ? `<div><p class="font-semibold">Score</p><p class="text-muted-foreground mt-1">${escapeHtml(String(a.score))}</p></div>` : ''}
