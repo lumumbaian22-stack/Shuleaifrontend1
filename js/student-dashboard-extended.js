@@ -851,11 +851,13 @@ function renderStudentAITutor() {
 function v66GetStudentTutorContext() {
     const user = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
     const saved = window.v66StudentTutorContext || {};
-    const grade = saved.grade || saved.className || user.grade || user.class || user.className || 'Not assigned';
+    const detectedGrade = saved.grade || saved.gradeLevel || saved.className || saved.class || user.grade || user.gradeLevel || user.class || user.className || 'Grade 5';
+    const grade = (!detectedGrade || String(detectedGrade).toLowerCase() === 'not assigned') ? 'Grade 5' : detectedGrade;
     const level = v66TutorLevelFromGrade(grade);
     return {
         ...saved,
         grade,
+        gradeLevel: grade,
         level,
         studentId: saved.studentId || user.studentId || null,
         curriculum: saved.curriculum || schoolSettings.curriculum || 'cbc',
@@ -879,7 +881,8 @@ async function v66LoadStudentTutorContext() {
         const student = data.student || {};
         window.v66StudentTutorContext = {
             studentId: student.studentId || data.studentId || student.id || null,
-            grade: student.grade || data.grade || student.className || 'Not assigned',
+            grade: student.grade || student.gradeLevel || data.grade || data.gradeLevel || student.className || student.class || 'Grade 5',
+            gradeLevel: student.gradeLevel || student.grade || data.gradeLevel || data.grade || student.className || student.class || 'Grade 5',
             classId: student.classId || data.classId || null,
             curriculum: student.curriculum || data.school?.curriculum || schoolSettings.curriculum || 'cbc',
             academicStatus: student.academicStatus || null
@@ -1031,47 +1034,118 @@ async function renderStudentBadges() {
     }
 }
 
+function v66RewardPercent(value) {
+    return value === null || value === undefined || value === '' ? '—' : `${Number(value)}%`;
+}
+
+function v66RewardStatusClass(earned) {
+    return earned ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+}
+
 async function renderRewardsStore() {
     try {
-        const res = await apiRequest('/api/gamification/rewards');
-        const rewards = res.data || [];
-        const studentRes = await api.student.getDashboard();
-        const points = studentRes.data?.points || 0;
+        const res = await apiRequest('/api/gamification/my-summary');
+        const data = res.data || {};
+        const summary = data.summary || {};
+        const badges = Array.isArray(data.badges) ? data.badges : [];
+        const events = Array.isArray(data.recentEvents) ? data.recentEvents : [];
+        const actions = Array.isArray(data.actions) ? data.actions : [];
+
         return `
-            <div class="space-y-6 animate-fade-in">
-                <h2 class="text-2xl font-bold">Rewards Store</h2>
-                <p class="text-sm text-muted-foreground">Your points: <strong>${points}</strong></p>
-                <div class="grid gap-4 md:grid-cols-3">
-                    ${rewards.map(r => `
-                        <div class="border rounded-lg p-4 text-center">
-                            <h3 class="font-semibold">${escapeHtml(r.name)}</h3>
-                            <p class="text-sm text-muted-foreground">${escapeHtml(r.description)}</p>
-                            <p class="text-lg font-bold">${r.pointsCost} pts</p>
-                            <button onclick="redeemReward(${r.id})" class="mt-2 px-4 py-2 bg-primary text-white rounded-lg">Redeem</button>
+            <div class="space-y-6 animate-fade-in student-rewards-section">
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p class="text-sm text-muted-foreground">Student motivation</p>
+                        <h2 class="text-2xl font-bold">My Rewards</h2>
+                        <p class="text-sm text-muted-foreground">Rewards are calculated from real attendance, homework, published marks, and teacher-awarded participation.</p>
+                    </div>
+                    <div class="rounded-2xl border bg-card p-4 text-center shadow-sm">
+                        <p class="text-xs uppercase tracking-wide text-muted-foreground">Total Points</p>
+                        <p class="text-3xl font-black">${Number(summary.totalPoints || 0)}</p>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-4">
+                    <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                        <p class="text-sm text-muted-foreground">Attendance</p>
+                        <p class="text-2xl font-black">${v66RewardPercent(summary.attendanceRate)}</p>
+                    </div>
+                    <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                        <p class="text-sm text-muted-foreground">Homework</p>
+                        <p class="text-2xl font-black">${v66RewardPercent(summary.homeworkRate)}</p>
+                    </div>
+                    <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                        <p class="text-sm text-muted-foreground">Average Score</p>
+                        <p class="text-2xl font-black">${v66RewardPercent(summary.averageScore)}</p>
+                    </div>
+                    <div class="rounded-2xl border bg-card p-4 shadow-sm">
+                        <p class="text-sm text-muted-foreground">Badges Earned</p>
+                        <p class="text-2xl font-black">${Number(summary.earnedBadges || 0)}/${Number(summary.availableBadges || badges.length || 0)}</p>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 lg:grid-cols-5">
+                    <div class="lg:col-span-3 rounded-2xl border bg-card p-5 shadow-sm">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold">Real Achievement Badges</h3>
+                                <p class="text-sm text-muted-foreground">No mock rewards. Locked badges show exactly what is missing.</p>
+                            </div>
                         </div>
-                    `).join('')}
+                        <div class="grid gap-3 md:grid-cols-2">
+                            ${badges.length ? badges.map(b => `
+                                <div class="rounded-2xl border p-4 ${b.earned ? 'ring-1 ring-emerald-300 dark:ring-emerald-700' : ''}">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="flex items-start gap-3">
+                                            <div class="text-3xl">${escapeHtml(b.icon || '🏅')}</div>
+                                            <div>
+                                                <h4 class="font-bold">${escapeHtml(b.title || 'Reward')}</h4>
+                                                <p class="text-xs text-muted-foreground">${escapeHtml(b.category || 'Achievement')}</p>
+                                            </div>
+                                        </div>
+                                        <span class="rounded-full px-2.5 py-1 text-xs font-semibold ${v66RewardStatusClass(b.earned)}">${escapeHtml(b.label || (b.earned ? 'Earned' : 'Locked'))}</span>
+                                    </div>
+                                    <p class="mt-3 text-sm text-muted-foreground">${escapeHtml(b.description || '')}</p>
+                                    <p class="mt-3 text-sm font-bold">${Number(b.points || 0)} pts</p>
+                                </div>
+                            `).join('') : '<div class="rounded-xl border p-4 text-sm text-muted-foreground md:col-span-2">Rewards will appear after attendance, homework, marks, or teacher participation records are available.</div>'}
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="rounded-2xl border bg-card p-5 shadow-sm">
+                            <h3 class="text-lg font-bold">Recommended Next Actions</h3>
+                            <div class="mt-3 space-y-2">
+                                ${actions.length ? actions.map(a => `
+                                    <div class="rounded-xl border p-3 text-sm">${escapeHtml(a)}</div>
+                                `).join('') : '<div class="rounded-xl border p-3 text-sm text-muted-foreground">No reward recommendations yet. They will appear after real student activity is recorded.</div>'}
+                            </div>
+                        </div>
+
+                        <div class="rounded-2xl border bg-card p-5 shadow-sm">
+                            <h3 class="text-lg font-bold">Teacher-Awarded Participation</h3>
+                            <div class="mt-3 space-y-2">
+                                ${events.length ? events.map(e => `
+                                    <div class="rounded-xl border p-3">
+                                        <div class="flex justify-between gap-2">
+                                            <strong class="text-sm">${escapeHtml(e.title || 'Achievement')}</strong>
+                                            <span class="text-sm font-bold">+${Number(e.points || 0)} pts</span>
+                                        </div>
+                                        <p class="text-xs text-muted-foreground">${escapeHtml(e.note || 'Teacher-awarded achievement')}</p>
+                                    </div>
+                                `).join('') : '<div class="rounded-xl border p-3 text-sm text-muted-foreground">No teacher-awarded participation yet. Join study discussions and answer questions to earn points.</div>'}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>`;
     } catch (e) {
-        return '<div class="rounded-lg border p-4 text-muted-foreground">Rewards are temporarily unavailable. Your points are safe; try again after backend sync.</div>';
+        return `<div class="rounded-lg border p-4 text-muted-foreground">Rewards are temporarily unavailable. Your points are safe; try again after backend sync. ${escapeHtml(e.message || '')}</div>`;
     }
 }
 
 async function redeemReward(rewardId) {
-    showLoading();
-    try {
-        const res = await apiRequest('/api/gamification/rewards/redeem', { method: 'POST', body: JSON.stringify({ rewardId }) });
-        hideLoading();
-        if (res.success) {
-            showToast('Reward redeemed!', 'success');
-            showDashboardSection('rewards');
-        } else {
-            showToast(res.message, 'error');
-        }
-    } catch (e) {
-        hideLoading();
-        showToast(e.message, 'error');
-    }
+    showToast('Reward redemption is not enabled for rollout yet. Rewards currently track real school progress only.', 'info');
 }
 
 // ============ HOMEWORK SECTION ============
@@ -1313,8 +1387,9 @@ window.askAITutor = async function() {
             question,
             subject,
             command: command === 'ask' ? undefined : command,
-            level: tutorContext.level,
-            grade: tutorContext.grade || undefined,
+            level: tutorContext.level || 'upper_primary',
+            grade: tutorContext.grade || 'Grade 5',
+            gradeLevel: tutorContext.gradeLevel || tutorContext.grade || 'Grade 5',
             studentId: tutorContext.studentId || undefined,
             curriculum: tutorContext.curriculum || undefined
         });
