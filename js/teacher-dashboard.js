@@ -1726,6 +1726,7 @@ function showCreateHomeworkModal() {
                     <div class="space-y-4">
                         <div><label class="block text-sm font-medium">Title</label><input type="text" id="hw-title" class="w-full rounded-lg border p-2 bg-background"></div>
                         <div><label class="block text-sm font-medium">Instructions</label><textarea id="hw-instructions" rows="3" class="w-full rounded-lg border p-2 bg-background"></textarea></div>
+                        <div><label class="block text-sm font-medium">Assignment file / material</label><input type="file" id="hw-file" class="w-full rounded-lg border p-2 bg-background"><p class="text-xs text-muted-foreground mt-1">Optional. Students will be able to view/download this file.</p></div>
                         <div class="grid grid-cols-2 gap-3">
                             <div><label class="block text-sm font-medium">Subject</label><select id="hw-subject" class="w-full rounded-lg border p-2 bg-background"><option value="">Select class first</option></select></div>
                             <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2 bg-background"></div>
@@ -1778,6 +1779,27 @@ async function loadTeacherClassesForHomework() {
     }
 }
 
+async function uploadHomeworkMaterial(fileInputId) {
+    const input = document.getElementById(fileInputId);
+    const file = input?.files?.[0];
+    if (!file) return [];
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await uploadFile('/api/homework/attachments', formData);
+    const attachment = res.data || res.file || null;
+    return attachment ? [attachment] : [];
+}
+
+function renderHomeworkAttachmentList(attachments = []) {
+    const files = Array.isArray(attachments) ? attachments : [];
+    if (!files.length) return '<p class="text-sm text-muted-foreground">No files attached.</p>';
+    return `<div class="space-y-2">${files.map((file, index) => {
+        const url = resolveMediaUrl(file.secureUrl || file.url || '');
+        const name = escapeHtml(file.name || `Attachment ${index + 1}`);
+        return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0"><a href="${url}" target="_blank" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a></div></div>`;
+    }).join('')}</div>`;
+}
+
 async function createHomework() {
     const title = document.getElementById('hw-title')?.value.trim();
     const instructions = document.getElementById('hw-instructions')?.value.trim();
@@ -1794,9 +1816,10 @@ async function createHomework() {
 
     showLoading();
     try {
+        const attachments = await uploadHomeworkMaterial('hw-file');
         const res = await apiRequest('/api/homework/assign', {
             method: 'POST',
-            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className })
+            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className, attachments })
         });
         if (res.success) {
             closeCreateHomeworkModal();
@@ -1842,7 +1865,7 @@ async function openHomeworkReviewModal(taskId) {
                 </div>
             </div>`;
         }).join('') : '<div class="text-center text-muted-foreground border rounded-xl py-8">No assigned students found for this homework.</div>';
-        homeworkModalShell('homework-review-modal', `Review: ${escapeHtml(task?.title || 'Homework')}`, `<div class="space-y-3">${rows}</div>`);
+        homeworkModalShell('homework-review-modal', `Review: ${escapeHtml(task?.title || 'Homework')}`, `<div class="space-y-4"><div class="rounded-xl border p-4 bg-background"><p class="font-semibold mb-2">Assignment materials</p>${renderHomeworkAttachmentList(task?.attachments || [])}</div>${rows}</div>`);
     } catch (e) {
         showToast(e.message || 'Could not load homework review', 'error');
     } finally { hideLoading(); }
@@ -1864,6 +1887,7 @@ async function openHomeworkEditModal(taskId) {
     try {
         showLoading();
         const { task } = await fetchHomeworkDetails(taskId);
+        window.__editingHomeworkTask = task || {};
         homeworkModalShell('homework-edit-modal', 'Edit Homework', `
             <div class="space-y-4">
                 <div><label class="block text-sm font-medium">Title</label><input id="edit-hw-title" value="${escapeHtml(task.title || '')}" class="w-full rounded-lg border p-2 bg-background"></div>
@@ -1874,6 +1898,8 @@ async function openHomeworkEditModal(taskId) {
                     <div><label class="block text-sm font-medium">Points</label><input id="edit-hw-points" type="number" value="${task.points || 10}" class="w-full rounded-lg border p-2 bg-background"></div>
                 </div>
                 <div><label class="block text-sm font-medium">Teacher Note</label><textarea id="edit-hw-note" rows="2" class="w-full rounded-lg border p-2 bg-background">${escapeHtml(task.teacherNote || '')}</textarea></div>
+                <div class="rounded-xl border p-3"><p class="font-medium mb-2">Current files</p>${renderHomeworkAttachmentList(task.attachments || [])}</div>
+                <div><label class="block text-sm font-medium">Add/replace assignment file</label><input type="file" id="edit-hw-file" class="w-full rounded-lg border p-2 bg-background"><p class="text-xs text-muted-foreground mt-1">Leave empty to keep the current files.</p></div>
             </div>
         `, `<button onclick="document.getElementById('homework-edit-modal').classList.add('hidden')" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="saveHomeworkEdit(${Number(taskId)})" class="px-4 py-2 bg-primary text-white rounded-lg">Save Changes</button>`);
     } catch (e) { showToast(e.message || 'Could not load homework', 'error'); } finally { hideLoading(); }
@@ -1890,6 +1916,9 @@ async function saveHomeworkEdit(taskId) {
             teacherNote: document.getElementById('edit-hw-note')?.value.trim()
         };
         if (!payload.title || !payload.instructions || !payload.subject) return showToast('Title, instructions, and subject are required', 'error');
+        const newAttachments = await uploadHomeworkMaterial('edit-hw-file');
+        if (newAttachments.length) payload.attachments = newAttachments;
+        else if (window.__editingHomeworkTask?.attachments) payload.attachments = window.__editingHomeworkTask.attachments;
         await apiRequest(`/api/homework/teacher/${Number(taskId)}`, { method: 'PUT', body: JSON.stringify(payload) });
         document.getElementById('homework-edit-modal')?.classList.add('hidden');
         showToast('Homework updated', 'success');
@@ -1956,6 +1985,7 @@ window.renderTimetableGrid = renderTimetableGrid;
 window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.closeCreateHomeworkModal = closeCreateHomeworkModal;
 window.createHomework = createHomework;
+window.uploadHomeworkMaterial = uploadHomeworkMaterial;
 
 
 // V42 compatibility aliases: keep original full teacher layouts, only satisfy older v12 callers.

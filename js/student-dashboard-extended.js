@@ -1261,6 +1261,16 @@ function v66RenderHomeworkList(assignments, tab = 'all') {
         </div>`;
 }
 
+function v66RenderStudentHomeworkAttachments(attachments = []) {
+    const files = Array.isArray(attachments) ? attachments : [];
+    if (!files.length) return '<p class="text-muted-foreground mt-1">No assignment file was uploaded.</p>';
+    return `<div class="space-y-2 mt-2">${files.map((file, index) => {
+        const url = resolveMediaUrl(file.secureUrl || file.url || '');
+        const name = escapeHtml(file.name || `Assignment file ${index + 1}`);
+        return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0"><a href="${url}" target="_blank" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a></div></div>`;
+    }).join('')}</div>`;
+}
+
 function v66RenderHomeworkCard(a) {
     const statusClass = a.smartStatus === 'late' ? 'bg-red-100 text-red-700' : a.smartStatus === 'submitted' ? 'bg-blue-100 text-blue-700' : a.smartStatus === 'graded' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
     const dueText = a.dueDate ? formatDate(a.dueDate) : 'No due date';
@@ -1293,6 +1303,7 @@ function v66RenderHomeworkCard(a) {
                     <p class="font-semibold">Instructions</p>
                     <p class="text-muted-foreground mt-1 whitespace-pre-line">${escapeHtml(a.instructions || 'No written instructions were attached to this homework.')}</p>
                 </div>
+                <div><p class="font-semibold">Assignment File / Materials</p>${v66RenderStudentHomeworkAttachments(a.attachments || [])}</div>
                 ${a.teacherComment ? `<div><p class="font-semibold">Teacher Comment</p><p class="text-muted-foreground mt-1">${escapeHtml(a.teacherComment)}</p></div>` : ''}
                 ${a.score !== null ? `<div><p class="font-semibold">Score</p><p class="text-muted-foreground mt-1">${escapeHtml(String(a.score))}</p></div>` : ''}
                 <div class="text-xs text-muted-foreground">Assigned: ${a.assignedAt ? formatDate(a.assignedAt) : 'N/A'}</div>
