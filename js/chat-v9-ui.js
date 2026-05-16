@@ -440,6 +440,7 @@ let v9StudentState = {
   selectedThreadId: null,
   selectedPeerId: null,
   directMessages: [],
+  classmates: [],
   achievements: { totals: { points: 0, streak: 0 }, events: [] },
   mode: 'study',
   filter: 'all',
@@ -484,7 +485,11 @@ function v9StudentCurrentParticipants() {
 }
 function v9StudentPeers() {
   const me = v9CurrentUser();
-  return v9StudentCurrentParticipants().filter(p => Number(p.id) !== Number(me?.id));
+  const participantPeers = v9StudentCurrentParticipants().filter(p => Number(p.id) !== Number(me?.id));
+  const fallbackPeers = (v9StudentState.classmates || []).filter(p => Number(p.id) !== Number(me?.id));
+  const merged = new Map();
+  [...participantPeers, ...fallbackPeers].forEach(p => { if (p?.id) merged.set(Number(p.id), p); });
+  return [...merged.values()];
 }
 function v9StudentActivePeer() {
   return v9StudentPeers().find(p => Number(p.id) === Number(v9StudentState.selectedPeerId)) || v9StudentPeers()[0] || null;
@@ -513,8 +518,13 @@ async function v9LoadStudentThreads() {
   if (!root) return;
   root.innerHTML = '<div class="v9-empty">Loading your study chats...</div>';
   try {
-    const [threadsRes, achievementsRes] = await Promise.all([chatV9API.getClassroomThreads(), chatV9API.getMyAchievements()]);
+    const [threadsRes, achievementsRes, membersRes] = await Promise.all([
+      chatV9API.getClassroomThreads(),
+      chatV9API.getMyAchievements(),
+      chatV9API.getAvailableMembers().catch(() => ({ data: [] }))
+    ]);
     const allThreads = threadsRes.data || [];
+    v9StudentState.classmates = (membersRes.data || []).filter(u => u.role === 'student');
     const groupsFromApi = threadsRes.meta?.groups || [];
     let groups = groupsFromApi.length ? groupsFromApi : [];
     if (!groups.length) {
