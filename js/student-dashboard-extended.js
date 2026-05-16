@@ -1194,8 +1194,10 @@ function v66NormalizeHomeworkAssignment(assignment) {
     const dueRaw = task.dueDate || assignment.dueDate || assignment.deadline || null;
     const due = dueRaw ? new Date(dueRaw) : null;
     const status = String(assignment.status || task.status || 'pending').toLowerCase();
-    const isLate = due && !isNaN(due) && due < new Date() && !['submitted','graded','completed'].includes(status);
+    const isLate = Boolean(assignment.isLate) || (due && !isNaN(due) && due < new Date() && !['submitted','graded','completed'].includes(status));
+    const submittedLate = Boolean(assignment.submittedLate || assignment.studentFeedback?.submittedLate);
     const smartStatus = status === 'graded' ? 'graded' : (['submitted','completed'].includes(status) ? 'submitted' : (isLate ? 'late' : 'pending'));
+    const displayStatus = assignment.displayStatus || (status === 'graded' ? (submittedLate ? 'Graded late' : 'Graded') : (['submitted','completed'].includes(status) ? (submittedLate ? 'Submitted late' : 'Submitted') : (isLate ? 'Late' : 'Pending')));
     return {
         id: assignment.id || assignment.assignmentId || task.id,
         taskId: task.id,
@@ -1207,9 +1209,13 @@ function v66NormalizeHomeworkAssignment(assignment) {
         assignedAt: assignment.assignedAt || task.createdAt || task.assignedAt,
         status,
         smartStatus,
+        displayStatus,
+        submittedLate,
         feedback: assignment.studentFeedback || assignment.feedback || null,
-        teacherComment: assignment.teacherComment || assignment.remark || '',
-        score: assignment.score ?? assignment.marks ?? null,
+        teacherComment: assignment.parentFeedback?.teacherComment || assignment.teacherComment || assignment.remark || '',
+        score: assignment.pointsEarned ?? assignment.score ?? assignment.marks ?? null,
+        maxPoints: assignment.maxPoints ?? task.points ?? null,
+        scoreText: assignment.scoreText || (assignment.pointsEarned !== null && assignment.pointsEarned !== undefined ? `${assignment.pointsEarned}/${assignment.maxPoints || task.points || ''}`.replace(/\/$/, '') : 'Not graded'),
         attachments: Array.isArray(task.attachments) ? task.attachments : (Array.isArray(assignment.attachments) ? assignment.attachments : [])
     };
 }
@@ -1276,7 +1282,9 @@ function v66RenderStudentHomeworkAttachments(attachments = []) {
     return `<div class="space-y-2 mt-2">${files.map((file, index) => {
         const url = v66SafeHomeworkFileUrl(file.downloadUrl || file.secureUrl || file.url || '');
         const name = escapeHtml(file.name || `Assignment file ${index + 1}`);
-        const actions = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a>` : '<span class="text-xs text-red-500">File unavailable</span>';
+        const viewUrl = url;
+        const downloadUrl = url ? `${url}${url.includes('?') ? '&' : '?'}download=1` : '';
+        const actions = url ? `<a href="${viewUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${downloadUrl}" class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a>` : '<span class="text-xs text-red-500">File unavailable</span>';
         return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0">${actions}</div></div>`;
     }).join('')}</div>`;
 }
@@ -1293,7 +1301,7 @@ function v66RenderHomeworkCard(a) {
                     <h3 class="text-lg font-bold mt-1">${escapeHtml(a.title)}</h3>
                     <p class="text-xs text-muted-foreground mt-1">Teacher: ${escapeHtml(a.teacher)} • Due: ${escapeHtml(dueText)}</p>
                 </div>
-                <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${escapeHtml(a.smartStatus)}</span>
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${escapeHtml(a.displayStatus || a.smartStatus)}</span>
             </div>
 
             ${a.instructions ? `<p class="text-sm text-muted-foreground line-clamp-2">${escapeHtml(a.instructions)}</p>` : '<p class="text-sm text-muted-foreground">No written instructions were attached to this homework.</p>'}
@@ -1315,7 +1323,7 @@ function v66RenderHomeworkCard(a) {
                 </div>
                 <div><p class="font-semibold">Assignment File / Materials</p>${v66RenderStudentHomeworkAttachments(a.attachments || [])}</div>
                 ${a.teacherComment ? `<div><p class="font-semibold">Teacher Comment</p><p class="text-muted-foreground mt-1">${escapeHtml(a.teacherComment)}</p></div>` : ''}
-                ${a.score !== null ? `<div><p class="font-semibold">Score</p><p class="text-muted-foreground mt-1">${escapeHtml(String(a.score))}</p></div>` : ''}
+                ${a.score !== null && a.score !== undefined ? `<div><p class="font-semibold">Grade / Score</p><p class="text-muted-foreground mt-1">${escapeHtml(a.scoreText || String(a.score))}</p></div>` : '<div><p class="font-semibold">Grade / Score</p><p class="text-muted-foreground mt-1">Not graded yet</p></div>'}
                 <div class="text-xs text-muted-foreground">Assigned: ${a.assignedAt ? formatDate(a.assignedAt) : 'N/A'}</div>
             </div>
         </div>`;

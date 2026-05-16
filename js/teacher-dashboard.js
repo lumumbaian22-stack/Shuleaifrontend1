@@ -1814,7 +1814,9 @@ function renderHomeworkAttachmentList(attachments = []) {
     return `<div class="space-y-2">${files.map((file, index) => {
         const url = safeHomeworkFileUrl(file.downloadUrl || file.secureUrl || file.url || '');
         const name = escapeHtml(file.name || `Attachment ${index + 1}`);
-        const actions = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a>` : '<span class="text-xs text-red-500">File unavailable</span>';
+        const viewUrl = url;
+        const downloadUrl = url ? `${url}${url.includes('?') ? '&' : '?'}download=1` : '';
+        const actions = url ? `<a href="${viewUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${downloadUrl}" class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a>` : '<span class="text-xs text-red-500">File unavailable</span>';
         return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0">${actions}</div></div>`;
     }).join('')}</div>`;
 }
@@ -1874,17 +1876,21 @@ async function openHomeworkReviewModal(taskId) {
         const { task, assignments = [] } = await fetchHomeworkDetails(taskId);
         const rows = assignments.length ? assignments.map(a => {
             const studentName = a.Student?.User?.name || `Student #${a.studentId}`;
-            const submitted = a.status === 'submitted' || a.completedAt || a.submittedAt;
+            const submitted = a.status === 'submitted' || a.status === 'graded' || a.completedAt || a.submittedAt;
             const feedback = a.studentFeedback || {};
+            const displayStatus = a.displayStatus || (submitted ? 'Submitted' : 'Pending');
+            const badgeClass = a.isLate || a.submittedLate ? 'bg-red-100 text-red-700' : (a.status === 'graded' ? 'bg-green-100 text-green-700' : (submitted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'));
+            const maxPoints = Number(a.maxPoints || task?.points || 0);
             return `<div class="rounded-xl border p-4 bg-background space-y-2">
-                <div class="flex justify-between gap-3"><div><h4 class="font-semibold">${escapeHtml(studentName)}</h4><p class="text-xs text-muted-foreground">Status: ${escapeHtml(a.status || 'pending')}</p></div><span class="text-xs rounded-full px-2 py-1 ${submitted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${submitted ? 'Submitted' : 'Pending'}</span></div>
+                <div class="flex justify-between gap-3"><div><h4 class="font-semibold">${escapeHtml(studentName)}</h4><p class="text-xs text-muted-foreground">Status: ${escapeHtml(displayStatus)} ${a.completedAt ? `• Submitted: ${formatDate(a.completedAt)}` : ''}</p></div><span class="text-xs rounded-full px-2 py-1 ${badgeClass}">${escapeHtml(displayStatus)}</span></div>
                 ${feedback.comment ? `<p class="text-sm"><b>Student note:</b> ${escapeHtml(feedback.comment)}</p>` : ''}
-                ${feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${resolveMediaUrl(feedback.fileUrl)}" target="_blank">Open submitted file</a>` : ''}
+                ${feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${resolveMediaUrl(feedback.fileUrl)}" target="_blank" rel="noopener noreferrer">Open submitted file</a>` : ''}
                 <div class="grid md:grid-cols-[120px_1fr_auto] gap-2 items-end">
-                    <div><label class="text-xs">Points</label><input id="review-points-${Number(a.id)}" type="number" value="${a.pointsEarned ?? ''}" class="w-full rounded-lg border p-2 bg-card"></div>
+                    <div><label class="text-xs">Points ${maxPoints ? `/ ${maxPoints}` : ''}</label><input id="review-points-${Number(a.id)}" type="number" min="0" ${maxPoints ? `max="${maxPoints}"` : ''} value="${a.pointsEarned ?? ''}" class="w-full rounded-lg border p-2 bg-card"></div>
                     <div><label class="text-xs">Teacher comment</label><input id="review-comment-${Number(a.id)}" value="${escapeHtml(a.parentFeedback?.teacherComment || '')}" class="w-full rounded-lg border p-2 bg-card"></div>
                     <button onclick="saveHomeworkReview(${Number(a.id)})" class="px-3 py-2 rounded-lg bg-primary text-white">Save Review</button>
                 </div>
+                ${a.pointsEarned !== null && a.pointsEarned !== undefined ? `<p class="text-xs text-muted-foreground">Current grade: <b>${escapeHtml(String(a.pointsEarned))}${maxPoints ? `/${maxPoints}` : ''}</b></p>` : ''}
             </div>`;
         }).join('') : '<div class="text-center text-muted-foreground border rounded-xl py-8">No assigned students found for this homework.</div>';
         homeworkModalShell('homework-review-modal', `Review: ${escapeHtml(task?.title || 'Homework')}`, `<div class="space-y-4"><div class="rounded-xl border p-4 bg-background"><p class="font-semibold mb-2">Assignment materials</p>${renderHomeworkAttachmentList(task?.attachments || [])}</div>${rows}</div>`);
