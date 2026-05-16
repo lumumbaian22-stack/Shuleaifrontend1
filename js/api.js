@@ -815,25 +815,29 @@ const chatV9API = {
     createTeacherGroup: (data) => apiRequest('/api/chat-v9/teacher/groups', { method: 'POST', body: JSON.stringify(data) }),
 
     getDirectMessages: (userId) => apiRequest(`/api/chat-v9/teacher/direct/${userId}`),
-    sendDirectMessage: (receiverId, content, attachmentUrl = null, attachment = null) =>
-        apiRequest('/api/chat-v9/teacher/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl, attachment }) }),
+    sendDirectMessage: (receiverId, content, attachmentUrl = null, attachment = null, replyToMessageId = null) =>
+        apiRequest('/api/chat-v9/teacher/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl, attachment, replyToMessageId }) }),
+    editMessage: (messageId, content) => apiRequest(`/api/chat-v9/messages/${messageId}`, { method: 'PUT', body: JSON.stringify({ content }) }),
+    deleteMessage: (messageId, mode = 'me') => apiRequest(`/api/chat-v9/messages/${messageId}`, { method: 'DELETE', body: JSON.stringify({ mode }) }),
     getStudentDirectMessages: (userId) => apiRequest(`/api/chat-v9/student/direct/${userId}`),
-    sendStudentDirectMessage: (receiverId, content, attachmentUrl = null, attachment = null) =>
-        apiRequest('/api/chat-v9/student/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl, attachment }) }),
+    sendStudentDirectMessage: (receiverId, content, attachmentUrl = null, attachment = null, replyToMessageId = null) =>
+        apiRequest('/api/chat-v9/student/direct', { method: 'POST', body: JSON.stringify({ receiverId, content, attachmentUrl, attachment, replyToMessageId }) }),
 
     getGroupMessages: (groupId) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`),
     getGroupMembers: (groupId) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/members`),
     updateGroupMembers: (groupId, memberUserIds) => apiRequest(`/api/chat-v9/teacher/groups/${groupId}/members`, { method: 'PUT', body: JSON.stringify({ memberUserIds }) }),
     getAvailableMembers: () => apiRequest('/api/chat-v9/teacher/available-members'),
     uploadAttachment: (formData) => uploadFile('/api/chat-v9/attachments', formData),
-    sendGroupMessage: (groupId, content, attachmentUrl = null, attachment = null) =>
-        apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify({ content, attachmentUrl, attachment }) }),
+    sendGroupMessage: (groupId, content, attachmentUrl = null, attachment = null, replyToMessageId = null) =>
+        apiRequest(`/api/chat-v9/teacher/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify({ content, attachmentUrl, attachment, replyToMessageId }) }),
 
     getClassroomThreads: () => apiRequest('/api/chat-v9/classroom/threads'),
     createClassroomThread: (data) => apiRequest('/api/chat-v9/classroom/threads', { method: 'POST', body: JSON.stringify(data) }),
     updateClassroomThread: (threadId, data) => apiRequest(`/api/chat-v9/classroom/threads/${threadId}`, { method: 'PUT', body: JSON.stringify(data) }),
     replyToThread: (threadId, content, parentReplyId = null) =>
         apiRequest(`/api/chat-v9/classroom/threads/${threadId}/replies`, { method: 'POST', body: JSON.stringify({ content, parentReplyId }) }),
+    editThreadReply: (replyId, content) => apiRequest(`/api/chat-v9/classroom/replies/${replyId}`, { method: 'PUT', body: JSON.stringify({ content }) }),
+    deleteThreadReply: (replyId, mode = 'me') => apiRequest(`/api/chat-v9/classroom/replies/${replyId}`, { method: 'DELETE', body: JSON.stringify({ mode }) }),
 
     awardThreadReply: (replyId, points = 0, streakDelta = 0, note = '') =>
         apiRequest(`/api/chat-v9/classroom/replies/${replyId}/award`, { method: 'POST', body: JSON.stringify({ points, streakDelta, note }) }),

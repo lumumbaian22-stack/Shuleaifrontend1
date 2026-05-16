@@ -16,7 +16,9 @@ let v9ChatState = {
   attachment: null,
   threadAttachment: null,
   studyDetailTab: 'thread',
-  listFilter: 'active'
+  listFilter: 'active',
+  replyToMessage: null,
+  editingMessage: null
 };
 
 function v9Safe(value) {
@@ -40,6 +42,17 @@ function v9IsThreadActive(thread) { return !thread?.isClosed && v9ThreadApproval
 function v9StudentReplyCount(thread) { return v9ThreadReplies(thread).filter(r => (r.Author?.role || r.authorRole) === 'student').length; }
 function v9TotalStudents(thread) { return thread?.metadata?.studentCount || thread?.studentCount || thread?.metadata?.participantsCount || '—'; }
 function v9Toast(message, type='info') { if (typeof showToast === 'function') showToast(message, type); else console[type === 'error' ? 'error' : 'log'](message); }
+
+function v9MessageReplyPreview(meta = {}) {
+  const replyTo = meta.replyTo;
+  if (!replyTo) return '';
+  return `<div class="v9-reply-preview"><strong>↪ ${v9Safe(replyTo.senderName || replyTo.authorName || 'User')}</strong><span>${v9Safe(replyTo.content || '')}</span></div>`;
+}
+function v9EditedLabel(item) { return item?.metadata?.edited ? '<span>edited</span>' : ''; }
+function v9CanEditOwn(ownerId) { return Number(ownerId) === Number(v9CurrentUser()?.id); }
+function v9IsDeleted(item) { return Boolean(item?.metadata?.deletedForEveryone) || item?.messageType === 'deleted'; }
+function v9CancelChatAction() { v9ChatState.replyToMessage = null; v9ChatState.editingMessage = null; v9RenderTeacherShell(); }
+function v9CancelStudentAction() { v9StudentState.replyToMessage = null; v9StudentState.editingMessage = null; v9StudentState.replyToReply = null; v9StudentState.editingReply = null; v9RenderStudentStudyRoom(); }
 
 function v9IsStaffUser() {
   const role = v9CurrentUser()?.role;
@@ -206,7 +219,8 @@ function v9RenderChatWindow(selected) {
     <main class="tm6-messages" id="v9-message-list">${v9RenderMessages(v9CurrentUser())}</main>
     <footer class="tm6-composer">
       <div id="v9-selected-attachment" class="tm6-selected-file">${v9ChatState.attachment ? `${v9AttachmentLink(v9ChatState.attachment.url, v9AttachmentLabel(v9ChatState.attachment))}<button onclick="v9ClearAttachment()">×</button>` : ''}</div>
-      <div class="tm6-compose-row"><input id="v9-message-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')v9SendMessage()"><button onclick="v9SendMessage()">➤</button></div>
+      ${(v9ChatState.replyToMessage || v9ChatState.editingMessage) ? `<div class="tm6-selected-file"><span>${v9ChatState.editingMessage ? '✏️ Editing' : '↪ Replying to'} ${v9Safe((v9ChatState.editingMessage || v9ChatState.replyToMessage)?.content || '')}</span><button onclick="v9CancelChatAction()">×</button></div>` : ''}
+      <div class="tm6-compose-row"><input id="v9-message-input" placeholder="${v9ChatState.editingMessage ? 'Edit message...' : 'Type a message...'}" onkeydown="if(event.key==='Enter')v9SendMessage()"><button onclick="v9SendMessage()">${v9ChatState.editingMessage ? 'Save' : '➤'}</button></div>
     </footer>`;
 }
 
@@ -216,25 +230,38 @@ function v9RenderMessages(currentUser) {
     const mine = Number(m.senderId) === Number(currentUser?.id);
     const sender = m.Sender || {};
     const reactions = m.metadata?.reactions || {};
+    const deleted = v9IsDeleted(m);
     return `<article class="tm6-msg ${mine ? 'mine' : ''}">
       <span class="tm6-avatar small">${v9Initials(sender.name || 'U')}</span>
       <div class="tm6-bubble">
         ${!mine ? `<strong>${v9Safe(sender.name || 'User')}</strong>` : ''}
+        ${v9MessageReplyPreview(m.metadata || {})}
         <p>${v9Safe(m.content || '')}</p>
-        ${v9AttachmentLink(m.attachmentUrl, m.metadata?.attachmentName || 'Attachment')}
-        <div class="tm6-meta"><span>${v9Time(m.createdAt)}</span>${m.pointsAwarded ? `<span>⭐ ${m.pointsAwarded}</span>` : ''}${m.streakAwarded ? `<span>🔥 ${m.streakAwarded}</span>` : ''}</div>
-        <div class="tm6-reactions">${Object.entries(reactions).map(([emoji, users]) => `<button onclick="v9ReactToMessage(${Number(m.id)}, '${v9Safe(emoji)}')">${v9Safe(emoji)} ${(users || []).length}</button>`).join('')}</div>
-        ${!mine ? v9RenderMessageActions(m, sender) : ''}
+        ${!deleted ? v9AttachmentLink(m.attachmentUrl, m.metadata?.attachmentName || 'Attachment') : ''}
+        <div class="tm6-meta"><span>${v9Time(m.createdAt)}</span>${v9EditedLabel(m)}${m.pointsAwarded ? `<span>⭐ ${m.pointsAwarded}</span>` : ''}${m.streakAwarded ? `<span>🔥 ${m.streakAwarded}</span>` : ''}</div>
+        ${!deleted ? `<div class="tm6-reactions">${Object.entries(reactions).map(([emoji, users]) => `<button onclick="v9ReactToMessage(${Number(m.id)}, '${v9Safe(emoji)}')">${v9Safe(emoji)} ${(users || []).length}</button>`).join('')}</div>` : ''}
+        ${!deleted ? v9RenderMessageActions(m, sender, mine) : ''}
       </div>
     </article>`;
   }).join('');
 }
-function v9RenderMessageActions(m, sender) {
-  if (sender.role === 'student') {
-    return `<div class="tm6-mini-actions"><button onclick="v9AwardMessage(${Number(m.id)},1,0)">⭐ +1</button><button onclick="v9AwardMessage(${Number(m.id)},5,1)">⭐ +5 🔥</button></div>`;
+function v9RenderMessageActions(m, sender, mine) {
+  const base = [`<button onclick="v9StartReplyMessage(${Number(m.id)})">↩ Reply</button>`];
+  if (mine) {
+    base.push(`<button onclick="v9StartEditMessage(${Number(m.id)})">✏️ Edit</button>`);
+    base.push(`<button onclick="v9DeleteMessage(${Number(m.id)}, 'me')">🗑️ Delete for me</button>`);
+    base.push(`<button onclick="v9DeleteMessage(${Number(m.id)}, 'everyone')">🚫 Delete everyone</button>`);
+  } else {
+    base.push(`<button onclick="v9DeleteMessage(${Number(m.id)}, 'me')">🗑️ Delete for me</button>`);
+    if (sender.role === 'student') {
+      base.push(`<button onclick="v9AwardMessage(${Number(m.id)},1,0)">⭐ +1</button><button onclick="v9AwardMessage(${Number(m.id)},5,1)">⭐ +5 🔥</button>`);
+    } else {
+      base.push(`<button onclick="v9ReactToMessage(${Number(m.id)}, '👍')">👍</button><button onclick="v9ReactToMessage(${Number(m.id)}, '👏')">👏</button><button onclick="v9ReactToMessage(${Number(m.id)}, '✅')">✅</button><button onclick="v9ReactToMessage(${Number(m.id)}, '🔥')">🔥</button>`);
+    }
   }
-  return `<div class="tm6-mini-actions"><button onclick="v9ReactToMessage(${Number(m.id)}, '👍')">👍</button><button onclick="v9ReactToMessage(${Number(m.id)}, '👏')">👏</button><button onclick="v9ReactToMessage(${Number(m.id)}, '✅')">✅</button><button onclick="v9ReactToMessage(${Number(m.id)}, '🔥')">🔥</button></div>`;
+  return `<div class="tm6-mini-actions">${base.join('')}</div>`;
 }
+
 
 function v9RenderStudyRooms(root) {
   const filtered = v9FilteredThreads();
@@ -293,7 +320,7 @@ function v9RenderThreadDetail(t) {
 }
 function v9SetStudyDetailTab(tab) { v9ChatState.studyDetailTab = tab; v9RenderTeacherShell(); }
 function v9RenderStudyDetailBody(t, replies, attachments, pending) {
-  if (v9ChatState.studyDetailTab === 'responses') return v9RenderResponses(t, replies);
+  if (v9ChatState.studyDetailTab === 'responses') return v9RenderResponses(t, replies) + (!pending && !t.isClosed ? v9RenderStudentReplyComposer(t.id) : '');
   if (v9ChatState.studyDetailTab === 'analytics') return v9RenderThreadAnalytics(t, replies);
   return `<section class="tm6-question"><label>Question / Topic</label><p>${v9Safe(t.content || '')}</p>${attachments.length ? `<div class="tm6-file-row">${attachments.map(a => v9AttachmentLink(a.url, a.name || 'Attachment')).join('')}</div>` : ''}</section>
     <div class="tm6-action-grid">
@@ -301,7 +328,7 @@ function v9RenderStudyDetailBody(t, replies, attachments, pending) {
       <button onclick="v9OpenCreateThreadModal()">➕ New</button>
       <button onclick="v9RemindThread(${Number(t.id)})">🔔 Remind</button>
       <button onclick="v9CloseThread(${Number(t.id)})">${t.isClosed ? '🔓 Reopen' : '🔒 Close'}</button>
-    </div>`;
+    </div>${!pending && !t.isClosed ? v9RenderStudentReplyComposer(t.id) : ''}`;
 }
 function v9RenderResponses(t, replies) {
   if (!replies.length) return '<div class="tm6-empty small">No student responses yet.</div>';
@@ -314,13 +341,17 @@ function v9RenderThreadAnalytics(t, replies) {
 function v9RenderTeacherReply(r) {
   const author = r.Author || {};
   const isStudent = author.role === 'student';
+  const mine = Number(author.id || r.userId) === Number(v9CurrentUser()?.id);
+  const deleted = v9IsDeleted(r);
   return `<article class="tm6-response">
-    <div class="tm6-response-head"><span class="tm6-avatar small">${v9Initials(author.name || 'U')}</span><div><strong>${v9Safe(author.name || 'User')}</strong><small>${v9Time(r.createdAt)}</small></div><button class="tm6-icon" onclick="${isStudent ? `v9OpenRewardModal(${Number(r.id)})` : `v9HelpfulReply(${Number(r.id)})`}">${isStudent ? '⭐' : '👍'}</button></div>
+    <div class="tm6-response-head"><span class="tm6-avatar small">${v9Initials(author.name || 'U')}</span><div><strong>${v9Safe(author.name || 'User')}</strong><small>${v9Time(r.createdAt)} ${r.metadata?.edited ? '• edited' : ''}</small></div><button class="tm6-icon" onclick="${isStudent ? `v9OpenRewardModal(${Number(r.id)})` : `v9HelpfulReply(${Number(r.id)})`}">${isStudent ? '⭐' : '👍'}</button></div>
+    ${v9MessageReplyPreview(r.metadata || {})}
     <p>${v9Safe(r.content || '')}</p>
-    ${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName || 'Attachment')}
-    <div class="tm6-mini-actions">${r.pointsAwarded ? `<span>⭐ ${r.pointsAwarded}</span>` : ''}${r.streakAwarded ? `<span>🔥 ${r.streakAwarded}</span>` : ''}${isStudent ? `<button onclick="v9AwardReply(${Number(r.id)},1,0)">⭐ +1</button><button onclick="v9AwardReply(${Number(r.id)},5,1)">⭐ +5 🔥</button>` : `<button onclick="v9HelpfulReply(${Number(r.id)})">👍 Helpful</button>`}</div>
+    ${!deleted ? v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName || 'Attachment') : ''}
+    ${!deleted ? `<div class="tm6-mini-actions"><button onclick="v9StartReplyToThreadReply(${Number(r.id)})">↩ Reply</button>${mine ? `<button onclick="v9StartEditThreadReply(${Number(r.id)})">✏️ Edit</button><button onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button><button onclick="v9DeleteThreadReply(${Number(r.id)}, 'everyone')">🚫 Everyone</button>` : `<button onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button>`}${r.pointsAwarded ? `<span>⭐ ${r.pointsAwarded}</span>` : ''}${r.streakAwarded ? `<span>🔥 ${r.streakAwarded}</span>` : ''}${isStudent ? `<button onclick="v9AwardReply(${Number(r.id)},1,0)">⭐ +1</button><button onclick="v9AwardReply(${Number(r.id)},5,1)">⭐ +5 🔥</button>` : `<button onclick="v9HelpfulReply(${Number(r.id)})">👍 Helpful</button>`}</div>` : ''}
   </article>`;
 }
+
 function v9RenderAnnouncements(root) {
   root.innerHTML = `<div class="tm6-announcements"><h3>Announcements</h3><p>Use this area for class or group broadcasts. The announcement composer will reuse the same attachment and group delivery logic.</p><button class="tm6-btn primary" onclick="v9OpenCreateGroupModal()">Create announcement group</button></div>`;
 }
@@ -349,21 +380,60 @@ async function v9SendMessage() {
   const attachment = v9ChatState.attachment;
   const attachmentUrl = attachment?.url || null;
   const previousValue = input?.value || '';
+  const editing = v9ChatState.editingMessage;
+  const replyTo = v9ChatState.replyToMessage;
   try {
     if (input) input.value = '';
     v9ChatState.attachment = null;
+    v9ChatState.replyToMessage = null;
+    v9ChatState.editingMessage = null;
     const attachmentBox = document.getElementById('v9-selected-attachment');
     if (attachmentBox) attachmentBox.innerHTML = '';
+    if (editing) {
+      const res = await chatV9API.editMessage(editing.id, content);
+      const index = v9ChatState.messages.findIndex(m => Number(m.id) === Number(editing.id));
+      if (index >= 0 && res?.data) v9ChatState.messages[index] = res.data;
+      v9RenderMessageListOnly();
+      return;
+    }
     let res = null;
-    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) res = await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, attachment);
-    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) res = await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, attachment);
+    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) res = await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, attachment, replyTo?.id || null);
+    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) res = await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, attachment, replyTo?.id || null);
     if (res?.data) v9AppendMessageToState(res.data);
     else await v9LoadCurrentMessages();
   } catch (err) {
     if (input) input.value = previousValue;
     v9ChatState.attachment = attachment;
+    v9ChatState.replyToMessage = replyTo;
+    v9ChatState.editingMessage = editing;
     v9Toast(err.message || 'Message failed', 'error');
   }
+}
+function v9StartReplyMessage(messageId) {
+  const msg = v9ChatState.messages.find(m => Number(m.id) === Number(messageId));
+  if (!msg || v9IsDeleted(msg)) return;
+  v9ChatState.replyToMessage = msg;
+  v9ChatState.editingMessage = null;
+  v9RenderTeacherShell();
+  setTimeout(() => document.getElementById('v9-message-input')?.focus(), 50);
+}
+function v9StartEditMessage(messageId) {
+  const msg = v9ChatState.messages.find(m => Number(m.id) === Number(messageId));
+  if (!msg || v9IsDeleted(msg)) return;
+  v9ChatState.editingMessage = msg;
+  v9ChatState.replyToMessage = null;
+  v9RenderTeacherShell();
+  setTimeout(() => { const input=document.getElementById('v9-message-input'); if(input){ input.value = msg.content || ''; input.focus(); } }, 50);
+}
+async function v9DeleteMessage(messageId, mode = 'me') {
+  const label = mode === 'everyone' ? 'delete this message for everyone' : 'delete this message for you';
+  if (!confirm(`Are you sure you want to ${label}?`)) return;
+  try {
+    const res = await chatV9API.deleteMessage(messageId, mode);
+    if (mode === 'me') v9ChatState.messages = v9ChatState.messages.filter(m => Number(m.id) !== Number(messageId));
+    else { const i = v9ChatState.messages.findIndex(m => Number(m.id) === Number(messageId)); if (i >= 0 && res?.data) v9ChatState.messages[i] = res.data; }
+    v9RenderMessageListOnly();
+  } catch (err) { v9Toast(err.message || 'Delete failed', 'error'); }
 }
 async function v9AwardMessage(messageId, points, streakDelta) { try { const res = await chatV9API.awardChatMessage(messageId, points, streakDelta, 'Great student contribution'); const msg = v9ChatState.messages.find(m => Number(m.id) === Number(messageId)); if (msg) { msg.pointsAwarded = (Number(msg.pointsAwarded)||0) + Number(points||0); msg.streakAwarded = (Number(msg.streakAwarded)||0) + Number(streakDelta||0); } v9RenderTeacherShell(); v9Toast('Reward saved', 'success'); } catch (err) { v9Toast(err.message || 'Only students can receive stars/streaks', 'error'); } }
 async function v9ReactToMessage(messageId, emoji) { try { await chatV9API.reactToMessage(messageId, emoji); await v9LoadCurrentMessages(); } catch (err) { v9Toast(err.message || 'Reaction failed', 'error'); } }
@@ -444,7 +514,11 @@ let v9StudentState = {
   achievements: { totals: { points: 0, streak: 0 }, events: [] },
   mode: 'study',
   filter: 'all',
-  query: ''
+  query: '',
+  replyToMessage: null,
+  editingMessage: null,
+  replyToReply: null,
+  editingReply: null
 };
 
 function v9ThreadIsVisibleToStudent(thread) {
@@ -626,24 +700,28 @@ function v9RenderStudentPrivateChat(peer) {
   return `<div class="v9-wa-chat-card">
     <header class="v9-wa-chat-head"><button onclick="v9StudentSetMode('private')">←</button><span class="v9-wa-avatar">${v9Initials(peer.name)}</span><div><h3>${v9Safe(peer.name)}</h3><p>Private study message</p></div><button onclick="v9LoadStudentPrivateMessages(${Number(peer.id)})">↻</button></header>
     <div class="v9-wa-feed">${v9StudentState.directMessages.length ? v9StudentState.directMessages.map(m => v9RenderWhatsAppMessage(m, Number(m.senderId || m.Sender?.id) === Number(me?.id))).join('') : '<div class="v9-wa-day">No messages yet. Say hello 👋</div>'}</div>
-    <div class="v9-wa-composer"><button type="button">😊</button><input id="v9-private-input-${Number(peer.id)}" placeholder="Type a private message..." onkeydown="if(event.key==='Enter')v9SendStudentPrivateMessage(${Number(peer.id)})"><button type="button" onclick="v9SendStudentPrivateMessage(${Number(peer.id)})">➤</button></div>
+    ${(v9StudentState.replyToMessage || v9StudentState.editingMessage) ? `<div class="v9-wa-action-bar"><span>${v9StudentState.editingMessage ? '✏️ Editing' : '↪ Replying to'} ${v9Safe((v9StudentState.editingMessage || v9StudentState.replyToMessage)?.content || '')}</span><button onclick="v9CancelStudentAction()">×</button></div>` : ''}
+    <div class="v9-wa-composer"><button type="button">😊</button><input id="v9-private-input-${Number(peer.id)}" placeholder="${v9StudentState.editingMessage ? 'Edit message...' : 'Type a private message...'}" onkeydown="if(event.key==='Enter')v9SendStudentPrivateMessage(${Number(peer.id)})"><button type="button" onclick="v9SendStudentPrivateMessage(${Number(peer.id)})">${v9StudentState.editingMessage ? 'Save' : '➤'}</button></div>
   </div>`;
 }
 function v9RenderStudentReplyComposer(threadId) {
   if (!threadId) return '';
-  return `<div class="v9-wa-composer"><button type="button">😊</button><input id="v9-reply-input-${Number(threadId)}" placeholder="Type a message..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(threadId)})"><button type="button" onclick="v9ReplyToThread(${Number(threadId)})">➤</button></div>`;
+  return `${(v9StudentState.replyToReply || v9StudentState.editingReply) ? `<div class="v9-wa-action-bar"><span>${v9StudentState.editingReply ? '✏️ Editing' : '↪ Replying to'} ${v9Safe((v9StudentState.editingReply || v9StudentState.replyToReply)?.content || '')}</span><button onclick="v9CancelStudentAction()">×</button></div>` : ''}<div class="v9-wa-composer"><button type="button">😊</button><input id="v9-reply-input-${Number(threadId)}" placeholder="${v9StudentState.editingReply ? 'Edit reply...' : 'Type a message...'}" onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(threadId)})"><button type="button" onclick="v9ReplyToThread(${Number(threadId)})">${v9StudentState.editingReply ? 'Save' : '➤'}</button></div>`;
 }
 function v9RenderWhatsAppReply(r) {
   const me = v9CurrentUser();
   const author = r.Author || {};
   const mine = Number(author.id || r.userId) === Number(me?.id);
   const teacher = author.role === 'teacher';
-  return `<div class="v9-wa-msg-row ${mine?'mine':''}">${mine?'':`<span class="v9-wa-avatar sm">${v9Initials(author.name || 'U')}</span>`}<div class="v9-wa-bubble ${mine?'mine':''} ${teacher?'teacher':''}">${!mine?`<strong>${v9Safe(author.name || 'Student')}</strong>`:''}<p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<footer>${r.pointsAwarded?`⭐ +${r.pointsAwarded}`:''} ${r.streakAwarded?`🔥 +${r.streakAwarded}`:''}<span>${v9Time(r.createdAt)}</span></footer><div class="v9-wa-reactions"><button onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||''}</button><button onclick="v9HelpfulReply(${Number(r.id)})">❤️</button></div></div>${mine?`<span class="v9-wa-avatar sm">${v9Initials(me?.name || 'Me')}</span>`:''}</div>`;
+  const deleted = v9IsDeleted(r);
+  return `<div class="v9-wa-msg-row ${mine?'mine':''}">${mine?'':`<span class="v9-wa-avatar sm">${v9Initials(author.name || 'U')}</span>`}<div class="v9-wa-bubble ${mine?'mine':''} ${teacher?'teacher':''}">${!mine?`<strong>${v9Safe(author.name || 'Student')}</strong>`:''}${v9MessageReplyPreview(r.metadata || {})}<p>${v9Safe(r.content)}</p>${!deleted ? v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment') : ''}<footer>${r.pointsAwarded?`⭐ +${r.pointsAwarded}`:''} ${r.streakAwarded?`🔥 +${r.streakAwarded}`:''}<span>${v9Time(r.createdAt)}</span>${v9EditedLabel(r)}</footer>${!deleted ? `<div class="v9-wa-reactions"><button onclick="v9StartReplyToThreadReply(${Number(r.id)})">↩ Reply</button>${mine ? `<button onclick="v9StartEditThreadReply(${Number(r.id)})">✏️ Edit</button><button onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button><button onclick="v9DeleteThreadReply(${Number(r.id)}, 'everyone')">🚫 Everyone</button>` : `<button onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button>`}<button onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||''}</button></div>` : ''}</div>${mine?`<span class="v9-wa-avatar sm">${v9Initials(me?.name || 'Me')}</span>`:''}</div>`;
 }
 function v9RenderWhatsAppMessage(m, mine) {
   const sender = m.Sender || {};
-  return `<div class="v9-wa-msg-row ${mine?'mine':''}">${mine?'':`<span class="v9-wa-avatar sm">${v9Initials(sender.name || 'U')}</span>`}<div class="v9-wa-bubble ${mine?'mine':''}">${!mine?`<strong>${v9Safe(sender.name || 'Classmate')}</strong>`:''}<p>${v9Safe(m.content || '')}</p>${v9AttachmentLink(m.attachmentUrl, m.metadata?.attachmentName||'Attachment')}<footer><span>${v9Time(m.createdAt)}</span></footer></div></div>`;
+  const deleted = v9IsDeleted(m);
+  return `<div class="v9-wa-msg-row ${mine?'mine':''}">${mine?'':`<span class="v9-wa-avatar sm">${v9Initials(sender.name || 'U')}</span>`}<div class="v9-wa-bubble ${mine?'mine':''}">${!mine?`<strong>${v9Safe(sender.name || 'Classmate')}</strong>`:''}${v9MessageReplyPreview(m.metadata || {})}<p>${v9Safe(m.content || '')}</p>${!deleted ? v9AttachmentLink(m.attachmentUrl, m.metadata?.attachmentName||'Attachment') : ''}<footer><span>${v9Time(m.createdAt)}</span>${v9EditedLabel(m)}</footer>${!deleted ? `<div class="v9-wa-reactions"><button onclick="v9StartStudentReplyMessage(${Number(m.id)})">↩ Reply</button>${mine ? `<button onclick="v9StartStudentEditMessage(${Number(m.id)})">✏️ Edit</button><button onclick="v9StudentDeleteMessage(${Number(m.id)}, 'me')">🗑️ Me</button><button onclick="v9StudentDeleteMessage(${Number(m.id)}, 'everyone')">🚫 Everyone</button>` : `<button onclick="v9StudentDeleteMessage(${Number(m.id)}, 'me')">🗑️ Me</button>`}</div>` : ''}</div></div>`;
 }
+
 function v9RenderStudentGroupInfo(group, participants, threads, data) {
   const totals = data.totals || { points: 0, streak: 0 };
   return `<div class="v9-wa-info-card"><button class="v9-wa-info-close">×</button><div class="v9-wa-big-icon">👥</div><h3>${v9Safe(group?.name || 'Study Group')}</h3><p>${participants.length || 0} members</p><small>A safe place to ask questions and help classmates.</small><div class="v9-wa-info-list"><button onclick="v9ShowMembersPanel()">👥 Group Members <b>${participants.length || 0}</b></button><button onclick="v9OpenTopicPicker()">📌 Topics <b>${threads.length || 0}</b></button><button onclick="v9OpenStudentTopicModal()">✏️ Create Topic</button></div><h4>Online Members</h4><div class="v9-wa-avatar-row">${participants.slice(0,7).map(p=>`<span title="${v9Safe(p.name)}" class="v9-wa-avatar sm">${v9Initials(p.name)}</span>`).join('')}${participants.length>7?`<span class="v9-wa-more">+${participants.length-7}</span>`:''}</div><h4>Achievements</h4><div class="v9-wa-stats"><span>⭐ ${totals.points||0}</span><span>🔥 ${totals.streak||0}</span></div></div>`;
@@ -681,9 +759,20 @@ async function v9SendStudentPrivateMessage(userId) {
   const content = input?.value?.trim();
   if (!content) return;
   const previous = input.value;
+  const editing = v9StudentState.editingMessage;
+  const replyTo = v9StudentState.replyToMessage;
   try {
-    const res = await chatV9API.sendStudentDirectMessage(userId, content);
     input.value = '';
+    v9StudentState.editingMessage = null;
+    v9StudentState.replyToMessage = null;
+    if (editing) {
+      const res = await chatV9API.editMessage(editing.id, content);
+      const i = v9StudentState.directMessages.findIndex(m => Number(m.id) === Number(editing.id));
+      if (i >= 0 && res?.data) v9StudentState.directMessages[i] = res.data;
+      v9RenderStudentStudyRoom();
+      return;
+    }
+    const res = await chatV9API.sendStudentDirectMessage(userId, content, null, null, replyTo?.id || null);
     if (res?.data) {
       if (!Array.isArray(v9StudentState.directMessages)) v9StudentState.directMessages = [];
       v9StudentState.directMessages.push(res.data);
@@ -692,7 +781,28 @@ async function v9SendStudentPrivateMessage(userId) {
       await v9LoadStudentPrivateMessages(userId);
     }
   }
-  catch (err) { input.value = previous; v9Toast(err.message || 'Private message failed', 'error'); }
+  catch (err) { input.value = previous; v9StudentState.editingMessage = editing; v9StudentState.replyToMessage = replyTo; v9Toast(err.message || 'Private message failed', 'error'); }
+}
+function v9StartStudentReplyMessage(messageId) {
+  const msg = v9StudentState.directMessages.find(m => Number(m.id) === Number(messageId));
+  if (!msg || v9IsDeleted(msg)) return;
+  v9StudentState.replyToMessage = msg; v9StudentState.editingMessage = null; v9RenderStudentStudyRoom();
+}
+function v9StartStudentEditMessage(messageId) {
+  const msg = v9StudentState.directMessages.find(m => Number(m.id) === Number(messageId));
+  if (!msg || v9IsDeleted(msg)) return;
+  v9StudentState.editingMessage = msg; v9StudentState.replyToMessage = null; v9RenderStudentStudyRoom();
+  setTimeout(()=>{ const input=document.getElementById(`v9-private-input-${Number(v9StudentState.selectedPeerId)}`); if(input){ input.value=msg.content||''; input.focus(); }},50);
+}
+async function v9StudentDeleteMessage(messageId, mode = 'me') {
+  const label = mode === 'everyone' ? 'delete this message for everyone' : 'delete this message for you';
+  if (!confirm(`Are you sure you want to ${label}?`)) return;
+  try {
+    const res = await chatV9API.deleteMessage(messageId, mode);
+    if (mode === 'me') v9StudentState.directMessages = v9StudentState.directMessages.filter(m => Number(m.id) !== Number(messageId));
+    else { const i = v9StudentState.directMessages.findIndex(m => Number(m.id) === Number(messageId)); if (i >= 0 && res?.data) v9StudentState.directMessages[i] = res.data; }
+    v9RenderStudentStudyRoom();
+  } catch (err) { v9Toast(err.message || 'Delete failed', 'error'); }
 }
 function v9SelectStudentGroup(groupId) { v9StudentState.mode = 'study'; v9StudentState.selectedGroupId = groupId; v9StudentState.selectedThreadId = null; v9RenderStudentStudyRoom(); }
 function v9SelectStudentThread(threadId) { v9StudentState.mode = 'study'; v9StudentState.selectedThreadId = threadId; v9RenderStudentStudyRoom(); }
@@ -721,8 +831,11 @@ async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply'
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; return `<div class="v9-wa-stats"><span>⭐ ${totals.points||0}</span><span>🔥 ${totals.streak||0}</span></div>`; }
 
 function v9RenderThreads(threads) { if(!threads.length) return `<div class="v9-empty"><h3 class="font-bold text-lg mb-2">No classroom threads yet</h3><p>Your teacher will post structured study questions here.</p></div>`; return threads.map(t=>`<article class="v9-thread-card"><div class="v9-thread-top"><div><span class="v9-subject-pill">${v9Safe(t.subject||'Subject')}</span><h3 class="text-xl font-bold mt-3">${v9Safe(t.topic||'Classroom Topic')}</h3><p class="text-muted-foreground">${v9Safe(t.content||'')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div>${t.isPinned?'<span class="v9-award-pill">📌 Pinned</span>':''}</div><div class="mt-4">${v9ThreadReplies(t).map(r=>v9RenderReply(r)).join('')}</div><div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Write your reply or question..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div></article>`).join(''); }
-function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)}</small></div><p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||0}</button></div></div>`; }
-async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; const previous=input.value; try{ const res=await chatV9API.replyToThread(threadId, content); input.value=''; const studentRoot=document.getElementById('v9-student-study-root'); if(res?.data && v9AppendReplyToThread(threadId, res.data)){ if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); } else { if(studentRoot) await v9LoadStudentThreads(); else await v9RefreshTeacherChat(); } }catch(err){ input.value=previous; v9Toast(err.message||'Reply failed','error'); } }
+function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; const mine=Number(author.id||r.userId)===Number(v9CurrentUser()?.id); const deleted=v9IsDeleted(r); return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)} ${r.metadata?.edited?'• edited':''}</small></div>${v9MessageReplyPreview(r.metadata||{})}<p>${v9Safe(r.content)}</p>${!deleted?v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment'):''}${!deleted?`<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9StartReplyToThreadReply(${Number(r.id)})">↩ Reply</button>${mine?`<button class="v9-award-pill" onclick="v9StartEditThreadReply(${Number(r.id)})">✏️ Edit</button><button class="v9-award-pill" onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button><button class="v9-award-pill" onclick="v9DeleteThreadReply(${Number(r.id)}, 'everyone')">🚫 Everyone</button>`:`<button class="v9-award-pill" onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button>`}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||0}</button></div>`:''}</div>`; }
+async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; const previous=input.value; const editing=v9StudentState.editingReply; const replyTo=v9StudentState.replyToReply; try{ let res=null; if(editing){ res=await chatV9API.editThreadReply(editing.id, content); const thread=(v9StudentState.threads||v9ChatState.threads||[]).find(t=>Number(t.id)===Number(threadId)); const replies=v9ThreadReplies(thread); const i=replies.findIndex(r=>Number(r.id)===Number(editing.id)); if(i>=0 && res?.data) replies[i]=res.data; } else { res=await chatV9API.replyToThread(threadId, content, replyTo?.id || null); if(res?.data) v9AppendReplyToThread(threadId, res.data); } input.value=''; v9StudentState.editingReply=null; v9StudentState.replyToReply=null; const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); }catch(err){ input.value=previous; v9StudentState.editingReply=editing; v9StudentState.replyToReply=replyTo; v9Toast(err.message||'Reply failed','error'); } }
+function v9StartReplyToThreadReply(replyId){ const studentRoot=document.getElementById('v9-student-study-root'); const thread=(studentRoot ? v9CurrentStudentThread() : null) || v9ChatState.selectedThread; const reply=v9ThreadReplies(thread).find(r=>Number(r.id)===Number(replyId)); if(!reply || v9IsDeleted(reply)) return; v9StudentState.replyToReply=reply; v9StudentState.editingReply=null; if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); }
+function v9StartEditThreadReply(replyId){ const studentRoot=document.getElementById('v9-student-study-root'); const thread=(studentRoot ? v9CurrentStudentThread() : null) || v9ChatState.selectedThread; const reply=v9ThreadReplies(thread).find(r=>Number(r.id)===Number(replyId)); if(!reply || v9IsDeleted(reply)) return; v9StudentState.editingReply=reply; v9StudentState.replyToReply=null; if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); setTimeout(()=>{ const input=document.getElementById(`v9-reply-input-${Number(thread?.id)}`); if(input){ input.value=reply.content||''; input.focus(); }},50); }
+async function v9DeleteThreadReply(replyId, mode='me'){ const thread=v9CurrentStudentThread() || v9ChatState.selectedThread; if(!thread) return; const label=mode==='everyone'?'delete this reply for everyone':'delete this reply for you'; if(!confirm(`Are you sure you want to ${label}?`)) return; try{ const res=await chatV9API.deleteThreadReply(replyId, mode); const replies=v9ThreadReplies(thread); if(mode==='me') { const next=replies.filter(r=>Number(r.id)!==Number(replyId)); thread.ThreadReplies=next; thread.replies=next; } else { const i=replies.findIndex(r=>Number(r.id)===Number(replyId)); if(i>=0 && res?.data) replies[i]=res.data; } if(document.getElementById('v9-student-study-root')) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); }catch(err){ v9Toast(err.message||'Delete failed','error'); } }
 async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; const events=data.events||[]; return `<div class="v9-achievements-card"><h3 class="font-bold text-xl">Achievements</h3><p class="text-muted-foreground text-sm">Stars and streaks awarded by teachers.</p><div class="v9-achievement-stat"><div><span class="text-muted-foreground text-sm">Points</span><strong>⭐ ${totals.points||0}</strong></div><div><span class="text-muted-foreground text-sm">Streak</span><strong>🔥 ${totals.streak||0}</strong></div></div><div class="space-y-3">${events.length?events.slice(0,5).map(e=>`<div class="v9-info-card"><div class="flex justify-between gap-2"><strong>${v9Safe(e.title||'Achievement')}</strong><span class="v9-award-pill">+${e.points||0} pts</span></div><small>${v9Safe(e.note||'Teacher awarded achievement')}</small></div>`).join(''):'<div class="v9-empty small">No achievements yet. Participate in threads to earn stars.</div>'}</div></div>`; }
 
@@ -780,3 +893,14 @@ window.v9SendStudentPrivateMessage = v9SendStudentPrivateMessage;
 window.v9OpenTopicPicker = v9OpenTopicPicker;
 window.v9ShowMembersPanel = v9ShowMembersPanel;
 
+window.v9CancelChatAction = v9CancelChatAction;
+window.v9CancelStudentAction = v9CancelStudentAction;
+window.v9StartReplyMessage = v9StartReplyMessage;
+window.v9StartEditMessage = v9StartEditMessage;
+window.v9DeleteMessage = v9DeleteMessage;
+window.v9StartStudentReplyMessage = v9StartStudentReplyMessage;
+window.v9StartStudentEditMessage = v9StartStudentEditMessage;
+window.v9StudentDeleteMessage = v9StudentDeleteMessage;
+window.v9StartReplyToThreadReply = v9StartReplyToThreadReply;
+window.v9StartEditThreadReply = v9StartEditThreadReply;
+window.v9DeleteThreadReply = v9DeleteThreadReply;
