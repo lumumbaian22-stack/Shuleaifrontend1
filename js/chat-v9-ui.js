@@ -41,6 +41,30 @@ function v9StudentReplyCount(thread) { return v9ThreadReplies(thread).filter(r =
 function v9TotalStudents(thread) { return thread?.metadata?.studentCount || thread?.studentCount || thread?.metadata?.participantsCount || '—'; }
 function v9Toast(message, type='info') { if (typeof showToast === 'function') showToast(message, type); else console[type === 'error' ? 'error' : 'log'](message); }
 
+function v9IsStaffUser() {
+  const role = v9CurrentUser()?.role;
+  return ['teacher','admin','super_admin'].includes(role);
+}
+function v9RenderMessageListOnly() {
+  const list = document.getElementById('v9-message-list');
+  if (!list) return;
+  list.innerHTML = v9RenderMessages(v9CurrentUser());
+  list.scrollTop = list.scrollHeight;
+}
+function v9AppendMessageToState(message) {
+  if (!message) return;
+  const exists = v9ChatState.messages.some(m => Number(m.id) === Number(message.id));
+  if (!exists) v9ChatState.messages.push(message);
+  v9RenderMessageListOnly();
+}
+function v9AppendReplyToThread(threadId, reply) {
+  const thread = (v9StudentState?.threads || v9ChatState.threads || []).find(t => Number(t.id) === Number(threadId));
+  if (!thread || !reply) return false;
+  if (!Array.isArray(thread.ThreadReplies)) thread.ThreadReplies = thread.replies || [];
+  if (!thread.ThreadReplies.some(r => Number(r.id) === Number(reply.id))) thread.ThreadReplies.push(reply);
+  return true;
+}
+
 async function renderTeacherV9Messages() {
   return `
     <div class="tm6-page animate-fade-in">
@@ -138,7 +162,7 @@ function v9RenderTeacherShell() {
     <div class="tm6-chat-layout">
       <aside class="tm6-list-panel">
         <div class="tm6-panel-title">
-          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Direct Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Teacher-to-teacher messages' : 'Class, parent and staff groups'}</p></div>
+          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Direct Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Teacher-to-teacher messages' : 'Teacher and student groups'}</p></div>
           ${v9ChatState.activeTab === 'groups' ? '<button onclick="v9OpenCreateGroupModal()">+</button>' : ''}
         </div>
         <input class="tm6-search" placeholder="Search..." oninput="v9FilterConversations(this.value)">
@@ -174,7 +198,7 @@ function v9RenderChatWindow(selected) {
     <header class="tm6-chat-head">
       <div class="tm6-title-row"><span class="tm6-avatar big">${isGroup ? '👥' : v9Initials(selected.name)}</span><div><h3>${v9Safe(selected.name || 'Conversation')}</h3><p>${isGroup ? `${v9ChatState.members.length} members • managed group` : 'Emoji reactions only between teachers'}</p></div></div>
       <div class="tm6-chat-actions">
-        ${isGroup ? `<button class="tm6-btn light" onclick="v9OpenManageMembersModal(${Number(selected.id)})">Manage Members</button>` : ''}
+        ${isGroup && v9IsStaffUser() ? `<button class="tm6-btn light" onclick="v9OpenManageMembersModal(${Number(selected.id)})">Manage Members</button>` : ''}
         <button class="tm6-btn light" onclick="v9PickAttachment()">Attach</button>
         <input id="v9-file-input" type="file" class="hidden" onchange="v9UploadAttachment(this.files[0])">
       </div>
@@ -322,12 +346,24 @@ async function v9SendMessage() {
   const input = document.getElementById('v9-message-input');
   const content = input?.value?.trim() || (v9ChatState.attachment ? 'Shared an attachment' : '');
   if (!content) return;
+  const attachment = v9ChatState.attachment;
+  const attachmentUrl = attachment?.url || null;
+  const previousValue = input?.value || '';
   try {
-    const attachmentUrl = v9ChatState.attachment?.url || null;
-    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, v9ChatState.attachment);
-    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, v9ChatState.attachment);
-    input.value = ''; v9ChatState.attachment = null; await v9LoadCurrentMessages();
-  } catch (err) { v9Toast(err.message || 'Message failed', 'error'); }
+    if (input) input.value = '';
+    v9ChatState.attachment = null;
+    const attachmentBox = document.getElementById('v9-selected-attachment');
+    if (attachmentBox) attachmentBox.innerHTML = '';
+    let res = null;
+    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) res = await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, attachment);
+    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) res = await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, attachment);
+    if (res?.data) v9AppendMessageToState(res.data);
+    else await v9LoadCurrentMessages();
+  } catch (err) {
+    if (input) input.value = previousValue;
+    v9ChatState.attachment = attachment;
+    v9Toast(err.message || 'Message failed', 'error');
+  }
 }
 async function v9AwardMessage(messageId, points, streakDelta) { try { await chatV9API.awardChatMessage(messageId, points, streakDelta, 'Great student contribution'); await v9LoadCurrentMessages(); } catch (err) { v9Toast(err.message || 'Only students can receive stars/streaks', 'error'); } }
 async function v9ReactToMessage(messageId, emoji) { try { await chatV9API.reactToMessage(messageId, emoji); await v9LoadCurrentMessages(); } catch (err) { v9Toast(err.message || 'Reaction failed', 'error'); } }
@@ -361,8 +397,8 @@ async function v9OpenManageMembersModal(groupId) {
   try {
     const [membersRes, availableRes] = await Promise.all([chatV9API.getGroupMembers(groupId), chatV9API.getAvailableMembers()]);
     const current = new Set((membersRes.data || []).map(m => Number(m.userId)));
-    const users = availableRes.data || [];
-    modal.innerHTML = `<div class="v9-modal-card wide"><button class="v9-modal-close" onclick="v9CloseModal()">×</button><h3>Manage Members</h3><p>Select who belongs in this group.</p><input class="tm-input" placeholder="Search members..." oninput="v9FilterMemberPicker(this.value)"><div class="tm-member-picker two-col" id="v9-member-picker">${users.map(u => `<label><input type="checkbox" value="${Number(u.id)}" ${current.has(Number(u.id)) ? 'checked' : ''}> <span>${v9Safe(u.name)}</span><small>${v9Safe(u.role)}${u.className ? ' • '+v9Safe(u.className) : ''}</small></label>`).join('')}</div><button class="tm6-btn primary full" onclick="v9SaveGroupMembers(${Number(groupId)})">Save Members</button></div>`;
+    const users = (availableRes.data || []).filter(u => ['teacher','student'].includes(u.role));
+    modal.innerHTML = `<div class="v9-modal-card wide"><button class="v9-modal-close" onclick="v9CloseModal()">×</button><h3>Manage Members</h3><p>Select teachers and students only. Parents are excluded from group member management.</p><input class="tm-input" placeholder="Search members..." oninput="v9FilterMemberPicker(this.value)"><div class="tm-member-picker two-col" id="v9-member-picker">${users.map(u => `<label><input type="checkbox" value="${Number(u.id)}" ${current.has(Number(u.id)) ? 'checked' : ''}> <span>${v9Safe(u.name)}</span><small>${v9Safe(u.role)}${u.className ? ' • '+v9Safe(u.className) : ''}</small></label>`).join('')}</div><button class="tm6-btn primary full" onclick="v9SaveGroupMembers(${Number(groupId)})">Save Members</button></div>`;
     modal.classList.remove('hidden');
   } catch(err){ v9Toast(err.message || 'Could not load members', 'error'); }
 }
@@ -634,8 +670,19 @@ async function v9SendStudentPrivateMessage(userId) {
   const input = document.getElementById(`v9-private-input-${Number(userId)}`);
   const content = input?.value?.trim();
   if (!content) return;
-  try { await chatV9API.sendDirectMessage(userId, content); input.value = ''; await v9LoadStudentPrivateMessages(userId); }
-  catch (err) { v9Toast(err.message || 'Private message failed', 'error'); }
+  const previous = input.value;
+  try {
+    const res = await chatV9API.sendDirectMessage(userId, content);
+    input.value = '';
+    if (res?.data) {
+      if (!Array.isArray(v9StudentState.directMessages)) v9StudentState.directMessages = [];
+      v9StudentState.directMessages.push(res.data);
+      v9RenderStudentStudyRoom();
+    } else {
+      await v9LoadStudentPrivateMessages(userId);
+    }
+  }
+  catch (err) { input.value = previous; v9Toast(err.message || 'Private message failed', 'error'); }
 }
 function v9SelectStudentGroup(groupId) { v9StudentState.mode = 'study'; v9StudentState.selectedGroupId = groupId; v9StudentState.selectedThreadId = null; v9RenderStudentStudyRoom(); }
 function v9SelectStudentThread(threadId) { v9StudentState.mode = 'study'; v9StudentState.selectedThreadId = threadId; v9RenderStudentStudyRoom(); }
@@ -665,7 +712,7 @@ function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak
 
 function v9RenderThreads(threads) { if(!threads.length) return `<div class="v9-empty"><h3 class="font-bold text-lg mb-2">No classroom threads yet</h3><p>Your teacher will post structured study questions here.</p></div>`; return threads.map(t=>`<article class="v9-thread-card"><div class="v9-thread-top"><div><span class="v9-subject-pill">${v9Safe(t.subject||'Subject')}</span><h3 class="text-xl font-bold mt-3">${v9Safe(t.topic||'Classroom Topic')}</h3><p class="text-muted-foreground">${v9Safe(t.content||'')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div>${t.isPinned?'<span class="v9-award-pill">📌 Pinned</span>':''}</div><div class="mt-4">${v9ThreadReplies(t).map(r=>v9RenderReply(r)).join('')}</div><div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Write your reply or question..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div></article>`).join(''); }
 function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)}</small></div><p>${v9Safe(r.content)}</p>${v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment')}<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||0}</button></div></div>`; }
-async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) await v9LoadStudentThreads(); else await v9RefreshTeacherChat(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
+async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; const previous=input.value; try{ const res=await chatV9API.replyToThread(threadId, content); input.value=''; const studentRoot=document.getElementById('v9-student-study-root'); if(res?.data && v9AppendReplyToThread(threadId, res.data)){ if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); } else { if(studentRoot) await v9LoadStudentThreads(); else await v9RefreshTeacherChat(); } }catch(err){ input.value=previous; v9Toast(err.message||'Reply failed','error'); } }
 async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; const events=data.events||[]; return `<div class="v9-achievements-card"><h3 class="font-bold text-xl">Achievements</h3><p class="text-muted-foreground text-sm">Stars and streaks awarded by teachers.</p><div class="v9-achievement-stat"><div><span class="text-muted-foreground text-sm">Points</span><strong>⭐ ${totals.points||0}</strong></div><div><span class="text-muted-foreground text-sm">Streak</span><strong>🔥 ${totals.streak||0}</strong></div></div><div class="space-y-3">${events.length?events.slice(0,5).map(e=>`<div class="v9-info-card"><div class="flex justify-between gap-2"><strong>${v9Safe(e.title||'Achievement')}</strong><span class="v9-award-pill">+${e.points||0} pts</span></div><small>${v9Safe(e.note||'Teacher awarded achievement')}</small></div>`).join(''):'<div class="v9-empty small">No achievements yet. Participate in threads to earn stars.</div>'}</div></div>`; }
 

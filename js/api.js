@@ -597,9 +597,11 @@ const consentAPI = {
 };
 
 // File upload helper
-async function uploadFile(endpoint, file, onProgress) {
-    const formData = new FormData();
-    formData.append('file', file);
+async function uploadFile(endpoint, fileOrFormData, onProgress) {
+    const formData = fileOrFormData instanceof FormData ? fileOrFormData : new FormData();
+    if (!(fileOrFormData instanceof FormData)) {
+        formData.append('file', fileOrFormData);
+    }
     
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -619,7 +621,12 @@ async function uploadFile(endpoint, file, onProgress) {
                     reject(new Error('Invalid response from server'));
                 }
             } else {
-                reject(new Error(`Upload failed: ${xhr.status}`));
+                let message = `Upload failed: ${xhr.status}`;
+                try {
+                    const parsed = JSON.parse(xhr.responseText || '{}');
+                    message = parsed.message || message;
+                } catch (_) {}
+                reject(new Error(message));
             }
         });
         
@@ -831,6 +838,8 @@ const chatV9API = {
         apiRequest(`/api/chat-v9/teacher/messages/${messageId}/award`, { method: 'POST', body: JSON.stringify({ points, streakDelta, note }) }),
     reactToMessage: (messageId, emoji) =>
         apiRequest(`/api/chat-v9/teacher/messages/${messageId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
+    pinThreadReply: (replyId, isPinned = true) =>
+        apiRequest(`/api/chat-v9/classroom/replies/${replyId}/pin`, { method: 'POST', body: JSON.stringify({ isPinned }) }),
 
     getMyAchievements: () => apiRequest('/api/chat-v9/achievements/me')
 };
