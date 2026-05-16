@@ -317,11 +317,13 @@ async function renderStudentGrades() {
         // shows real published marks or an honest empty state.
         const res = await apiRequest('/api/student/grades');
         grades = Array.isArray(res.data) ? res.data : [];
+        window.v66GradeRecommendationCache = window.v66GradeRecommendationCache || {};
 
         window.v66StudentGrades = grades.map(v66NormalizeStudentGrade);
         const filters = v66BuildGradeFilters(window.v66StudentGrades);
         const initial = v66PickInitialGradeFilter(filters);
         window.v66StudentGradeFilter = initial;
+        setTimeout(() => v66LoadGradeRecommendations(initial), 0);
 
         return `
             <div class="space-y-6 animate-fade-in student-grades-section">
@@ -404,7 +406,7 @@ function v66RenderSelect(label, key, options, selected) {
         </label>`;
 }
 
-function v66ApplyStudentGradeFilters() {
+async function v66ApplyStudentGradeFilters() {
     const filter = {
         year: document.getElementById('student-grade-filter-year')?.value,
         term: document.getElementById('student-grade-filter-term')?.value,
@@ -414,6 +416,54 @@ function v66ApplyStudentGradeFilters() {
     const target = document.getElementById('student-grades-results');
     if (target) target.innerHTML = v66RenderGradesResults(window.v66StudentGrades || [], filter);
     if (window.lucide) lucide.createIcons();
+    await v66LoadGradeRecommendations(filter);
+}
+
+function v66RecommendationKey(filter = {}) {
+    return `${filter.year || ''}|${filter.term || ''}|${filter.assessment || ''}`;
+}
+
+async function v66LoadGradeRecommendations(filter = {}) {
+    const container = document.getElementById('student-grade-recommendations');
+    if (!container) return;
+    const key = v66RecommendationKey(filter);
+    window.v66GradeRecommendationCache = window.v66GradeRecommendationCache || {};
+    if (Array.isArray(window.v66GradeRecommendationCache[key])) {
+        container.innerHTML = v66RenderGradeRecommendationCards(window.v66GradeRecommendationCache[key]);
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
+    container.innerHTML = '<div class="rounded-lg border bg-background p-3 text-sm text-muted-foreground">Loading real recommendations from published marks...</div>';
+    try {
+        const apiFn = api?.student?.getRecommendations || ((params) => apiRequest(`/api/student/recommendations?${new URLSearchParams(params).toString()}`));
+        const res = await apiFn({ year: filter.year || '', term: filter.term || '', assessment: filter.assessment || '' });
+        const items = Array.isArray(res.data) ? res.data : [];
+        window.v66GradeRecommendationCache[key] = items;
+        container.innerHTML = v66RenderGradeRecommendationCards(items);
+    } catch (error) {
+        container.innerHTML = `<div class="rounded-lg border bg-background p-3 text-sm text-red-600">${escapeHtml(error.message || 'Could not load recommendations.')}</div>`;
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+function v66RenderGradeRecommendationCards(items = []) {
+    if (!items.length) {
+        return '<div class="rounded-lg border bg-background p-3 text-sm text-muted-foreground">No recommendations yet. Recommendations will appear after marks are published.</div>';
+    }
+    return items.map(item => {
+        const icon = item.priority === 'high' ? 'alert-triangle' : item.priority === 'positive' ? 'trending-up' : 'lightbulb';
+        return `
+            <div class="rounded-lg border bg-background p-3">
+                <div class="flex items-start gap-2">
+                    <i data-lucide="${icon}" class="h-4 w-4 mt-0.5 text-primary"></i>
+                    <div>
+                        <p class="text-sm font-medium">${escapeHtml(item.title || 'Recommendation')}</p>
+                        <p class="text-xs text-muted-foreground mt-1">${escapeHtml(item.detail || '')}</p>
+                        ${item.action ? `<p class="text-xs font-medium mt-2">Action: ${escapeHtml(item.action)}</p>` : ''}
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
 }
 
 function v66RenderGradesResults(grades, filter) {
@@ -422,7 +472,6 @@ function v66RenderGradesResults(grades, filter) {
     const sorted = [...selected].sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
     const strongest = sorted[0]?.subject || 'N/A';
     const weakest = sorted[sorted.length - 1]?.subject || 'N/A';
-    const recommendations = v66BuildGradeRecommendations(selected);
 
     if (!grades.length) {
         return `
@@ -504,13 +553,12 @@ function v66RenderGradesResults(grades, filter) {
                 </div>
 
                 <div class="rounded-xl border bg-card p-4">
-                    <h3 class="font-semibold mb-3">Recommended Actions</h3>
-                    <div class="grid gap-3 md:grid-cols-3">
-                        ${recommendations.map(item => `
-                            <div class="rounded-lg border bg-background p-3">
-                                <p class="text-sm font-medium">${escapeHtml(item.title)}</p>
-                                <p class="text-xs text-muted-foreground mt-1">${escapeHtml(item.detail)}</p>
-                            </div>`).join('')}
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <h3 class="font-semibold">Recommended Actions</h3>
+                        <span class="text-xs text-muted-foreground">Generated from real published marks</span>
+                    </div>
+                    <div id="student-grade-recommendations" class="grid gap-3 md:grid-cols-3">
+                        <div class="rounded-lg border bg-background p-3 text-sm text-muted-foreground">Loading real recommendations...</div>
                     </div>
                 </div>` : `
                 <div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">
@@ -520,14 +568,6 @@ function v66RenderGradesResults(grades, filter) {
         </div>`;
 }
 
-function v66BuildGradeRecommendations(selected) {
-    if (!selected.length) return [{ title: 'Wait for published marks', detail: 'Your teacher has not published results for this selection yet.' }];
-    const weak = [...selected].sort((a, b) => Number(a.score || 0) - Number(b.score || 0)).slice(0, 2);
-    const strong = [...selected].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0];
-    const items = weak.map(g => ({ title: `Revise ${g.subject}`, detail: `Focus here first because the score is ${Number(g.score || 0)}%.` }));
-    if (strong) items.push({ title: `Maintain ${strong.subject}`, detail: `This is currently your strongest subject. Keep the momentum.` });
-    return items.slice(0, 3);
-}
 
 function getGradeColorClass(grade) {
     if (!grade) return 'bg-gray-100 text-gray-700';
@@ -731,38 +771,40 @@ async function sendStudentChatMessage() {
 // ============ AI TUTOR ============
 function renderStudentAITutor() {
     const curriculum = schoolSettings.curriculum || 'cbc';
-    const school = getCurrentSchool();
-    const user = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
-    const grade = user.grade || user.class || 'Grade 5';
+    const context = v66GetStudentTutorContext();
+    setTimeout(() => v66LoadStudentTutorContext(), 0);
 
     return `
         <div class="max-w-6xl mx-auto space-y-6 animate-fade-in">
             <div class="flex flex-wrap justify-between items-center gap-3">
                 <div>
                     <h2 class="text-2xl font-bold">Enhanced AI Tutor</h2>
-                    <p class="text-sm text-muted-foreground">Subject-aware tutor for all levels with command detection.</p>
+                    <p class="text-sm text-muted-foreground">The tutor now identifies the learner from the student dashboard and adjusts to their class level automatically.</p>
                 </div>
-                <div class="text-sm text-muted-foreground">${escapeHtml((window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : ((school && school.status === 'active') ? school.name : 'ShuleAI')))}</div>
+                <div class="rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground" id="ai-student-level-badge">
+                    ${escapeHtml(context.displayText)}
+                </div>
             </div>
 
-            <div class="grid gap-4 lg:grid-cols-4">
-                <div class="rounded-xl border bg-card p-4 lg:col-span-1 space-y-4">
-                    <div>
-                        <label class="text-xs font-semibold text-muted-foreground">Education Level</label>
-                        <select id="ai-level-select" onchange="updateTutorSubjects()" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <option value="early_years">Early Years: PP1 - Grade 3</option>
-                            <option value="upper_primary" selected>Upper Primary: Grade 4 - 6</option>
-                            <option value="junior_secondary">Junior Secondary: Grade 7 - 9</option>
-                            <option value="senior_school">Senior / Exam Classes</option>
-                        </select>
+            <div class="rounded-xl border bg-card p-4 space-y-4">
+                <div class="flex items-center gap-3 pb-3 border-b">
+                    <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                        <i data-lucide="bot" class="h-6 w-6 text-white"></i>
                     </div>
                     <div>
-                        <label class="text-xs font-semibold text-muted-foreground">Subject</label>
-                        <select id="ai-subject-select" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></select>
+                        <h3 class="font-semibold text-lg">Shule AI Tutor</h3>
+                        <p class="text-xs text-muted-foreground" id="ai-tutor-context-line">Curriculum: ${CURRICULUMS[curriculum]?.name || 'CBC'} • ${escapeHtml(context.displayText)}</p>
                     </div>
-                    <div>
-                        <label class="text-xs font-semibold text-muted-foreground">Command</label>
-                        <select id="ai-command-select" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                    <label class="space-y-1">
+                        <span class="text-xs font-semibold text-muted-foreground">Subject</span>
+                        <select id="ai-subject-select" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></select>
+                    </label>
+                    <label class="space-y-1">
+                        <span class="text-xs font-semibold text-muted-foreground">Tutor Mode</span>
+                        <select id="ai-command-select" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                             <option value="ask">Auto detect</option>
                             <option value="explain">Explain</option>
                             <option value="solve">Solve</option>
@@ -773,29 +815,20 @@ function renderStudentAITutor() {
                             <option value="weakness">Show weak areas</option>
                             <option value="plan">Study plan</option>
                         </select>
-                    </div>
-                    <div class="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground space-y-2">
-                        <p class="font-semibold text-foreground">Commands it understands:</p>
-                        <p>“explain fractions”, “quiz me in science”, “summarize nouns”, “make revision plan”, “show my weak areas”.</p>
-                    </div>
-                    <button onclick="loadTutorProgress()" class="w-full rounded-lg border px-3 py-2 text-sm hover:bg-accent">Load My Progress</button>
-                    <div id="ai-progress-panel" class="text-xs space-y-2"></div>
+                    </label>
+                    <button onclick="loadTutorProgress()" class="self-end rounded-lg border px-3 py-2 text-sm hover:bg-accent">Load Progress</button>
                 </div>
 
-                <div class="rounded-xl border bg-card p-4 h-[680px] flex flex-col lg:col-span-3">
-                    <div class="flex items-center gap-3 mb-4 pb-2 border-b">
-                        <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                            <i data-lucide="bot" class="h-6 w-6 text-white"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-lg">Shule AI Tutor</h3>
-                            <p class="text-xs text-muted-foreground">Curriculum: ${CURRICULUMS[curriculum]?.name || 'CBC'} • Grade: ${grade}</p>
-                        </div>
-                    </div>
+                <div class="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <b class="text-foreground">Try:</b> “explain fractions”, “quiz me in science”, “summarize nouns”, “make revision plan”, “show my weak areas”.
+                </div>
+                <div id="ai-progress-panel" class="text-xs space-y-2"></div>
+
+                <div class="h-[520px] flex flex-col">
                     <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="ai-chat-container">
                         <div class="flex justify-start">
                             <div class="chat-bubble-received max-w-[80%]">
-                                <p class="text-sm">Hi! I can detect subjects and commands. Try: <b>“quiz me in Mathematics”</b>, <b>“explain photosynthesis”</b>, or <b>“make a revision plan for English.”</b></p>
+                                <p class="text-sm">Hi! I’ll use your registered class/grade from the student dashboard, then adjust subjects and explanations to your level.</p>
                             </div>
                         </div>
                     </div>
@@ -803,7 +836,7 @@ function renderStudentAITutor() {
                         ${['Explain this', 'Quiz me', 'Summarize topic', 'Revision plan', 'Give homework', 'Show weak areas'].map(label => `<button onclick="fillTutorCommand('${label}')" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">${label}</button>`).join('')}
                     </div>
                     <div class="flex gap-2">
-                        <input type="text" id="ai-question-input" placeholder="Ask me anything or type a command..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <input type="text" id="ai-question-input" placeholder="Ask me anything or type a command..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" onkeydown="if(event.key==='Enter'){askAITutor()}">
                         <button onclick="askAITutor()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
                             <i data-lucide="send" class="h-4 w-4"></i>
                             Ask
@@ -815,6 +848,54 @@ function renderStudentAITutor() {
     `;
 }
 
+function v66GetStudentTutorContext() {
+    const user = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
+    const saved = window.v66StudentTutorContext || {};
+    const grade = saved.grade || saved.className || user.grade || user.class || user.className || 'Not assigned';
+    const level = v66TutorLevelFromGrade(grade);
+    return {
+        ...saved,
+        grade,
+        level,
+        studentId: saved.studentId || user.studentId || null,
+        curriculum: saved.curriculum || schoolSettings.curriculum || 'cbc',
+        displayText: grade && grade !== 'Not assigned' ? `Level: ${grade}` : 'Detecting learner level...'
+    };
+}
+
+function v66TutorLevelFromGrade(gradeText = '') {
+    const raw = String(gradeText || '').toLowerCase();
+    if (/pp\s?1|pp\s?2|pre|kg|grade\s?[1-3]\b|class\s?[1-3]\b/.test(raw)) return 'early_years';
+    if (/grade\s?[4-6]\b|class\s?[4-6]\b|std\s?[4-6]\b|standard\s?[4-6]\b/.test(raw)) return 'upper_primary';
+    if (/grade\s?[7-9]\b|junior|jss|class\s?[7-8]\b/.test(raw)) return 'junior_secondary';
+    if (/grade\s?1[0-2]\b|form\s?[1-4]\b|senior|secondary/.test(raw)) return 'senior_school';
+    return 'upper_primary';
+}
+
+async function v66LoadStudentTutorContext() {
+    try {
+        const res = await (api?.student?.getDashboard ? api.student.getDashboard() : apiRequest('/api/student/dashboard'));
+        const data = res.data || {};
+        const student = data.student || {};
+        window.v66StudentTutorContext = {
+            studentId: student.studentId || data.studentId || student.id || null,
+            grade: student.grade || data.grade || student.className || 'Not assigned',
+            classId: student.classId || data.classId || null,
+            curriculum: student.curriculum || data.school?.curriculum || schoolSettings.curriculum || 'cbc',
+            academicStatus: student.academicStatus || null
+        };
+        const ctx = v66GetStudentTutorContext();
+        const badge = document.getElementById('ai-student-level-badge');
+        if (badge) badge.textContent = ctx.displayText;
+        const line = document.getElementById('ai-tutor-context-line');
+        if (line) line.textContent = `Curriculum: ${(CURRICULUMS[ctx.curriculum]?.name || ctx.curriculum || 'CBC')} • ${ctx.displayText}`;
+        updateTutorSubjects();
+    } catch (error) {
+        console.warn('Could not load student tutor context:', error.message);
+        updateTutorSubjects();
+    }
+}
+
 const SHULE_TUTOR_SUBJECTS = {
     early_years: ['Literacy', 'Kiswahili Language Activities', 'English Language Activities', 'Mathematical Activities', 'Environmental Activities', 'Creative Activities', 'Religious Education', 'Psychomotor Activities'],
     upper_primary: ['Mathematics', 'English', 'Kiswahili', 'Science and Technology', 'Agriculture and Nutrition', 'Social Studies', 'Creative Arts', 'Religious Education', 'Physical and Health Education'],
@@ -823,10 +904,13 @@ const SHULE_TUTOR_SUBJECTS = {
 };
 
 function updateTutorSubjects() {
-    const level = document.getElementById('ai-level-select')?.value || 'upper_primary';
+    const ctx = v66GetStudentTutorContext();
+    const level = ctx.level || 'upper_primary';
     const select = document.getElementById('ai-subject-select');
     if (!select) return;
-    select.innerHTML = (SHULE_TUTOR_SUBJECTS[level] || SHULE_TUTOR_SUBJECTS.upper_primary).map(s => `<option value="${s}">${s}</option>`).join('');
+    const previous = select.value;
+    select.innerHTML = (SHULE_TUTOR_SUBJECTS[level] || SHULE_TUTOR_SUBJECTS.upper_primary).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    if (previous && [...select.options].some(opt => opt.value === previous)) select.value = previous;
 }
 
 function fillTutorCommand(label) {
@@ -1204,8 +1288,7 @@ window.askAITutor = async function() {
     if (!container) return;
     const subject = document.getElementById('ai-subject-select')?.value || undefined;
     const command = document.getElementById('ai-command-select')?.value || 'ask';
-    const level = document.getElementById('ai-level-select')?.value || undefined;
-    const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
+    const tutorContext = v66GetStudentTutorContext();
 
     container.innerHTML += `
         <div class="flex justify-end">
@@ -1230,9 +1313,10 @@ window.askAITutor = async function() {
             question,
             subject,
             command: command === 'ask' ? undefined : command,
-            level,
-            grade: currentUser.grade || currentUser.class || undefined,
-            studentId: currentUser.studentId || currentUser.id || undefined
+            level: tutorContext.level,
+            grade: tutorContext.grade || undefined,
+            studentId: tutorContext.studentId || undefined,
+            curriculum: tutorContext.curriculum || undefined
         });
         typingDiv.remove();
         const data = res.data || {};
@@ -1259,8 +1343,8 @@ window.loadTutorProgress = async function() {
     if (!panel) return;
     panel.innerHTML = '<p class="text-muted-foreground">Loading progress...</p>';
     try {
-        const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
-        const res = await api.tutor.getProgress(currentUser.studentId || currentUser.id || '');
+        const tutorContext = v66GetStudentTutorContext();
+        const res = await api.tutor.getProgress(tutorContext.studentId || '');
         const rows = res.data || [];
         if (!rows.length) {
             panel.innerHTML = '<p class="text-muted-foreground">No tutor progress yet. Ask your first question.</p>';

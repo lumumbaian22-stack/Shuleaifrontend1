@@ -442,7 +442,12 @@ const parentAPI = {
 
 // ============ STUDENT ENDPOINTS ============
 const studentAPI = {
+    getDashboard: () => apiRequest('/api/student/dashboard'),
     getGrades: () => apiRequest('/api/student/grades'),
+    getRecommendations: (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return apiRequest(`/api/student/recommendations${query ? `?${query}` : ''}`);
+    },
     getAttendance: () => apiRequest('/api/student/attendance'),
     sendGroupMessage: (data) => apiRequest('/api/student/group-message', { method: 'POST', body: JSON.stringify(data) }),
     getMaterials: () => apiRequest('/api/student/materials'),
