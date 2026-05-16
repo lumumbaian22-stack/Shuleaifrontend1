@@ -1684,6 +1684,10 @@ async function renderTeacherHomework() {
                                 <span>Assigned: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
                                 <span>Submitted: <b class="text-foreground">${a.submittedCount || 0}</b></span>
                             </div>
+                            <div class="flex gap-2 mt-4">
+                                <button onclick="openHomeworkReviewModal(${Number(a.id)})" class="flex-1 px-3 py-2 rounded-lg border text-sm hover:bg-muted">Review</button>
+                                <button onclick="openHomeworkEditModal(${Number(a.id)})" class="flex-1 px-3 py-2 rounded-lg bg-primary text-white text-sm">Edit</button>
+                            </div>
                         </div>
                       `).join('')}
                 </div>
@@ -1801,6 +1805,98 @@ async function createHomework() {
     } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
+
+
+async function fetchHomeworkDetails(taskId) {
+    const res = await apiRequest(`/api/homework/teacher/${Number(taskId)}`);
+    return res.data || {};
+}
+
+function homeworkModalShell(id, title, body, footer = '') {
+    let modal = document.getElementById(id);
+    if (!modal) {
+        document.body.insertAdjacentHTML('beforeend', `<div id="${id}" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="document.getElementById('${id}').classList.add('hidden')"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl p-4"><div class="rounded-xl border bg-card p-6 shadow-xl max-h-[85vh] overflow-y-auto"><div class="flex justify-between items-start gap-3 mb-4"><div><h3 class="text-lg font-semibold">${title}</h3></div><button class="text-xl" onclick="document.getElementById('${id}').classList.add('hidden')">×</button></div><div id="${id}-body"></div><div id="${id}-footer" class="flex justify-end gap-3 mt-6"></div></div></div></div>`);
+        modal = document.getElementById(id);
+    }
+    document.getElementById(`${id}-body`).innerHTML = body;
+    document.getElementById(`${id}-footer`).innerHTML = footer;
+    modal.classList.remove('hidden');
+}
+
+async function openHomeworkReviewModal(taskId) {
+    try {
+        showLoading();
+        const { task, assignments = [] } = await fetchHomeworkDetails(taskId);
+        const rows = assignments.length ? assignments.map(a => {
+            const studentName = a.Student?.User?.name || `Student #${a.studentId}`;
+            const submitted = a.status === 'submitted' || a.completedAt || a.submittedAt;
+            const feedback = a.studentFeedback || {};
+            return `<div class="rounded-xl border p-4 bg-background space-y-2">
+                <div class="flex justify-between gap-3"><div><h4 class="font-semibold">${escapeHtml(studentName)}</h4><p class="text-xs text-muted-foreground">Status: ${escapeHtml(a.status || 'pending')}</p></div><span class="text-xs rounded-full px-2 py-1 ${submitted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${submitted ? 'Submitted' : 'Pending'}</span></div>
+                ${feedback.comment ? `<p class="text-sm"><b>Student note:</b> ${escapeHtml(feedback.comment)}</p>` : ''}
+                ${feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${resolveMediaUrl(feedback.fileUrl)}" target="_blank">Open submitted file</a>` : ''}
+                <div class="grid md:grid-cols-[120px_1fr_auto] gap-2 items-end">
+                    <div><label class="text-xs">Points</label><input id="review-points-${Number(a.id)}" type="number" value="${a.pointsEarned ?? ''}" class="w-full rounded-lg border p-2 bg-card"></div>
+                    <div><label class="text-xs">Teacher comment</label><input id="review-comment-${Number(a.id)}" value="${escapeHtml(a.parentFeedback?.teacherComment || '')}" class="w-full rounded-lg border p-2 bg-card"></div>
+                    <button onclick="saveHomeworkReview(${Number(a.id)})" class="px-3 py-2 rounded-lg bg-primary text-white">Save Review</button>
+                </div>
+            </div>`;
+        }).join('') : '<div class="text-center text-muted-foreground border rounded-xl py-8">No assigned students found for this homework.</div>';
+        homeworkModalShell('homework-review-modal', `Review: ${escapeHtml(task?.title || 'Homework')}`, `<div class="space-y-3">${rows}</div>`);
+    } catch (e) {
+        showToast(e.message || 'Could not load homework review', 'error');
+    } finally { hideLoading(); }
+}
+
+async function saveHomeworkReview(assignmentId) {
+    try {
+        const pointsEarned = document.getElementById(`review-points-${Number(assignmentId)}`)?.value;
+        const teacherComment = document.getElementById(`review-comment-${Number(assignmentId)}`)?.value || '';
+        await apiRequest(`/api/homework/teacher/submissions/${Number(assignmentId)}/review`, {
+            method: 'POST',
+            body: JSON.stringify({ status: 'graded', pointsEarned: pointsEarned === '' ? null : Number(pointsEarned), teacherComment })
+        });
+        showToast('Review saved', 'success');
+    } catch (e) { showToast(e.message || 'Review failed', 'error'); }
+}
+
+async function openHomeworkEditModal(taskId) {
+    try {
+        showLoading();
+        const { task } = await fetchHomeworkDetails(taskId);
+        homeworkModalShell('homework-edit-modal', 'Edit Homework', `
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium">Title</label><input id="edit-hw-title" value="${escapeHtml(task.title || '')}" class="w-full rounded-lg border p-2 bg-background"></div>
+                <div><label class="block text-sm font-medium">Instructions</label><textarea id="edit-hw-instructions" rows="4" class="w-full rounded-lg border p-2 bg-background">${escapeHtml(task.instructions || '')}</textarea></div>
+                <div class="grid md:grid-cols-3 gap-3">
+                    <div><label class="block text-sm font-medium">Subject</label><input id="edit-hw-subject" value="${escapeHtml(task.subject || 'General')}" class="w-full rounded-lg border p-2 bg-background"></div>
+                    <div><label class="block text-sm font-medium">Due Date</label><input id="edit-hw-due" type="date" value="${task.dueDate ? String(task.dueDate).slice(0,10) : ''}" class="w-full rounded-lg border p-2 bg-background"></div>
+                    <div><label class="block text-sm font-medium">Points</label><input id="edit-hw-points" type="number" value="${task.points || 10}" class="w-full rounded-lg border p-2 bg-background"></div>
+                </div>
+                <div><label class="block text-sm font-medium">Teacher Note</label><textarea id="edit-hw-note" rows="2" class="w-full rounded-lg border p-2 bg-background">${escapeHtml(task.teacherNote || '')}</textarea></div>
+            </div>
+        `, `<button onclick="document.getElementById('homework-edit-modal').classList.add('hidden')" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="saveHomeworkEdit(${Number(taskId)})" class="px-4 py-2 bg-primary text-white rounded-lg">Save Changes</button>`);
+    } catch (e) { showToast(e.message || 'Could not load homework', 'error'); } finally { hideLoading(); }
+}
+
+async function saveHomeworkEdit(taskId) {
+    try {
+        const payload = {
+            title: document.getElementById('edit-hw-title')?.value.trim(),
+            instructions: document.getElementById('edit-hw-instructions')?.value.trim(),
+            subject: document.getElementById('edit-hw-subject')?.value.trim(),
+            dueDate: document.getElementById('edit-hw-due')?.value || null,
+            points: Number(document.getElementById('edit-hw-points')?.value || 10),
+            teacherNote: document.getElementById('edit-hw-note')?.value.trim()
+        };
+        if (!payload.title || !payload.instructions || !payload.subject) return showToast('Title, instructions, and subject are required', 'error');
+        await apiRequest(`/api/homework/teacher/${Number(taskId)}`, { method: 'PUT', body: JSON.stringify(payload) });
+        document.getElementById('homework-edit-modal')?.classList.add('hidden');
+        showToast('Homework updated', 'success');
+        await showDashboardSection('homework');
+    } catch (e) { showToast(e.message || 'Update failed', 'error'); }
+}
+
 // ============ EXPORTS ============
 window.viewStudentDetails = viewStudentDetails;
 window.showStudentDetailModalFromStudent = showStudentDetailModalFromStudent;
@@ -1813,6 +1909,10 @@ window.renderTeacherDashboard = renderTeacherDashboard;
 window.renderTeacherStudents = renderTeacherStudents;
 window.loadMyStudents = loadMyStudents;
 window.renderTeacherHomework = renderTeacherHomework;
+window.openHomeworkReviewModal = openHomeworkReviewModal;
+window.saveHomeworkReview = saveHomeworkReview;
+window.openHomeworkEditModal = openHomeworkEditModal;
+window.saveHomeworkEdit = saveHomeworkEdit;
 window.loadTeacherMessages = loadTeacherMessages;
 window.handleCheckIn = handleCheckIn;
 window.handleCheckOut = handleCheckOut;

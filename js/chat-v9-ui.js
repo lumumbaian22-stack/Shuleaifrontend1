@@ -103,7 +103,7 @@ async function v9RefreshTeacherChat() {
       chatV9API.getClassroomThreads()
     ]);
     const me = v9CurrentUser();
-    v9ChatState.teachers = (teachersRes.data || []).filter(t => Number(t.id) !== Number(me?.id));
+    v9ChatState.teachers = (teachersRes.data || []).filter(t => Number(t.id) !== Number(me?.id) && t.role !== 'student');
     v9ChatState.groups = groupsRes.data || [];
     v9ChatState.threads = threadsRes.data || [];
     if (!v9ChatState.selectedTeacher && v9ChatState.teachers[0]) v9ChatState.selectedTeacher = v9ChatState.teachers[0];
@@ -162,7 +162,7 @@ function v9RenderTeacherShell() {
     <div class="tm6-chat-layout">
       <aside class="tm6-list-panel">
         <div class="tm6-panel-title">
-          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Direct Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Teacher-to-teacher messages' : 'Teacher and student groups'}</p></div>
+          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Private Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Staff and parent contacts' : 'Teacher and student groups'}</p></div>
           ${v9ChatState.activeTab === 'groups' ? '<button onclick="v9OpenCreateGroupModal()">+</button>' : ''}
         </div>
         <input class="tm6-search" placeholder="Search..." oninput="v9FilterConversations(this.value)">
@@ -177,11 +177,11 @@ function v9RenderTeacherShell() {
 }
 
 function v9RenderDirectList() {
-  if (!v9ChatState.teachers.length) return '<div class="tm6-empty small">No teachers found.</div>';
+  if (!v9ChatState.teachers.length) return '<div class="tm6-empty small">No approved private-chat contacts found.</div>';
   return v9ChatState.teachers.map(t => `
     <button class="tm6-list-item ${Number(v9ChatState.selectedTeacher?.id) === Number(t.id) ? 'active' : ''}" onclick="v9SelectTeacher(${Number(t.id)})">
       <span class="tm6-avatar">${v9Initials(t.name)}</span>
-      <span><strong>${v9Safe(t.name)}</strong><small>${v9Safe(t.email || 'Teacher')}</small></span>
+      <span><strong>${v9Safe(t.name)}</strong><small>${v9Safe(t.role === 'student' ? (t.Student?.grade || t.className || 'Student') : (t.email || 'Teacher'))}</small></span>
     </button>`).join('');
 }
 function v9RenderGroupList() {
@@ -196,7 +196,7 @@ function v9RenderChatWindow(selected) {
   const isGroup = v9ChatState.activeTab === 'groups';
   return `
     <header class="tm6-chat-head">
-      <div class="tm6-title-row"><span class="tm6-avatar big">${isGroup ? '👥' : v9Initials(selected.name)}</span><div><h3>${v9Safe(selected.name || 'Conversation')}</h3><p>${isGroup ? `${v9ChatState.members.length} members • managed group` : 'Emoji reactions only between teachers'}</p></div></div>
+      <div class="tm6-title-row"><span class="tm6-avatar big">${isGroup ? '👥' : v9Initials(selected.name)}</span><div><h3>${v9Safe(selected.name || 'Conversation')}</h3><p>${isGroup ? `${v9ChatState.members.length} members • managed group` : 'Safe private chat contact'}</p></div></div>
       <div class="tm6-chat-actions">
         ${isGroup && v9IsStaffUser() ? `<button class="tm6-btn light" onclick="v9OpenManageMembersModal(${Number(selected.id)})">Manage Members</button>` : ''}
         <button class="tm6-btn light" onclick="v9PickAttachment()">Attach</button>
@@ -365,9 +365,9 @@ async function v9SendMessage() {
     v9Toast(err.message || 'Message failed', 'error');
   }
 }
-async function v9AwardMessage(messageId, points, streakDelta) { try { await chatV9API.awardChatMessage(messageId, points, streakDelta, 'Great student contribution'); await v9LoadCurrentMessages(); } catch (err) { v9Toast(err.message || 'Only students can receive stars/streaks', 'error'); } }
+async function v9AwardMessage(messageId, points, streakDelta) { try { const res = await chatV9API.awardChatMessage(messageId, points, streakDelta, 'Great student contribution'); const msg = v9ChatState.messages.find(m => Number(m.id) === Number(messageId)); if (msg) { msg.pointsAwarded = (Number(msg.pointsAwarded)||0) + Number(points||0); msg.streakAwarded = (Number(msg.streakAwarded)||0) + Number(streakDelta||0); } v9RenderTeacherShell(); v9Toast('Reward saved', 'success'); } catch (err) { v9Toast(err.message || 'Only students can receive stars/streaks', 'error'); } }
 async function v9ReactToMessage(messageId, emoji) { try { await chatV9API.reactToMessage(messageId, emoji); await v9LoadCurrentMessages(); } catch (err) { v9Toast(err.message || 'Reaction failed', 'error'); } }
-async function v9AwardReply(replyId, points, streakDelta) { try { await chatV9API.awardThreadReply(replyId, points, streakDelta, 'Good study room response'); await v9RefreshTeacherChat(); } catch (err) { v9Toast(err.message || 'Award failed', 'error'); } }
+async function v9AwardReply(replyId, points, streakDelta) { try { await chatV9API.awardThreadReply(replyId, points, streakDelta, 'Good study room response'); for (const t of v9ChatState.threads || []) { const replies = v9ThreadReplies(t); const reply = replies.find(r => Number(r.id) === Number(replyId)); if (reply) { reply.pointsAwarded = (Number(reply.pointsAwarded)||0) + Number(points||0); reply.streakAwarded = (Number(reply.streakAwarded)||0) + Number(streakDelta||0); } } v9RenderTeacherShell(); v9Toast('Reward saved', 'success'); } catch (err) { v9Toast(err.message || 'Award failed', 'error'); } }
 function v9HelpfulReply() { v9Toast('Marked as helpful', 'success'); }
 
 async function v9OpenCreateMenu() {
