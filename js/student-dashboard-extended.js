@@ -1269,10 +1269,12 @@ function v66RenderHomeworkList(assignments, tab = 'all') {
 
 
 function v66SafeHomeworkFileUrl(rawUrl) {
-    const raw = String(rawUrl || '').trim();
+    let raw = String(rawUrl || '').trim();
     if (!raw) return '';
+    raw = raw.replace('/api/homework/files/', '/homework-files/');
+    raw = raw.replace('/uploads/homework/', '/homework-files/');
     const resolved = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(raw) : raw;
-    if (!/^https?:\/\//i.test(resolved) && !resolved.startsWith('/uploads/')) return '';
+    if (!/^https?:\/\//i.test(resolved) && !resolved.startsWith('/homework-files/')) return '';
     return resolved.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E');
 }
 

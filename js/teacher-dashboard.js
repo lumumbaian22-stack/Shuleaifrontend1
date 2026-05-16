@@ -1781,31 +1781,13 @@ async function loadTeacherClassesForHomework() {
 
 
 function safeHomeworkFileUrl(rawUrl) {
-    const raw = String(rawUrl || '').trim();
+    let raw = String(rawUrl || '').trim();
     if (!raw) return '';
+    raw = raw.replace('/api/homework/files/', '/homework-files/');
+    raw = raw.replace('/uploads/homework/', '/homework-files/');
     const resolved = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(raw) : raw;
-    if (!/^https?:\/\//i.test(resolved) && !resolved.startsWith('/uploads/')) return '';
+    if (!/^https?:\/\//i.test(resolved) && !resolved.startsWith('/homework-files/')) return '';
     return resolved.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E');
-}
-
-function refreshTeacherHomeworkListNow() {
-    const section = document.getElementById('dashboard-content') || document.getElementById('main-content') || document.querySelector('[data-dashboard-content]') || document.querySelector('.dashboard-content');
-    if (section && typeof renderTeacherHomework === 'function') {
-        renderTeacherHomework().then(html => { section.innerHTML = html; if (window.lucide) lucide.createIcons(); }).catch(() => null);
-    } else if (typeof showDashboardSection === 'function') {
-        showDashboardSection('homework');
-    }
-}
-
-async function uploadHomeworkMaterial(fileInputId) {
-    const input = document.getElementById(fileInputId);
-    const file = input?.files?.[0];
-    if (!file) return [];
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await uploadFile('/api/homework/attachments', formData);
-    const attachment = res.data || res.file || null;
-    return attachment ? [attachment] : [];
 }
 
 function renderHomeworkAttachmentList(attachments = []) {
