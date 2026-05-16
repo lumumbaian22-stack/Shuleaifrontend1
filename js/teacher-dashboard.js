@@ -1779,6 +1779,24 @@ async function loadTeacherClassesForHomework() {
     }
 }
 
+
+function safeHomeworkFileUrl(rawUrl) {
+    const raw = String(rawUrl || '').trim();
+    if (!raw) return '';
+    const resolved = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(raw) : raw;
+    if (!/^https?:\/\//i.test(resolved) && !resolved.startsWith('/uploads/')) return '';
+    return resolved.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E');
+}
+
+function refreshTeacherHomeworkListNow() {
+    const section = document.getElementById('dashboard-content') || document.getElementById('main-content') || document.querySelector('[data-dashboard-content]') || document.querySelector('.dashboard-content');
+    if (section && typeof renderTeacherHomework === 'function') {
+        renderTeacherHomework().then(html => { section.innerHTML = html; if (window.lucide) lucide.createIcons(); }).catch(() => null);
+    } else if (typeof showDashboardSection === 'function') {
+        showDashboardSection('homework');
+    }
+}
+
 async function uploadHomeworkMaterial(fileInputId) {
     const input = document.getElementById(fileInputId);
     const file = input?.files?.[0];
@@ -1794,9 +1812,10 @@ function renderHomeworkAttachmentList(attachments = []) {
     const files = Array.isArray(attachments) ? attachments : [];
     if (!files.length) return '<p class="text-sm text-muted-foreground">No files attached.</p>';
     return `<div class="space-y-2">${files.map((file, index) => {
-        const url = resolveMediaUrl(file.secureUrl || file.url || '');
+        const url = safeHomeworkFileUrl(file.downloadUrl || file.secureUrl || file.url || '');
         const name = escapeHtml(file.name || `Attachment ${index + 1}`);
-        return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0"><a href="${url}" target="_blank" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a></div></div>`;
+        const actions = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a>` : '<span class="text-xs text-red-500">File unavailable</span>';
+        return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0">${actions}</div></div>`;
     }).join('')}</div>`;
 }
 
@@ -1823,7 +1842,10 @@ async function createHomework() {
         });
         if (res.success) {
             closeCreateHomeworkModal();
-            await showDashboardSection('homework');
+            showToast(res.message || 'Homework assigned successfully', 'success');
+            await new Promise(resolve => setTimeout(resolve, 150));
+            if (typeof showDashboardSection === 'function') await showDashboardSection('homework');
+            refreshTeacherHomeworkListNow();
         }
     } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }

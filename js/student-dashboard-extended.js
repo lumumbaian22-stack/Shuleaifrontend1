@@ -1261,13 +1261,23 @@ function v66RenderHomeworkList(assignments, tab = 'all') {
         </div>`;
 }
 
+
+function v66SafeHomeworkFileUrl(rawUrl) {
+    const raw = String(rawUrl || '').trim();
+    if (!raw) return '';
+    const resolved = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(raw) : raw;
+    if (!/^https?:\/\//i.test(resolved) && !resolved.startsWith('/uploads/')) return '';
+    return resolved.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E');
+}
+
 function v66RenderStudentHomeworkAttachments(attachments = []) {
     const files = Array.isArray(attachments) ? attachments : [];
     if (!files.length) return '<p class="text-muted-foreground mt-1">No assignment file was uploaded.</p>';
     return `<div class="space-y-2 mt-2">${files.map((file, index) => {
-        const url = resolveMediaUrl(file.secureUrl || file.url || '');
+        const url = v66SafeHomeworkFileUrl(file.downloadUrl || file.secureUrl || file.url || '');
         const name = escapeHtml(file.name || `Assignment file ${index + 1}`);
-        return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0"><a href="${url}" target="_blank" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a></div></div>`;
+        const actions = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${url}" download class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a>` : '<span class="text-xs text-red-500">File unavailable</span>';
+        return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0">${actions}</div></div>`;
     }).join('')}</div>`;
 }
 
