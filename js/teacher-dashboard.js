@@ -1683,6 +1683,7 @@ async function renderTeacherHomework() {
                                 <span>Class: <b class="text-foreground">${escapeHtml(a.className || a.gradeLevel || '-')}</b></span>
                                 <span>Assigned: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
                                 <span>Submitted: <b class="text-foreground">${a.submittedCount || 0}</b></span>
+                                <span>Discussion: <b class="text-foreground">${a.studyThreadId ? 'Open' : 'Off'}</b></span>
                             </div>
                             <div class="flex gap-2 mt-4">
                                 <button onclick="openHomeworkReviewModal(${Number(a.id)})" class="flex-1 px-3 py-2 rounded-lg border text-sm hover:bg-muted">Review</button>
@@ -1732,6 +1733,12 @@ function showCreateHomeworkModal() {
                             <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2 bg-background"></div>
                         </div>
                         <div><label class="block text-sm font-medium">Class</label><select id="hw-class" class="w-full rounded-lg border p-2 bg-background"><option value="">Loading...</option></select></div>
+                        <div class="rounded-xl border p-3 bg-muted/30 space-y-2">
+                            <label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" id="hw-open-discussion" class="rounded"> Open Study Discussion</label>
+                            <input type="text" id="hw-discussion-title" class="w-full rounded-lg border p-2 bg-background text-sm" placeholder="Optional discussion title">
+                            <label class="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" id="hw-reward-participation" class="rounded"> Reward participation later</label>
+                            <p class="text-xs text-muted-foreground">Creates a class-only study thread linked to this homework.</p>
+                        </div>
                     </div>
                     <div class="flex justify-end gap-3 mt-6">
                         <button onclick="closeCreateHomeworkModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
@@ -1803,18 +1810,6 @@ function renderHomeworkAttachmentList(attachments = []) {
     }).join('')}</div>`;
 }
 
-
-async function uploadHomeworkMaterial(inputId) {
-    const input = document.getElementById(inputId);
-    const file = input?.files?.[0];
-    if (!file) return [];
-    if (typeof uploadFile !== 'function') throw new Error('Upload service is not available');
-    const fd = new FormData();
-    fd.append('file', file);
-    const res = await uploadFile('/api/homework/attachments', fd);
-    return res?.data ? [res.data] : [];
-}
-
 async function createHomework() {
     const title = document.getElementById('hw-title')?.value.trim();
     const instructions = document.getElementById('hw-instructions')?.value.trim();
@@ -1834,7 +1829,20 @@ async function createHomework() {
         const attachments = await uploadHomeworkMaterial('hw-file');
         const res = await apiRequest('/api/homework/assign', {
             method: 'POST',
-            body: JSON.stringify({ title, instructions, subject, dueDate, classId, className, attachments })
+            body: JSON.stringify({
+                title,
+                instructions,
+                subject,
+                dueDate,
+                classId,
+                className,
+                attachments,
+                openStudyDiscussion: Boolean(document.getElementById('hw-open-discussion')?.checked),
+                createStudyDiscussion: Boolean(document.getElementById('hw-open-discussion')?.checked),
+                discussionTitle: document.getElementById('hw-discussion-title')?.value.trim() || '',
+                rewardParticipation: Boolean(document.getElementById('hw-reward-participation')?.checked),
+                allowStudentReplies: true
+            })
         });
         if (res.success) {
             closeCreateHomeworkModal();
@@ -1877,9 +1885,8 @@ async function openHomeworkReviewModal(taskId) {
             const maxPoints = Number(a.maxPoints || task?.points || 0);
             return `<div class="rounded-xl border p-4 bg-background space-y-2">
                 <div class="flex justify-between gap-3"><div><h4 class="font-semibold">${escapeHtml(studentName)}</h4><p class="text-xs text-muted-foreground">Status: ${escapeHtml(displayStatus)} ${a.completedAt ? `• Submitted: ${formatDate(a.completedAt)}` : ''}</p></div><span class="text-xs rounded-full px-2 py-1 ${badgeClass}">${escapeHtml(displayStatus)}</span></div>
-                ${feedback.typedAnswer ? `<div class="rounded-lg border p-3 text-sm"><b>Typed answer:</b><p class="mt-1 whitespace-pre-line">${escapeHtml(feedback.typedAnswer)}</p></div>` : ''}
                 ${feedback.comment ? `<p class="text-sm"><b>Student note:</b> ${escapeHtml(feedback.comment)}</p>` : ''}
-                ${Array.isArray(feedback.attachments) && feedback.attachments.length ? `<div><p class="text-sm font-medium mb-1">Submitted file(s)</p>${renderHomeworkAttachmentList(feedback.attachments)}</div>` : (feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${safeHomeworkFileUrl(feedback.fileUrl)}" target="_blank" rel="noopener noreferrer">Open submitted file</a>` : '')}
+                ${feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${resolveMediaUrl(feedback.fileUrl)}" target="_blank" rel="noopener noreferrer">Open submitted file</a>` : ''}
                 <div class="grid md:grid-cols-[120px_1fr_auto] gap-2 items-end">
                     <div><label class="text-xs">Points ${maxPoints ? `/ ${maxPoints}` : ''}</label><input id="review-points-${Number(a.id)}" type="number" min="0" ${maxPoints ? `max="${maxPoints}"` : ''} value="${a.pointsEarned ?? ''}" class="w-full rounded-lg border p-2 bg-card"></div>
                     <div><label class="text-xs">Teacher comment</label><input id="review-comment-${Number(a.id)}" value="${escapeHtml(a.parentFeedback?.teacherComment || '')}" class="w-full rounded-lg border p-2 bg-card"></div>
@@ -1888,7 +1895,7 @@ async function openHomeworkReviewModal(taskId) {
                 ${a.pointsEarned !== null && a.pointsEarned !== undefined ? `<p class="text-xs text-muted-foreground">Current grade: <b>${escapeHtml(String(a.pointsEarned))}${maxPoints ? `/${maxPoints}` : ''}</b></p>` : ''}
             </div>`;
         }).join('') : '<div class="text-center text-muted-foreground border rounded-xl py-8">No assigned students found for this homework.</div>';
-        homeworkModalShell('homework-review-modal', `Review: ${escapeHtml(task?.title || 'Homework')}`, `<div class="space-y-4"><div class="rounded-xl border p-4 bg-background"><p class="font-semibold mb-2">Assignment materials</p>${renderHomeworkAttachmentList(task?.attachments || [])}</div>${rows}</div>`);
+        homeworkModalShell('homework-review-modal', `Review: ${escapeHtml(task?.title || 'Homework')}`, `<div class="space-y-4"><div class="rounded-xl border p-4 bg-background"><p class="font-semibold mb-2">Assignment materials</p>${renderHomeworkAttachmentList(task?.attachments || [])}</div>${task?.studyThreadId ? `<div class="rounded-xl border p-4 bg-primary/5"><p class="font-semibold">Study Discussion Open</p><p class="text-sm text-muted-foreground">Thread #${Number(task.studyThreadId)} is linked to this homework.</p></div>` : `<button onclick="createHomeworkDiscussion(${Number(task?.id || 0)})" class="px-4 py-2 rounded-lg bg-primary text-white text-sm">Open Study Discussion</button>`}${rows}</div>`);
     } catch (e) {
         showToast(e.message || 'Could not load homework review', 'error');
     } finally { hideLoading(); }
@@ -1949,6 +1956,22 @@ async function saveHomeworkEdit(taskId) {
     } catch (e) { showToast(e.message || 'Update failed', 'error'); }
 }
 
+
+async function createHomeworkDiscussion(taskId) {
+    try {
+        const title = prompt('Discussion title', 'Homework Discussion') || 'Homework Discussion';
+        const res = await apiRequest(`/api/homework/teacher/${Number(taskId)}/discussion`, {
+            method: 'POST',
+            body: JSON.stringify({ discussionTitle: title, allowStudentReplies: true, rewardParticipation: true })
+        });
+        showToast('Study discussion opened', 'success');
+        document.getElementById('homework-review-modal')?.classList.add('hidden');
+        await showDashboardSection('homework');
+    } catch (e) {
+        showToast(e.message || 'Could not open study discussion', 'error');
+    }
+}
+
 // ============ EXPORTS ============
 window.viewStudentDetails = viewStudentDetails;
 window.showStudentDetailModalFromStudent = showStudentDetailModalFromStudent;
@@ -1982,6 +2005,7 @@ window.completeTask = completeTask;
 window.deleteTask = deleteTask;
 window.renderStaffChat = renderStaffChat;
 window.renderParentChat = renderParentChat;
+window.createHomeworkDiscussion = createHomeworkDiscussion;
 window.switchStaffChat = switchStaffChat;
 window.sendStaffMessage = sendStaffMessage;
 window.openParentConversation = openParentConversation;

@@ -1212,15 +1212,14 @@ function v66NormalizeHomeworkAssignment(assignment) {
         displayStatus,
         submittedLate,
         feedback: assignment.studentFeedback || assignment.feedback || null,
-        submissionAttachments: Array.isArray(assignment.studentFeedback?.attachments) ? assignment.studentFeedback.attachments : [],
-        typedAnswer: assignment.studentFeedback?.typedAnswer || '',
-        submissionComment: assignment.studentFeedback?.comment || '',
-        submittedAt: assignment.submittedAt || assignment.completedAt || assignment.studentFeedback?.submittedAt || null,
         teacherComment: assignment.parentFeedback?.teacherComment || assignment.teacherComment || assignment.remark || '',
         score: assignment.pointsEarned ?? assignment.score ?? assignment.marks ?? null,
         maxPoints: assignment.maxPoints ?? task.points ?? null,
         scoreText: assignment.scoreText || (assignment.pointsEarned !== null && assignment.pointsEarned !== undefined ? `${assignment.pointsEarned}/${assignment.maxPoints || task.points || ''}`.replace(/\/$/, '') : 'Not graded'),
-        attachments: Array.isArray(task.attachments) ? task.attachments : (Array.isArray(assignment.attachments) ? assignment.attachments : [])
+        attachments: Array.isArray(task.attachments) ? task.attachments : (Array.isArray(assignment.attachments) ? assignment.attachments : []),
+        studyDiscussionEnabled: Boolean(task.studyDiscussionEnabled || assignment.studyDiscussionEnabled || task.studyThreadId || assignment.studyThreadId),
+        studyThreadId: task.studyThreadId || assignment.studyThreadId || null,
+        studyDiscussionTitle: task.studyDiscussionTitle || assignment.studyDiscussionTitle || ''
     };
 }
 
@@ -1320,6 +1319,7 @@ function v66RenderHomeworkCard(a) {
             <div class="flex flex-wrap gap-2">
                 <button onclick="v66ToggleHomeworkDetails('${a.id}')" class="px-3 py-2 rounded-lg border text-sm hover:bg-accent">View Details</button>
                 ${canSubmit ? `<button onclick="submitHomework(${a.id})" class="px-3 py-2 rounded-lg bg-primary text-white text-sm">Submit Homework</button>` : ''}
+                ${a.studyThreadId ? `<button onclick="v66JoinHomeworkDiscussion(${Number(a.studyThreadId)})" class="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm">Join Study Discussion</button>` : ''}
             </div>
 
             <div id="homework-details-${a.id}" class="hidden border-t pt-3 text-sm space-y-3">
@@ -1328,7 +1328,6 @@ function v66RenderHomeworkCard(a) {
                     <p class="text-muted-foreground mt-1 whitespace-pre-line">${escapeHtml(a.instructions || 'No written instructions were attached to this homework.')}</p>
                 </div>
                 <div><p class="font-semibold">Assignment File / Materials</p>${v66RenderStudentHomeworkAttachments(a.attachments || [])}</div>
-                ${a.smartStatus === 'submitted' || a.smartStatus === 'graded' ? `<div class="rounded-lg border p-3 bg-background"><p class="font-semibold">Your Submission</p>${a.typedAnswer ? `<p class="text-sm mt-2 whitespace-pre-line">${escapeHtml(a.typedAnswer)}</p>` : ''}${a.submissionComment ? `<p class="text-xs text-muted-foreground mt-2">Note: ${escapeHtml(a.submissionComment)}</p>` : ''}${v66RenderStudentHomeworkAttachments(a.submissionAttachments || [])}<p class="text-xs text-muted-foreground mt-2">Submitted: ${a.submittedAt ? formatDate(a.submittedAt) : 'N/A'}</p></div>` : ''}
                 ${a.teacherComment ? `<div><p class="font-semibold">Teacher Comment</p><p class="text-muted-foreground mt-1">${escapeHtml(a.teacherComment)}</p></div>` : ''}
                 ${a.score !== null && a.score !== undefined ? `<div><p class="font-semibold">Grade / Score</p><p class="text-muted-foreground mt-1">${escapeHtml(a.scoreText || String(a.score))}</p></div>` : '<div><p class="font-semibold">Grade / Score</p><p class="text-muted-foreground mt-1">Not graded yet</p></div>'}
                 <div class="text-xs text-muted-foreground">Assigned: ${a.assignedAt ? formatDate(a.assignedAt) : 'N/A'}</div>
@@ -1348,61 +1347,19 @@ function v66HomeworkRecommendation(a) {
     return `Start with the instructions, finish the main task, then submit before the due date.`;
 }
 
-function homeworkSubmitModalShell(id, title, body, footer = '') {
-    let modal = document.getElementById(id);
-    if (!modal) {
-        document.body.insertAdjacentHTML('beforeend', `<div id="${id}" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="document.getElementById('${id}').classList.add('hidden')"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl p-4"><div class="rounded-xl border bg-card p-6 shadow-xl max-h-[85vh] overflow-y-auto"><div class="flex justify-between items-start gap-3 mb-4"><h3 class="text-lg font-semibold">${title}</h3><button class="text-xl" onclick="document.getElementById('${id}').classList.add('hidden')">×</button></div><div id="${id}-body"></div><div id="${id}-footer" class="flex justify-end gap-3 mt-6"></div></div></div></div>`);
-        modal = document.getElementById(id);
-    }
-    document.getElementById(`${id}-body`).innerHTML = body;
-    document.getElementById(`${id}-footer`).innerHTML = footer;
-    modal.classList.remove('hidden');
-}
-
-async function uploadStudentHomeworkSubmissionFile(inputId) {
-    const input = document.getElementById(inputId);
-    const file = input?.files?.[0];
-    if (!file) return [];
-    if (typeof uploadFile !== 'function') throw new Error('Upload service is not available');
-    const fd = new FormData();
-    fd.append('file', file);
-    const res = await uploadFile('/api/homework/attachments', fd);
-    return res?.data ? [res.data] : [];
-}
-
-function submitHomework(assignmentId) {
-    const assignment = (window.v66StudentHomework || []).find(item => Number(item.id) === Number(assignmentId));
-    homeworkSubmitModalShell('student-homework-submit-modal', `Submit: ${escapeHtml(assignment?.title || 'Homework')}`, `
-        <div class="space-y-4">
-            <div class="rounded-lg border bg-background p-3 text-sm text-muted-foreground">Submit a typed answer, an uploaded file, or both. Your teacher will see the submission time and whether it was late.</div>
-            <div><label class="block text-sm font-medium">Typed answer</label><textarea id="submit-hw-answer" rows="5" class="w-full rounded-lg border p-2 bg-background" placeholder="Write your answer here..."></textarea></div>
-            <div><label class="block text-sm font-medium">Upload answer file</label><input id="submit-hw-file" type="file" class="w-full rounded-lg border p-2 bg-background"><p class="text-xs text-muted-foreground mt-1">PDF, DOCX, image, or other teacher-approved file.</p></div>
-            <div><label class="block text-sm font-medium">Short note to teacher</label><input id="submit-hw-comment" class="w-full rounded-lg border p-2 bg-background" placeholder="Optional note"></div>
-        </div>
-    `, `<button onclick="document.getElementById('student-homework-submit-modal').classList.add('hidden')" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="confirmSubmitHomework(${Number(assignmentId)})" class="px-4 py-2 bg-primary text-white rounded-lg">Submit Homework</button>`);
-}
-
-async function confirmSubmitHomework(assignmentId) {
-    const typedAnswer = document.getElementById('submit-hw-answer')?.value.trim() || '';
-    const comment = document.getElementById('submit-hw-comment')?.value.trim() || '';
-    const hasFile = Boolean(document.getElementById('submit-hw-file')?.files?.[0]);
-    if (!typedAnswer && !comment && !hasFile) return showToast('Add an answer, file, or note before submitting', 'error');
+async function submitHomework(assignmentId) {
+    const comment = prompt('Any comments?');
     showLoading();
     try {
-        const attachments = await uploadStudentHomeworkSubmissionFile('submit-hw-file');
-        await apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify({ typedAnswer, comment, attachments }) });
-        document.getElementById('student-homework-submit-modal')?.classList.add('hidden');
+        await apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify({ comment }) });
         hideLoading();
-        showToast('Homework submitted', 'success');
+        showToast('Submitted', 'success');
         showDashboardSection('my-homework');
     } catch (e) {
         hideLoading();
-        showToast(e.message || 'Submission failed', 'error');
+        showToast(e.message, 'error');
     }
 }
-
-window.confirmSubmitHomework = confirmSubmitHomework;
-window.submitHomework = submitHomework;
 
 // ============ HELPERS ============
 function escapeHtml(text) {
@@ -1515,6 +1472,7 @@ window.renderStudentDashboard = renderStudentDashboard;
 window.renderStudentGrades = renderStudentGrades;
 window.renderStudentAttendance = renderStudentAttendance;
 window.renderStudentChat = renderStudentChat;
+window.v66JoinHomeworkDiscussion = v66JoinHomeworkDiscussion;
 window.renderStudentAITutor = renderStudentAITutor;
 window.renderStudentSchedule = renderStudentSchedule;
 window.renderStudentLeaderboard = renderStudentLeaderboard;
@@ -1535,6 +1493,19 @@ window.loadStudentChatMessages = loadStudentChatMessages;
 window.loadDashboardLeaderboard = loadDashboardLeaderboard;
 window.loadDashboardBadges = loadDashboardBadges;
 
+
+
+async function v66JoinHomeworkDiscussion(threadId) {
+    try {
+        if (typeof showDashboardSection === 'function') await showDashboardSection('chat');
+        setTimeout(async () => {
+            if (typeof v9LoadStudentThreads === 'function') await v9LoadStudentThreads();
+            if (typeof v9SelectStudentThread === 'function') v9SelectStudentThread(Number(threadId));
+        }, 250);
+    } catch (e) {
+        showToast(e.message || 'Could not open study discussion', 'error');
+    }
+}
 
 // V42 compatibility alias: keep original student homework layout, only satisfy older v12 callers.
 window.v12RenderStudentHomework = window.v12RenderStudentHomework || window.renderStudentHomework;
