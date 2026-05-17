@@ -667,7 +667,8 @@ const homeworkAPI = {
     getTeacherAssignments: () => apiRequest('/api/homework/teacher'),
     createAssignment: (data) => apiRequest('/api/homework/assign', { method: 'POST', body: JSON.stringify(data) }),
     getStudentAssignments: () => apiRequest('/api/homework/student'),
-    submitAssignment: (assignmentId, data) => apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify(data) })
+    submitAssignment: (assignmentId, data) => apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify(data) }),
+    uploadSubmissionAttachment: (formData) => apiRequest('/api/homework/submission-attachments', { method: 'POST', body: formData })
 };
 
 // Calendar

@@ -1194,10 +1194,11 @@ function v66NormalizeHomeworkAssignment(assignment) {
     const dueRaw = task.dueDate || assignment.dueDate || assignment.deadline || null;
     const due = dueRaw ? new Date(dueRaw) : null;
     const status = String(assignment.status || task.status || 'pending').toLowerCase();
-    const isLate = Boolean(assignment.isLate) || (due && !isNaN(due) && due < new Date() && !['submitted','graded','completed'].includes(status));
+    const isLate = Boolean(assignment.isLate) || (due && !isNaN(due) && due < new Date() && !['submitted','graded','completed','returned'].includes(status));
     const submittedLate = Boolean(assignment.submittedLate || assignment.studentFeedback?.submittedLate);
-    const smartStatus = status === 'graded' ? 'graded' : (['submitted','completed'].includes(status) ? 'submitted' : (isLate ? 'late' : 'pending'));
-    const displayStatus = assignment.displayStatus || (status === 'graded' ? (submittedLate ? 'Graded late' : 'Graded') : (['submitted','completed'].includes(status) ? (submittedLate ? 'Submitted late' : 'Submitted') : (isLate ? 'Late' : 'Pending')));
+    const smartStatus = status === 'graded' ? 'graded' : (status === 'returned' ? 'returned' : (['submitted','completed'].includes(status) ? 'submitted' : (isLate ? 'late' : 'pending')));
+    const displayStatus = assignment.displayStatus || (status === 'returned' ? 'Returned for correction' : (status === 'graded' ? (submittedLate ? 'Graded late' : 'Graded') : (['submitted','completed'].includes(status) ? (submittedLate ? 'Submitted late' : 'Submitted') : (isLate ? 'Late' : 'Pending'))));
+    const submissionFiles = Array.isArray(assignment.submissionFiles) ? assignment.submissionFiles : (Array.isArray(assignment.studentFeedback?.submissionFiles) ? assignment.studentFeedback.submissionFiles : []);
     return {
         id: assignment.id || assignment.assignmentId || task.id,
         taskId: task.id,
@@ -1207,16 +1208,19 @@ function v66NormalizeHomeworkAssignment(assignment) {
         teacher: task.teacherName || assignment.teacherName || task.Teacher?.User?.name || task.teacher || 'Not assigned',
         dueDate: dueRaw,
         assignedAt: assignment.assignedAt || task.createdAt || task.assignedAt,
+        submittedAt: assignment.submittedAt || assignment.completedAt || assignment.studentFeedback?.submittedAt || null,
         status,
         smartStatus,
         displayStatus,
         submittedLate,
         feedback: assignment.studentFeedback || assignment.feedback || null,
         teacherComment: assignment.parentFeedback?.teacherComment || assignment.teacherComment || assignment.remark || '',
+        returnedForCorrection: Boolean(assignment.parentFeedback?.returnedForCorrection || status === 'returned'),
         score: assignment.pointsEarned ?? assignment.score ?? assignment.marks ?? null,
         maxPoints: assignment.maxPoints ?? task.points ?? null,
         scoreText: assignment.scoreText || (assignment.pointsEarned !== null && assignment.pointsEarned !== undefined ? `${assignment.pointsEarned}/${assignment.maxPoints || task.points || ''}`.replace(/\/$/, '') : 'Not graded'),
         attachments: Array.isArray(task.attachments) ? task.attachments : (Array.isArray(assignment.attachments) ? assignment.attachments : []),
+        submissionFiles,
         studyDiscussionEnabled: Boolean(task.studyDiscussionEnabled || assignment.studyDiscussionEnabled || task.studyThreadId || assignment.studyThreadId),
         studyThreadId: task.studyThreadId || assignment.studyThreadId || null,
         studyDiscussionTitle: task.studyDiscussionTitle || assignment.studyDiscussionTitle || ''
@@ -1295,9 +1299,9 @@ function v66RenderStudentHomeworkAttachments(attachments = []) {
 }
 
 function v66RenderHomeworkCard(a) {
-    const statusClass = a.smartStatus === 'late' ? 'bg-red-100 text-red-700' : a.smartStatus === 'submitted' ? 'bg-blue-100 text-blue-700' : a.smartStatus === 'graded' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+    const statusClass = a.smartStatus === 'late' ? 'bg-red-100 text-red-700' : a.smartStatus === 'returned' ? 'bg-orange-100 text-orange-700' : a.smartStatus === 'submitted' ? 'bg-blue-100 text-blue-700' : a.smartStatus === 'graded' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
     const dueText = a.dueDate ? formatDate(a.dueDate) : 'No due date';
-    const canSubmit = !['submitted','graded'].includes(a.smartStatus);
+    const canSubmit = !['submitted','graded'].includes(a.smartStatus) || a.smartStatus === 'returned';
     return `
         <div class="rounded-xl border bg-card p-4 space-y-4 homework-card" id="homework-card-${a.id}">
             <div class="flex items-start justify-between gap-3">
@@ -1318,7 +1322,7 @@ function v66RenderHomeworkCard(a) {
 
             <div class="flex flex-wrap gap-2">
                 <button onclick="v66ToggleHomeworkDetails('${a.id}')" class="px-3 py-2 rounded-lg border text-sm hover:bg-accent">View Details</button>
-                ${canSubmit ? `<button onclick="submitHomework(${a.id})" class="px-3 py-2 rounded-lg bg-primary text-white text-sm">Submit Homework</button>` : ''}
+                ${canSubmit ? `<button onclick="openHomeworkSubmitModal(${a.id})" class="px-3 py-2 rounded-lg bg-primary text-white text-sm">${a.smartStatus === 'returned' ? 'Resubmit' : 'Submit Homework'}</button>` : ''}
                 ${a.studyThreadId ? `<button onclick="v66JoinHomeworkDiscussion(${Number(a.studyThreadId)})" class="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm">Join Study Discussion</button>` : ''}
             </div>
 
@@ -1328,6 +1332,9 @@ function v66RenderHomeworkCard(a) {
                     <p class="text-muted-foreground mt-1 whitespace-pre-line">${escapeHtml(a.instructions || 'No written instructions were attached to this homework.')}</p>
                 </div>
                 <div><p class="font-semibold">Assignment File / Materials</p>${v66RenderStudentHomeworkAttachments(a.attachments || [])}</div>
+                ${a.submissionFiles?.length ? `<div><p class="font-semibold">Your Submission</p>${v66RenderStudentHomeworkAttachments(a.submissionFiles || [])}</div>` : ''}
+                ${a.submittedAt ? `<div><p class="font-semibold">Submitted</p><p class="text-muted-foreground mt-1">${formatDate(a.submittedAt)}${a.submittedLate ? ' • Submitted late' : ''}</p></div>` : ''}
+                ${a.returnedForCorrection ? `<div class="rounded-lg border border-orange-200 bg-orange-50 p-3 text-orange-800"><p class="font-semibold">Returned for correction</p><p class="text-sm">Review the teacher comment, fix your work, then resubmit.</p></div>` : ''}
                 ${a.teacherComment ? `<div><p class="font-semibold">Teacher Comment</p><p class="text-muted-foreground mt-1">${escapeHtml(a.teacherComment)}</p></div>` : ''}
                 ${a.score !== null && a.score !== undefined ? `<div><p class="font-semibold">Grade / Score</p><p class="text-muted-foreground mt-1">${escapeHtml(a.scoreText || String(a.score))}</p></div>` : '<div><p class="font-semibold">Grade / Score</p><p class="text-muted-foreground mt-1">Not graded yet</p></div>'}
                 <div class="text-xs text-muted-foreground">Assigned: ${a.assignedAt ? formatDate(a.assignedAt) : 'N/A'}</div>
@@ -1347,19 +1354,56 @@ function v66HomeworkRecommendation(a) {
     return `Start with the instructions, finish the main task, then submit before the due date.`;
 }
 
+function homeworkSubmitModalShell(id, title, body, footer = '') {
+    let modal = document.getElementById(id);
+    if (!modal) {
+        document.body.insertAdjacentHTML('beforeend', `<div id="${id}" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="document.getElementById('${id}').classList.add('hidden')"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg p-4"><div class="rounded-xl border bg-card p-6 shadow-xl"><div class="flex justify-between items-start mb-4"><h3 class="text-lg font-semibold">${title}</h3><button class="text-xl" onclick="document.getElementById('${id}').classList.add('hidden')">×</button></div><div id="${id}-body"></div><div id="${id}-footer" class="flex justify-end gap-3 mt-6"></div></div></div></div>`);
+        modal = document.getElementById(id);
+    }
+    document.getElementById(`${id}-body`).innerHTML = body;
+    document.getElementById(`${id}-footer`).innerHTML = footer;
+    modal.classList.remove('hidden');
+}
+
+function openHomeworkSubmitModal(assignmentId) {
+    const hw = (window.v66StudentHomework || []).find(item => Number(item.id) === Number(assignmentId));
+    homeworkSubmitModalShell('student-homework-submit-modal', `Submit: ${escapeHtml(hw?.title || 'Homework')}`, `
+        <div class="space-y-4">
+            <div class="rounded-lg border p-3 bg-muted/30"><p class="text-sm font-medium">${escapeHtml(hw?.subject || 'Homework')}</p><p class="text-xs text-muted-foreground">Upload your answer file and add a short note if needed.</p></div>
+            <div><label class="block text-sm font-medium">Submission file</label><input type="file" id="student-hw-submit-file" class="w-full rounded-lg border p-2 bg-background"><p class="text-xs text-muted-foreground mt-1">PDF, image, Word document, or photo of your work.</p></div>
+            <div><label class="block text-sm font-medium">Comment</label><textarea id="student-hw-submit-comment" rows="3" class="w-full rounded-lg border p-2 bg-background" placeholder="Optional note to your teacher"></textarea></div>
+        </div>
+    `, `<button onclick="document.getElementById('student-homework-submit-modal').classList.add('hidden')" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="submitHomework(${Number(assignmentId)})" class="px-4 py-2 bg-primary text-white rounded-lg">Submit</button>`);
+}
+
+async function uploadStudentHomeworkSubmissionFile() {
+    const input = document.getElementById('student-hw-submit-file');
+    const file = input?.files?.[0];
+    if (!file) return [];
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiRequest('/api/homework/submission-attachments', { method: 'POST', body: formData });
+    return res?.data ? [res.data] : [];
+}
+
 async function submitHomework(assignmentId) {
-    const comment = prompt('Any comments?');
+    const comment = document.getElementById('student-hw-submit-comment')?.value || '';
     showLoading();
     try {
-        await apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify({ comment }) });
+        const submissionFiles = await uploadStudentHomeworkSubmissionFile();
+        await apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify({ comment, submissionFiles }) });
         hideLoading();
-        showToast('Submitted', 'success');
+        document.getElementById('student-homework-submit-modal')?.classList.add('hidden');
+        showToast('Homework submitted', 'success');
         showDashboardSection('my-homework');
     } catch (e) {
         hideLoading();
         showToast(e.message, 'error');
     }
 }
+
+window.openHomeworkSubmitModal = openHomeworkSubmitModal;
+window.uploadStudentHomeworkSubmissionFile = uploadStudentHomeworkSubmissionFile;
 
 // ============ HELPERS ============
 function escapeHtml(text) {

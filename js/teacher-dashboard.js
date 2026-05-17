@@ -1810,6 +1810,28 @@ function renderHomeworkAttachmentList(attachments = []) {
     }).join('')}</div>`;
 }
 
+
+async function uploadHomeworkMaterial(inputId) {
+    const input = document.getElementById(inputId);
+    const file = input?.files?.[0];
+    if (!file) return [];
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiRequest('/api/homework/attachments', { method: 'POST', body: formData });
+    return res?.data ? [res.data] : [];
+}
+
+function renderStudentSubmissionFiles(files = [], fallbackUrl = '') {
+    const normalized = Array.isArray(files) && files.length ? files : (fallbackUrl ? [{ url: fallbackUrl, name: 'Submitted file' }] : []);
+    if (!normalized.length) return '<p class="text-xs text-muted-foreground">No submission file uploaded.</p>';
+    return `<div class="space-y-2">${normalized.map((file, index) => {
+        const url = safeHomeworkFileUrl(file.downloadUrl || file.secureUrl || file.url || '');
+        const name = escapeHtml(file.name || `Submission ${index + 1}`);
+        const downloadUrl = url ? `${url}${url.includes('?') ? '&' : '?'}download=1` : '';
+        return `<div class="flex items-center justify-between gap-2 rounded-lg border p-2 bg-muted/20"><div class="min-w-0"><p class="text-sm font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div>${url ? `<div class="flex gap-2"><a href="${url}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded border text-xs">View</a><a href="${downloadUrl}" class="px-2 py-1 rounded bg-primary text-white text-xs">Download</a></div>` : '<span class="text-xs text-red-500">Unavailable</span>'}</div>`;
+    }).join('')}</div>`;
+}
+
 async function createHomework() {
     const title = document.getElementById('hw-title')?.value.trim();
     const instructions = document.getElementById('hw-instructions')?.value.trim();
@@ -1876,21 +1898,24 @@ async function openHomeworkReviewModal(taskId) {
     try {
         showLoading();
         const { task, assignments = [] } = await fetchHomeworkDetails(taskId);
+        window.__lastHomeworkReviewTaskId = Number(taskId);
         const rows = assignments.length ? assignments.map(a => {
             const studentName = a.Student?.User?.name || `Student #${a.studentId}`;
-            const submitted = a.status === 'submitted' || a.status === 'graded' || a.completedAt || a.submittedAt;
+            const submitted = a.status === 'submitted' || a.status === 'graded' || a.status === 'returned' || a.completedAt || a.submittedAt;
             const feedback = a.studentFeedback || {};
-            const displayStatus = a.displayStatus || (submitted ? 'Submitted' : 'Pending');
-            const badgeClass = a.isLate || a.submittedLate ? 'bg-red-100 text-red-700' : (a.status === 'graded' ? 'bg-green-100 text-green-700' : (submitted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'));
+            const displayStatus = a.displayStatus || (a.status === 'returned' ? 'Returned for correction' : (submitted ? 'Submitted' : 'Pending'));
+            const badgeClass = a.status === 'returned' ? 'bg-orange-100 text-orange-700' : (a.isLate || a.submittedLate ? 'bg-red-100 text-red-700' : (a.status === 'graded' ? 'bg-green-100 text-green-700' : (submitted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700')));
             const maxPoints = Number(a.maxPoints || task?.points || 0);
-            return `<div class="rounded-xl border p-4 bg-background space-y-2">
+            const submissionFiles = a.submissionFiles || feedback.submissionFiles || [];
+            return `<div class="rounded-xl border p-4 bg-background space-y-3">
                 <div class="flex justify-between gap-3"><div><h4 class="font-semibold">${escapeHtml(studentName)}</h4><p class="text-xs text-muted-foreground">Status: ${escapeHtml(displayStatus)} ${a.completedAt ? `• Submitted: ${formatDate(a.completedAt)}` : ''}</p></div><span class="text-xs rounded-full px-2 py-1 ${badgeClass}">${escapeHtml(displayStatus)}</span></div>
                 ${feedback.comment ? `<p class="text-sm"><b>Student note:</b> ${escapeHtml(feedback.comment)}</p>` : ''}
-                ${feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${resolveMediaUrl(feedback.fileUrl)}" target="_blank" rel="noopener noreferrer">Open submitted file</a>` : ''}
-                <div class="grid md:grid-cols-[120px_1fr_auto] gap-2 items-end">
+                <div class="rounded-lg border p-3"><p class="text-sm font-semibold mb-2">Student submission</p>${renderStudentSubmissionFiles(submissionFiles, feedback.fileUrl || '')}</div>
+                <div class="grid md:grid-cols-[120px_1fr_160px_auto] gap-2 items-end">
                     <div><label class="text-xs">Points ${maxPoints ? `/ ${maxPoints}` : ''}</label><input id="review-points-${Number(a.id)}" type="number" min="0" ${maxPoints ? `max="${maxPoints}"` : ''} value="${a.pointsEarned ?? ''}" class="w-full rounded-lg border p-2 bg-card"></div>
                     <div><label class="text-xs">Teacher comment</label><input id="review-comment-${Number(a.id)}" value="${escapeHtml(a.parentFeedback?.teacherComment || '')}" class="w-full rounded-lg border p-2 bg-card"></div>
-                    <button onclick="saveHomeworkReview(${Number(a.id)})" class="px-3 py-2 rounded-lg bg-primary text-white">Save Review</button>
+                    <div><label class="text-xs">Action</label><select id="review-status-${Number(a.id)}" class="w-full rounded-lg border p-2 bg-card"><option value="graded" ${a.status === 'graded' ? 'selected' : ''}>Grade</option><option value="returned" ${a.status === 'returned' ? 'selected' : ''}>Return correction</option><option value="submitted" ${a.status === 'submitted' ? 'selected' : ''}>Keep submitted</option></select></div>
+                    <button onclick="saveHomeworkReview(${Number(a.id)})" class="px-3 py-2 rounded-lg bg-primary text-white">Save</button>
                 </div>
                 ${a.pointsEarned !== null && a.pointsEarned !== undefined ? `<p class="text-xs text-muted-foreground">Current grade: <b>${escapeHtml(String(a.pointsEarned))}${maxPoints ? `/${maxPoints}` : ''}</b></p>` : ''}
             </div>`;
@@ -1905,11 +1930,14 @@ async function saveHomeworkReview(assignmentId) {
     try {
         const pointsEarned = document.getElementById(`review-points-${Number(assignmentId)}`)?.value;
         const teacherComment = document.getElementById(`review-comment-${Number(assignmentId)}`)?.value || '';
+        const status = document.getElementById(`review-status-${Number(assignmentId)}`)?.value || 'graded';
         await apiRequest(`/api/homework/teacher/submissions/${Number(assignmentId)}/review`, {
             method: 'POST',
-            body: JSON.stringify({ status: 'graded', pointsEarned: pointsEarned === '' ? null : Number(pointsEarned), teacherComment })
+            body: JSON.stringify({ status, pointsEarned: pointsEarned === '' ? null : Number(pointsEarned), teacherComment })
         });
-        showToast('Review saved', 'success');
+        showToast(status === 'returned' ? 'Returned for correction' : 'Review saved', 'success');
+        const modalOpen = !document.getElementById('homework-review-modal')?.classList.contains('hidden');
+        if (modalOpen && window.__lastHomeworkReviewTaskId) openHomeworkReviewModal(window.__lastHomeworkReviewTaskId);
     } catch (e) { showToast(e.message || 'Review failed', 'error'); }
 }
 
