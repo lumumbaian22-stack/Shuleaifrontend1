@@ -1803,6 +1803,18 @@ function renderHomeworkAttachmentList(attachments = []) {
     }).join('')}</div>`;
 }
 
+
+async function uploadHomeworkMaterial(inputId) {
+    const input = document.getElementById(inputId);
+    const file = input?.files?.[0];
+    if (!file) return [];
+    if (typeof uploadFile !== 'function') throw new Error('Upload service is not available');
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await uploadFile('/api/homework/attachments', fd);
+    return res?.data ? [res.data] : [];
+}
+
 async function createHomework() {
     const title = document.getElementById('hw-title')?.value.trim();
     const instructions = document.getElementById('hw-instructions')?.value.trim();
@@ -1865,8 +1877,9 @@ async function openHomeworkReviewModal(taskId) {
             const maxPoints = Number(a.maxPoints || task?.points || 0);
             return `<div class="rounded-xl border p-4 bg-background space-y-2">
                 <div class="flex justify-between gap-3"><div><h4 class="font-semibold">${escapeHtml(studentName)}</h4><p class="text-xs text-muted-foreground">Status: ${escapeHtml(displayStatus)} ${a.completedAt ? `• Submitted: ${formatDate(a.completedAt)}` : ''}</p></div><span class="text-xs rounded-full px-2 py-1 ${badgeClass}">${escapeHtml(displayStatus)}</span></div>
+                ${feedback.typedAnswer ? `<div class="rounded-lg border p-3 text-sm"><b>Typed answer:</b><p class="mt-1 whitespace-pre-line">${escapeHtml(feedback.typedAnswer)}</p></div>` : ''}
                 ${feedback.comment ? `<p class="text-sm"><b>Student note:</b> ${escapeHtml(feedback.comment)}</p>` : ''}
-                ${feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${resolveMediaUrl(feedback.fileUrl)}" target="_blank" rel="noopener noreferrer">Open submitted file</a>` : ''}
+                ${Array.isArray(feedback.attachments) && feedback.attachments.length ? `<div><p class="text-sm font-medium mb-1">Submitted file(s)</p>${renderHomeworkAttachmentList(feedback.attachments)}</div>` : (feedback.fileUrl ? `<a class="text-primary text-sm underline" href="${safeHomeworkFileUrl(feedback.fileUrl)}" target="_blank" rel="noopener noreferrer">Open submitted file</a>` : '')}
                 <div class="grid md:grid-cols-[120px_1fr_auto] gap-2 items-end">
                     <div><label class="text-xs">Points ${maxPoints ? `/ ${maxPoints}` : ''}</label><input id="review-points-${Number(a.id)}" type="number" min="0" ${maxPoints ? `max="${maxPoints}"` : ''} value="${a.pointsEarned ?? ''}" class="w-full rounded-lg border p-2 bg-card"></div>
                     <div><label class="text-xs">Teacher comment</label><input id="review-comment-${Number(a.id)}" value="${escapeHtml(a.parentFeedback?.teacherComment || '')}" class="w-full rounded-lg border p-2 bg-card"></div>
