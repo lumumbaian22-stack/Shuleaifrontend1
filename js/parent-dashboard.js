@@ -3,6 +3,83 @@
 if (typeof window.dashboardData === 'undefined') window.dashboardData = {};
 var dashboardData = window.dashboardData;
 
+
+function getParentChildDisplay(child) {
+    const name = child?.name || child?.User?.name || 'Student';
+    const className = child?.className || child?.grade || 'Not Assigned';
+    const schoolName = child?.schoolName || child?.schoolCode || 'School';
+    return { name, className, schoolName };
+}
+
+function renderParentChildSwitcher(children, selectedChildId) {
+    if (!children || children.length === 0) {
+        return `
+            <div class="rounded-xl border bg-card p-4">
+                <div class="flex items-start gap-3">
+                    <div class="h-10 w-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+                        <i data-lucide="link" class="h-5 w-5"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-semibold">No linked children yet</h3>
+                        <p class="text-sm text-muted-foreground">Enter your child’s Elimu ID to securely link them to your parent account.</p>
+                        <div class="mt-3 flex flex-col sm:flex-row gap-2">
+                            <input id="parent-link-elimuid" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono" placeholder="Enter Elimu ID">
+                            <button onclick="linkParentChildByElimuId()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm">Link Child</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    const selected = children.find(c => String(c.id) === String(selectedChildId)) || children[0];
+    const display = getParentChildDisplay(selected);
+    const options = children.map(child => {
+        const d = getParentChildDisplay(child);
+        return `<option value="${escapeHtml(String(child.id))}" ${String(child.id) === String(selected?.id) ? 'selected' : ''}>${escapeHtml(d.name)} — ${escapeHtml(d.className)} • ${escapeHtml(d.schoolName)}</option>`;
+    }).join('');
+
+    if (children.length === 1) {
+        return `
+            <div class="rounded-xl border bg-card p-4" id="child-selector">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                        <p class="text-xs uppercase tracking-wide text-muted-foreground">Viewing child</p>
+                        <h3 class="text-lg font-semibold">${escapeHtml(display.name)}</h3>
+                        <p class="text-sm text-muted-foreground">${escapeHtml(display.className)} • ${escapeHtml(display.schoolName)}</p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input id="parent-link-elimuid" class="rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono" placeholder="Add another child by Elimu ID">
+                        <button onclick="linkParentChildByElimuId()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm">Add Child</button>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    return `
+        <div class="rounded-xl border bg-card p-4" id="child-selector">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-muted-foreground">Viewing child</p>
+                    <h3 class="text-lg font-semibold">${escapeHtml(display.name)}</h3>
+                    <p class="text-sm text-muted-foreground">${escapeHtml(display.className)} • ${escapeHtml(display.schoolName)}</p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2 md:min-w-[380px]">
+                    <select id="parent-child-switcher" onchange="selectChild(this.value)" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        ${options}
+                    </select>
+                    <button onclick="toggleParentAddChildBox()" class="px-4 py-2 bg-muted rounded-lg text-sm">Add Child</button>
+                </div>
+            </div>
+            <div id="parent-add-child-box" class="hidden mt-3 pt-3 border-t">
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input id="parent-link-elimuid" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono" placeholder="Enter another child’s Elimu ID">
+                    <button onclick="linkParentChildByElimuId()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm">Link Child</button>
+                </div>
+                <p class="text-xs text-muted-foreground mt-2">Only children linked through their real Elimu ID appear here. Each child allows a maximum of two parent/guardian accounts.</p>
+            </div>
+        </div>`;
+}
+
 async function renderParentSection(section) {
     switch(section) {
         case 'dashboard':
@@ -82,43 +159,33 @@ async function renderParentDashboard() {
         });
         window.dashboardData = dashboardData;
 
+        const selectedChildMeta = children.find(c => String(c.id) === String(selectedChildId));
+        if (selectedChildMeta) {
+            localStorage.setItem('shule_selected_child_school_code', selectedChildMeta.schoolCode || '');
+            localStorage.setItem('shule_selected_child_school_name', selectedChildMeta.schoolName || '');
+            if (window.ShuleBrandingManager?.applyGlobalBranding) {
+                window.ShuleBrandingManager.applyGlobalBranding({ schoolName: selectedChildMeta.schoolName, schoolLogo: selectedChildMeta.schoolLogo });
+            }
+        }
+
         let html = `
             <div class="space-y-6 animate-fade-in">
                 <!-- School Name Header -->
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h2 id="parent-school-name" class="text-xl font-semibold">${escapeHtml(school?.name || 'Your School')}</h2>
+                            <h2 id="parent-school-name" class="text-xl font-semibold">${escapeHtml(selectedChildSummary?.school?.name || children.find(c => String(c.id) === String(selectedChildId))?.schoolName || school?.name || 'Your School')}</h2>
                             <p class="text-sm text-muted-foreground">Parent Portal</p>
                         </div>
                         <div class="bg-white dark:bg-gray-800 px-3 py-1 rounded-lg shadow-sm">
                             <p class="text-xs text-muted-foreground">School Code</p>
-                            <p class="text-sm font-mono font-bold">${school?.shortCode || 'SHL-XXXXX'}</p>
+                            <p class="text-sm font-mono font-bold">${escapeHtml(selectedChildSummary?.school?.schoolId || children.find(c => String(c.id) === String(selectedChildId))?.schoolCode || school?.shortCode || 'SHL-XXXXX')}</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex gap-2 border-b pb-4 overflow-x-auto" id="child-selector">
+                ${renderParentChildSwitcher(children, selectedChildId)}
         `;
-
-        if (children.length === 0) {
-            html += `<p class="text-muted-foreground">No children linked to your account</p>`;
-        } else {
-            children.forEach((child, index) => {
-                const childName = child.User?.name || 'Unknown';
-                const childGrade = child.grade || 'N/A';
-                const isActive = index === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted';
-
-                html += `
-                    <button onclick="selectChild('${child.id}')" 
-                            class="child-selector-btn px-4 py-2 ${isActive} rounded-lg transition-all">
-                        ${escapeHtml(childName)} (Grade ${escapeHtml(childGrade)})
-                    </button>
-                `;
-            });
-        }
-
-        html += `</div>`;
 
         const parent = getCurrentUser();
         if (parent.trialEndsAt && new Date(parent.trialEndsAt) > new Date()) {
@@ -676,29 +743,53 @@ async function renderParentChat() {
 // ============ HELPER FUNCTIONS ============
 
 async function selectChild(childId) {
-    document.querySelectorAll('.child-selector-btn').forEach(btn => {
-        btn.classList.remove('bg-primary', 'text-primary-foreground');
-        btn.classList.add('bg-muted');
-    });
-
-    const selectedBtn = Array.from(document.querySelectorAll('.child-selector-btn'))
-        .find(btn => btn.getAttribute('onclick')?.includes(`'${childId}'`));
-
-    if (selectedBtn) {
-        selectedBtn.classList.remove('bg-muted');
-        selectedBtn.classList.add('bg-primary', 'text-primary-foreground');
-    }
-
     dashboardData.selectedChildId = childId;
     localStorage.setItem('shule_selected_child_id', childId);
+
+    const selectedChild = (dashboardData.children || []).find(c => String(c.id) === String(childId));
+    if (selectedChild) {
+        localStorage.setItem('shule_selected_child_school_code', selectedChild.schoolCode || '');
+        localStorage.setItem('shule_selected_child_school_name', selectedChild.schoolName || '');
+        if (window.ShuleBrandingManager?.applyGlobalBranding) {
+            window.ShuleBrandingManager.applyGlobalBranding({ schoolName: selectedChild.schoolName, schoolLogo: selectedChild.schoolLogo });
+        }
+    }
 
     showLoading();
     try {
         const summaryResponse = await api.parent.getChildSummary(childId);
         dashboardData.selectedChild = summaryResponse.data;
         await showDashboardSection(currentSection);
-    } catch (error) {console.error('Error selecting child:', error);
+    } catch (error) {
+        console.error('Error selecting child:', error);
         showToast('Failed to load child data', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function toggleParentAddChildBox() {
+    const box = document.getElementById('parent-add-child-box');
+    if (box) box.classList.toggle('hidden');
+}
+
+async function linkParentChildByElimuId() {
+    const input = document.getElementById('parent-link-elimuid');
+    const elimuid = input?.value?.trim();
+    if (!elimuid) {
+        showToast('Enter the child Elimu ID first', 'error');
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await api.parent.linkChildByElimuId(elimuid);
+        showToast(response.message || 'Child linked successfully', 'success');
+        localStorage.setItem('shule_selected_child_id', response.data?.id || '');
+        await showDashboardSection(currentSection || 'dashboard');
+    } catch (error) {
+        console.error('Link child error:', error);
+        showToast(error.message || 'Could not link child', 'error');
     } finally {
         hideLoading();
     }

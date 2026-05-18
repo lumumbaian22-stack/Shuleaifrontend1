@@ -397,6 +397,7 @@ const teacherAPI = {
 // ============ PARENT ENDPOINTS ============
 const parentAPI = {
     getChildren: () => apiRequest('/api/parent/children'),
+    linkChildByElimuId: (elimuid) => apiRequest('/api/parent/children/link', { method: 'POST', body: JSON.stringify({ elimuid }) }),
     getChildTodayAttendance: (studentId) => apiRequest(`/api/parent/child/${studentId}/attendance/today`),
     getChildSummary: (studentId) => 
         apiRequest(`/api/parent/child/${studentId}/summary`),
