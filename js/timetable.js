@@ -1,114 +1,218 @@
-// Shule AI v34 - Clean responsive timetable module
-(function(){
-  const w=window;
-  const esc=(v)=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const DAYS=['monday','tuesday','wednesday','thursday','friday'];
-  const DAY_LABELS={monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday'};
-  const DEFAULT_PERIODS=[
-    {label:'Period 1',startTime:'08:00',endTime:'08:40'}, {label:'Period 2',startTime:'08:40',endTime:'09:20'},
-    {label:'Period 3',startTime:'09:20',endTime:'10:00'}, {label:'Break',startTime:'10:00',endTime:'10:30',break:true},
-    {label:'Period 4',startTime:'10:30',endTime:'11:10'}, {label:'Period 5',startTime:'11:10',endTime:'11:50'},
-    {label:'Period 6',startTime:'11:50',endTime:'12:30'}, {label:'Lunch',startTime:'12:30',endTime:'14:00',break:true},
-    {label:'Period 7',startTime:'14:00',endTime:'14:40'}, {label:'Period 8',startTime:'14:40',endTime:'15:20'},
-    {label:'Period 9',startTime:'15:20',endTime:'16:00'}
+// Shule AI v66 Stage 4 - Production timetable module
+(function () {
+  const w = window;
+  const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+  const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  const DAY_LABELS = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday' };
+  const DEFAULT_PERIODS = [
+    { label: 'Period 1', startTime: '08:00', endTime: '08:40', type: 'lesson' },
+    { label: 'Period 2', startTime: '08:40', endTime: '09:20', type: 'lesson' },
+    { label: 'Period 3', startTime: '09:20', endTime: '10:00', type: 'lesson' },
+    { label: 'Break', startTime: '10:00', endTime: '10:30', type: 'break', break: true },
+    { label: 'Period 4', startTime: '10:30', endTime: '11:10', type: 'lesson' },
+    { label: 'Period 5', startTime: '11:10', endTime: '11:50', type: 'lesson' },
+    { label: 'Period 6', startTime: '11:50', endTime: '12:30', type: 'lesson' },
+    { label: 'Lunch', startTime: '12:30', endTime: '14:00', type: 'break', break: true },
+    { label: 'Period 7', startTime: '14:00', endTime: '14:40', type: 'lesson' },
+    { label: 'Period 8', startTime: '14:40', endTime: '15:20', type: 'lesson' },
+    { label: 'Period 9', startTime: '15:20', endTime: '16:00', type: 'lesson' }
   ];
-  let activeTimetable=null;
-  let activeTimetableId=null;
-  let activeClasses=[];
-  let activeTeachers=[];
-  function weekStart(){const d=new Date();const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d.toISOString().slice(0,10)}
-  async function req(path,opts){return await apiRequest(path,opts||{});}
-  function normalizeSlots(data){
-    const raw=Array.isArray(data)?data:(data?.slots||data?.timetable||data?.data?.slots||data?.data?.timetable||[]);
-    const byDay={}; DAYS.forEach(d=>byDay[d]={day:d,periods:DEFAULT_PERIODS.map(p=>({...p,classes:[]}))});
-    (raw||[]).forEach(dayBlock=>{
-      const day=String(dayBlock.day||dayBlock.dayOfWeek||'').toLowerCase(); if(!byDay[day]) return;
-      const periods=Array.isArray(dayBlock.periods)?dayBlock.periods:[];
-      periods.forEach((p,idx)=>{
-        const start=p.startTime||p.start||DEFAULT_PERIODS[idx]?.startTime; const target=byDay[day].periods.find(x=>x.startTime===start)||byDay[day].periods[idx]; if(!target) return;
-        Object.assign(target,{...p,startTime:start,endTime:p.endTime||p.end||target.endTime,label:p.label||target.label,break:p.break||target.break});
-        if(!Array.isArray(target.classes)) target.classes=p.classes? p.classes : (p.subject?[{...p}]:[]);
+  let activeTimetable = null;
+  let activeTimetableId = null;
+  let activeClasses = [];
+  let activeTeachers = [];
+  let activePeriods = clone(DEFAULT_PERIODS);
+  let selectedClassId = 'all';
+
+  function clone(v) { return JSON.parse(JSON.stringify(v || [])); }
+  function weekStart() { const d = new Date(); const day = d.getDay() || 7; d.setDate(d.getDate() - day + 1); return d.toISOString().slice(0, 10); }
+  async function req(path, opts) { return await apiRequest(path, opts || {}); }
+  function cleanPeriod(p = {}, idx = 0) {
+    const label = p.label || `Period ${idx + 1}`;
+    const type = p.type || (p.break || /break|lunch|assembly|games|club/i.test(label) ? 'break' : 'lesson');
+    return { id: p.id || `period-${idx + 1}`, label, startTime: (p.startTime || p.start || '08:00').slice(0, 5), endTime: (p.endTime || p.end || '08:40').slice(0, 5), type, break: type === 'break' || p.break === true };
+  }
+  function getPeriodsFromSlots(slots) {
+    const first = Array.isArray(slots) && slots[0]?.periods;
+    return (first && first.length ? first : DEFAULT_PERIODS).map(cleanPeriod);
+  }
+  function shell(periods = DEFAULT_PERIODS) { return DAYS.map(day => ({ day, periods: periods.map((p, idx) => ({ ...cleanPeriod(p, idx), classes: [] })) })); }
+  function normalizeSlots(data, periods = activePeriods) {
+    const raw = Array.isArray(data) ? data : (data?.slots || data?.timetable || data?.data?.slots || data?.data?.timetable || []);
+    const byDay = {}; DAYS.forEach(d => byDay[d] = { day: d, periods: periods.map((p, i) => ({ ...cleanPeriod(p, i), classes: [] })) });
+    (raw || []).forEach(dayBlock => {
+      const day = String(dayBlock.day || dayBlock.dayOfWeek || '').toLowerCase(); if (!byDay[day]) return;
+      const rawPeriods = Array.isArray(dayBlock.periods) ? dayBlock.periods : [];
+      rawPeriods.forEach((p, idx) => {
+        const target = byDay[day].periods[idx]; if (!target) return;
+        Object.assign(target, { ...cleanPeriod({ ...target, ...p }, idx), classes: Array.isArray(p.classes) ? p.classes : (p.subject ? [{ ...p }] : []) });
       });
     });
     return Object.values(byDay);
   }
-  function flattenForStats(slots){const out=[];(slots||[]).forEach(d=>(d.periods||[]).forEach(p=>(p.classes&&p.classes.length?p.classes:[p]).forEach(c=>out.push({...c,day:d.day,startTime:p.startTime,endTime:p.endTime,break:p.break||c.break,label:p.label}))));return out;}
-  function renderGrid(slots,{editable=false}={}){
-    const normalized=normalizeSlots(slots);
-    let html='<div class="timetable-v33-scroll"><div class="timetable-v33-grid"><div class="timetable-v33-cell timetable-v33-head">Time</div>'+DAYS.map(d=>`<div class="timetable-v33-cell timetable-v33-head">${DAY_LABELS[d]}</div>`).join('');
-    DEFAULT_PERIODS.forEach((base,pi)=>{
-      html+=`<div class="timetable-v33-cell timetable-v33-time"><strong>${esc(base.label)}</strong><br><span class="timetable-v33-meta">${esc(base.startTime)} - ${esc(base.endTime)}</span>${editable?`<br><button class="timetable-v33-btn" style="margin-top:6px;padding:4px 8px;font-size:11px" onclick="v33EditPeriod(${pi})">Edit time</button>`:''}</div>`;
-      DAYS.forEach(day=>{
-        const period=normalized.find(d=>d.day===day)?.periods?.[pi]||base;
-        const lessons=Array.isArray(period.classes)?period.classes:[];
-        const lessonHtml=period.break?`<div class="timetable-v33-lesson timetable-v33-break"><div class="timetable-v33-title">${esc(period.label||base.label)}</div><div class="timetable-v33-meta">${esc(period.startTime)} - ${esc(period.endTime)}</div></div>`:(lessons.length?lessons.map((l,li)=>`<div class="timetable-v33-lesson"><div class="timetable-v33-title">${esc(l.subject||'Free')}</div><div class="timetable-v33-meta">${esc(l.className||l.grade||'')}</div><div class="timetable-v33-meta">${esc(l.teacherName||l.teacher||'')}</div><div class="timetable-v33-meta">${esc(l.room||'')}</div>${editable?`<button class="timetable-v33-btn" style="margin-top:6px;padding:4px 8px;font-size:11px" onclick="v33EditSlot('${day}',${pi},${li})">Edit lesson</button>`:''}</div>`).join(''):`<div class="timetable-v33-lesson"><div class="timetable-v33-title">Free</div><div class="timetable-v33-meta">${esc(period.startTime)} - ${esc(period.endTime)}</div>${editable?`<button class="timetable-v33-btn" style="margin-top:6px;padding:4px 8px;font-size:11px" onclick="v33EditSlot('${day}',${pi},0)">Add lesson</button>`:''}</div>`);
-        html+=`<div class="timetable-v33-cell">${lessonHtml}</div>`;
+  function buildClassBlocks(slots) {
+    const byClass = new Map();
+    (activeClasses || []).forEach(c => byClass.set(String(c.id), { classId: c.id, className: c.name, grade: c.grade, stream: c.stream, periods: clone(activePeriods), timetable: shell(activePeriods) }));
+    (slots || []).forEach(dayBlock => (dayBlock.periods || []).forEach((period, pi) => (period.classes || []).forEach(lesson => {
+      const key = String(lesson.classId || lesson.className || 'unknown');
+      if (!byClass.has(key)) byClass.set(key, { classId: lesson.classId || null, className: lesson.className || 'Class', grade: lesson.grade || '', stream: lesson.stream || '', periods: clone(activePeriods), timetable: shell(activePeriods) });
+      const block = byClass.get(key); const day = block.timetable.find(d => d.day === dayBlock.day); if (!day || !day.periods[pi]) return;
+      day.periods[pi] = { ...cleanPeriod(period, pi), classes: [{ ...lesson, startTime: period.startTime, endTime: period.endTime, day: dayBlock.day }] };
+    })));
+    return Array.from(byClass.values());
+  }
+  function flatten(slots) { const out = []; (slots || []).forEach(d => (d.periods || []).forEach(p => (p.classes && p.classes.length ? p.classes : [p]).forEach(c => out.push({ ...c, day: d.day, startTime: p.startTime, endTime: p.endTime, break: p.break || c.break, label: p.label })))); return out; }
+  function currentStatus(period, opts = {}) {
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    if (opts.day && opts.day !== today) return 'upcoming';
+    const now = new Date().toTimeString().slice(0, 5);
+    if (period.endTime && period.endTime <= now) return 'ended';
+    if (period.startTime && period.startTime <= now && period.endTime && period.endTime > now) return 'current';
+    return 'upcoming';
+  }
+  function classesForCell(period, classId) {
+    const list = Array.isArray(period.classes) ? period.classes : [];
+    if (!classId || classId === 'all') return list;
+    return list.filter(l => String(l.classId) === String(classId));
+  }
+  function renderGrid(slots, { editable = false, classId = selectedClassId, parentStatus = false } = {}) {
+    const normalized = normalizeSlots(slots, activePeriods);
+    let html = '<div class="timetable-v66-fit"><div class="timetable-v66-grid"><div class="timetable-v66-cell timetable-v66-head">Time</div>' + DAYS.map(d => `<div class="timetable-v66-cell timetable-v66-head">${DAY_LABELS[d]}</div>`).join('');
+    activePeriods.forEach((base, pi) => {
+      html += `<div class="timetable-v66-cell timetable-v66-time"><strong>${esc(base.label)}</strong><br><span>${esc(base.startTime)} - ${esc(base.endTime)}</span>${editable ? `<button class="tt-mini" onclick="v66EditPeriod(${pi})">Edit</button>` : ''}</div>`;
+      DAYS.forEach(day => {
+        const period = normalized.find(d => d.day === day)?.periods?.[pi] || base;
+        const lessons = classesForCell(period, classId);
+        const status = parentStatus ? currentStatus(period, { day }) : '';
+        const isBreak = period.break || period.type === 'break';
+        let lessonHtml = '';
+        if (isBreak) {
+          lessonHtml = `<div class="tt-lesson tt-break ${status ? `tt-${status}` : ''}"><div class="tt-title">${esc(period.label || base.label)}</div><div class="tt-meta">${esc(period.startTime)} - ${esc(period.endTime)}</div></div>`;
+        } else if (lessons.length) {
+          lessonHtml = lessons.map((l, li) => `<div class="tt-lesson ${status ? `tt-${status}` : ''}"><div class="tt-title">${esc(l.subject || 'Free')}</div><div class="tt-meta">${esc(l.className || l.grade || '')}</div><div class="tt-meta">${esc(l.teacherName || l.teacher || '')}</div><div class="tt-meta">${esc(l.room || '')}</div>${editable ? `<button class="tt-mini" onclick="v66EditSlot('${day}',${pi},${li})">Edit lesson</button>` : ''}</div>`).join('');
+        } else {
+          lessonHtml = `<div class="tt-lesson tt-free ${status ? `tt-${status}` : ''}"><div class="tt-title">Free</div><div class="tt-meta">${esc(period.startTime)} - ${esc(period.endTime)}</div>${editable ? `<button class="tt-mini" onclick="v66EditSlot('${day}',${pi},0)">Add lesson</button>` : ''}</div>`;
+        }
+        html += `<div class="timetable-v66-cell">${lessonHtml}</div>`;
       });
     });
-    return html+'</div></div>';
+    return html + '</div></div>';
   }
-  async function loadAdminTimetable(){
-    const week=weekStart();
-    const [ttRes, classRes, teacherRes]=await Promise.allSettled([req(`/api/timetable?weekStartDate=${week}`),req('/api/timetable/classes'),w.api?.admin?.getTeachers?w.api.admin.getTeachers():req('/api/admin/teachers')]);
-    activeTimetable=ttRes.value?.data||null; activeTimetableId=activeTimetable?.id||null;
-    activeTimetable={...(activeTimetable||{}),weekStartDate:week,slots:normalizeSlots(activeTimetable||{})};
-    activeClasses=classRes.value?.data||classRes.value?.classes||[]; activeTeachers=teacherRes.value?.data||teacherRes.value?.teachers||[];
+  function renderToday(slots, title, parentStatus = false) {
+    const normalized = normalizeSlots(slots, activePeriods);
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const dayBlock = normalized.find(d => d.day === today) || normalized[0] || { day: today, periods: [] };
+    const cards = (dayBlock.periods || []).map(p => {
+      const lesson = p.break ? { subject: p.label, teacherName: '', room: '' } : (p.classes || [])[0] || { subject: 'Free' };
+      const status = parentStatus ? currentStatus(p, { day: today }) : '';
+      return `<div class="tt-today-card ${p.break ? 'tt-break' : ''} ${status ? `tt-${status}` : ''}"><div><strong>${esc(lesson.subject || p.label || 'Free')}</strong><span>${esc(p.startTime)} - ${esc(p.endTime)}</span></div><p>${esc(lesson.teacherName || '')}${lesson.room ? ` • ${esc(lesson.room)}` : ''}</p>${parentStatus ? `<small>${status === 'ended' ? 'Lesson ended' : status === 'current' ? 'Current lesson' : 'Upcoming'}</small>` : ''}</div>`;
+    }).join('');
+    return `<section class="tt-today"><div class="tt-section-head"><h3>${esc(title)}</h3><span>${esc(DAY_LABELS[today] || today)}</span></div><div class="tt-today-grid">${cards || '<p>No lessons for today.</p>'}</div></section>`;
   }
-  w.renderAdminTimetable=async function(){
-    try{ if(w.showLoading) showLoading(); await loadAdminTimetable(); const flat=flattenForStats(activeTimetable.slots).filter(x=>x.subject&&!x.break&&!/free|break|lunch/i.test(x.subject)); if(w.hideLoading) hideLoading();
-      return `<div class="timetable-v33-page timetable-v41-page space-y-4 animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div class="timetable-v41-title-block"><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">School Timetable Management</h1><p class="v12-sub">Responsive weekly grid. Edit lessons, visible times, teachers, rooms and subjects from one place.</p></div><div class="v12-actions timetable-v41-actions"><button class="timetable-v33-btn primary" onclick="v33GenerateTimetable()">Generate Timetable</button><button class="timetable-v33-btn" onclick="v33SaveTimetable()">Save Changes</button><button class="timetable-v33-btn" onclick="v33PublishTimetable()">Publish</button></div></div></section><section class="timetable-v41-summary"><div class="timetable-v33-card v12-card"><div class="v12-label">Week</div><div class="v12-value">${esc(activeTimetable.weekStartDate)}</div></div><div class="timetable-v33-card v12-card"><div class="v12-label">Classes</div><div class="v12-value">${activeClasses.length}</div></div><div class="timetable-v33-card v12-card"><div class="v12-label">Teachers</div><div class="v12-value">${activeTeachers.length}</div></div><div class="timetable-v33-card v12-card timetable-v41-rule"><h3>Editing Rule</h3><p class="text-sm text-muted-foreground">Any visible time, subject, teacher, room or class can be edited. Click Save Changes to persist.</p></div></section><div class="timetable-v33-card timetable-v41-grid-card v12-card"><div class="timetable-v41-grid-head"><h3>Weekly Grid</h3><span class="v12-pill green">${flat.length} lessons</span></div>${renderGrid(activeTimetable.slots,{editable:true})}</div></div>`;
-    }catch(e){ if(w.hideLoading) hideLoading(); return `<div class="timetable-v33-card v12-card"><h2>Timetable failed to load</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
-  };
-  w.renderTimetableGrid=function(slots){return renderGrid(slots,{editable:false});};
-  w.v33EditPeriod=function(pi){
-    if(!activeTimetable?.slots) return; const current=activeTimetable.slots[0]?.periods?.[pi]||DEFAULT_PERIODS[pi];
-    const start=prompt('Start time (HH:MM):',current.startTime||current.start); if(!start) return;
-    const end=prompt('End time (HH:MM):',current.endTime||current.end); if(!end) return;
-    const label=prompt('Period label:',current.label||DEFAULT_PERIODS[pi].label)||current.label||DEFAULT_PERIODS[pi].label;
-    activeTimetable.slots.forEach(day=>{ if(day.periods?.[pi]) Object.assign(day.periods[pi],{startTime:start,endTime:end,start,end,label}); });
-    const grid=document.querySelector('.timetable-v33-scroll'); if(grid) grid.outerHTML=renderGrid(activeTimetable.slots,{editable:true});
-  };
-  w.v33EditSlot=function(day,pi,li){
-    const dayBlock=activeTimetable?.slots?.find(d=>d.day===day); if(!dayBlock) return; const period=dayBlock.periods[pi]; if(!period) return;
-    if(period.break){ alert('Break/lunch periods can be changed through Edit time.'); return; }
-    const old=(period.classes&&period.classes[li])||{};
-    const subject=prompt('Subject:',old.subject||''); if(subject===null) return;
-    const teacherName=prompt('Teacher name:',old.teacherName||old.teacher||'')||'';
-    const className=prompt('Class name:',old.className||'')||'';
-    const room=prompt('Room:',old.room||'')||'';
-    const lesson={...old,subject,teacherName,className,room,startTime:period.startTime,endTime:period.endTime};
-    period.classes=period.classes||[]; period.classes[li]=lesson;
-    const grid=document.querySelector('.timetable-v33-scroll'); if(grid) grid.outerHTML=renderGrid(activeTimetable.slots,{editable:true});
-  };
-  w.v33SaveTimetable=async function(){
-    if(!activeTimetableId){ alert('Generate a timetable first before saving edits.'); return; }
-    try{ if(w.showLoading) showLoading(); await req(`/api/timetable/${activeTimetableId}`,{method:'PUT',body:JSON.stringify({slots:activeTimetable.slots,classes:activeTimetable.classes||[],warnings:activeTimetable.warnings||[]})}); if(w.showToast) showToast('Timetable changes saved','success'); }
-    catch(e){ if(w.showToast) showToast(e.message,'error'); else alert(e.message); } finally{ if(w.hideLoading) hideLoading(); }
-  };
-  w.v33GenerateTimetable=async function(){try{if(w.showLoading)showLoading();await req('/api/timetable/generate',{method:'POST',body:JSON.stringify({weekStartDate:weekStart()})});await w.showDashboardSection?.('timetable');}catch(e){w.showToast?showToast(e.message,'error'):alert(e.message)}finally{if(w.hideLoading)hideLoading();}};
-  w.v33PublishTimetable=async function(){if(!activeTimetableId){alert('Generate or load a timetable first.');return;}try{await req(`/api/timetable/${activeTimetableId}/publish`,{method:'POST'});w.showToast&&showToast('Timetable published','success');}catch(e){w.showToast?showToast(e.message,'error'):alert(e.message)}};
-
-
-
-  async function renderReadOnlyTimetableFrom(path, title){
-    try{
-      const r=await req(path);
-      const data=r?.data||r;
-      const slots=normalizeSlots(data);
-      return `<div class="timetable-v33-page timetable-v41-page space-y-4 animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">${esc(title)}</h1><p class="v12-sub">Your published weekly timetable.</p></div></div></section><div class="timetable-v33-card timetable-v41-grid-card v12-card">${renderGrid(slots,{editable:false})}</div></div>`;
-    }catch(e){ return `<div class="timetable-v33-card v12-card"><h2>${esc(title)}</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
+  function renderPeriodEditor() {
+    return `<div class="tt-period-panel"><div class="tt-section-head"><h3>Lesson Time Settings</h3><button class="timetable-v33-btn primary" onclick="v66AddPeriod()">Add Break/Lesson</button></div><div class="tt-period-list">${activePeriods.map((p, i) => `<div class="tt-period-row"><input value="${esc(p.label)}" onchange="v66SetPeriod(${i},'label',this.value)"><input type="time" value="${esc(p.startTime)}" onchange="v66SetPeriod(${i},'startTime',this.value)"><input type="time" value="${esc(p.endTime)}" onchange="v66SetPeriod(${i},'endTime',this.value)"><select onchange="v66SetPeriod(${i},'type',this.value)"><option value="lesson" ${p.type !== 'break' ? 'selected' : ''}>Lesson</option><option value="break" ${p.type === 'break' ? 'selected' : ''}>Break/Activity</option></select><button onclick="v66RemovePeriod(${i})">Remove</button></div>`).join('')}</div><p class="tt-help">Global times apply to the whole school. Use class selector + lesson edits when a class needs a specific override.</p></div>`;
   }
-  w.renderStudentTimetable = w.renderStudentTimetable || (async function(){ return renderReadOnlyTimetableFrom('/api/timetable/student/me','My Timetable'); });
-  w.renderParentTimetable = w.renderParentTimetable || (async function(){
+  async function loadAdminTimetable() {
+    const week = weekStart();
+    const [ttRes, classRes, teacherRes] = await Promise.allSettled([req(`/api/timetable?weekStartDate=${week}`), req('/api/timetable/classes'), w.api?.admin?.getTeachers ? w.api.admin.getTeachers() : req('/api/admin/teachers')]);
+    activeTimetable = ttRes.value?.data || null; activeTimetableId = activeTimetable?.id || null;
+    activePeriods = getPeriodsFromSlots(activeTimetable?.slots || activeTimetable?.classes?.[0]?.timetable || DEFAULT_PERIODS);
+    activeTimetable = { ...(activeTimetable || {}), weekStartDate: week, slots: normalizeSlots(activeTimetable || {}, activePeriods), classes: activeTimetable?.classes || [] };
+    activeClasses = classRes.value?.data || classRes.value?.classes || [];
+    activeTeachers = teacherRes.value?.data || teacherRes.value?.teachers || [];
+  }
+  w.renderAdminTimetable = async function () {
+    try {
+      if (w.showLoading) showLoading(); await loadAdminTimetable(); if (w.hideLoading) hideLoading();
+      const flat = flatten(activeTimetable.slots).filter(x => x.subject && !x.break && !/free|break|lunch/i.test(x.subject));
+      const classOptions = ['<option value="all">All classes</option>'].concat((activeClasses || []).map(c => `<option value="${esc(c.id)}" ${String(selectedClassId) === String(c.id) ? 'selected' : ''}>${esc(c.name)}${c.stream ? ` • ${esc(c.stream)}` : ''}</option>`)).join('');
+      return `<div class="timetable-v66-page timetable-v33-page timetable-v41-page animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">Full Timetable Control</h1><p class="v12-sub">Set global lesson times, add breaks/extra periods, view each class, edit lessons, and publish for the term or year.</p></div><div class="v12-actions timetable-v41-actions"><button class="timetable-v33-btn primary" onclick="v66GenerateTimetable()">Generate</button><button class="timetable-v33-btn" onclick="v66SaveTimetable()">Save</button><button class="timetable-v33-btn" onclick="v66PublishTimetable()">Publish</button></div></div></section><section class="tt-toolbar v12-card"><label>Class view<select onchange="v66SelectClass(this.value)">${classOptions}</select></label><label>Scope<select id="ttScope"><option value="term" ${activeTimetable.scope === 'term' ? 'selected' : ''}>Term</option><option value="year" ${activeTimetable.scope === 'year' ? 'selected' : ''}>Year</option></select></label><label>Term<input id="ttTerm" value="${esc(activeTimetable.term || 'Term 1')}"></label><label>Year<input id="ttYear" type="number" value="${esc(activeTimetable.year || new Date().getFullYear())}"></label><span class="v12-pill green">${flat.length} lessons</span><span class="v12-pill">${activeClasses.length} classes</span></section>${renderPeriodEditor()}<div class="timetable-v33-card timetable-v41-grid-card v12-card"><div class="timetable-v41-grid-head"><h3>${selectedClassId === 'all' ? 'School-wide timetable' : 'Selected class timetable'}</h3><span>${activeTimetable.isPublished ? 'Published' : 'Draft'}</span></div>${renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId })}</div></div>`;
+    } catch (e) { if (w.hideLoading) hideLoading(); return `<div class="timetable-v33-card v12-card"><h2>Timetable failed to load</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
+  };
+  w.v66SelectClass = function (id) { selectedClassId = id || 'all'; w.showDashboardSection?.('timetable'); };
+  w.v66SetPeriod = function (idx, key, value) { if (!activePeriods[idx]) return; activePeriods[idx][key] = value; activePeriods[idx].break = activePeriods[idx].type === 'break'; activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); const root = document.querySelector('.tt-period-panel'); if (root) root.outerHTML = renderPeriodEditor(); const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId }); };
+  w.v66AddPeriod = function () { activePeriods.push({ label: 'Extra Lesson', startTime: '16:00', endTime: '16:40', type: 'lesson', break: false }); activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); w.showDashboardSection?.('timetable'); };
+  w.v66RemovePeriod = function (idx) { if (!confirm('Remove this period from the timetable?')) return; activePeriods.splice(idx, 1); activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); w.showDashboardSection?.('timetable'); };
+  w.v66EditPeriod = function (pi) {
+    const current = activePeriods[pi]; if (!current) return;
+    const label = prompt('Period label:', current.label); if (label === null) return;
+    const startTime = prompt('Start time (HH:MM):', current.startTime); if (!startTime) return;
+    const endTime = prompt('End time (HH:MM):', current.endTime); if (!endTime) return;
+    activePeriods[pi] = { ...current, label, startTime, endTime };
+    activeTimetable.slots.forEach(day => { if (day.periods?.[pi]) Object.assign(day.periods[pi], activePeriods[pi]); });
+    const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId });
+  };
+  w.v66EditSlot = function (day, pi, li) {
+    const dayBlock = activeTimetable?.slots?.find(d => d.day === day); if (!dayBlock) return; const period = dayBlock.periods[pi]; if (!period) return;
+    if (period.break) { alert('This is a break/activity period. Change it in Lesson Time Settings.'); return; }
+    const old = (period.classes && period.classes[li]) || {};
+    const subject = prompt('Subject:', old.subject || ''); if (subject === null) return;
+    const classId = selectedClassId !== 'all' ? selectedClassId : (prompt('Class ID:', old.classId || activeClasses[0]?.id || '') || old.classId || activeClasses[0]?.id || null);
+    const cls = activeClasses.find(c => String(c.id) === String(classId));
+    const teacherName = prompt('Teacher name:', old.teacherName || old.teacher || '') || '';
+    const room = prompt('Room:', old.room || '') || '';
+    const lesson = { ...old, subject, classId: classId ? Number(classId) : null, className: cls?.name || old.className || '', grade: cls?.grade || old.grade || '', stream: cls?.stream || old.stream || '', teacherName, room, startTime: period.startTime, endTime: period.endTime };
+    period.classes = period.classes || [];
+    if (selectedClassId !== 'all') period.classes = period.classes.filter(l => String(l.classId) !== String(selectedClassId));
+    period.classes[li] = lesson;
+    const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId });
+  };
+  w.v66SaveTimetable = async function () {
+    if (!activeTimetableId) { alert('Generate a timetable first before saving edits.'); return; }
+    try {
+      if (w.showLoading) showLoading();
+      const scope = document.getElementById('ttScope')?.value || activeTimetable.scope || 'term'; const term = document.getElementById('ttTerm')?.value || activeTimetable.term || 'Term 1'; const year = Number(document.getElementById('ttYear')?.value || activeTimetable.year || new Date().getFullYear());
+      activeTimetable.classes = buildClassBlocks(activeTimetable.slots);
+      await req(`/api/timetable/${activeTimetableId}`, { method: 'PUT', body: JSON.stringify({ slots: activeTimetable.slots, classes: activeTimetable.classes, warnings: activeTimetable.warnings || [], scope, term, year }) });
+      if (w.showToast) showToast('Timetable changes saved', 'success');
+    } catch (e) { w.showToast ? showToast(e.message, 'error') : alert(e.message); } finally { if (w.hideLoading) hideLoading(); }
+  };
+  w.v66GenerateTimetable = async function () {
+    try {
+      if (w.showLoading) showLoading();
+      const scope = document.getElementById('ttScope')?.value || 'term'; const term = document.getElementById('ttTerm')?.value || 'Term 1'; const year = Number(document.getElementById('ttYear')?.value || new Date().getFullYear());
+      await req('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate: weekStart(), periods: activePeriods, scope, term, year }) });
+      await w.showDashboardSection?.('timetable');
+    } catch (e) { w.showToast ? showToast(e.message, 'error') : alert(e.message); } finally { if (w.hideLoading) hideLoading(); }
+  };
+  w.v66PublishTimetable = async function () {
+    if (!activeTimetableId) { alert('Generate or load a timetable first.'); return; }
+    try {
+      await w.v66SaveTimetable();
+      const scope = document.getElementById('ttScope')?.value || activeTimetable.scope || 'term'; const term = document.getElementById('ttTerm')?.value || activeTimetable.term || 'Term 1'; const year = Number(document.getElementById('ttYear')?.value || activeTimetable.year || new Date().getFullYear());
+      await req(`/api/timetable/${activeTimetableId}/publish`, { method: 'POST', body: JSON.stringify({ scope, term, year }) });
+      w.showToast && showToast(`Timetable published for the ${scope}`, 'success');
+      await w.showDashboardSection?.('timetable');
+    } catch (e) { w.showToast ? showToast(e.message, 'error') : alert(e.message); }
+  };
+
+  async function renderReadOnlyTimetableFrom(path, title, opts = {}) {
+    try {
+      const r = await req(path); const data = r?.data || r; activePeriods = getPeriodsFromSlots(data?.timetable || data);
+      const slots = normalizeSlots(data?.timetable || data, activePeriods);
+      const subtitle = [data?.classInfo?.name || data?.classInfo?.grade, data?.term, data?.year, data?.scope].filter(Boolean).join(' • ');
+      return `<div class="timetable-v66-page timetable-v33-page timetable-v41-page animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">${esc(title)}</h1><p class="v12-sub">${esc(subtitle || 'Published timetable')}</p></div></div></section>${opts.todayOnly ? renderToday(slots, opts.todayTitle || 'Today’s Lessons', opts.parentStatus) : ''}<div class="timetable-v33-card timetable-v41-grid-card v12-card">${renderGrid(slots, { editable: false, classId: 'all', parentStatus: opts.parentStatus })}</div></div>`;
+    } catch (e) { return `<div class="timetable-v33-card v12-card"><h2>${esc(title)}</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
+  }
+  w.renderStudentTimetable = async function () { return renderReadOnlyTimetableFrom('/api/timetable/student/me', 'My Timetable', { todayOnly: true, todayTitle: 'Today’s Lessons' }); };
+  w.renderParentTimetable = async function () {
     const childId = window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || window.selectedChildId || '';
-    return childId ? renderReadOnlyTimetableFrom(`/api/timetable/parent/child/${childId}`,'Child Timetable') : `<div class="timetable-v33-card v12-card"><h2>Child Timetable</h2><p>Select a linked child to view the timetable.</p></div>`;
-  });
+    return childId ? renderReadOnlyTimetableFrom(`/api/timetable/parent/child/${childId}`, 'Child Timetable', { todayOnly: true, todayTitle: 'Today’s Lessons', parentStatus: true }) : `<div class="timetable-v33-card v12-card"><h2>Child Timetable</h2><p>Select a linked child to view the timetable.</p></div>`;
+  };
+  w.renderTeacherTimetable = async function () {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const teacherId = user.teacherId || user.id || '';
+    return renderReadOnlyTimetableFrom(`/api/timetable/teacher/${teacherId}`, 'My Teaching Timetable');
+  };
+  w.renderTimetableGrid = function (slots) { return renderGrid(slots, { editable: false }); };
 
-  // Compatibility aliases kept because older dashboard sections still call v12 names.
-  // These aliases point to the real current renderers instead of adding fallback placeholder screens.
-  w.v12RenderAdminTimetable = w.v12RenderAdminTimetable || w.renderAdminTimetable;
-  w.v12RenderTeacherTimetable = w.v12RenderTeacherTimetable || w.renderTeacherTimetable || w.renderAdminTimetable;
-  w.v12RenderParentTimetable = w.v12RenderParentTimetable || w.renderParentTimetable || w.renderAdminTimetable;
-  w.v12RenderStudentTimetable = w.v12RenderStudentTimetable || w.renderStudentTimetable || w.renderAdminTimetable;
-
+  w.v33EditPeriod = w.v66EditPeriod;
+  w.v33EditSlot = w.v66EditSlot;
+  w.v33SaveTimetable = w.v66SaveTimetable;
+  w.v33GenerateTimetable = w.v66GenerateTimetable;
+  w.v33PublishTimetable = w.v66PublishTimetable;
+  w.v12RenderAdminTimetable = w.renderAdminTimetable;
+  w.v12RenderTeacherTimetable = w.renderTeacherTimetable;
+  w.v12RenderParentTimetable = w.renderParentTimetable;
+  w.v12RenderStudentTimetable = w.renderStudentTimetable;
 })();

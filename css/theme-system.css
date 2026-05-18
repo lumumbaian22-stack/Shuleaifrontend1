@@ -1264,3 +1264,39 @@ html:not(.dark) body:not(.dark) .finance-v31,
 .theme-toggle-btn svg,.theme-toggle-btn i{color:currentColor!important;stroke:currentColor!important;opacity:1!important;visibility:visible!important;}
 .dark .theme-toggle-btn,[data-theme="dark"] .theme-toggle-btn{color:#e5e7eb!important;background:#0f172a!important;border-color:#334155!important;}
 .dark .theme-toggle-btn:hover,[data-theme="dark"] .theme-toggle-btn:hover{background:#1e293b!important;}
+
+/* v66 Stage 4 timetable production polish */
+#dashboard-content .timetable-v66-page{width:100%;max-width:100%;overflow:hidden;display:flex;flex-direction:column;gap:14px;}
+#dashboard-content .tt-toolbar{display:grid;grid-template-columns:1.4fr repeat(3,minmax(110px,.7fr)) auto auto;gap:10px;align-items:end;padding:14px;border-radius:18px;}
+#dashboard-content .tt-toolbar label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:800;color:var(--app-muted,var(--tt-muted));}
+#dashboard-content .tt-toolbar select,#dashboard-content .tt-toolbar input,.tt-period-row input,.tt-period-row select{min-height:38px;border-radius:12px;border:1px solid var(--app-border,var(--tt-border));background:var(--app-card,var(--tt-card));color:var(--app-text,var(--tt-text));padding:7px 10px;outline:none;}
+#dashboard-content .tt-period-panel{background:var(--app-card,var(--tt-card));color:var(--app-text,var(--tt-text));border:1px solid var(--app-border,var(--tt-border));border-radius:18px;padding:14px;box-shadow:var(--tt-shadow,0 12px 30px rgba(15,23,42,.08));}
+#dashboard-content .tt-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+#dashboard-content .tt-section-head h3{font-size:16px;font-weight:900;margin:0;color:var(--app-text,var(--tt-text));}
+#dashboard-content .tt-period-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:8px;}
+#dashboard-content .tt-period-row{display:grid;grid-template-columns:1.2fr .8fr .8fr .9fr auto;gap:6px;align-items:center;background:rgba(148,163,184,.08);border:1px solid var(--app-border,var(--tt-border));border-radius:14px;padding:8px;}
+#dashboard-content .tt-period-row button,#dashboard-content .tt-mini{border:1px solid var(--app-border,var(--tt-border));background:var(--app-card-2,var(--tt-card-2));color:var(--app-text,var(--tt-text));border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;cursor:pointer;}
+#dashboard-content .tt-help{font-size:12px;margin:10px 0 0;color:var(--app-muted,var(--tt-muted));}
+#dashboard-content .timetable-v66-fit{width:100%;max-width:100%;overflow:hidden;}
+#dashboard-content .timetable-v66-grid{display:grid!important;grid-template-columns:minmax(74px,.52fr) repeat(5,minmax(0,1fr))!important;width:100%;max-width:100%;border:1px solid var(--tt-border,var(--app-border));border-radius:18px;overflow:hidden;background:var(--tt-card,var(--app-card));}
+#dashboard-content .timetable-v66-cell{min-width:0;overflow:hidden;background:var(--tt-cell,var(--app-card));color:var(--tt-text,var(--app-text));border-right:1px solid var(--tt-border,var(--app-border));border-bottom:1px solid var(--tt-border,var(--app-border));padding:8px;}
+#dashboard-content .timetable-v66-head,#dashboard-content .timetable-v66-time{background:var(--tt-card-2,var(--app-card-2));font-weight:900;}
+#dashboard-content .timetable-v66-time strong{display:block;font-size:12px;line-height:1.1;}
+#dashboard-content .timetable-v66-time span{display:block;font-size:11px;color:var(--tt-muted,var(--app-muted));}
+#dashboard-content .tt-lesson{border:1px solid rgba(96,165,250,.26);background:var(--tt-lesson,rgba(37,99,235,.08));border-radius:12px;padding:7px;min-height:58px;display:flex;flex-direction:column;gap:2px;overflow:hidden;}
+#dashboard-content .tt-lesson+.tt-lesson{margin-top:6px;}
+#dashboard-content .tt-break{background:var(--tt-break,rgba(148,163,184,.13))!important;border-style:dashed!important;}
+#dashboard-content .tt-free{opacity:.78;}
+#dashboard-content .tt-title{font-size:12px;font-weight:900;color:var(--tt-text,var(--app-text));white-space:normal;line-height:1.2;}
+#dashboard-content .tt-meta{font-size:11px;color:var(--tt-muted,var(--app-muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#dashboard-content .tt-ended{background:rgba(239,68,68,.14)!important;border-color:rgba(239,68,68,.45)!important;}
+#dashboard-content .tt-current{background:rgba(34,197,94,.14)!important;border-color:rgba(34,197,94,.45)!important;}
+#dashboard-content .tt-upcoming{background:var(--tt-lesson,rgba(37,99,235,.08));}
+#dashboard-content .tt-today{background:var(--app-card,var(--tt-card));border:1px solid var(--app-border,var(--tt-border));border-radius:18px;padding:14px;}
+#dashboard-content .tt-today-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+#dashboard-content .tt-today-card{border:1px solid var(--app-border,var(--tt-border));border-radius:16px;padding:12px;background:var(--tt-lesson,rgba(37,99,235,.08));min-height:88px;}
+#dashboard-content .tt-today-card div{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
+#dashboard-content .tt-today-card strong{font-size:14px;font-weight:900;}
+#dashboard-content .tt-today-card span,#dashboard-content .tt-today-card p,#dashboard-content .tt-today-card small{font-size:12px;color:var(--app-muted,var(--tt-muted));margin:4px 0 0;}
+@media(max-width:1100px){#dashboard-content .tt-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}#dashboard-content .tt-period-row{grid-template-columns:1fr 1fr;}.tt-period-row button{grid-column:span 2;}#dashboard-content .timetable-v66-cell{padding:6px;}#dashboard-content .tt-title{font-size:11px;}#dashboard-content .tt-meta{font-size:10px;}}
+@media(max-width:760px){#dashboard-content .timetable-v66-fit{overflow-x:auto;}#dashboard-content .timetable-v66-grid{min-width:680px;}#dashboard-content .tt-toolbar{grid-template-columns:1fr;}#dashboard-content .tt-section-head{align-items:flex-start;flex-direction:column;}#dashboard-content .tt-period-list{grid-template-columns:1fr;}}
