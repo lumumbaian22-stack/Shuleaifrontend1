@@ -1300,3 +1300,22 @@ html:not(.dark) body:not(.dark) .finance-v31,
 #dashboard-content .tt-today-card span,#dashboard-content .tt-today-card p,#dashboard-content .tt-today-card small{font-size:12px;color:var(--app-muted,var(--tt-muted));margin:4px 0 0;}
 @media(max-width:1100px){#dashboard-content .tt-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}#dashboard-content .tt-period-row{grid-template-columns:1fr 1fr;}.tt-period-row button{grid-column:span 2;}#dashboard-content .timetable-v66-cell{padding:6px;}#dashboard-content .tt-title{font-size:11px;}#dashboard-content .tt-meta{font-size:10px;}}
 @media(max-width:760px){#dashboard-content .timetable-v66-fit{overflow-x:auto;}#dashboard-content .timetable-v66-grid{min-width:680px;}#dashboard-content .tt-toolbar{grid-template-columns:1fr;}#dashboard-content .tt-section-head{align-items:flex-start;flex-direction:column;}#dashboard-content .tt-period-list{grid-template-columns:1fr;}}
+
+/* v66 Stage 4B - timetable compact UI + accurate lesson-count polish */
+#dashboard-content .tt-period-panel.compact{padding:12px;border-radius:16px;}
+#dashboard-content .tt-period-panel.compact .tt-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
+#dashboard-content .tt-period-panel.compact h3{margin:0;font-size:15px;line-height:1.2;}
+#dashboard-content .tt-period-panel.compact .tt-help{margin:3px 0 0;font-size:12px;line-height:1.35;color:var(--app-muted,var(--tt-muted));}
+#dashboard-content .tt-period-table{display:grid;gap:5px;width:100%;max-width:100%;overflow:hidden;}
+#dashboard-content .tt-period-header,#dashboard-content .tt-period-row{display:grid;grid-template-columns:minmax(105px,1.25fr) minmax(80px,.8fr) minmax(86px,.72fr) minmax(86px,.72fr) minmax(72px,.55fr);gap:6px;align-items:center;min-width:0;}
+#dashboard-content .tt-period-header{font-size:11px;font-weight:900;text-transform:uppercase;color:var(--app-muted,var(--tt-muted));padding:0 6px;}
+#dashboard-content .tt-period-row{padding:6px;border-radius:10px;background:rgba(148,163,184,.07);border:1px solid var(--app-border,var(--tt-border));}
+#dashboard-content .tt-period-row input,#dashboard-content .tt-period-row select{width:100%;min-width:0;min-height:32px;height:32px;font-size:12px;border-radius:9px;padding:4px 7px;}
+#dashboard-content .tt-period-row button{min-height:32px;height:32px;padding:4px 7px;font-size:11px;border-radius:9px;white-space:nowrap;}
+#dashboard-content .tt-toolbar{gap:8px;padding:10px;}
+#dashboard-content .tt-toolbar label{min-width:0;}
+#dashboard-content .tt-toolbar input,#dashboard-content .tt-toolbar select{width:100%;min-width:0;}
+#dashboard-content .timetable-v66-grid{font-size:12px;}
+#dashboard-content .tt-lesson{padding:6px;border-radius:10px;}
+@media(max-width:900px){#dashboard-content .tt-period-header{display:none;}#dashboard-content .tt-period-row{grid-template-columns:1fr 1fr;}#dashboard-content .tt-period-row button{grid-column:span 2;}#dashboard-content .tt-period-panel.compact .tt-section-head{flex-direction:column;} }
+@media(max-width:760px){#dashboard-content .timetable-v66-fit{overflow-x:auto;}#dashboard-content .timetable-v66-grid{min-width:640px;} }
