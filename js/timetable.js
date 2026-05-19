@@ -1,4 +1,4 @@
-// Shule AI v66 Stage 4 - Production timetable module
+// Shule AI v66 Stage 4C - Timetable class-view + counters repair
 (function () {
   const w = window;
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
@@ -17,6 +17,7 @@
     { label: 'Period 8', startTime: '14:40', endTime: '15:20', type: 'lesson' },
     { label: 'Period 9', startTime: '15:20', endTime: '16:00', type: 'lesson' }
   ];
+
   let activeTimetable = null;
   let activeTimetableId = null;
   let activeClasses = [];
@@ -27,10 +28,13 @@
   function clone(v) { return JSON.parse(JSON.stringify(v || [])); }
   function weekStart() { const d = new Date(); const day = d.getDay() || 7; d.setDate(d.getDate() - day + 1); return d.toISOString().slice(0, 10); }
   async function req(path, opts) { return await apiRequest(path, opts || {}); }
+  function norm(v) { return String(v ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function classIdOf(c) { return c?.classId ?? c?.id ?? c?.ClassId ?? c?.class_id ?? null; }
+  function classNameOf(c) { return c?.className || c?.name || c?.grade || c?.label || 'Class'; }
   function cleanPeriod(p = {}, idx = 0) {
     const label = p.label || `Period ${idx + 1}`;
     const type = p.type || (p.break || /break|lunch|assembly|games|club/i.test(label) ? 'break' : 'lesson');
-    return { id: p.id || `period-${idx + 1}`, label, startTime: (p.startTime || p.start || '08:00').slice(0, 5), endTime: (p.endTime || p.end || '08:40').slice(0, 5), type, break: type === 'break' || p.break === true };
+    return { id: p.id || `period-${idx + 1}`, label, startTime: String(p.startTime || p.start || '08:00').slice(0, 5), endTime: String(p.endTime || p.end || '08:40').slice(0, 5), type, break: type === 'break' || p.break === true, classes: Array.isArray(p.classes) ? p.classes : [] };
   }
   function getPeriodsFromSlots(slots) {
     const first = Array.isArray(slots) && slots[0]?.periods;
@@ -41,18 +45,45 @@
     const raw = Array.isArray(data) ? data : (data?.slots || data?.timetable || data?.data?.slots || data?.data?.timetable || []);
     const byDay = {}; DAYS.forEach(d => byDay[d] = { day: d, periods: periods.map((p, i) => ({ ...cleanPeriod(p, i), classes: [] })) });
     (raw || []).forEach(dayBlock => {
-      const day = String(dayBlock.day || dayBlock.dayOfWeek || '').toLowerCase(); if (!byDay[day]) return;
+      const day = norm(dayBlock.day || dayBlock.dayOfWeek).split(' ')[0]; if (!byDay[day]) return;
       const rawPeriods = Array.isArray(dayBlock.periods) ? dayBlock.periods : [];
       rawPeriods.forEach((p, idx) => {
         const target = byDay[day].periods[idx]; if (!target) return;
-        Object.assign(target, { ...cleanPeriod({ ...target, ...p }, idx), classes: Array.isArray(p.classes) ? p.classes : (p.subject ? [{ ...p }] : []) });
+        const cp = cleanPeriod({ ...target, ...p }, idx);
+        const classes = Array.isArray(p.classes) ? p.classes : (p.subject ? [{ ...p }] : []);
+        Object.assign(target, { ...cp, classes });
       });
     });
     return Object.values(byDay);
   }
+  function sameClass(a, b) {
+    if (!a || !b || b === 'all') return false;
+    if (String(classIdOf(a) ?? '') === String(b)) return true;
+    const cls = activeClasses.find(c => String(classIdOf(c)) === String(b));
+    if (!cls) return false;
+    return norm(a.className || a.name || a.grade) === norm(classNameOf(cls)) || (norm(a.grade) && norm(a.grade) === norm(cls.grade));
+  }
+  function findClassBlock(classId = selectedClassId) {
+    if (!activeTimetable || !classId || classId === 'all') return null;
+    const cls = activeClasses.find(c => String(classIdOf(c)) === String(classId));
+    const blocks = Array.isArray(activeTimetable.classes) ? activeTimetable.classes : [];
+    return blocks.find(b => String(classIdOf(b) ?? '') === String(classId)) ||
+      blocks.find(b => cls && norm(classNameOf(b)) === norm(classNameOf(cls))) ||
+      blocks.find(b => cls && norm(b.grade) && norm(b.grade) === norm(cls.grade));
+  }
+  function slotsForClassFromGlobal(classId) {
+    const slots = normalizeSlots(activeTimetable?.slots || [], activePeriods);
+    return slots.map(day => ({ ...day, periods: day.periods.map(p => ({ ...p, classes: (p.classes || []).filter(l => String(l.classId ?? '') === String(classId) || sameClass(l, classId)) })) }));
+  }
+  function displaySlots(classId = selectedClassId) {
+    if (!classId || classId === 'all') return normalizeSlots(activeTimetable?.slots || [], activePeriods);
+    const block = findClassBlock(classId);
+    if (block?.timetable?.length) return normalizeSlots(block.timetable, activePeriods);
+    return slotsForClassFromGlobal(classId);
+  }
   function buildClassBlocks(slots) {
     const byClass = new Map();
-    (activeClasses || []).forEach(c => byClass.set(String(c.id), { classId: c.id, className: c.name, grade: c.grade, stream: c.stream, periods: clone(activePeriods), timetable: shell(activePeriods) }));
+    (activeClasses || []).forEach(c => byClass.set(String(classIdOf(c)), { classId: classIdOf(c), className: classNameOf(c), grade: c.grade, stream: c.stream, periods: clone(activePeriods), timetable: shell(activePeriods) }));
     (slots || []).forEach(dayBlock => (dayBlock.periods || []).forEach((period, pi) => (period.classes || []).forEach(lesson => {
       const key = String(lesson.classId || lesson.className || 'unknown');
       if (!byClass.has(key)) byClass.set(key, { classId: lesson.classId || null, className: lesson.className || 'Class', grade: lesson.grade || '', stream: lesson.stream || '', periods: clone(activePeriods), timetable: shell(activePeriods) });
@@ -61,27 +92,29 @@
     })));
     return Array.from(byClass.values());
   }
-  function flatten(slots) { const out = []; (slots || []).forEach(d => (d.periods || []).forEach(p => (p.classes && p.classes.length ? p.classes : [p]).forEach(c => out.push({ ...c, day: d.day, startTime: p.startTime, endTime: p.endTime, break: p.break || c.break, label: p.label })))); return out; }
   function isRealLesson(item = {}) {
     const subject = String(item.subject || '').trim();
     const label = String(item.label || item.type || '').trim();
     return !!subject && !item.break && !/^(free|break|lunch|assembly|games|club|remedial)$/i.test(subject) && !/break|lunch/i.test(label);
   }
-  function lessonCount(tt = activeTimetable, classId = selectedClassId) {
+  function countFromSlots(slots, classId) {
     const seen = new Set();
-    const add = (lesson, day, pi, li) => {
+    normalizeSlots(slots, activePeriods).forEach(d => (d.periods || []).forEach((p, pi) => (p.classes || []).forEach((l, li) => {
+      const lesson = { ...l, break: p.break || l.break, label: p.label, startTime: l.startTime || p.startTime };
       if (!isRealLesson(lesson)) return;
-      if (classId && classId !== 'all' && String(lesson.classId || '') !== String(classId)) return;
-      seen.add([day || lesson.day || '', pi ?? '', li ?? '', lesson.classId || '', lesson.subject || '', lesson.teacherId || lesson.teacherName || '', lesson.startTime || ''].join('|'));
-    };
-    (tt?.slots || []).forEach((d) => (d.periods || []).forEach((p, pi) => (p.classes || []).forEach((l, li) => add({ ...l, break: p.break || l.break, label: p.label, startTime: l.startTime || p.startTime }, d.day, pi, li))));
-    // Fallback: some saved timetables store class blocks correctly even when school-wide slots are not populated.
-    (tt?.classes || []).forEach((block) => {
-      if (classId && classId !== 'all' && String(block.classId || '') !== String(classId)) return;
-      (block.timetable || []).forEach((d) => (d.periods || []).forEach((p, pi) => (p.classes || []).forEach((l, li) => add({ ...l, classId: l.classId || block.classId, break: p.break || l.break, label: p.label, startTime: l.startTime || p.startTime }, d.day, pi, li))));
-    });
+      if (classId && classId !== 'all' && !(String(lesson.classId ?? '') === String(classId) || sameClass(lesson, classId))) return;
+      seen.add([d.day, pi, li, lesson.classId || '', lesson.subject, lesson.teacherId || lesson.teacherName || '', lesson.startTime].join('|'));
+    })));
     return seen.size;
   }
+  function lessonCount(classId = selectedClassId) {
+    if (!activeTimetable) return 0;
+    if (classId && classId !== 'all') return countFromSlots(displaySlots(classId), 'all');
+    const fromGlobal = countFromSlots(activeTimetable.slots || [], 'all');
+    if (fromGlobal) return fromGlobal;
+    return (activeTimetable.classes || []).reduce((sum, b) => sum + countFromSlots(b.timetable || [], 'all'), 0);
+  }
+  function classLessonCount(classId) { return lessonCount(classId); }
   function currentStatus(period, opts = {}) {
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     if (opts.day && opts.day !== today) return 'upcoming';
@@ -93,7 +126,7 @@
   function classesForCell(period, classId) {
     const list = Array.isArray(period.classes) ? period.classes : [];
     if (!classId || classId === 'all') return list;
-    return list.filter(l => String(l.classId) === String(classId));
+    return list.filter(l => String(l.classId ?? '') === String(classId) || sameClass(l, classId));
   }
   function renderGrid(slots, { editable = false, classId = selectedClassId, parentStatus = false } = {}) {
     const normalized = normalizeSlots(slots, activePeriods);
@@ -118,39 +151,47 @@
     });
     return html + '</div></div>';
   }
-  function renderToday(slots, title, parentStatus = false) {
-    const normalized = normalizeSlots(slots, activePeriods);
+  function renderToday(slots, title = 'Today’s Lessons', parentStatus = false) {
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    const dayBlock = normalized.find(d => d.day === today) || normalized[0] || { day: today, periods: [] };
-    const cards = (dayBlock.periods || []).map(p => {
+    const day = normalizeSlots(slots, activePeriods).find(d => d.day === today) || normalizeSlots(slots, activePeriods)[0];
+    const cards = (day?.periods || []).map((p) => {
+      const status = parentStatus ? currentStatus(p, { day: day.day }) : '';
       const lesson = p.break ? { subject: p.label, teacherName: '', room: '' } : (p.classes || [])[0] || { subject: 'Free' };
-      const status = parentStatus ? currentStatus(p, { day: today }) : '';
       return `<div class="tt-today-card ${p.break ? 'tt-break' : ''} ${status ? `tt-${status}` : ''}"><div><strong>${esc(lesson.subject || p.label || 'Free')}</strong><span>${esc(p.startTime)} - ${esc(p.endTime)}</span></div><p>${esc(lesson.teacherName || '')}${lesson.room ? ` • ${esc(lesson.room)}` : ''}</p>${parentStatus ? `<small>${status === 'ended' ? 'Lesson ended' : status === 'current' ? 'Current lesson' : 'Upcoming'}</small>` : ''}</div>`;
     }).join('');
     return `<section class="tt-today"><div class="tt-section-head"><h3>${esc(title)}</h3><span>${esc(DAY_LABELS[today] || today)}</span></div><div class="tt-today-grid">${cards || '<p>No lessons for today.</p>'}</div></section>`;
   }
   function renderPeriodEditor() {
-    return `<div class="tt-period-panel compact"><div class="tt-section-head"><div><h3>Lesson Time Settings</h3><p class="tt-help">Global school periods. Keep it simple: edit label, type and time, then save/publish.</p></div><button class="timetable-v33-btn primary" onclick="v66AddPeriod()">Add period</button></div><div class="tt-period-table"><div class="tt-period-header"><span>Period</span><span>Type</span><span>Start</span><span>End</span><span></span></div>${activePeriods.map((p, i) => `<div class="tt-period-row"><input aria-label="Period label" value="${esc(p.label)}" onchange="v66SetPeriod(${i},'label',this.value)"><select aria-label="Period type" onchange="v66SetPeriod(${i},'type',this.value)"><option value="lesson" ${p.type !== 'break' ? 'selected' : ''}>Lesson</option><option value="break" ${p.type === 'break' ? 'selected' : ''}>Break</option></select><input aria-label="Start time" type="time" value="${esc(p.startTime)}" onchange="v66SetPeriod(${i},'startTime',this.value)"><input aria-label="End time" type="time" value="${esc(p.endTime)}" onchange="v66SetPeriod(${i},'endTime',this.value)"><button type="button" onclick="v66RemovePeriod(${i})">Remove</button></div>`).join('')}</div></div>`;
+    return `<div class="tt-period-panel compact"><div class="tt-section-head"><div><h3>Lesson Time Settings</h3><p class="tt-help">Edit school periods. Breaks and lunch stay visible but do not count as lessons.</p></div><button class="timetable-v33-btn primary" onclick="v66AddPeriod()">Add period</button></div><div class="tt-period-table"><div class="tt-period-header"><span>Period</span><span>Type</span><span>Start</span><span>End</span><span></span></div>${activePeriods.map((p, i) => `<div class="tt-period-row"><input aria-label="Period label" value="${esc(p.label)}" onchange="v66SetPeriod(${i},'label',this.value)"><select aria-label="Period type" onchange="v66SetPeriod(${i},'type',this.value)"><option value="lesson" ${p.type !== 'break' ? 'selected' : ''}>Lesson</option><option value="break" ${p.type === 'break' ? 'selected' : ''}>Break</option></select><input aria-label="Start time" type="time" value="${esc(p.startTime)}" onchange="v66SetPeriod(${i},'startTime',this.value)"><input aria-label="End time" type="time" value="${esc(p.endTime)}" onchange="v66SetPeriod(${i},'endTime',this.value)"><button type="button" onclick="v66RemovePeriod(${i})">Remove</button></div>`).join('')}</div></div>`;
   }
   async function loadAdminTimetable() {
     const week = weekStart();
     const [ttRes, classRes, teacherRes] = await Promise.allSettled([req(`/api/timetable?weekStartDate=${week}`), req('/api/timetable/classes'), w.api?.admin?.getTeachers ? w.api.admin.getTeachers() : req('/api/admin/teachers')]);
-    activeTimetable = ttRes.value?.data || null; activeTimetableId = activeTimetable?.id || null;
-    activePeriods = getPeriodsFromSlots(activeTimetable?.slots || activeTimetable?.classes?.[0]?.timetable || DEFAULT_PERIODS);
-    activeTimetable = { ...(activeTimetable || {}), weekStartDate: week, slots: normalizeSlots(activeTimetable || {}, activePeriods), classes: activeTimetable?.classes || [] };
+    activeTimetable = ttRes.value?.data || null;
+    activeTimetableId = activeTimetable?.id || null;
     activeClasses = classRes.value?.data || classRes.value?.classes || [];
     activeTeachers = teacherRes.value?.data || teacherRes.value?.teachers || [];
+    const sourceSlots = activeTimetable?.slots?.length ? activeTimetable.slots : (activeTimetable?.classes || []).find(c => c?.timetable?.length)?.timetable;
+    activePeriods = getPeriodsFromSlots(sourceSlots || DEFAULT_PERIODS);
+    activeTimetable = { ...(activeTimetable || {}), weekStartDate: week, slots: normalizeSlots(activeTimetable?.slots || [], activePeriods), classes: activeTimetable?.classes || [] };
+    if (!activeClasses.find(c => String(classIdOf(c)) === String(selectedClassId))) selectedClassId = 'all';
+  }
+  function renderClassCounters() {
+    if (!activeClasses.length) return '<p class="tt-help">No active classes found for this school.</p>';
+    return `<div class="tt-class-counts">${activeClasses.map(c => `<button type="button" class="tt-class-count ${String(selectedClassId) === String(classIdOf(c)) ? 'active' : ''}" onclick="v66SelectClass('${esc(classIdOf(c))}')"><strong>${esc(classNameOf(c))}</strong><span>${classLessonCount(classIdOf(c))} lessons</span></button>`).join('')}</div>`;
   }
   w.renderAdminTimetable = async function () {
     try {
       if (w.showLoading) showLoading(); await loadAdminTimetable(); if (w.hideLoading) hideLoading();
-      const lessonsTotal = lessonCount(activeTimetable, selectedClassId);
-      const classOptions = ['<option value="all">All classes</option>'].concat((activeClasses || []).map(c => `<option value="${esc(c.id)}" ${String(selectedClassId) === String(c.id) ? 'selected' : ''}>${esc(c.name)}${c.stream ? ` • ${esc(c.stream)}` : ''}</option>`)).join('');
-      return `<div class="timetable-v66-page timetable-v33-page timetable-v41-page animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">Timetable</h1><p class="v12-sub">Set periods, view each class, edit lessons, then publish for the term or year.</p></div><div class="v12-actions timetable-v41-actions"><button class="timetable-v33-btn primary" onclick="v66GenerateTimetable()">Generate</button><button class="timetable-v33-btn" onclick="v66SaveTimetable()">Save</button><button class="timetable-v33-btn" onclick="v66PublishTimetable()">Publish</button></div></div></section><section class="tt-toolbar v12-card"><label>Class view<select onchange="v66SelectClass(this.value)">${classOptions}</select></label><label>Scope<select id="ttScope"><option value="term" ${activeTimetable.scope === 'term' ? 'selected' : ''}>Term</option><option value="year" ${activeTimetable.scope === 'year' ? 'selected' : ''}>Year</option></select></label><label>Term<input id="ttTerm" value="${esc(activeTimetable.term || 'Term 1')}"></label><label>Year<input id="ttYear" type="number" value="${esc(activeTimetable.year || new Date().getFullYear())}"></label><span class="v12-pill green">${lessonsTotal} lessons</span><span class="v12-pill">${activeClasses.length} classes</span></section>${renderPeriodEditor()}<div class="timetable-v33-card timetable-v41-grid-card v12-card"><div class="timetable-v41-grid-head"><h3>${selectedClassId === 'all' ? 'School-wide timetable' : 'Selected class timetable'}</h3><span>${activeTimetable.isPublished ? 'Published' : 'Draft'}</span></div>${renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId })}</div></div>`;
+      const lessonsTotal = lessonCount('all');
+      const classOptions = ['<option value="all">All classes</option>'].concat((activeClasses || []).map(c => `<option value="${esc(classIdOf(c))}" ${String(selectedClassId) === String(classIdOf(c)) ? 'selected' : ''}>${esc(classNameOf(c))}${c.stream ? ` • ${esc(c.stream)}` : ''}</option>`)).join('');
+      const gridSlots = displaySlots(selectedClassId);
+      const selectedCount = selectedClassId === 'all' ? lessonsTotal : lessonCount(selectedClassId);
+      return `<div class="timetable-v66-page timetable-v33-page timetable-v41-page animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">Timetable</h1><p class="v12-sub">Set periods, generate, select a class to view its timetable, then publish.</p></div><div class="v12-actions timetable-v41-actions"><button class="timetable-v33-btn primary" onclick="v66GenerateTimetable()">Generate</button><button class="timetable-v33-btn" onclick="v66SaveTimetable()">Save</button><button class="timetable-v33-btn" onclick="v66PublishTimetable()">Publish</button></div></div></section><section class="tt-toolbar v12-card"><label>Class view<select onchange="v66SelectClass(this.value)">${classOptions}</select></label><label>Scope<select id="ttScope"><option value="term" ${activeTimetable.scope === 'term' ? 'selected' : ''}>Term</option><option value="year" ${activeTimetable.scope === 'year' ? 'selected' : ''}>Year</option></select></label><label>Term<input id="ttTerm" value="${esc(activeTimetable.term || 'Term 1')}"></label><label>Year<input id="ttYear" type="number" value="${esc(activeTimetable.year || new Date().getFullYear())}"></label><span class="v12-pill green">${lessonsTotal} total lessons</span><span class="v12-pill">${selectedClassId === 'all' ? activeClasses.length + ' classes' : selectedCount + ' class lessons'}</span></section>${renderClassCounters()}${renderPeriodEditor()}<div class="timetable-v33-card timetable-v41-grid-card v12-card"><div class="timetable-v41-grid-head"><h3>${selectedClassId === 'all' ? 'School-wide timetable' : 'Selected class timetable'}</h3><span>${activeTimetable.isPublished ? 'Published' : 'Draft'}</span></div>${renderGrid(gridSlots, { editable: true, classId: selectedClassId === 'all' ? 'all' : selectedClassId })}</div></div>`;
     } catch (e) { if (w.hideLoading) hideLoading(); return `<div class="timetable-v33-card v12-card"><h2>Timetable failed to load</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
   };
   w.v66SelectClass = function (id) { selectedClassId = id || 'all'; w.showDashboardSection?.('timetable'); };
-  w.v66SetPeriod = function (idx, key, value) { if (!activePeriods[idx]) return; activePeriods[idx][key] = value; activePeriods[idx].break = activePeriods[idx].type === 'break'; activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); const root = document.querySelector('.tt-period-panel'); if (root) root.outerHTML = renderPeriodEditor(); const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId }); };
+  w.v66SetPeriod = function (idx, key, value) { if (!activePeriods[idx]) return; activePeriods[idx][key] = value; activePeriods[idx].break = activePeriods[idx].type === 'break'; activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); const root = document.querySelector('.tt-period-panel'); if (root) root.outerHTML = renderPeriodEditor(); const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(displaySlots(selectedClassId), { editable: true, classId: selectedClassId }); };
   w.v66AddPeriod = function () { activePeriods.push({ label: 'Extra Lesson', startTime: '16:00', endTime: '16:40', type: 'lesson', break: false }); activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); w.showDashboardSection?.('timetable'); };
   w.v66RemovePeriod = function (idx) { if (!confirm('Remove this period from the timetable?')) return; activePeriods.splice(idx, 1); activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); w.showDashboardSection?.('timetable'); };
   w.v66EditPeriod = function (pi) {
@@ -160,22 +201,27 @@
     const endTime = prompt('End time (HH:MM):', current.endTime); if (!endTime) return;
     activePeriods[pi] = { ...current, label, startTime, endTime };
     activeTimetable.slots.forEach(day => { if (day.periods?.[pi]) Object.assign(day.periods[pi], activePeriods[pi]); });
-    const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId });
+    const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(displaySlots(selectedClassId), { editable: true, classId: selectedClassId });
   };
   w.v66EditSlot = function (day, pi, li) {
-    const dayBlock = activeTimetable?.slots?.find(d => d.day === day); if (!dayBlock) return; const period = dayBlock.periods[pi]; if (!period) return;
+    const gridSlots = displaySlots(selectedClassId);
+    const dayBlock = gridSlots?.find(d => d.day === day); if (!dayBlock) return; const period = dayBlock.periods[pi]; if (!period) return;
     if (period.break) { alert('This is a break/activity period. Change it in Lesson Time Settings.'); return; }
     const old = (period.classes && period.classes[li]) || {};
     const subject = prompt('Subject:', old.subject || ''); if (subject === null) return;
-    const classId = selectedClassId !== 'all' ? selectedClassId : (prompt('Class ID:', old.classId || activeClasses[0]?.id || '') || old.classId || activeClasses[0]?.id || null);
-    const cls = activeClasses.find(c => String(c.id) === String(classId));
+    const classId = selectedClassId !== 'all' ? selectedClassId : (prompt('Class ID:', old.classId || classIdOf(activeClasses[0]) || '') || old.classId || classIdOf(activeClasses[0]) || null);
+    const cls = activeClasses.find(c => String(classIdOf(c)) === String(classId));
     const teacherName = prompt('Teacher name:', old.teacherName || old.teacher || '') || '';
     const room = prompt('Room:', old.room || '') || '';
-    const lesson = { ...old, subject, classId: classId ? Number(classId) : null, className: cls?.name || old.className || '', grade: cls?.grade || old.grade || '', stream: cls?.stream || old.stream || '', teacherName, room, startTime: period.startTime, endTime: period.endTime };
-    period.classes = period.classes || [];
-    if (selectedClassId !== 'all') period.classes = period.classes.filter(l => String(l.classId) !== String(selectedClassId));
-    period.classes[li] = lesson;
-    const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(activeTimetable.slots, { editable: true, classId: selectedClassId });
+    const lesson = { ...old, subject, classId: classId ? Number(classId) : null, className: cls ? classNameOf(cls) : old.className || '', grade: cls?.grade || old.grade || '', stream: cls?.stream || old.stream || '', teacherName, room, startTime: period.startTime, endTime: period.endTime };
+    const globalDay = activeTimetable.slots.find(d => d.day === day); const globalPeriod = globalDay?.periods?.[pi];
+    if (globalPeriod) {
+      globalPeriod.classes = globalPeriod.classes || [];
+      if (selectedClassId !== 'all') globalPeriod.classes = globalPeriod.classes.filter(l => String(l.classId) !== String(selectedClassId));
+      globalPeriod.classes.push(lesson);
+    }
+    activeTimetable.classes = buildClassBlocks(activeTimetable.slots);
+    const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(displaySlots(selectedClassId), { editable: true, classId: selectedClassId });
   };
   w.v66SaveTimetable = async function () {
     if (!activeTimetableId) { alert('Generate a timetable first before saving edits.'); return; }

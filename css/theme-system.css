@@ -1319,3 +1319,6 @@ html:not(.dark) body:not(.dark) .finance-v31,
 #dashboard-content .tt-lesson{padding:6px;border-radius:10px;}
 @media(max-width:900px){#dashboard-content .tt-period-header{display:none;}#dashboard-content .tt-period-row{grid-template-columns:1fr 1fr;}#dashboard-content .tt-period-row button{grid-column:span 2;}#dashboard-content .tt-period-panel.compact .tt-section-head{flex-direction:column;} }
 @media(max-width:760px){#dashboard-content .timetable-v66-fit{overflow-x:auto;}#dashboard-content .timetable-v66-grid{min-width:640px;} }
+
+/* v66 Stage 4C timetable compact class counters */
+.tt-class-counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.65rem;margin:.75rem 0 1rem}.tt-class-count{border:1px solid var(--border-color,#e5e7eb);border-radius:14px;padding:.7rem .85rem;background:var(--card-bg,#fff);color:inherit;text-align:left;display:flex;justify-content:space-between;gap:.5rem;align-items:center;min-width:0}.tt-class-count strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tt-class-count span{font-size:.78rem;opacity:.75;white-space:nowrap}.tt-class-count.active{outline:2px solid var(--primary-color,#11b5b1);box-shadow:0 8px 24px rgba(17,181,177,.16)}.dark .tt-class-count,[data-theme="dark"] .tt-class-count{background:#0f172a;border-color:#334155}
