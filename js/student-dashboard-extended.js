@@ -220,8 +220,21 @@ async function renderStudentDashboard() {
     }
 }
 
+
+function v66IsAuthenticatedStudentContext() {
+    try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        if (!token) return false;
+        const user = (typeof getCurrentUser === 'function') ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || 'null');
+        return !!(user && user.role === 'student');
+    } catch (_) {
+        return false;
+    }
+}
+
 // Load leaderboard & badges into the dashboard widgets
 async function loadDashboardLeaderboard() {
+    if (!v66IsAuthenticatedStudentContext()) return;
     try {
         const dashboardRes = await api.student.getDashboard();
         const classId = dashboardRes.data?.classId;
@@ -241,6 +254,7 @@ async function loadDashboardLeaderboard() {
 }
 
 async function loadDashboardBadges() {
+    if (!v66IsAuthenticatedStudentContext()) return;
     try {
         const dashboardRes = await api.student.getDashboard();
         const studentId = dashboardRes.data?.student?.id;
@@ -261,13 +275,15 @@ async function loadDashboardBadges() {
 
 // Trigger widget loads after dashboard render
 setTimeout(() => {
+    if (!v66IsAuthenticatedStudentContext()) return;
     loadStudentHomeTasks();
     loadDashboardLeaderboard();
     loadDashboardBadges();
-    if (typeof initStudentCharts === 'function') initStudentCharts(window.dashboardData || dashboardData || {});
+    if (typeof initStudentCharts === 'function') initStudentCharts(window.dashboardData || window.dashboardData || {});
 }, 200);
 
 async function loadStudentHomeTasks() {
+    if (!v66IsAuthenticatedStudentContext()) return;
     const container = document.getElementById('student-home-tasks-list');
     if (!container) return;
     try {
@@ -770,9 +786,9 @@ async function sendStudentChatMessage() {
 
 // ============ AI TUTOR ============
 function renderStudentAITutor() {
-    const curriculum = schoolSettings.curriculum || 'cbc';
+    const curriculum = (window.schoolSettings && window.schoolSettings.curriculum) || 'cbc';
     const context = v66GetStudentTutorContext();
-    setTimeout(() => v66LoadStudentTutorContext(), 0);
+    if (v66IsAuthenticatedStudentContext()) setTimeout(() => v66LoadStudentTutorContext(), 0);
 
     return `
         <div class="max-w-6xl mx-auto space-y-6 animate-fade-in">
@@ -849,7 +865,7 @@ function renderStudentAITutor() {
 }
 
 function v66GetStudentTutorContext() {
-    const user = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
+    const user = ((typeof getCurrentUser === 'function') ? getCurrentUser() : {}) || {};
     const saved = window.v66StudentTutorContext || {};
     const detectedGrade = saved.grade || saved.gradeLevel || saved.className || saved.class || user.grade || user.gradeLevel || user.class || user.className || 'Grade 5';
     const grade = (!detectedGrade || String(detectedGrade).toLowerCase() === 'not assigned') ? 'Grade 5' : detectedGrade;
@@ -860,7 +876,7 @@ function v66GetStudentTutorContext() {
         gradeLevel: grade,
         level,
         studentId: saved.studentId || user.studentId || null,
-        curriculum: saved.curriculum || schoolSettings.curriculum || 'cbc',
+        curriculum: saved.curriculum || (window.schoolSettings && window.schoolSettings.curriculum) || 'cbc',
         displayText: grade && grade !== 'Not assigned' ? `Level: ${grade}` : 'Detecting learner level...'
     };
 }
@@ -875,6 +891,7 @@ function v66TutorLevelFromGrade(gradeText = '') {
 }
 
 async function v66LoadStudentTutorContext() {
+    if (!v66IsAuthenticatedStudentContext()) return;
     try {
         const res = await (api?.student?.getDashboard ? api.student.getDashboard() : apiRequest('/api/student/dashboard'));
         const data = res.data || {};
@@ -895,7 +912,7 @@ async function v66LoadStudentTutorContext() {
         updateTutorSubjects();
     } catch (error) {
         console.warn('Could not load student tutor context:', error.message);
-        updateTutorSubjects();
+        if (v66IsAuthenticatedStudentContext()) updateTutorSubjects();
     }
 }
 
@@ -932,7 +949,7 @@ function fillTutorCommand(label) {
     input.focus();
 }
 
-setTimeout(updateTutorSubjects, 0);
+setTimeout(() => { if (v66IsAuthenticatedStudentContext()) updateTutorSubjects(); }, 0);
 
 function renderStudentSchedule() {
     const school = getCurrentSchool();

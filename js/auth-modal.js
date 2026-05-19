@@ -282,6 +282,19 @@ async function verifySchoolCodeInput() {
     }
 }
 
+
+async function safeAcceptAuthConsent() {
+    try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        if (!token || !window.api?.consent?.accept) return;
+        await safeAcceptAuthConsent();
+    } catch (error) {
+        // Signup flows can complete before a login token exists, especially pending teacher approval.
+        // Do not fail account/request creation just because consent recording needs auth.
+        console.warn('Consent acceptance skipped until authenticated:', error.message);
+    }
+}
+
 async function handleAuthSubmit() {
     const modalTitle = document.getElementById('auth-modal-title').textContent;
     const mode = modalTitle.includes('Sign In') ? 'signin' : 'signup';
@@ -376,7 +389,9 @@ async function handleAuthSubmit() {
                     schoolName: document.getElementById('auth-school-name')?.value,
                     schoolLevel: document.getElementById('auth-school-level')?.value,
                     curriculum: document.getElementById('auth-curriculum')?.value,
-                    schoolType: document.querySelector('input[name="auth-school-type"]:checked')?.value || 'day'
+                    schoolType: document.querySelector('input[name="auth-school-type"]:checked')?.value || 'day',
+                    termsAccepted: true,
+                    privacyAccepted: true
                 };
 
                 if (!adminData.name || !adminData.email || !adminData.password || !adminData.schoolName) {
@@ -387,7 +402,7 @@ async function handleAuthSubmit() {
 
                 const response = await adminSignup(adminData);
                 // Record consent
-                await api.consent.accept(true, true);
+                await safeAcceptAuthConsent();
                 showToast(response.message, 'success');
 
                 if (response.data) {
@@ -412,7 +427,9 @@ async function handleAuthSubmit() {
                     phone: document.getElementById('auth-phone')?.value,
                     schoolCode: schoolCode,
                     subjects: subjects ? subjects.split(',').map(s => s.trim()) : [],
-                    qualification: document.getElementById('auth-qualification')?.value
+                    qualification: document.getElementById('auth-qualification')?.value,
+                    termsAccepted: true,
+                    privacyAccepted: true
                 };
 
                 console.log('📤 Teacher signup payload:', teacherData);
@@ -424,7 +441,7 @@ async function handleAuthSubmit() {
                 }
 
                 const response = await teacherSignup(teacherData);
-                await api.consent.accept(true, true);
+                await safeAcceptAuthConsent();
                 showToast(response.message, 'success');
                 closeAuthModal();
 
@@ -434,7 +451,9 @@ async function handleAuthSubmit() {
                     email: document.getElementById('auth-email')?.value,
                     password: document.getElementById('auth-password')?.value,
                     phone: document.getElementById('auth-phone')?.value,
-                    studentElimuid: document.getElementById('auth-student-elimuid')?.value
+                    studentElimuid: document.getElementById('auth-student-elimuid')?.value,
+                    termsAccepted: true,
+                    privacyAccepted: true
                 };
 
                 if (!parentData.name || !parentData.email || !parentData.password || !parentData.studentElimuid) {
@@ -444,7 +463,7 @@ async function handleAuthSubmit() {
                 }
 
                 const response = await parentSignup(parentData);
-                await api.consent.accept(true, true);
+                await safeAcceptAuthConsent();
                 showToast(response.message, 'success');
                 closeAuthModal();
             }
