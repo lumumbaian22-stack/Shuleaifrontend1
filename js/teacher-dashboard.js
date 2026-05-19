@@ -4,6 +4,7 @@ let currentStaffChatType = 'group';
 let currentStaffChatPartner = null;
 let currentMarksClassName = '';
 let currentMarksClassId = null, currentMarksSubject = null, currentMarksStudents = [];
+let currentMarksCanPublish = false, currentMarksRole = 'subject_teacher', currentMarksAvailableSubjects = [];
 let currentMarksTerm = 'Term 1', currentMarksYear = new Date().getFullYear();
 
 // ============ ROLE DETECTION ============
@@ -29,7 +30,7 @@ function isSubjectTeacher() {
 
 function getTeacherRoleDescription() {
   const role = getTeacherRole();
-  if (role === 'class_teacher') return 'You are the Class Teacher. You can manage students, upload via CSV, and enter marks for all subjects in your class.';
+  if (role === 'class_teacher') return 'You are the Class Teacher. You review full-class marks, monitor attendance, and publish final report cards.';
   if (role === 'subject_teacher') return 'You are a Subject Teacher. You can enter marks for your assigned subjects and classes.';
   return 'Manage your classes, students, and grades.';
 }
@@ -109,8 +110,8 @@ async function renderTeacherDashboard() {
       </div>
 
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">My Students</p><h3 class="text-2xl font-bold mt-1">${stats.studentCount || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><i data-lucide="users" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i></div></div></div>
-        <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Class Average</p><h3 class="text-2xl font-bold mt-1">${stats.classAverage || 0}%</h3></div><div class="h-12 w-12 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><i data-lucide="trending-up" class="h-6 w-6 text-violet-600 dark:text-violet-400"></i></div></div></div>
+        ${isClassTeacher() ? `<div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">My Students</p><h3 class="text-2xl font-bold mt-1">${stats.studentCount || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><i data-lucide="users" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i></div></div></div>` : ''}
+        <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">${isClassTeacher() ? 'Class Average' : 'Subject Average'}</p><h3 class="text-2xl font-bold mt-1">${stats.classAverage || 0}%</h3></div><div class="h-12 w-12 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><i data-lucide="trending-up" class="h-6 w-6 text-violet-600 dark:text-violet-400"></i></div></div></div>
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Attendance Today</p><h3 class="text-2xl font-bold mt-1">${stats.attendanceToday || '0/0'}</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 dark:text-amber-400"></i></div></div></div>
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Pending Tasks</p><h3 class="text-2xl font-bold mt-1">${stats.pendingTasks || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><i data-lucide="check-square" class="h-6 w-6 text-red-600 dark:text-red-400"></i></div></div></div>
       </div>
@@ -170,9 +171,90 @@ async function loadMyStudents() {
 async function renderTeacherStudents() {
     const data = await loadMyStudents();
     const students = data.students || [];
-    const isClassTeacher = data.isClassTeacher;
+    const isClassTeacherFlag = !!data.isClassTeacher;
     const subjects = data.subjects || [];
-    return renderStudentsTable(students, isClassTeacher, subjects);
+    if (!isClassTeacherFlag) {
+      return `<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">My Students is reserved for class teachers. Use Grades and Attendance for your assigned subjects/classes.</p></div>`;
+    }
+    let reviewHtml = '';
+    try {
+      const assignments = await api.teacher.getMyAssignments();
+      const classTeacher = assignments?.data?.classTeacher;
+      if (classTeacher?.id) {
+        const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+        const term = document.getElementById('class-report-term')?.value || 'Term 1';
+        const gradebook = await api.teacher.getGradebook({ classId: classTeacher.id, term, year });
+        reviewHtml = renderClassTeacherReportReview(gradebook?.data || {}, term, year);
+      }
+    } catch (e) {
+      reviewHtml = `<div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200">Class report review could not load: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+    }
+    return `<div class="space-y-6">${reviewHtml}${renderStudentsTable(students, true, subjects)}</div>`;
+}
+
+function renderClassTeacherReportReview(gradebook, term, year) {
+    const subjects = gradebook.subjects || [];
+    const students = gradebook.students || [];
+    const classId = gradebook.classId || '';
+    const readyStudents = students.filter(s => subjects.length && subjects.every(sub => s.scores && s.scores[sub] !== null && s.scores[sub] !== undefined));
+    const missingCount = students.length - readyStudents.length;
+    const publishedReady = students.length > 0 && missingCount === 0;
+    const currentYear = new Date().getFullYear();
+    const years = [currentYear - 1, currentYear, currentYear + 1];
+    return `
+      <section class="rounded-2xl border bg-card p-5 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-muted-foreground">Class Teacher Control Center</p>
+            <h2 class="text-xl font-bold">Full Class Report Review</h2>
+            <p class="text-sm text-muted-foreground">Subject teachers submit marks from Grades. The class teacher reviews the whole class here and publishes final report cards.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <select id="class-report-term" onchange="showDashboardSection('students')" class="rounded-lg border px-3 py-2 bg-background">
+              ${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}" ${t === term ? 'selected' : ''}>${t}</option>`).join('')}
+            </select>
+            <select id="class-report-year" onchange="showDashboardSection('students')" class="rounded-lg border px-3 py-2 bg-background">
+              ${years.map(y => `<option value="${y}" ${String(y) === String(year) ? 'selected' : ''}>${y}</option>`).join('')}
+            </select>
+            <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${publishedReady ? 'bg-primary text-white' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${publishedReady ? '' : 'disabled'}>Publish Full Class Report</button>
+          </div>
+        </div>
+        <div class="grid gap-3 md:grid-cols-4 mb-4">
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Students</p><h3 class="text-2xl font-bold">${students.length}</h3></div>
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Subjects</p><h3 class="text-2xl font-bold">${subjects.length}</h3></div>
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Ready</p><h3 class="text-2xl font-bold text-green-600">${readyStudents.length}</h3></div>
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Missing/Incomplete</p><h3 class="text-2xl font-bold ${missingCount ? 'text-red-600' : 'text-green-600'}">${missingCount}</h3></div>
+        </div>
+        <div class="overflow-x-auto border rounded-xl">
+          <table class="w-full text-xs min-w-[760px]">
+            <thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left sticky left-0 bg-muted/50">Student</th>${subjects.map(s => `<th class="px-2 py-2 text-center">${escapeHtml(s)}</th>`).join('')}<th class="px-2 py-2 text-center">Avg</th><th class="px-2 py-2 text-center">Status</th></tr></thead>
+            <tbody class="divide-y">
+              ${students.map(st => {
+                const vals = subjects.map(sub => st.scores?.[sub]);
+                const missing = subjects.filter((sub, i) => vals[i] === null || vals[i] === undefined);
+                const avg = st.overallAverage;
+                return `<tr><td class="px-3 py-2 font-medium sticky left-0 bg-card">${escapeHtml(st.name || 'Student')}<div class="text-[10px] text-muted-foreground">${escapeHtml(st.elimuid || '')}</div></td>${subjects.map(sub => {
+                  const val = st.scores?.[sub];
+                  return `<td class="px-2 py-2 text-center ${val == null ? 'text-red-500' : ''}">${val == null ? '—' : val + '%'}</td>`;
+                }).join('')}<td class="px-2 py-2 text-center font-semibold">${avg == null ? '—' : avg + '%'}</td><td class="px-2 py-2 text-center"><span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + missing.join(', ') : 'Ready'}</span></td></tr>`;
+              }).join('') || `<tr><td colspan="${subjects.length + 3}" class="px-3 py-8 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>`;
+}
+
+async function publishClassReportFromStudents(classId) {
+  const term = document.getElementById('class-report-term')?.value || 'Term 1';
+  const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+  if (!classId) return showToast('Class not found', 'error');
+  if (!confirm(`Publish full class report for ${term} ${year}? Students and parents will see it.`)) return;
+  showLoading();
+  try {
+    const res = await api.teacher.publishMarks({ classId, term, year });
+    showToast(res.message || 'Full class report published', 'success');
+    await showDashboardSection('students');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
 function renderStudentsTable(students, isClassTeacher, subjects) {
@@ -431,8 +513,8 @@ async function renderTeacherMarksEntry() {
     const teacher = await api.teacher.getMyAssignments();
     if (teacher.data) {
       teacherInfo = teacher.data;
-      if (teacher.data.classTeacher) assignments.push({ type: 'class', id: teacher.data.classTeacher.id, name: teacher.data.classTeacher.name, subject: 'All Subjects' });
-      for (const sub of (teacher.data.subjects || [])) assignments.push({ type: 'subject', id: sub.classId, name: sub.className, subject: sub.subject });
+      if (teacher.data.classTeacher) assignments.push({ type: 'class', id: teacher.data.classTeacher.id, name: teacher.data.classTeacher.name, subject: 'All Subjects', role: 'class_teacher', subjects: teacher.data.classTeacher.subjects || [] });
+      for (const sub of (teacher.data.subjects || [])) assignments.push({ type: 'subject', id: sub.classId, name: sub.className, subject: sub.subject, role: 'subject_teacher', subjects: [sub.subject] });
     }
   } catch(e) { console.error(e); }
   if (!assignments.length) return '<div class="text-center py-12">No classes or subjects assigned</div>';
@@ -462,7 +544,7 @@ async function renderTeacherMarksEntry() {
   `;
   for (const a of assignments) {
     html += `
-      <div class="rounded-xl border bg-card p-5 cursor-pointer hover:shadow-md" onclick="openMarksEntry('${a.subject}', '${a.id}', '${a.name}')">
+      <div class="rounded-xl border bg-card p-5 cursor-pointer hover:shadow-md" onclick='openMarksEntry(${JSON.stringify(a.subject)}, ${JSON.stringify(String(a.id))}, ${JSON.stringify(a.name)}, ${JSON.stringify(a.role || '')}, ${JSON.stringify((a.subjects || []).join('|'))})'>
         <div class="flex items-center gap-3 mb-3">
           <div class="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><i data-lucide="book" class="h-6 w-6 text-primary"></i></div>
           <div><p class="font-semibold">${escapeHtml(a.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(a.subject)}</p></div>
@@ -475,10 +557,13 @@ async function renderTeacherMarksEntry() {
   return html;
 }
 
-async function openMarksEntry(subject, classId, className) {
+async function openMarksEntry(subject, classId, className, role = '', subjectsPipe = '') {
   currentMarksSubject = subject;
   currentMarksClassId = classId;
-  currentMarksClassName = className; 
+  currentMarksClassName = className;
+  currentMarksRole = role || (subject === 'All Subjects' ? 'class_teacher' : 'subject_teacher');
+  currentMarksCanPublish = currentMarksRole === 'class_teacher';
+  currentMarksAvailableSubjects = String(subjectsPipe || '').split('|').filter(Boolean); 
   currentMarksTerm = document.getElementById('marks-term')?.value || 'Term 1';
   currentMarksYear = document.getElementById('marks-year')?.value || new Date().getFullYear();
   showLoading();
@@ -542,7 +627,7 @@ function showMarksEntryModal(className) {
     <div class="v95-modal-head !px-0 !pt-0">
       <div>
         <div class="v95-title">Enter Marks</div>
-        <div class="v95-subtitle">Class: ${escapeHtml(className)} • Subject: ${escapeHtml(currentMarksSubject || 'Subject')} • Real students loaded from teacher class data</div>
+        <div class="v95-subtitle">Class: ${escapeHtml(className)} • ${currentMarksCanPublish ? 'Class teacher draft entry. Final publishing is now in My Students.' : 'Subject teacher view: enter assigned subject marks only and submit for class-teacher review.'} • Real students loaded from teacher class data</div>
       </div>
       <button onclick="closeMarksEntryModal()" class="v95-close">×</button>
     </div>
@@ -550,6 +635,7 @@ function showMarksEntryModal(className) {
     ${scaleHtml}
 
     <div class="v95-marks-top mt-5">
+      ${currentMarksCanPublish ? `<div class="v95-field"><label>Subject</label><select id="marks-subject-select" onchange="currentMarksSubject=this.value">${(currentMarksAvailableSubjects.length ? currentMarksAvailableSubjects : ['Mathematics','English','Kiswahili','Science','Social Studies']).map(sub => `<option value="${escapeHtml(sub)}">${escapeHtml(sub)}</option>`).join('')}</select></div>` : `<div class="v95-field"><label>Subject</label><input id="marks-subject-select" value="${escapeHtml(currentMarksSubject || '')}" disabled></div>`}
       <div class="v95-field">
         <label>Assessment Type</label>
         <select id="assessment-type">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select>
@@ -629,9 +715,9 @@ function showMarksEntryModal(className) {
 
         <div class="mt-5 v95-section-card">
           <h4 class="font-bold mb-2">Actions</h4>
-          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Save Draft</button>
-          <button onclick="saveAllMarks()" class="v95-btn w-full mb-2">Submit for Review</button>
-          <button onclick="publishAllMarks()" class="v95-btn primary w-full">Publish Marks</button>
+          <button onclick="saveAllMarks('draft')" class="v95-btn w-full mb-2">Save Draft</button>
+          <button onclick="saveAllMarks('submitted')" class="v95-btn primary w-full mb-2">Submit Marks for Review</button>
+          <div class="text-xs text-muted-foreground rounded-lg border p-3">Final report publishing is done by the class teacher in <b>My Students</b>.</div>
         </div>
       </aside>
     </div>
@@ -722,10 +808,13 @@ window.updateGradeDisplayForStudent = function(studentId) {
   }
 };
 
-async function saveAllMarks() {
+async function saveAllMarks(status = 'draft') {
+  const selectedSubject = (document.getElementById('marks-subject-select')?.value || currentMarksSubject || '').trim();
+  currentMarksSubject = selectedSubject;
   const assessmentType = document.getElementById('assessment-type')?.value;
   const assessmentName = document.getElementById('assessment-name')?.value;
   const assessmentDate = document.getElementById('assessment-date')?.value;
+  if (!selectedSubject) { showToast('Select subject', 'error'); return; }
   if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
 
   // Use the custom grading scale that was applied (array, or null)
@@ -739,7 +828,8 @@ async function saveAllMarks() {
       try {
         await api.teacher.enterMarks({
           studentId: student.id,
-          subject: currentMarksSubject,
+          classId: currentMarksClassId,
+          subject: selectedSubject,
           assessmentType,
           assessmentName,
           score,
@@ -747,6 +837,7 @@ async function saveAllMarks() {
           term: currentMarksTerm,
           year: currentMarksYear,
           isPublished: false,
+          status: status === 'submitted' ? 'submitted' : 'draft',
           gradingScale: gradingScale,       // array of {grade, min, max} or null
           remarks: document.getElementById(`remark-${student.id}`)?.value || ''
         });
@@ -754,18 +845,18 @@ async function saveAllMarks() {
       } catch(e) { failed++; }
     }
   }
-  showToast(`Saved ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
+  showToast(`${status === 'submitted' ? 'Submitted for class-teacher review' : 'Saved draft'}: ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
   closeMarksEntryModal();
   hideLoading();
 }
 
 async function publishAllMarks() {
-    if (!confirm('Publish all marks for this class? Parents and students will see them.')) return;
+    if (!currentMarksCanPublish) { showToast('Only class teacher can publish final class marks', 'error'); return; }
+    if (!confirm('Publish final marks for this class/term/year? Parents and students will see them.')) return;
     showLoading();
     try {
         const res = await api.teacher.publishMarks({
             classId: currentMarksClassId,
-            subject: currentMarksSubject,
             term: currentMarksTerm,
             year: currentMarksYear
         });
@@ -2025,6 +2116,7 @@ window.renderTeacherTimetable = renderTeacherTimetable;
 window.openMarksEntry = openMarksEntry;
 window.closeMarksEntryModal = closeMarksEntryModal;
 window.saveAllMarks = saveAllMarks;
+window.publishClassReportFromStudents = publishClassReportFromStudents;
 window.updateGradeDisplayForStudent = updateGradeDisplayForStudent;
 window.showAddTaskModal = showAddTaskModal;
 window.closeAddTaskModal = closeAddTaskModal;

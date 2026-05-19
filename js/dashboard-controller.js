@@ -66,7 +66,14 @@ function updateSidebar(role) {
         teacher: {
             main: [
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
-                { icon: 'users', label: 'My Students', section: 'students' },
+                ...(function(){
+                    try {
+                        const u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+                        const t = u?.teacher || {};
+                        const isClassTeacher = !!(u?.classTeacher || u?.classId || t.classTeacher || t.classId || t.isClassTeacher || t.role === 'class_teacher');
+                        return isClassTeacher ? [{ icon: 'users', label: 'My Students', section: 'students' }] : [];
+                    } catch (_) { return []; }
+                })(),
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'trending-up', label: 'Grades', section: 'grades' },
                 { icon: 'check-square', label: 'Tasks', section: 'tasks' },
