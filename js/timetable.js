@@ -1,4 +1,4 @@
-// Shule AI v66 Stage 4C - Timetable class-view + counters repair
+// Shule AI v66 Stage 4D - Timetable generator + period controls cleanup
 (function () {
   const w = window;
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
@@ -85,8 +85,9 @@
     const byClass = new Map();
     (activeClasses || []).forEach(c => byClass.set(String(classIdOf(c)), { classId: classIdOf(c), className: classNameOf(c), grade: c.grade, stream: c.stream, periods: clone(activePeriods), timetable: shell(activePeriods) }));
     (slots || []).forEach(dayBlock => (dayBlock.periods || []).forEach((period, pi) => (period.classes || []).forEach(lesson => {
-      const key = String(lesson.classId || lesson.className || 'unknown');
-      if (!byClass.has(key)) byClass.set(key, { classId: lesson.classId || null, className: lesson.className || 'Class', grade: lesson.grade || '', stream: lesson.stream || '', periods: clone(activePeriods), timetable: shell(activePeriods) });
+      const matchedClass = activeClasses.find(c => String(classIdOf(c)) === String(lesson.classId ?? '') || norm(classNameOf(c)) === norm(lesson.className || lesson.grade));
+      const key = String(lesson.classId || (matchedClass && classIdOf(matchedClass)) || lesson.className || 'unknown');
+      if (!byClass.has(key)) byClass.set(key, { classId: lesson.classId || (matchedClass && classIdOf(matchedClass)) || null, className: lesson.className || (matchedClass && classNameOf(matchedClass)) || 'Class', grade: lesson.grade || matchedClass?.grade || '', stream: lesson.stream || matchedClass?.stream || '', periods: clone(activePeriods), timetable: shell(activePeriods) });
       const block = byClass.get(key); const day = block.timetable.find(d => d.day === dayBlock.day); if (!day || !day.periods[pi]) return;
       day.periods[pi] = { ...cleanPeriod(period, pi), classes: [{ ...lesson, startTime: period.startTime, endTime: period.endTime, day: dayBlock.day }] };
     })));
@@ -162,7 +163,7 @@
     return `<section class="tt-today"><div class="tt-section-head"><h3>${esc(title)}</h3><span>${esc(DAY_LABELS[today] || today)}</span></div><div class="tt-today-grid">${cards || '<p>No lessons for today.</p>'}</div></section>`;
   }
   function renderPeriodEditor() {
-    return `<div class="tt-period-panel compact"><div class="tt-section-head"><div><h3>Lesson Time Settings</h3><p class="tt-help">Edit school periods. Breaks and lunch stay visible but do not count as lessons.</p></div><button class="timetable-v33-btn primary" onclick="v66AddPeriod()">Add period</button></div><div class="tt-period-table"><div class="tt-period-header"><span>Period</span><span>Type</span><span>Start</span><span>End</span><span></span></div>${activePeriods.map((p, i) => `<div class="tt-period-row"><input aria-label="Period label" value="${esc(p.label)}" onchange="v66SetPeriod(${i},'label',this.value)"><select aria-label="Period type" onchange="v66SetPeriod(${i},'type',this.value)"><option value="lesson" ${p.type !== 'break' ? 'selected' : ''}>Lesson</option><option value="break" ${p.type === 'break' ? 'selected' : ''}>Break</option></select><input aria-label="Start time" type="time" value="${esc(p.startTime)}" onchange="v66SetPeriod(${i},'startTime',this.value)"><input aria-label="End time" type="time" value="${esc(p.endTime)}" onchange="v66SetPeriod(${i},'endTime',this.value)"><button type="button" onclick="v66RemovePeriod(${i})">Remove</button></div>`).join('')}</div></div>`;
+    return `<div class="tt-period-panel compact"><div class="tt-section-head"><div><h3>Lesson Time Settings</h3><p class="tt-help">Edit school periods. Breaks and lunch stay visible but do not count as lessons.</p></div><button class="timetable-v33-btn primary" onclick="v66AddPeriod()">Add lesson/break</button></div><div class="tt-period-table"><div class="tt-period-header"><span>Period</span><span>Type</span><span>Start</span><span>End</span><span></span></div>${activePeriods.map((p, i) => `<div class="tt-period-row"><input aria-label="Period label" value="${esc(p.label)}" onchange="v66SetPeriod(${i},'label',this.value)"><select aria-label="Period type" onchange="v66SetPeriod(${i},'type',this.value)"><option value="lesson" ${p.type !== 'break' ? 'selected' : ''}>Lesson</option><option value="break" ${p.type === 'break' ? 'selected' : ''}>Break</option></select><input aria-label="Start time" type="time" value="${esc(p.startTime)}" onchange="v66SetPeriod(${i},'startTime',this.value)"><input aria-label="End time" type="time" value="${esc(p.endTime)}" onchange="v66SetPeriod(${i},'endTime',this.value)"><button type="button" onclick="v66RemovePeriod(${i})">Remove</button></div>`).join('')}</div></div>`;
   }
   async function loadAdminTimetable() {
     const week = weekStart();
@@ -176,10 +177,7 @@
     activeTimetable = { ...(activeTimetable || {}), weekStartDate: week, slots: normalizeSlots(activeTimetable?.slots || [], activePeriods), classes: activeTimetable?.classes || [] };
     if (!activeClasses.find(c => String(classIdOf(c)) === String(selectedClassId))) selectedClassId = 'all';
   }
-  function renderClassCounters() {
-    if (!activeClasses.length) return '<p class="tt-help">No active classes found for this school.</p>';
-    return `<div class="tt-class-counts">${activeClasses.map(c => `<button type="button" class="tt-class-count ${String(selectedClassId) === String(classIdOf(c)) ? 'active' : ''}" onclick="v66SelectClass('${esc(classIdOf(c))}')"><strong>${esc(classNameOf(c))}</strong><span>${classLessonCount(classIdOf(c))} lessons</span></button>`).join('')}</div>`;
-  }
+  function renderClassCounters() { return ''; }
   w.renderAdminTimetable = async function () {
     try {
       if (w.showLoading) showLoading(); await loadAdminTimetable(); if (w.hideLoading) hideLoading();
@@ -187,21 +185,34 @@
       const classOptions = ['<option value="all">All classes</option>'].concat((activeClasses || []).map(c => `<option value="${esc(classIdOf(c))}" ${String(selectedClassId) === String(classIdOf(c)) ? 'selected' : ''}>${esc(classNameOf(c))}${c.stream ? ` • ${esc(c.stream)}` : ''}</option>`)).join('');
       const gridSlots = displaySlots(selectedClassId);
       const selectedCount = selectedClassId === 'all' ? lessonsTotal : lessonCount(selectedClassId);
-      return `<div class="timetable-v66-page timetable-v33-page timetable-v41-page animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">Timetable</h1><p class="v12-sub">Set periods, generate, select a class to view its timetable, then publish.</p></div><div class="v12-actions timetable-v41-actions"><button class="timetable-v33-btn primary" onclick="v66GenerateTimetable()">Generate</button><button class="timetable-v33-btn" onclick="v66SaveTimetable()">Save</button><button class="timetable-v33-btn" onclick="v66PublishTimetable()">Publish</button></div></div></section><section class="tt-toolbar v12-card"><label>Class view<select onchange="v66SelectClass(this.value)">${classOptions}</select></label><label>Scope<select id="ttScope"><option value="term" ${activeTimetable.scope === 'term' ? 'selected' : ''}>Term</option><option value="year" ${activeTimetable.scope === 'year' ? 'selected' : ''}>Year</option></select></label><label>Term<input id="ttTerm" value="${esc(activeTimetable.term || 'Term 1')}"></label><label>Year<input id="ttYear" type="number" value="${esc(activeTimetable.year || new Date().getFullYear())}"></label><span class="v12-pill green">${lessonsTotal} total lessons</span><span class="v12-pill">${selectedClassId === 'all' ? activeClasses.length + ' classes' : selectedCount + ' class lessons'}</span></section>${renderClassCounters()}${renderPeriodEditor()}<div class="timetable-v33-card timetable-v41-grid-card v12-card"><div class="timetable-v41-grid-head"><h3>${selectedClassId === 'all' ? 'School-wide timetable' : 'Selected class timetable'}</h3><span>${activeTimetable.isPublished ? 'Published' : 'Draft'}</span></div>${renderGrid(gridSlots, { editable: true, classId: selectedClassId === 'all' ? 'all' : selectedClassId })}</div></div>`;
+      return `<div class="timetable-v66-page timetable-v33-page timetable-v41-page animate-fade-in"><section class="timetable-v33-hero timetable-v41-hero v12-hero"><div class="v12-hero-inner timetable-v41-hero-inner"><div><div class="v12-eyebrow">Timetable</div><h1 class="v12-title">Timetable</h1><p class="v12-sub">Set periods, generate, select a class to view its timetable, then publish.</p></div><div class="v12-actions timetable-v41-actions"><button class="timetable-v33-btn primary" onclick="v66GenerateTimetable()">Generate</button><button class="timetable-v33-btn" onclick="v66SaveTimetable()">Save</button><button class="timetable-v33-btn" onclick="v66PublishTimetable()">Publish</button></div></div></section><section class="tt-toolbar v12-card"><label>Class view<select onchange="v66SelectClass(this.value)">${classOptions}</select></label><label>Scope<select id="ttScope"><option value="term" ${activeTimetable.scope === 'term' ? 'selected' : ''}>Term</option><option value="year" ${activeTimetable.scope === 'year' ? 'selected' : ''}>Year</option></select></label><label>Term<input id="ttTerm" value="${esc(activeTimetable.term || 'Term 1')}"></label><label>Year<input id="ttYear" type="number" value="${esc(activeTimetable.year || new Date().getFullYear())}"></label><span class="v12-pill green tt-counter-pill">${lessonsTotal} total lessons</span><span class="v12-pill tt-counter-pill">${selectedClassId === 'all' ? activeClasses.length + ' classes' : selectedCount + ' class lessons'}</span></section>${renderPeriodEditor()}<div class="timetable-v33-card timetable-v41-grid-card v12-card"><div class="timetable-v41-grid-head"><h3>${selectedClassId === 'all' ? 'School-wide timetable' : 'Selected class timetable'}</h3><span>${activeTimetable.isPublished ? 'Published' : 'Draft'}</span></div>${renderGrid(gridSlots, { editable: true, classId: selectedClassId === 'all' ? 'all' : selectedClassId })}</div></div>`;
     } catch (e) { if (w.hideLoading) hideLoading(); return `<div class="timetable-v33-card v12-card"><h2>Timetable failed to load</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
   };
   w.v66SelectClass = function (id) { selectedClassId = id || 'all'; w.showDashboardSection?.('timetable'); };
   w.v66SetPeriod = function (idx, key, value) { if (!activePeriods[idx]) return; activePeriods[idx][key] = value; activePeriods[idx].break = activePeriods[idx].type === 'break'; activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); const root = document.querySelector('.tt-period-panel'); if (root) root.outerHTML = renderPeriodEditor(); const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(displaySlots(selectedClassId), { editable: true, classId: selectedClassId }); };
-  w.v66AddPeriod = function () { activePeriods.push({ label: 'Extra Lesson', startTime: '16:00', endTime: '16:40', type: 'lesson', break: false }); activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); w.showDashboardSection?.('timetable'); };
-  w.v66RemovePeriod = function (idx) { if (!confirm('Remove this period from the timetable?')) return; activePeriods.splice(idx, 1); activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); w.showDashboardSection?.('timetable'); };
-  w.v66EditPeriod = function (pi) {
-    const current = activePeriods[pi]; if (!current) return;
-    const label = prompt('Period label:', current.label); if (label === null) return;
-    const startTime = prompt('Start time (HH:MM):', current.startTime); if (!startTime) return;
-    const endTime = prompt('End time (HH:MM):', current.endTime); if (!endTime) return;
-    activePeriods[pi] = { ...current, label, startTime, endTime };
-    activeTimetable.slots.forEach(day => { if (day.periods?.[pi]) Object.assign(day.periods[pi], activePeriods[pi]); });
+  
+  function refreshTimetableView() {
+    activeTimetable.slots = normalizeSlots(activeTimetable.slots || [], activePeriods);
+    activeTimetable.classes = buildClassBlocks(activeTimetable.slots);
+    const panel = document.querySelector('.tt-period-panel'); if (panel) panel.outerHTML = renderPeriodEditor();
     const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(displaySlots(selectedClassId), { editable: true, classId: selectedClassId });
+    const pills = document.querySelectorAll('.tt-counter-pill');
+    if (pills[0]) pills[0].textContent = lessonCount('all') + ' total lessons';
+    if (pills[1]) pills[1].textContent = selectedClassId === 'all' ? activeClasses.length + ' classes' : lessonCount(selectedClassId) + ' class lessons';
+  }
+  w.v66AddPeriod = function () {
+    const last = activePeriods[activePeriods.length - 1] || { endTime: '16:00' };
+    const startTime = last.endTime || '16:00';
+    activePeriods.push({ label: 'Extra Lesson', startTime, endTime: startTime, type: 'lesson', break: false, classes: [] });
+    activeTimetable.slots = (activeTimetable.slots && activeTimetable.slots.length ? activeTimetable.slots : shell(activePeriods.slice(0, -1))).map(day => ({ ...day, periods: [...(day.periods || []), { ...cleanPeriod(activePeriods[activePeriods.length - 1], activePeriods.length - 1), classes: [] }] }));
+    refreshTimetableView();
+  };
+  w.v66RemovePeriod = function (idx) {
+    if (!activePeriods[idx]) return;
+    if (!confirm('Remove this period from the timetable? Lessons in this period will also be removed.')) return;
+    activePeriods.splice(idx, 1);
+    activeTimetable.slots = (activeTimetable.slots || []).map(day => ({ ...day, periods: (day.periods || []).filter((_, i) => i !== idx) }));
+    refreshTimetableView();
   };
   w.v66EditSlot = function (day, pi, li) {
     const gridSlots = displaySlots(selectedClassId);
@@ -237,7 +248,16 @@
     try {
       if (w.showLoading) showLoading();
       const scope = document.getElementById('ttScope')?.value || 'term'; const term = document.getElementById('ttTerm')?.value || 'Term 1'; const year = Number(document.getElementById('ttYear')?.value || new Date().getFullYear());
-      await req('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate: weekStart(), periods: activePeriods, scope, term, year }) });
+      const response = await req('/api/timetable/generate', { method: 'POST', body: JSON.stringify({ weekStartDate: weekStart(), periods: activePeriods, scope, term, year }) });
+      const generated = response?.data || response;
+      if (generated) {
+        activeTimetable = generated;
+        activeTimetableId = generated.id || generated.timetableId || activeTimetableId;
+        activePeriods = getPeriodsFromSlots(generated.slots || []);
+        activeTimetable.slots = normalizeSlots(generated.slots || [], activePeriods);
+        activeTimetable.classes = generated.classes && generated.classes.length ? generated.classes : buildClassBlocks(activeTimetable.slots);
+      }
+      if (w.showToast) showToast('Timetable generated', 'success');
       await w.showDashboardSection?.('timetable');
     } catch (e) { w.showToast ? showToast(e.message, 'error') : alert(e.message); } finally { if (w.hideLoading) hideLoading(); }
   };
