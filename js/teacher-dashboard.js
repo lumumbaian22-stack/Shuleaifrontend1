@@ -56,7 +56,7 @@ async function renderTeacherSection(section) {
       case 'competency': return await renderTeacherCompetency();
       case 'my-timetable': return await (window.v12RenderTeacherTimetable || window.renderTeacherTimetable)();
       case 'homework': return await (window.v12RenderTeacherHomework || window.renderTeacherHomework)();
-      case 'students': return isClassTeacher() ? await renderTeacherStudents() : '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><p>Only Class Teachers can manage students.</p></div>';
+      case 'students': return await renderTeacherStudents();
       case 'attendance': return await renderTeacherAttendance();
       case 'grades': return await renderTeacherMarksEntry();
       case 'tasks': return await renderTeacherTasks();
@@ -168,6 +168,7 @@ async function loadMyStudents() {
   }
 }
 
+
 async function renderTeacherStudents() {
     const data = await loadMyStudents();
     const students = data.students || [];
@@ -176,20 +177,52 @@ async function renderTeacherStudents() {
     if (!isClassTeacherFlag) {
       return `<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">My Students is reserved for class teachers. Use Grades and Attendance for your assigned subjects/classes.</p></div>`;
     }
-    let reviewHtml = '';
+    let reviewPanel = '';
     try {
       const assignments = await api.teacher.getMyAssignments();
       const classTeacher = assignments?.data?.classTeacher;
-      if (classTeacher?.id) {
-        const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
-        const term = document.getElementById('class-report-term')?.value || 'Term 1';
-        const gradebook = await api.teacher.getGradebook({ classId: classTeacher.id, term, year });
-        reviewHtml = renderClassTeacherReportReview(gradebook?.data || {}, term, year);
-      }
+      if (classTeacher?.id) reviewPanel = renderClassTeacherReviewShell(classTeacher);
     } catch (e) {
-      reviewHtml = `<div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200">Class report review could not load: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+      reviewPanel = `<div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200">Class report controls could not load: ${escapeHtml(e.message || 'Unknown error')}</div>`;
     }
-    return `<div class="space-y-6">${reviewHtml}${renderStudentsTable(students, true, subjects)}</div>`;
+    return `<div class="space-y-6">${reviewPanel}${renderStudentsTable(students, true, subjects)}</div>`;
+}
+
+function renderClassTeacherReviewShell(classTeacher) {
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear - 1, currentYear, currentYear + 1];
+  return `
+    <section class="rounded-2xl border bg-card p-5 shadow-sm">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-muted-foreground">Class Teacher Control Center</p>
+          <h2 class="text-xl font-bold">${escapeHtml(classTeacher.name || 'My Class')} Report Review</h2>
+          <p class="text-sm text-muted-foreground">Open the review only when you want to check, correct and publish the full class report.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <select id="class-report-term" class="rounded-lg border px-3 py-2 bg-background">${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+          <select id="class-report-year" class="rounded-lg border px-3 py-2 bg-background">${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}</select>
+          <button onclick="toggleClassReportReview('${classTeacher.id}')" class="px-4 py-2 rounded-lg bg-primary text-white">Review Full Class Report</button>
+        </div>
+      </div>
+      <div id="class-report-review-panel" class="hidden mt-5"></div>
+    </section>`;
+}
+
+async function toggleClassReportReview(classId) {
+  const panel = document.getElementById('class-report-review-panel');
+  if (!panel) return;
+  if (!panel.classList.contains('hidden') && panel.innerHTML.trim()) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  panel.innerHTML = `<div class="py-8 text-center text-muted-foreground">Loading full class report...</div>`;
+  try {
+    const term = document.getElementById('class-report-term')?.value || 'Term 1';
+    const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+    const gradebook = await api.teacher.getGradebook({ classId, term, year });
+    panel.innerHTML = renderClassTeacherReportReview(gradebook?.data || {}, term, year);
+  } catch (e) {
+    panel.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-4 text-sm text-red-700 dark:text-red-200">Could not load full class report: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+  }
 }
 
 function renderClassTeacherReportReview(gradebook, term, year) {
@@ -199,49 +232,59 @@ function renderClassTeacherReportReview(gradebook, term, year) {
     const readyStudents = students.filter(s => subjects.length && subjects.every(sub => s.scores && s.scores[sub] !== null && s.scores[sub] !== undefined));
     const missingCount = students.length - readyStudents.length;
     const publishedReady = students.length > 0 && missingCount === 0;
-    const currentYear = new Date().getFullYear();
-    const years = [currentYear - 1, currentYear, currentYear + 1];
     return `
-      <section class="rounded-2xl border bg-card p-5 shadow-sm">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-          <div>
-            <p class="text-xs uppercase tracking-wide text-muted-foreground">Class Teacher Control Center</p>
-            <h2 class="text-xl font-bold">Full Class Report Review</h2>
-            <p class="text-sm text-muted-foreground">Subject teachers submit marks from Grades. The class teacher reviews the whole class here and publishes final report cards.</p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <select id="class-report-term" onchange="showDashboardSection('students')" class="rounded-lg border px-3 py-2 bg-background">
-              ${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}" ${t === term ? 'selected' : ''}>${t}</option>`).join('')}
-            </select>
-            <select id="class-report-year" onchange="showDashboardSection('students')" class="rounded-lg border px-3 py-2 bg-background">
-              ${years.map(y => `<option value="${y}" ${String(y) === String(year) ? 'selected' : ''}>${y}</option>`).join('')}
-            </select>
-            <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${publishedReady ? 'bg-primary text-white' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${publishedReady ? '' : 'disabled'}>Publish Full Class Report</button>
-          </div>
-        </div>
-        <div class="grid gap-3 md:grid-cols-4 mb-4">
+      <div class="space-y-4">
+        <div class="grid gap-3 md:grid-cols-4">
           <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Students</p><h3 class="text-2xl font-bold">${students.length}</h3></div>
           <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Subjects</p><h3 class="text-2xl font-bold">${subjects.length}</h3></div>
           <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Ready</p><h3 class="text-2xl font-bold text-green-600">${readyStudents.length}</h3></div>
-          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Missing/Incomplete</p><h3 class="text-2xl font-bold ${missingCount ? 'text-red-600' : 'text-green-600'}">${missingCount}</h3></div>
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Missing</p><h3 class="text-2xl font-bold ${missingCount ? 'text-red-600' : 'text-green-600'}">${missingCount}</h3></div>
         </div>
         <div class="overflow-x-auto border rounded-xl">
-          <table class="w-full text-xs min-w-[760px]">
-            <thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left sticky left-0 bg-muted/50">Student</th>${subjects.map(s => `<th class="px-2 py-2 text-center">${escapeHtml(s)}</th>`).join('')}<th class="px-2 py-2 text-center">Avg</th><th class="px-2 py-2 text-center">Status</th></tr></thead>
+          <table class="w-full text-xs min-w-[900px]" id="class-report-review-table">
+            <thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left sticky left-0 bg-muted/50">Student</th>${subjects.map(s => `<th class="px-2 py-2 text-center">${escapeHtml(s)}</th>`).join('')}<th class="px-2 py-2 text-center">Avg</th><th class="px-2 py-2 text-center">Grade</th><th class="px-2 py-2 text-center">Status</th></tr></thead>
             <tbody class="divide-y">
               ${students.map(st => {
-                const vals = subjects.map(sub => st.scores?.[sub]);
-                const missing = subjects.filter((sub, i) => vals[i] === null || vals[i] === undefined);
-                const avg = st.overallAverage;
-                return `<tr><td class="px-3 py-2 font-medium sticky left-0 bg-card">${escapeHtml(st.name || 'Student')}<div class="text-[10px] text-muted-foreground">${escapeHtml(st.elimuid || '')}</div></td>${subjects.map(sub => {
-                  const val = st.scores?.[sub];
-                  return `<td class="px-2 py-2 text-center ${val == null ? 'text-red-500' : ''}">${val == null ? '—' : val + '%'}</td>`;
-                }).join('')}<td class="px-2 py-2 text-center font-semibold">${avg == null ? '—' : avg + '%'}</td><td class="px-2 py-2 text-center"><span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + missing.join(', ') : 'Ready'}</span></td></tr>`;
-              }).join('') || `<tr><td colspan="${subjects.length + 3}" class="px-3 py-8 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
+                const missing = subjects.filter(sub => st.scores?.[sub] === null || st.scores?.[sub] === undefined);
+                return `<tr data-student-id="${st.id}"><td class="px-3 py-2 font-medium sticky left-0 bg-card">${escapeHtml(st.name || 'Student')}<div class="text-[10px] text-muted-foreground">${escapeHtml(st.elimuid || st.admissionNumber || '')}</div></td>${subjects.map(sub => {
+                  const val = st.scores?.[sub]; const recordId = st.recordIds?.[sub] || '';
+                  return `<td class="px-2 py-2 text-center"><input class="class-review-score w-16 text-center rounded border px-1 py-1 bg-background ${val == null ? 'border-red-300' : ''}" data-record-id="${recordId}" data-student-id="${st.id}" data-subject="${escapeHtml(sub)}" value="${val == null ? '' : val}" type="number" min="0" max="100" ${recordId ? '' : 'disabled'} oninput="updateClassReviewRow('${st.id}')" onchange="saveClassReviewMark(this)"></td>`;
+                }).join('')}<td class="px-2 py-2 text-center font-semibold" id="class-review-avg-${st.id}">${st.overallAverage == null ? '—' : st.overallAverage + '%'}</td><td class="px-2 py-2 text-center" id="class-review-grade-${st.id}">${escapeHtml(st.finalGrade || '—')}</td><td class="px-2 py-2 text-center" id="class-review-status-${st.id}"><span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + escapeHtml(missing.join(', ')) : 'Ready'}</span></td></tr>`;
+              }).join('') || `<tr><td colspan="${subjects.length + 4}" class="px-3 py-8 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
             </tbody>
           </table>
         </div>
-      </section>`;
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border p-4">
+          <p class="text-sm text-muted-foreground">You can correct unpublished marks here before publishing. Grades and averages recalculate instantly; backend also recalculates before save/publish.</p>
+          <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${publishedReady ? 'bg-primary text-white' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${publishedReady ? '' : 'disabled'}>Publish Full Class Report</button>
+        </div>
+      </div>`;
+}
+
+function updateClassReviewRow(studentId) {
+  const inputs = [...document.querySelectorAll(`.class-review-score[data-student-id="${studentId}"]`)];
+  const scores = inputs.map(i => Number(i.value)).filter(n => Number.isFinite(n));
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+  const avgEl = document.getElementById(`class-review-avg-${studentId}`);
+  const gradeEl = document.getElementById(`class-review-grade-${studentId}`);
+  const statusEl = document.getElementById(`class-review-status-${studentId}`);
+  if (avgEl) avgEl.textContent = avg == null ? '—' : `${avg}%`;
+  if (gradeEl) gradeEl.textContent = avg == null ? '—' : getGradeFromScore(avg, window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null);
+  const missing = inputs.filter(i => i.value === '').map(i => i.dataset.subject);
+  if (statusEl) statusEl.innerHTML = `<span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + missing.join(', ') : 'Ready'}</span>`;
+}
+
+async function saveClassReviewMark(input) {
+  const recordId = input.dataset.recordId;
+  if (!recordId) return;
+  const score = Number(input.value);
+  if (!Number.isFinite(score) || score < 0 || score > 100) { showToast('Score must be 0-100', 'error'); return; }
+  try {
+    const res = await api.teacher.updateMark(recordId, { score });
+    const rowId = input.dataset.studentId;
+    updateClassReviewRow(rowId);
+    if (res?.meta?.grade) showToast(`Updated ${input.dataset.subject}: ${res.meta.grade}`, 'success');
+  } catch(e) { showToast(e.message || 'Could not update mark', 'error'); }
 }
 
 async function publishClassReportFromStudents(classId) {
@@ -253,7 +296,8 @@ async function publishClassReportFromStudents(classId) {
   try {
     const res = await api.teacher.publishMarks({ classId, term, year });
     showToast(res.message || 'Full class report published', 'success');
-    await showDashboardSection('students');
+    await toggleClassReportReview(classId);
+    await toggleClassReportReview(classId);
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
@@ -2117,6 +2161,9 @@ window.openMarksEntry = openMarksEntry;
 window.closeMarksEntryModal = closeMarksEntryModal;
 window.saveAllMarks = saveAllMarks;
 window.publishClassReportFromStudents = publishClassReportFromStudents;
+window.updateClassReviewRow = updateClassReviewRow;
+window.saveClassReviewMark = saveClassReviewMark;
+window.toggleClassReportReview = toggleClassReportReview;
 window.updateGradeDisplayForStudent = updateGradeDisplayForStudent;
 window.showAddTaskModal = showAddTaskModal;
 window.closeAddTaskModal = closeAddTaskModal;

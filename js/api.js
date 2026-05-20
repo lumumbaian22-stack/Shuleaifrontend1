@@ -343,7 +343,16 @@ const adminAPI = {
             return { success: true, data: found };
         }
     },
-    getAnalytics: () => apiRequest(`/api/admin/analytics?_=${Date.now()}`)
+    getAnalytics: () => apiRequest(`/api/admin/analytics?_=${Date.now()}`),
+    batchAssignSubjects: (classIdOrData, assignments = null) => {
+        const payload = (typeof classIdOrData === 'object' && assignments === null)
+            ? classIdOrData
+            : { classId: classIdOrData, assignments };
+        return apiRequest('/api/admin/classes/subject-assign-batch', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    }
 };
 
 // ============ TEACHER ENDPOINTS ============
@@ -391,6 +400,7 @@ const teacherAPI = {
     getTeacherStats: () => apiRequest('/api/teacher/stats'),
     uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress),
     publishMarks: (data) => apiRequest('/api/teacher/marks/publish', { method: 'POST', body: JSON.stringify(data) }),
+    updateMark: (recordId, data) => apiRequest(`/api/teacher/marks/${recordId}`, { method: 'PUT', body: JSON.stringify(data) }),
     getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
     getGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''))
 };
