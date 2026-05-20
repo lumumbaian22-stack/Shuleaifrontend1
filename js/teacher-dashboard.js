@@ -200,10 +200,25 @@ function renderClassTeacherReviewShell(classTeacher) {
           <p class="text-sm text-muted-foreground">Open the review only when you want to check, correct and publish the full class report.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <select id="class-report-term" class="rounded-lg border px-3 py-2 bg-background">${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}">${t}</option>`).join('')}</select>
-          <select id="class-report-year" class="rounded-lg border px-3 py-2 bg-background">${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}</select>
+          <select id="class-report-term" class="rounded-lg border px-3 py-2 bg-background" onchange="refreshSavedClassReports('${classTeacher.id}')">${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+          <select id="class-report-year" class="rounded-lg border px-3 py-2 bg-background" onchange="refreshSavedClassReports('${classTeacher.id}')">${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}</select>
+          <select id="class-report-assessment" class="rounded-lg border px-3 py-2 bg-background">
+            <option value="">All assessments</option>
+            <option value="CAT 1">CAT 1</option>
+            <option value="CAT 2">CAT 2</option>
+            <option value="Midterm">Midterm</option>
+            <option value="Endterm">Endterm</option>
+            <option value="Final Exam">Final Exam</option>
+          </select>
           <button onclick="toggleClassReportReview('${classTeacher.id}')" class="px-4 py-2 rounded-lg bg-primary text-white">Review Full Class Report</button>
         </div>
+      </div>
+      <div class="mt-4 rounded-xl border bg-muted/20 p-3">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div><strong>Saved Term Reports</strong><p class="text-xs text-muted-foreground">Published reports are archived here for later analytics and review.</p></div>
+          <button class="px-3 py-2 rounded-lg border" onclick="refreshSavedClassReports('${classTeacher.id}')">Load Saved Reports</button>
+        </div>
+        <div id="saved-class-reports-panel" class="mt-3 text-sm text-muted-foreground">Click “Load Saved Reports” after publishing.</div>
       </div>
       <div id="class-report-review-panel" class="hidden mt-5"></div>
     </section>`;
@@ -218,7 +233,8 @@ async function toggleClassReportReview(classId) {
   try {
     const term = document.getElementById('class-report-term')?.value || 'Term 1';
     const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
-    const gradebook = await api.teacher.getGradebook({ classId, term, year });
+    const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+    const gradebook = await api.teacher.getGradebook({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
     panel.innerHTML = renderClassTeacherReportReview(gradebook?.data || {}, term, year);
   } catch (e) {
     panel.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-4 text-sm text-red-700 dark:text-red-200">Could not load full class report: ${escapeHtml(e.message || 'Unknown error')}</div>`;
@@ -294,10 +310,12 @@ async function publishClassReportFromStudents(classId) {
   if (!confirm(`Publish full class report for ${term} ${year}? Students and parents will see it.`)) return;
   showLoading();
   try {
-    const res = await api.teacher.publishMarks({ classId, term, year });
+    const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+    const res = await api.teacher.publishMarks({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
     showToast(res.message || 'Full class report published', 'success');
     await toggleClassReportReview(classId);
     await toggleClassReportReview(classId);
+    if (typeof refreshSavedClassReports === 'function') await refreshSavedClassReports(classId);
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 
@@ -2206,3 +2224,36 @@ window.uploadHomeworkMaterial = uploadHomeworkMaterial;
 window.v12RenderTeacherHomework = window.v12RenderTeacherHomework || window.renderTeacherHomework;
 window.v12RenderTeacherDuty = window.v12RenderTeacherDuty || window.renderTeacherDuty;
 
+
+
+async function refreshSavedClassReports(classId) {
+  const panel = document.getElementById('saved-class-reports-panel');
+  if (!panel) return;
+  const term = document.getElementById('class-report-term')?.value || '';
+  const year = document.getElementById('class-report-year')?.value || '';
+  panel.innerHTML = 'Loading saved reports...';
+  try {
+    const res = await api.teacher.getClassReportSnapshots({ classId, ...(term ? { term } : {}), ...(year ? { year } : {}) });
+    const rows = res?.data || [];
+    if (!rows.length) {
+      panel.innerHTML = '<div class="text-muted-foreground">No published term reports saved for this selection yet.</div>';
+      return;
+    }
+    const grouped = rows.reduce((acc, r) => {
+      const key = `${r.term || 'Term'} ${r.year || ''}`;
+      acc[key] = acc[key] || [];
+      acc[key].push(r);
+      return acc;
+    }, {});
+    panel.innerHTML = Object.entries(grouped).map(([label, list]) => `
+      <details class="rounded-lg border bg-card p-3 mb-2">
+        <summary class="cursor-pointer font-semibold">${escapeHtml(label)} • ${list.length} report(s)</summary>
+        <div class="mt-3 grid gap-2 md:grid-cols-2">
+          ${list.map(r => `<div class="rounded-lg bg-muted/30 p-3"><strong>${escapeHtml(r.studentName || 'Student')}</strong><div class="text-xs text-muted-foreground">Avg: ${r.overallAverage ?? '—'} • Grade: ${escapeHtml(r.overallGrade || '—')} • Published: ${r.publishedAt ? new Date(r.publishedAt).toLocaleString() : '—'}</div></div>`).join('')}
+        </div>
+      </details>`).join('');
+  } catch (e) {
+    panel.innerHTML = `<span class="text-red-600">Could not load saved reports: ${escapeHtml(e.message || 'Unknown error')}</span>`;
+  }
+}
+window.refreshSavedClassReports = refreshSavedClassReports;
