@@ -543,6 +543,17 @@ async function showDashboardSection(section) {
     showLoading();
 
     try {
+        if (window.ShuleSubscriptionLock && typeof window.ShuleSubscriptionLock.canAccess === 'function') {
+            const access = await window.ShuleSubscriptionLock.canAccess(currentRole, section);
+            if (access && access.allowed === false) {
+                currentSection = section;
+                content.innerHTML = window.ShuleSubscriptionLock.lockCard(access);
+                updateSidebarActiveState(section);
+                if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+                return;
+            }
+        }
+
         const sectionNames = {
             dashboard: 'Dashboard',
             students: 'Students',
