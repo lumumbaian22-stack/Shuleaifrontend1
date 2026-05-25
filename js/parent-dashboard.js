@@ -542,7 +542,12 @@ async function renderParentPayments() {
         const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
 
         let payments = [];
-        try { payments = (await api.parent.getPayments()).data || []; } catch (_) {}
+        try {
+            const payRes = await api.parent.getPayments();
+            const raw = payRes?.data ?? payRes ?? [];
+            payments = Array.isArray(raw) ? raw : (raw.payments || raw.records || []);
+            if (selectedChildId) payments = payments.filter(p => String(p.studentId || p.Student?.id || p.metadata?.studentId || '') === String(selectedChildId));
+        } catch (_) {}
 
         let fees = [];
         if (selectedChildId) {

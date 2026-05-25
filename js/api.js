@@ -743,8 +743,7 @@ const feeStructureAPI = {
     lock: (id) => apiRequest(`/api/fee-structures/${id}/lock`, { method: 'POST' }),
     assign: (id, data) => apiRequest(`/api/fee-structures/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }),
     studentAccounts: (params = {}) => apiRequest('/api/fee-structures/student-accounts' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
-    adjustStudentAccount: (feeId, data) => apiRequest(`/api/fee-structures/student-accounts/${feeId}/adjust`, { method: 'POST', body: JSON.stringify(data) }),
-    repair: () => apiRequest('/api/fee-structures/repair', { method: 'POST' })
+    adjustStudentAccount: (feeId, data) => apiRequest(`/api/fee-structures/student-accounts/${feeId}/adjust`, { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ PAYMENT / DARAJA ENDPOINTS ============
