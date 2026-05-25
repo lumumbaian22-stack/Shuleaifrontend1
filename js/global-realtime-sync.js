@@ -1,24 +1,17 @@
 // global-realtime-sync.js
-// Role-safe realtime refresh coordinator.
-// Fixes parent/admin finance bleed: parents never call admin Finance & Fees loaders.
+// Dashboard-wide realtime refresh coordinator.
+// DB remains source of truth; this file only refetches affected sections after backend emits changes.
 (function () {
   'use strict';
 
   const w = window;
   const pending = new Map();
-  const MIN_DELAY = 300;
+  const MIN_DELAY = 250;
   const MAX_DELAY = 900;
 
   function currentUser() {
     try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch (_) { return {}; }
   }
-
-  function role() {
-    return String(currentUser().role || localStorage.getItem('role') || '').toLowerCase();
-  }
-
-  function isAdminLike() { return ['admin', 'super_admin', 'superadmin'].includes(role()); }
-  function isParent() { return role() === 'parent'; }
 
   function currentSchoolCode() {
     const u = currentUser();
@@ -47,12 +40,8 @@
     if (typeof w[fnName] === 'function') return w[fnName](...args);
   }
 
-  function activeSection() {
-    return w.currentSection || w.activeDashboardSection || '';
-  }
-
   function refreshCurrentSection(reason) {
-    const section = activeSection();
+    const section = w.currentSection || w.activeDashboardSection;
     if (!section) return;
     debounce(`section:${section}`, async () => {
       if (typeof w.showDashboardSection === 'function') await w.showDashboardSection(section, { realtime: true, reason });
@@ -60,26 +49,12 @@
     }, MAX_DELAY);
   }
 
-  function refreshPayments(evt) {
-    // Parent payment updates are DOM-diffed inside parent-dashboard.js.
-    // DO NOT call financeV31Refresh/v31RenderFinanceFees for parents.
-    if (isParent()) {
-      debounce('parent-payments', async () => {
-        if (typeof w.refreshParentPaymentsSilent === 'function') return w.refreshParentPaymentsSilent({ reason: evt.type });
-        if (activeSection() === 'payments') refreshCurrentSection(evt.type);
-      }, MAX_DELAY);
-      return;
-    }
-
-    // Only admin/super admin can touch Finance & Fees. This prevents 403 loops and the
-    // admin finance UI appearing inside the parent payment area.
-    if (isAdminLike()) {
-      debounce('admin-finance', async () => {
-        if (typeof w.financeV31SoftRefresh === 'function' && document.querySelector('.finance-v31')) return w.financeV31SoftRefresh();
-        if (typeof w.financeV31Refresh === 'function' && document.querySelector('.finance-v31')) return w.financeV31Refresh();
-        if (['finance', 'finance-fees'].includes(activeSection()) && typeof w.v31RenderFinanceFees === 'function') return w.v31RenderFinanceFees();
-      }, MAX_DELAY);
-    }
+  function refreshFinance(evt) {
+    debounce('finance', async () => {
+      if (typeof w.financeV31Refresh === 'function') return w.financeV31Refresh();
+      if (typeof w.v31RenderFinanceFees === 'function' && (w.currentSection === 'finance' || w.currentSection === 'finance-fees')) return w.v31RenderFinanceFees();
+      refreshCurrentSection(evt.type);
+    });
   }
 
   function refreshGrades(evt) {
@@ -88,9 +63,9 @@
         callIf('loadStudentGrades'),
         callIf('refreshSavedClassReports'),
         callIf('refreshTeacherGrades'),
-        isParent() ? callIf('refreshParentDashboardSilent') : Promise.resolve()
+        callIf('loadParentDashboard')
       ]);
-      if (['grades','students','my-students','progress'].includes(activeSection())) refreshCurrentSection(evt.type);
+      if (['grades','students','my-students'].includes(w.currentSection)) refreshCurrentSection(evt.type);
     });
   }
 
@@ -102,7 +77,7 @@
         callIf('refreshMyStudents'),
         callIf('refreshStudentsList')
       ]);
-      if (activeSection() === 'attendance') refreshCurrentSection(evt.type);
+      if (w.currentSection === 'attendance') refreshCurrentSection(evt.type);
     });
   }
 
@@ -114,14 +89,14 @@
         callIf('refreshTeacherHomework'),
         callIf('v12RenderTeacherHomework')
       ]);
-      if (activeSection() === 'homework') refreshCurrentSection(evt.type);
+      if (w.currentSection === 'homework') refreshCurrentSection(evt.type);
     });
   }
 
   function refreshAlerts(evt) {
     debounce('alerts', async () => {
       await Promise.allSettled([callIf('loadNotifications'), callIf('loadAlerts')]);
-      if (activeSection() === 'alerts') refreshCurrentSection(evt.type);
+      if (w.currentSection === 'alerts') refreshCurrentSection(evt.type);
     });
   }
 
@@ -133,28 +108,28 @@
         callIf('refreshClassesList'),
         callIf('refreshMyStudents')
       ]);
-      if (['students','teachers','classes','my-students'].includes(activeSection())) refreshCurrentSection(evt.type);
+      if (['students','teachers','classes','my-students'].includes(w.currentSection)) refreshCurrentSection(evt.type);
     });
   }
 
   function refreshAnalytics(evt) {
     debounce('analytics', async () => {
       await Promise.allSettled([callIf('loadAnalytics'), callIf('refreshAnalytics'), callIf('renderAnalyticsDashboard')]);
-      if (activeSection() === 'analytics') refreshCurrentSection(evt.type);
+      if (w.currentSection === 'analytics') refreshCurrentSection(evt.type);
     }, MAX_DELAY);
   }
 
   function routeRealtimeEvent(evt) {
     if (!evt || !evt.type || !belongsToThisSchool(evt)) return;
-    const type = String(evt.type).toLowerCase();
+    const type = String(evt.type);
 
-    if (type.includes('payment') || type.includes('fee') || type.includes('subscription')) refreshPayments(evt);
+    if (type.includes('payment') || type.includes('fee')) refreshFinance(evt);
     if (type.includes('grade') || type.includes('mark') || type.includes('report')) refreshGrades(evt);
     if (type.includes('attendance')) refreshAttendance(evt);
     if (type.includes('homework')) refreshHomework(evt);
     if (type.includes('alert') || type.includes('approval')) refreshAlerts(evt);
     if (type.includes('student') || type.includes('teacher') || type.includes('parent') || type.includes('class')) refreshPeople(evt);
-    if (!isParent() && (type.includes('analytics') || type.includes('payment') || type.includes('fee') || type.includes('grade') || type.includes('attendance') || type.includes('homework'))) refreshAnalytics(evt);
+    if (type.includes('analytics') || type.includes('payment') || type.includes('fee') || type.includes('grade') || type.includes('attendance') || type.includes('homework')) refreshAnalytics(evt);
 
     w.dispatchEvent(new CustomEvent('shule:realtime-update', { detail: evt }));
   }
@@ -166,9 +141,9 @@
 
     socket.on('realtime:update', routeRealtimeEvent);
     [
-      'payment:updated','payment:approved','payment:rejected','fees:updated','subscription:updated',
-      'grades:updated','reports:updated','attendance:updated','homework:updated','alerts:updated',
-      'approvals:updated','analytics:updated','student:updated','teacher:updated','class:updated','timetable:updated'
+      'payment:updated','fees:updated','grades:updated','reports:updated','attendance:updated',
+      'homework:updated','alerts:updated','approvals:updated','analytics:updated','student:updated',
+      'teacher:updated','class:updated','timetable:updated'
     ].forEach(eventName => socket.on(eventName, (payload) => routeRealtimeEvent({ ...(payload || {}), type: eventName })));
   }
 
@@ -185,7 +160,6 @@
   }
 
   w.addEventListener('shule:finance-updated', (e) => routeRealtimeEvent({ type: 'payment:updated', ...(e.detail || {}) }));
-  w.addEventListener('shule:subscription-updated', (e) => routeRealtimeEvent({ type: 'subscription:updated', ...(e.detail || {}) }));
   w.addEventListener('shule:grades-updated', (e) => routeRealtimeEvent({ type: 'grades:updated', ...(e.detail || {}) }));
   w.addEventListener('shule:attendance-updated', (e) => routeRealtimeEvent({ type: 'attendance:updated', ...(e.detail || {}) }));
   w.addEventListener('shule:homework-updated', (e) => routeRealtimeEvent({ type: 'homework:updated', ...(e.detail || {}) }));
@@ -195,5 +169,5 @@
     setInterval(attachSocketListeners, 5000);
   });
 
-  w.ShuleRealtimeSync = { routeRealtimeEvent, attachSocketListeners, role, isParent, isAdminLike };
+  w.ShuleRealtimeSync = { routeRealtimeEvent, attachSocketListeners };
 })();
