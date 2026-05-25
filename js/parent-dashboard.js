@@ -535,29 +535,189 @@ async function renderParentProgress() {
     }
 }
 
+function parentMoney(amount) {
+    return `KES ${Number(amount || 0).toLocaleString()}`;
+}
+
+function normalizeApiArray(response) {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.data?.students)) return response.data.students;
+    if (Array.isArray(response?.students)) return response.students;
+    return [];
+}
+
+function planCardsFallback() {
+    return [
+        { code: 'child_essential', displayName: 'Essential', amount: 100, features: ['Homework support', 'Progress tracking', 'Basic alerts'] },
+        { code: 'child_smart', displayName: 'Smart', amount: 250, features: ['Tutor access', 'Weak subject insights', 'Parent summaries'] },
+        { code: 'child_genius', displayName: 'Genius', amount: 500, features: ['Advanced analytics', 'Priority tutor support', 'Personalized learning'] }
+    ];
+}
+
+async function getParentSubscriptionPlansSafe() {
+    try {
+        const res = await (api.subscription?.getPlans ? api.subscription.getPlans('child') : api.parent.getSubscriptionPlans());
+        const plans = normalizeApiArray(res?.data?.plans ? { data: res.data.plans } : res);
+        return plans.length ? plans : planCardsFallback();
+    } catch (_) {
+        return planCardsFallback();
+    }
+}
+
+async function getParentSubscriptionStatusSafe() {
+    try {
+        const res = await api.subscription?.getMyStatus?.();
+        return normalizeApiArray(res?.data?.students ? { data: res.data.students } : res);
+    } catch (_) {
+        return [];
+    }
+}
+
+function getChildSubStatus(child, subscriptionRows) {
+    const row = (subscriptionRows || []).find(x => String(x.id || x.studentId) === String(child?.id));
+    const sub = row?.subscription || child?.subscription || {};
+    const status = row?.status || sub?.status || child?.subscriptionStatus || 'inactive';
+    const plan = row?.plan || sub?.planName || sub?.planCode || child?.subscriptionPlan || 'No active plan';
+    const expiry = row?.expiry || sub?.endDate || child?.subscriptionExpiry || null;
+    const remaining = row?.remainingDays ?? row?.daysRemaining;
+    return { status, plan, expiry, remaining };
+}
+
+function renderParentSubscriptionCards(children = [], plans = [], subscriptionRows = []) {
+    if (!children.length) return '';
+    const fallbackPlans = plans.length ? plans : planCardsFallback();
+    return `
+        <div class="rounded-xl border bg-card p-6" id="parent-subscription-panel">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+                <div>
+                    <h3 class="font-semibold text-lg">Child Subscription Cards</h3>
+                    <p class="text-sm text-muted-foreground">Each child keeps their own learning subscription. Payments activate after Daraja confirmation.</p>
+                </div>
+                <span class="text-xs rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 border border-emerald-100">Background refresh enabled</span>
+            </div>
+            <div class="grid gap-4 lg:grid-cols-${children.length > 1 ? '2' : '1'}" id="parent-subscription-cards">
+                ${children.map(child => {
+                    const d = getParentChildDisplay(child);
+                    const sub = getChildSubStatus(child, subscriptionRows);
+                    const cleanStatus = String(sub.status || 'inactive').toLowerCase();
+                    const isActive = cleanStatus === 'active';
+                    return `
+                        <div class="rounded-xl border bg-muted/20 p-4" data-child-subscription-card="${escapeHtml(String(child.id))}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="font-semibold">${escapeHtml(d.name)}</h4>
+                                    <p class="text-xs text-muted-foreground">${escapeHtml(d.className)} • ${escapeHtml(d.schoolName)}</p>
+                                </div>
+                                <span class="text-xs rounded-full px-2 py-1 ${isActive ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${escapeHtml(cleanStatus)}</span>
+                            </div>
+                            <div class="mt-3 grid gap-2 sm:grid-cols-3 text-sm">
+                                <div><span class="text-muted-foreground">Current Plan</span><br><strong>${escapeHtml(sub.plan || 'No active plan')}</strong></div>
+                                <div><span class="text-muted-foreground">Expires</span><br><strong>${sub.expiry ? escapeHtml(formatDate(sub.expiry)) : 'Not active'}</strong></div>
+                                <div><span class="text-muted-foreground">Days Left</span><br><strong>${sub.remaining ?? '—'}</strong></div>
+                            </div>
+                            <div class="mt-4 grid gap-2 md:grid-cols-3">
+                                ${fallbackPlans.map(plan => {
+                                    const code = plan.code || plan.planCode || plan.name || 'child_essential';
+                                    const name = plan.displayName || plan.name || code.replace('child_', '');
+                                    const amount = plan.amount || plan.price || plan.monthlyPrice || 100;
+                                    return `<button type="button" onclick="upgradePlanForChild('${escapeHtml(String(child.id))}','${escapeHtml(String(code))}',${Number(amount || 0)})" class="rounded-lg border bg-background hover:bg-muted px-3 py-2 text-left">
+                                        <span class="block font-semibold text-sm">${escapeHtml(name)}</span>
+                                        <span class="block text-xs text-muted-foreground">${parentMoney(amount)} / month</span>
+                                    </button>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                }).join('')}
+            </div>
+        </div>`;
+}
+
+function renderParentPaymentHistory(payments = []) {
+    const root = document.getElementById('parent-payment-history-list');
+    const html = payments.length > 0 ? payments.map(payment => `
+        <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg" data-payment-row="${escapeHtml(String(payment.id || payment.reference || ''))}">
+            <div>
+                <p class="text-sm font-medium">${escapeHtml(payment.Student?.User?.name || payment.metadata?.studentElimuid || payment.description || 'Payment')}</p>
+                <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt || payment.completedAt)} • ${escapeHtml(payment.reference || payment.mpesaReceiptNumber || '')}</p>
+            </div>
+            <div class="text-right">
+                <p class="font-semibold">${parentMoney(payment.amount)}</p>
+                <span class="text-xs ${payment.status === 'completed' || payment.status === 'approved' ? 'text-green-600' : payment.status === 'failed' || payment.status === 'rejected' ? 'text-red-600' : 'text-yellow-600'}">${escapeHtml(payment.status || 'pending')}</span>
+            </div>
+        </div>`).join('') : `<div class="text-center py-8"><i data-lucide="credit-card" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-sm text-muted-foreground">No payment history</p></div>`;
+    if (root) {
+        if (root.dataset.lastHtml !== html) {
+            root.innerHTML = html;
+            root.dataset.lastHtml = html;
+            if (window.lucide) lucide.createIcons();
+        }
+        return '';
+    }
+    return html;
+}
+
+async function refreshParentPaymentsSilent() {
+    if ((getCurrentUser?.()?.role || localStorage.getItem('role')) !== 'parent') return;
+    try {
+        const [paymentsRes, subRows, plans] = await Promise.all([
+            api.parent.getPayments().catch(() => ({ data: [] })),
+            getParentSubscriptionStatusSafe(),
+            getParentSubscriptionPlansSafe()
+        ]);
+        const payments = normalizeApiArray(paymentsRes);
+        renderParentPaymentHistory(payments);
+
+        const cardsRoot = document.getElementById('parent-subscription-panel');
+        if (cardsRoot && dashboardData?.children?.length) {
+            const html = renderParentSubscriptionCards(dashboardData.children, plans, subRows);
+            if (cardsRoot.outerHTML !== html) cardsRoot.outerHTML = html;
+        }
+    } catch (error) {
+        console.warn('Parent silent payment refresh failed:', error.message);
+    }
+}
+
+function startParentPaymentBackgroundRefresh() {
+    if (window.__parentPaymentRefreshTimer) clearInterval(window.__parentPaymentRefreshTimer);
+    window.__parentPaymentRefreshTimer = setInterval(refreshParentPaymentsSilent, 15000);
+}
+
 async function renderParentPayments() {
     try {
         const school = getCurrentSchool();
-        const selectedChildId = dashboardData?.selectedChildId;
-        const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
+        if (!dashboardData?.children?.length) {
+            try {
+                const childrenResponse = await api.parent.getChildren();
+                dashboardData.children = childrenResponse.data || [];
+                dashboardData.selectedChildId = localStorage.getItem('shule_selected_child_id') || dashboardData.children[0]?.id || null;
+            } catch (_) {}
+        }
+        const children = dashboardData?.children || [];
+        const selectedChildId = dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || children[0]?.id;
+        const selectedChild = children.find(c => String(c.id) === String(selectedChildId)) || children[0];
 
         let payments = [];
-        try { payments = (await api.parent.getPayments()).data || []; } catch (_) {}
+        try { payments = normalizeApiArray(await api.parent.getPayments()); } catch (_) {}
 
         let fees = [];
         if (selectedChildId) {
-            try { fees = (await api.parent.getFees(selectedChildId)).data || []; } catch (_) {}
+            try { fees = normalizeApiArray(await api.parent.getFees(selectedChildId)); } catch (_) {}
         }
+        const [plans, subscriptionRows] = await Promise.all([getParentSubscriptionPlansSafe(), getParentSubscriptionStatusSafe()]);
         const activeFee = fees.find(f => Number(f.totalAmount || 0) > Number(f.paidAmount || 0)) || fees[0] || null;
         const balance = activeFee ? Math.max(0, Number(activeFee.totalAmount || 0) - Number(activeFee.paidAmount || 0)) : 0;
         const elimuId = selectedChild?.elimuid || selectedChild?.elimuId || selectedChild?.admissionNumber || dashboardData?.selectedChild?.student?.elimuid || '—';
+        setTimeout(startParentPaymentBackgroundRefresh, 250);
 
         return `
-            <div class="space-y-6 animate-fade-in">
+            <div class="space-y-6 animate-fade-in" id="parent-payments-root">
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
                     <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(selectedChild?.schoolName || school?.name || 'Your School')}</h2>
-                    <p class="text-sm text-muted-foreground">School Fees & Payment Verification</p>
+                    <p class="text-sm text-muted-foreground">School Fees, Child Subscriptions & Payment Verification</p>
                 </div>
+
+                ${renderParentSubscriptionCards(children, plans, subscriptionRows)}
 
                 <div class="grid gap-4 lg:grid-cols-3">
                     <div class="rounded-xl border bg-card p-6 lg:col-span-2">
@@ -566,20 +726,20 @@ async function renderParentPayments() {
                         <div class="grid gap-3 md:grid-cols-2">
                             <label class="text-sm">Child
                                 <select id="payment-child" onchange="selectChild(this.value)" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                    ${(dashboardData?.children || []).map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}>${escapeHtml(child.User?.name || child.name || 'Student')} • ${escapeHtml(child.grade || child.className || '')}</option>`).join('')}
+                                    ${children.map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}>${escapeHtml(child.User?.name || child.name || 'Student')} • ${escapeHtml(child.grade || child.className || '')}</option>`).join('')}
                                 </select>
                             </label>
                             <label class="text-sm">Fee Account / Term
                                 <select id="payment-fee" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                    ${fees.length ? fees.map(f => `<option value="${f.id}" data-balance="${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0))}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Balance KES ${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0)).toLocaleString()}</option>`).join('') : '<option value="">No fee balance found</option>'}
+                                    ${fees.length ? fees.map(f => `<option value="${f.id}" data-balance="${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0))}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Balance ${parentMoney(Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0)))}</option>`).join('') : '<option value="">No fee balance found</option>'}
                                 </select>
                             </label>
                             <div class="rounded-lg bg-muted/40 p-3 md:col-span-2">
                                 <div class="grid gap-2 md:grid-cols-4 text-sm">
                                     <div><span class="text-muted-foreground">Elimu ID</span><br><strong>${escapeHtml(elimuId)}</strong></div>
-                                    <div><span class="text-muted-foreground">Total</span><br><strong>KES ${Number(activeFee?.totalAmount || 0).toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Paid</span><br><strong>KES ${Number(activeFee?.paidAmount || 0).toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Balance</span><br><strong>KES ${balance.toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Total</span><br><strong>${parentMoney(activeFee?.totalAmount)}</strong></div>
+                                    <div><span class="text-muted-foreground">Paid</span><br><strong>${parentMoney(activeFee?.paidAmount)}</strong></div>
+                                    <div><span class="text-muted-foreground">Balance</span><br><strong>${parentMoney(balance)}</strong></div>
                                 </div>
                             </div>
                             <label class="text-sm">Amount to Pay
@@ -603,27 +763,19 @@ async function renderParentPayments() {
                     </div>
 
                     <div class="rounded-xl border bg-card p-6">
-                        <h3 class="font-semibold mb-4">Payment History</h3>
-                        <div class="space-y-2 max-h-96 overflow-y-auto">
-                            ${payments.length > 0 ? payments.map(payment => `
-                                <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                                    <div>
-                                        <p class="text-sm font-medium">${escapeHtml(payment.Student?.User?.name || payment.metadata?.studentElimuid || 'Payment')}</p>
-                                        <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt)} • ${escapeHtml(payment.reference || '')}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="font-semibold">KES ${Number(payment.amount || 0).toLocaleString()}</p>
-                                        <span class="text-xs ${payment.status === 'completed' ? 'text-green-600' : payment.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}">${payment.status}</span>
-                                    </div>
-                                </div>
-                            `).join('') : `<div class="text-center py-8"><i data-lucide="credit-card" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-sm text-muted-foreground">No payment history</p></div>`}
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold">Payment History</h3>
+                            <button type="button" onclick="refreshParentPaymentsSilent()" class="text-xs rounded-lg border px-2 py-1 hover:bg-muted">Refresh</button>
+                        </div>
+                        <div class="space-y-2 max-h-96 overflow-y-auto" id="parent-payment-history-list" data-last-html="">
+                            ${renderParentPaymentHistory(payments)}
                         </div>
                     </div>
                 </div>
             </div>`;
     } catch (error) {
         console.error('Payments error:', error);
-        return `<div class="text-center py-12 text-red-500">Error loading payments: ${error.message}</div>`;
+        return `<div class="text-center py-12 text-red-500">Error loading payments: ${escapeHtml(error.message)}</div>`;
     }
 }
 
@@ -849,7 +1001,7 @@ async function submitManualSchoolFeePayment() {
         showToast(response.message || 'Payment submitted for verification.', 'success');
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'manual-payment-submitted'}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
-        await showDashboardSection('payments');
+        await refreshParentPaymentsSilent();
     } catch (error) {
         console.error('Manual school fee payment error:', error);
         showToast(error.message || 'Could not submit payment for verification.', 'error');
@@ -954,7 +1106,7 @@ async function upgradePlan(planId, amountFromCard = 0) {
         if (response.success) {
             showToast(response.message || `✅ M-Pesa prompt sent for ${planId} plan`, 'success');
             if (currentSection === 'payments') {
-                await showDashboardSection('payments');
+                await refreshParentPaymentsSilent();
             }
         } else {
             throw new Error(response.message || 'Upgrade failed');
@@ -965,6 +1117,30 @@ async function upgradePlan(planId, amountFromCard = 0) {
     } finally {
         hideLoading();
     }
+}
+
+
+async function upgradePlanForChild(childId, planId, amountFromCard = 0) {
+    if (!childId) return showToast('Please select a child first', 'error');
+    const phone = getParentPaymentPhone();
+    const amount = Number(amountFromCard || getPlanAmountFromDom(planId));
+    if (!phone) return showToast('Enter your M-Pesa phone number in the payment form first', 'error');
+    if (!amount || amount <= 0) return showToast('Could not determine the plan amount.', 'error');
+
+    showLoading();
+    try {
+        const response = await (api.payments?.parentSubscriptionSTK ? api.payments.parentSubscriptionSTK({
+            studentId: parseInt(childId), planCode: planId, plan: planId, billingCycle: 'monthly', amount, phone
+        }) : api.parent.upgradePlan({
+            studentId: parseInt(childId), planCode: planId, plan: planId, billingPeriod: 'monthly', billingCycle: 'monthly', amount, phone
+        }));
+        showToast(response.message || `M-Pesa prompt sent for ${planId}. Subscription activates after confirmation.`, 'success');
+        window.dispatchEvent(new CustomEvent('shule:subscription-updated', { detail: { type: 'subscription-requested', studentId: childId, planCode: planId } }));
+        await refreshParentPaymentsSilent();
+    } catch (error) {
+        console.error('Child subscription upgrade error:', error);
+        showToast(error.message || 'Failed to start subscription payment', 'error');
+    } finally { hideLoading(); }
 }
 
 // Home Tasks Section
@@ -1160,6 +1336,13 @@ window.upgradePlan = upgradePlan;
 window.sendParentMessage = sendParentMessage;
 window.renderParentSection = renderParentSection;
 window.renderParentDashboard = renderParentDashboard;
+
+window.renderParentPaymentHistory = renderParentPaymentHistory;
+window.renderParentSubscriptionCards = renderParentSubscriptionCards;
+window.refreshParentPaymentsSilent = refreshParentPaymentsSilent;
+window.startParentPaymentBackgroundRefresh = startParentPaymentBackgroundRefresh;
+window.upgradePlanForChild = upgradePlanForChild;
+
 window.renderParentProgress = renderParentProgress;
 window.renderParentPayments = renderParentPayments;
 window.renderParentChat = renderParentChat;
