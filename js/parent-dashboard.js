@@ -542,12 +542,7 @@ async function renderParentPayments() {
         const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
 
         let payments = [];
-        try {
-            const payRes = await api.parent.getPayments();
-            const raw = payRes?.data ?? payRes ?? [];
-            payments = Array.isArray(raw) ? raw : (raw.payments || raw.records || []);
-            if (selectedChildId) payments = payments.filter(p => String(p.studentId || p.Student?.id || p.metadata?.studentId || '') === String(selectedChildId));
-        } catch (_) {}
+        try { const payRes = await api.parent.getPayments(); payments = Array.isArray(payRes?.data) ? payRes.data : (payRes?.data?.payments || []); } catch (_) {}
 
         let fees = [];
         if (selectedChildId) {
@@ -575,16 +570,16 @@ async function renderParentPayments() {
                                 </select>
                             </label>
                             <label class="text-sm">Fee Account / Term
-                                <select id="payment-fee" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                    ${fees.length ? fees.map(f => `<option value="${f.id}" data-balance="${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0))}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Balance KES ${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0)).toLocaleString()}</option>`).join('') : '<option value="">No fee balance found</option>'}
+                                <select id="payment-fee" onchange="updateParentFeeSummaryFromSelect()" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                    ${fees.length ? fees.map(f => `<option value="${f.id}" data-total="${Number(f.totalAmount||0)}" data-paid="${Number(f.paidAmount||0)}" data-balance="${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0))}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Total KES ${Number(f.totalAmount||0).toLocaleString()} • Paid KES ${Number(f.paidAmount||0).toLocaleString()} • Balance KES ${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0)).toLocaleString()}</option>`).join('') : '<option value="">No active fee account found. Ask the school admin to activate/assign the fee structure.</option>'}
                                 </select>
                             </label>
                             <div class="rounded-lg bg-muted/40 p-3 md:col-span-2">
                                 <div class="grid gap-2 md:grid-cols-4 text-sm">
                                     <div><span class="text-muted-foreground">Elimu ID</span><br><strong>${escapeHtml(elimuId)}</strong></div>
-                                    <div><span class="text-muted-foreground">Total</span><br><strong>KES ${Number(activeFee?.totalAmount || 0).toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Paid</span><br><strong>KES ${Number(activeFee?.paidAmount || 0).toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Balance</span><br><strong>KES ${balance.toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Total</span><br><strong id="parent-fee-total">KES ${Number(activeFee?.totalAmount || 0).toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Paid</span><br><strong id="parent-fee-paid">KES ${Number(activeFee?.paidAmount || 0).toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Balance</span><br><strong id="parent-fee-balance">KES ${balance.toLocaleString()}</strong></div>
                                 </div>
                             </div>
                             <label class="text-sm">Amount to Pay
@@ -615,6 +610,7 @@ async function renderParentPayments() {
                                     <div>
                                         <p class="text-sm font-medium">${escapeHtml(payment.Student?.User?.name || payment.metadata?.studentElimuid || 'Payment')}</p>
                                         <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt)} • ${escapeHtml(payment.reference || '')}</p>
+                                        <p class="text-[11px] text-muted-foreground">${escapeHtml(payment.feeTerm || payment.Fee?.term || payment.metadata?.term || 'Fee')} ${escapeHtml(String(payment.feeYear || payment.Fee?.year || payment.metadata?.year || ''))}</p>
                                     </div>
                                     <div class="text-right">
                                         <p class="font-semibold">KES ${Number(payment.amount || 0).toLocaleString()}</p>
@@ -854,7 +850,7 @@ async function submitManualSchoolFeePayment() {
         showToast(response.message || 'Payment submitted for verification.', 'success');
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'manual-payment-submitted'}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
-        await showDashboardSection('payments');
+        if (typeof showDashboardSection === 'function') await showDashboardSection('payments');
     } catch (error) {
         console.error('Manual school fee payment error:', error);
         showToast(error.message || 'Could not submit payment for verification.', 'error');
@@ -959,7 +955,7 @@ async function upgradePlan(planId, amountFromCard = 0) {
         if (response.success) {
             showToast(response.message || `✅ M-Pesa prompt sent for ${planId} plan`, 'success');
             if (currentSection === 'payments') {
-                await showDashboardSection('payments');
+                if (typeof showDashboardSection === 'function') await showDashboardSection('payments');
             }
         } else {
             throw new Error(response.message || 'Upgrade failed');
@@ -1198,3 +1194,21 @@ window.loadParentConversation = loadParentConversation;
 // V42 compatibility alias: keep original parent payment layout, only satisfy older v12 callers.
 window.v12RenderParentPayments = window.v12RenderParentPayments || window.renderParentPayments;
 
+
+
+function updateParentFeeSummaryFromSelect() {
+    const select = document.getElementById('payment-fee');
+    const option = select?.selectedOptions?.[0];
+    const total = Number(option?.dataset?.total || 0);
+    const paid = Number(option?.dataset?.paid || 0);
+    const balance = Number(option?.dataset?.balance || Math.max(0, total - paid));
+    const totalEl = document.getElementById('parent-fee-total');
+    const paidEl = document.getElementById('parent-fee-paid');
+    const balanceEl = document.getElementById('parent-fee-balance');
+    const amountEl = document.getElementById('payment-amount');
+    if (totalEl) totalEl.textContent = `KES ${total.toLocaleString()}`;
+    if (paidEl) paidEl.textContent = `KES ${paid.toLocaleString()}`;
+    if (balanceEl) balanceEl.textContent = `KES ${balance.toLocaleString()}`;
+    if (amountEl) amountEl.max = balance || '';
+}
+window.updateParentFeeSummaryFromSelect = updateParentFeeSummaryFromSelect;

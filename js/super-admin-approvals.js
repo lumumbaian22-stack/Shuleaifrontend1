@@ -672,8 +672,8 @@ function createCreateSchoolModal() {
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Admin Password</label>
-                            <input type="password" id="modal-admin-password" value="Admin123!" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <p class="text-xs text-muted-foreground mt-1">Default: Admin123!</p>
+                            <input type="password" id="modal-admin-password" placeholder="Leave blank to auto-generate securely" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <p class="text-xs text-muted-foreground mt-1">Leave blank to generate a secure temporary password.</p>
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 mt-6">
@@ -713,7 +713,7 @@ async function handleCreateSchool() {
         system: document.getElementById('modal-curriculum')?.value,
         adminName: document.getElementById('modal-admin-name')?.value,
         adminEmail: document.getElementById('modal-admin-email')?.value,
-        adminPassword: document.getElementById('modal-admin-password')?.value || 'Admin123!',
+        adminPassword: document.getElementById('modal-admin-password')?.value || '',
         settings: {
             schoolLevel: document.getElementById('modal-school-level')?.value
         }

@@ -501,7 +501,7 @@ function openStudentLoginModal() {
             <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
                 <p class="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-2">
                     <i data-lucide="info" class="h-4 w-4 flex-shrink-0 mt-0.5"></i>
-                    <span>Welcome! Use your ELIMUID and the default password: <strong>Student123!</strong></span>
+                    <span>Welcome! Use your ELIMUID and the temporary password issued by your school. You will be asked to change it on first login.</span>
                 </p>
             </div>
             <div>
@@ -518,7 +518,7 @@ function openStudentLoginModal() {
             </div>
             <div class="text-center mt-4 pt-4 border-t">
                 <p class="text-xs text-muted-foreground">
-                    First time? Use default password: <strong>Student123!</strong><br>
+                    First time? Use the temporary password issued by your school.<br>
                     You'll be asked to change it after logging in.
                 </p>
             </div>
