@@ -164,14 +164,20 @@
   }
 
   function body(){ if(state.tab==='settings') return renderSettings(); if(state.tab==='records') return renderRecords(); if(state.tab==='verification') return renderVerification(); return renderStructures(); }
-  async function render(){ const root=document.getElementById('dashboard-content'); if(!root) return; root.innerHTML='<div class="finance-v31"><div class="finance-v31-empty">Loading Finance & Fees...</div></div>'; await loadAll(); root.innerHTML=`<section class="finance-v31"><div class="finance-v31-header"><div class="finance-v31-title"><h1>Finance & Fees</h1><p>Manage fee structures, payment settings, and all school payment records.</p></div><div class="finance-v31-actions"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh</button><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div></div>${renderSummary()}<div class="finance-v31-shell">${renderTabs()}<div id="finance-v31-tab-body">${body()}</div></div></section>`; }
-
   function renderBodyOnly(){
-    const summaryEl = document.querySelector('.finance-v31 > .finance-v31-summary');
-    if(summaryEl) summaryEl.outerHTML = renderSummary();
-    const bodyEl = document.getElementById('finance-v31-tab-body');
-    if(bodyEl) bodyEl.innerHTML = body();
+    const bodyEl=document.getElementById('finance-v31-tab-body');
+    if(bodyEl) bodyEl.innerHTML=body();
+    const root=document.querySelector('.finance-v31');
+    if(root){
+      const summary=root.querySelector('.finance-v31-summary');
+      if(summary){
+        const fresh=document.createElement('div');
+        fresh.innerHTML=renderSummary();
+        summary.replaceWith(fresh.firstElementChild);
+      }
+    }
   }
+  async function render(){ const root=document.getElementById('dashboard-content'); if(!root) return; root.innerHTML='<div class="finance-v31"><div class="finance-v31-empty">Loading Finance & Fees...</div></div>'; await loadAll(); root.innerHTML=`<section class="finance-v31"><div class="finance-v31-header"><div class="finance-v31-title"><h1>Finance & Fees</h1><p>Manage fee structures, payment settings, and all school payment records.</p></div><div class="finance-v31-actions"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh</button><button class="finance-v31-btn primary" onclick="financeV31Repair()">Repair Accounts</button><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div></div>${renderSummary()}<div class="finance-v31-shell">${renderTabs()}<div id="finance-v31-tab-body">${body()}</div></div></section>`; }
 
   w.financeV31Refresh = render;
   w.financeV31SetTab = function(tab){ state.tab=tab; const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=body(); document.querySelectorAll('.finance-v31-tab').forEach(x=>x.classList.toggle('active', x.getAttribute('onclick')?.includes(tab))); };
@@ -213,8 +219,9 @@
     }catch(e){ if(m){m.className='finance-v31-message show error';m.textContent=e.message||'Could not save fee structure.';} }
   };
 
-  w.financeV31Activate = async function(id){ clearMessage(); try{ await apiSafe().feeStructures.activate(id); setMessage('success','Fee structure activated. You can now assign it to students.'); await render(); }catch(e){ setMessage('error',e.message||'Could not activate fee structure.'); } };
-  w.financeV31Assign = async function(id){ clearMessage(); try{ await apiSafe().feeStructures.assign(id,{ overwrite:false }); setMessage('success','Fee structure assigned to eligible students.'); await Promise.all([loadStructures(), loadPayments()]); const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderStructures(); }catch(e){ setMessage('error',e.message||'Assignment failed.'); } };
+  w.financeV31Activate = async function(id){ clearMessage(); try{ await apiSafe().feeStructures.activate(id); setMessage('success','Fee structure activated and fee accounts created for eligible students.'); await render(); }catch(e){ setMessage('error',e.message||'Could not activate fee structure.'); } };
+  w.financeV31Assign = async function(id){ clearMessage(); try{ await apiSafe().feeStructures.assign(id,{ overwrite:false }); setMessage('success','Fee structure assigned and student fee accounts generated.'); await Promise.all([loadStructures(), loadPayments()]); renderBodyOnly(); }catch(e){ setMessage('error',e.message||'Assignment failed.'); } };
+  w.financeV31Repair = async function(){ clearMessage(); try{ if(apiSafe().feeStructures?.repair) await apiSafe().feeStructures.repair(); else await apiRequest('/api/fee-structures/repair',{method:'POST'}); await loadAll(); renderBodyOnly(); setMessage('success','Fee accounts repaired and payment records reconciled.'); }catch(e){ setMessage('error',e.message||'Could not repair fee accounts.'); } };
   w.financeV31Lock = async function(id){ clearMessage(); if(!confirm('Lock this fee structure? Locked structures cannot be silently edited.'))return; try{ await apiSafe().feeStructures.lock(id); setMessage('success','Fee structure locked.'); await render(); }catch(e){ setMessage('error',e.message||'Could not lock fee structure.'); } };
   w.financeV31SavePaymentSettings = async function(){ clearMessage(); const data={ paymentMode:document.getElementById('finance-payment-mode')?.value || 'manual', mpesaType:document.getElementById('finance-mpesa-type')?.value || 'paybill', paybill:document.getElementById('finance-mpesa-type')?.value==='till'?'':document.getElementById('finance-paybill')?.value, till:document.getElementById('finance-mpesa-type')?.value==='till'?document.getElementById('finance-paybill')?.value:'', businessShortcode:document.getElementById('finance-paybill')?.value, shortcode:document.getElementById('finance-paybill')?.value, consumerKey:document.getElementById('finance-daraja-key')?.value, consumerSecret:document.getElementById('finance-daraja-secret')?.value, passkey:document.getElementById('finance-daraja-passkey')?.value, referenceFormat:document.getElementById('finance-reference')?.value || 'elimuid', bankName:document.getElementById('finance-bank-name')?.value, accountName:document.getElementById('finance-account-name')?.value, bankAccount:document.getElementById('finance-account-number')?.value, accountNumber:document.getElementById('finance-account-number')?.value, branch:document.getElementById('finance-branch')?.value, bankDetails:{ bankName:document.getElementById('finance-bank-name')?.value, accountName:document.getElementById('finance-account-name')?.value, accountNumber:document.getElementById('finance-account-number')?.value, branch:document.getElementById('finance-branch')?.value } }; try{ await apiSafe().payments.updateSchoolSettings(data); setMessage('success','Payment settings saved.'); await loadSettings(); }catch(e){ setMessage('error',e.message||'Could not save payment settings.'); } };
   w.financeV31TestConnection = async function(){ clearMessage(); try{ const res = await (apiSafe().payments?.testSchoolConnection ? apiSafe().payments.testSchoolConnection() : apiRequest('/api/payments/admin/test-connection',{method:'POST'})); setMessage('success', res?.message || 'Daraja connection verified successfully.'); }catch(e){ setMessage('error', e.message || 'Daraja connection test failed.'); } };
