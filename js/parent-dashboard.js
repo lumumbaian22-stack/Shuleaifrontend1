@@ -827,6 +827,8 @@ async function processSchoolFeeDarajaPayment() {
             phone: payload.phone
         });
         showToast(response.message || 'M-Pesa prompt sent. Complete payment on your phone.', 'success');
+        window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-stk-started'}}));
+        localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
     } catch (error) {
         console.error('School fee STK error:', error);
         showToast(error.message || 'Could not start school fee payment. If the school is manual, submit the M-Pesa code instead.', 'error');
@@ -845,6 +847,8 @@ async function submitManualSchoolFeePayment() {
             studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, mpesaCode
         }) : api.payments.parentFeeManual({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, mpesaCode }));
         showToast(response.message || 'Payment submitted for verification.', 'success');
+        window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'manual-payment-submitted'}}));
+        localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
         await showDashboardSection('payments');
     } catch (error) {
         console.error('Manual school fee payment error:', error);

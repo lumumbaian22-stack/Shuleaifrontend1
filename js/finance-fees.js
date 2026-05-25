@@ -4,7 +4,7 @@
   const w = window;
   const money = (n) => 'KES ' + Number(n || 0).toLocaleString();
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const state = { tab:'structures', structures:[], classes:[], settings:{}, payments:[], manualQueue:[], loading:false, filters:{ className:'', term:'', year:String(new Date().getFullYear()) } };
+  const state = { tab:'structures', structures:[], classes:[], settings:{}, accounts:[], paymentRecords:[], manualQueue:[], loading:false, filters:{ className:'', term:'', year:String(new Date().getFullYear()) } };
 
   function apiSafe(){ return w.api || {}; }
   async function call(fn, fallback){ try { const res = await fn(); return res?.data ?? res ?? fallback; } catch(e){ console.error('[Finance & Fees]', e); return fallback; } }
@@ -30,15 +30,17 @@
   }
   async function loadPayments(){
     const api = apiSafe();
-    const res = await call(() => api.feeStructures?.studentAccounts ? api.feeStructures.studentAccounts({}) : apiRequest('/api/fee-structures/student-accounts'), []);
-    state.payments = Array.isArray(res) ? res : (res.accounts || res.items || res.data || []);
+    const accountsRes = await call(() => api.feeStructures?.studentAccounts ? api.feeStructures.studentAccounts({}) : apiRequest('/api/fee-structures/student-accounts'), []);
+    state.accounts = Array.isArray(accountsRes) ? accountsRes : (accountsRes.accounts || accountsRes.items || accountsRes.data || []);
+    const recordsRes = await call(() => api.payments?.getAdminRecords ? api.payments.getAdminRecords() : apiRequest('/api/payments/admin/records'), []);
+    state.paymentRecords = Array.isArray(recordsRes) ? recordsRes : (recordsRes.records || recordsRes.items || recordsRes.data || []);
   }
   async function loadManualQueue(){ const api = apiSafe(); state.manualQueue = await call(() => api.payments?.getManualQueue ? api.payments.getManualQueue() : apiRequest('/api/payments/admin/manual-queue'), []); }
   async function loadAll(){ state.loading=true; await Promise.all([loadClasses(), loadStructures(), loadSettings(), loadPayments(), loadManualQueue()]); state.loading=false; }
 
   function totals(){
     const structures = state.structures || [];
-    const accounts = state.payments || [];
+    const accounts = state.accounts || [];
     const expected = accounts.length ? accounts.reduce((s,x)=>s+Number(x.totalAmount || x.total || 0),0) : structures.reduce((s,x)=>s+Number(x.totalAmount || x.total || 0),0);
     const paid = accounts.reduce((s,x)=>s+Number(x.paidAmount || x.paid || 0),0);
     const balances = accounts.reduce((s,x)=>s+Number(x.balance ?? Math.max(0, Number(x.totalAmount||0)-Number(x.paidAmount||0))),0);
@@ -109,15 +111,16 @@
   }
 
   function renderRecords(){
-    const rows=state.payments||[];
-    return `<div class="finance-v31-body"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Records</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Track fee accounts, balances, and reconciliation status.</p></div><button class="finance-v31-btn primary" onclick="financeV31ExportRecords()">Export CSV</button></div><input id="finance-v31-record-search" oninput="financeV31RenderRecordsOnly()" class="finance-v31-input" style="width:100%;margin-bottom:14px" placeholder="Search by student, admission number, or transaction code"><div id="finance-v31-record-table">${recordsTable(rows)}</div></div>`;
+    const rows=state.paymentRecords||[];
+    const filtered = rows.filter(r=>{
+      const className = r.Student?.className || r.Student?.grade || r.className || r.metadata?.className || '';
+      if(state.filters.className && className !== state.filters.className) return false;
+      if(state.filters.term && (r.Fee?.term || r.metadata?.term) !== state.filters.term) return false;
+      if(state.filters.year && String(r.Fee?.year || r.metadata?.year || '') !== String(state.filters.year)) return false;
+      return true;
+    });
+    return `<div class="finance-v31-body"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Records</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Approved, pending, rejected, and Daraja-confirmed school fee payments.</p></div><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh Records</button></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Class</th><th>Term</th><th>Amount</th><th>M-Pesa Code</th><th>Status</th><th>Date</th><th>Method</th></tr></thead><tbody>${filtered.length?filtered.map(r=>`<tr><td>${esc(r.Student?.User?.name || r.Student?.name || r.studentId || 'Student')}</td><td>${esc(r.metadata?.studentElimuid || r.accountReference || r.Student?.elimuid || r.Student?.elimuId || '—')}</td><td>${esc(r.Student?.className || r.Student?.grade || r.metadata?.className || '—')}</td><td>${esc(r.Fee?.term || r.metadata?.term || '—')}</td><td>${money(r.amount)}</td><td><strong>${esc(r.mpesaReceiptNumber || r.reference || '—')}</strong></td><td><span class="finance-v31-badge ${esc(String(r.status||'pending').toLowerCase())}">${esc(r.status||'pending')}</span></td><td>${esc((r.completedAt || r.verifiedAt || r.createdAt || '').slice(0,10))}</td><td>${esc(r.paymentGateway || r.method || 'mpesa')}</td></tr>`).join(''):'<tr><td colspan="9"><div class="finance-v31-empty">No payment records found yet. Approved manual payments and Daraja callbacks will appear here.</div></td></tr>'}</tbody></table></div></div>`;
   }
-  function recordsTable(rows){
-    const q = String(document.getElementById('finance-v31-record-search')?.value || '').toLowerCase();
-    const filtered = (rows || []).filter(r => !q || JSON.stringify(r).toLowerCase().includes(q));
-    return `<div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Term</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>${filtered.length?filtered.map(r=>`<tr><td>${esc(r.studentName||r.Student?.User?.name||r.Student?.name||r.studentId||'Student')}</td><td>${esc(r.className||r.classGrade||r.Student?.className||'—')}</td><td>${esc(r.term||'—')}</td><td>${money(r.totalAmount)}</td><td>${money(r.paidAmount)}</td><td>${money(r.balance ?? Math.max(0,Number(r.totalAmount||0)-Number(r.paidAmount||0)))}</td><td><span class="finance-v31-badge ${esc(String(r.status||'unpaid').toLowerCase())}">${esc(r.status||'Unpaid')}</span></td><td><button class="finance-v31-btn" onclick="financeV31ViewRecord('${esc(r.id||'')}')">View</button></td></tr>`).join(''):'<tr><td colspan="8"><div class="finance-v31-empty">No payment records found.</div></td></tr>'}</tbody></table></div>`;
-  }
-
 
   function renderVerification(){
     const rows = state.manualQueue || [];
@@ -140,20 +143,21 @@
   w.financeV31SavePaymentSettings = async function(){ clearMessage(); const data={ paymentMode:document.getElementById('finance-payment-mode')?.value || 'manual', mpesaType:document.getElementById('finance-mpesa-type')?.value || 'paybill', paybill:document.getElementById('finance-mpesa-type')?.value==='till'?'':document.getElementById('finance-paybill')?.value, till:document.getElementById('finance-mpesa-type')?.value==='till'?document.getElementById('finance-paybill')?.value:'', businessShortcode:document.getElementById('finance-paybill')?.value, shortcode:document.getElementById('finance-paybill')?.value, consumerKey:document.getElementById('finance-daraja-key')?.value, consumerSecret:document.getElementById('finance-daraja-secret')?.value, passkey:document.getElementById('finance-daraja-passkey')?.value, referenceFormat:document.getElementById('finance-reference')?.value || 'elimuid', bankName:document.getElementById('finance-bank-name')?.value, accountName:document.getElementById('finance-account-name')?.value, bankAccount:document.getElementById('finance-account-number')?.value, accountNumber:document.getElementById('finance-account-number')?.value, branch:document.getElementById('finance-branch')?.value, bankDetails:{ bankName:document.getElementById('finance-bank-name')?.value, accountName:document.getElementById('finance-account-name')?.value, accountNumber:document.getElementById('finance-account-number')?.value, branch:document.getElementById('finance-branch')?.value } }; try{ await apiSafe().payments.updateSchoolSettings(data); setMessage('success','Payment settings saved.'); await loadSettings(); }catch(e){ setMessage('error',e.message||'Could not save payment settings.'); } };
   w.financeV31TestConnection = async function(){ clearMessage(); try{ const res = await (apiSafe().payments?.testSchoolConnection ? apiSafe().payments.testSchoolConnection() : apiRequest('/api/payments/admin/test-connection',{method:'POST'})); setMessage('success', res?.message || 'Daraja connection verified successfully.'); }catch(e){ setMessage('error', e.message || 'Daraja connection test failed.'); } };
   w.financeV31RefreshQueue = async function(){ clearMessage(); await loadManualQueue(); const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderVerification(); };
-  w.financeV31ApproveManual = async function(id){ clearMessage(); if(!confirm('Approve this payment and update the student balance?')) return; try{ await apiSafe().payments.approveManualPayment(id,{}); setMessage('success','Payment approved and balance updated.'); await Promise.all([loadManualQueue(), loadPayments()]); const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderVerification(); }catch(e){ setMessage('error',e.message||'Could not approve payment.'); } };
-  w.financeV31RejectManual = async function(id){ clearMessage(); const reason=prompt('Reason for rejection?') || 'Rejected by school finance/admin'; try{ await apiSafe().payments.rejectManualPayment(id,{reason}); setMessage('success','Payment rejected.'); await loadManualQueue(); const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderVerification(); }catch(e){ setMessage('error',e.message||'Could not reject payment.'); } };
-  w.financeV31RenderRecordsOnly = function(){ const el=document.getElementById('finance-v31-record-table'); if(el) el.innerHTML = recordsTable(state.payments || []); };
-  w.financeV31ViewRecord = function(id){ const r=(state.payments||[]).find(x=>String(x.id)===String(id)); if(!r) return; alert(`Student: ${r.studentName||r.Student?.User?.name||'Student'}\nTotal: ${money(r.totalAmount)}\nPaid: ${money(r.paidAmount)}\nBalance: ${money(r.balance ?? Math.max(0,Number(r.totalAmount||0)-Number(r.paidAmount||0)))}\nStatus: ${r.status||'Unpaid'}`); };
+  w.financeV31ApproveManual = async function(id){ clearMessage(); if(!confirm('Approve this payment and update the student balance?')) return; try{ await apiSafe().payments.approveManualPayment(id,{}); await loadAll(); renderBodyOnly(); window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'payment-approved',id}})); localStorage.setItem('shule:lastFinanceUpdate', String(Date.now())); setMessage('success','Payment approved. Records and balances updated.'); }catch(e){ setMessage('error',e.message||'Could not approve payment.'); } };
+  w.financeV31RejectManual = async function(id){ clearMessage(); const reason=prompt('Reason for rejection?') || 'Rejected by school finance/admin'; try{ await apiSafe().payments.rejectManualPayment(id,{reason}); await loadAll(); renderBodyOnly(); window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'payment-rejected',id}})); localStorage.setItem('shule:lastFinanceUpdate', String(Date.now())); setMessage('success','Payment rejected. Records refreshed.'); }catch(e){ setMessage('error',e.message||'Could not reject payment.'); } };
+  w.financeV31RenderRecordsOnly = function(){ const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML = renderRecords(); };
+  w.financeV31ViewRecord = function(id){ const r=(state.paymentRecords||[]).find(x=>String(x.id)===String(id)); if(!r) return; alert(`Student: ${r.Student?.User?.name||r.Student?.name||'Student'}\nAmount: ${money(r.amount)}\nM-Pesa Code: ${r.mpesaReceiptNumber || r.reference || '—'}\nStatus: ${r.status||'pending'}\nDate: ${(r.completedAt || r.verifiedAt || r.createdAt || '').slice(0,10)}`); };
   w.financeV31ExportRecords = function(){
     clearMessage();
-    const rows = state.payments || [];
+    const rows = state.paymentRecords || [];
     if(!rows.length){ setMessage('error','No payment records available to export.'); return; }
-    const headers = ['Student','Class','Term','Year','Total','Paid','Balance','Status'];
+    const headers = ['Student','Elimu ID','Class','Term','Amount','M-Pesa Code','Status','Date','Method'];
     const csvRows = [headers, ...rows.map(r=>[
-      r.studentName||r.Student?.User?.name||r.Student?.name||r.studentId||'Student',
-      r.className||r.classGrade||r.Student?.className||'',
-      r.term||'', r.year||'',
-      Number(r.totalAmount||0), Number(r.paidAmount||0), Number(r.balance ?? Math.max(0,Number(r.totalAmount||0)-Number(r.paidAmount||0))), r.status||'unpaid'
+      r.Student?.User?.name || r.Student?.name || r.studentId || 'Student',
+      r.metadata?.studentElimuid || r.accountReference || r.Student?.elimuid || r.Student?.elimuId || '',
+      r.Student?.className || r.Student?.grade || r.metadata?.className || '',
+      r.Fee?.term || r.metadata?.term || '',
+      Number(r.amount||0), r.mpesaReceiptNumber || r.reference || '', r.status || 'pending', (r.completedAt || r.verifiedAt || r.createdAt || '').slice(0,10), r.paymentGateway || r.method || 'mpesa'
     ])].map(row=>row.map(v=>`"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob([csvRows], { type:'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -164,6 +168,14 @@
   };
   w.renderFinanceFeesV31 = render;
   w.v31RenderFinanceFees = render;
+  window.addEventListener('shule:finance-updated', async function(){
+    if(document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); }
+  });
+  window.addEventListener('storage', async function(e){
+    if(e.key === 'shule:lastFinanceUpdate' && document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); }
+  });
+  w.financeV31SoftRefresh = async function(){ if(document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); } };
+
 })();
 
 // Legacy fee modal blocker — redirects old fee actions into the current Finance & Fees module.

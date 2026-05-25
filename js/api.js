@@ -756,6 +756,7 @@ const paymentAPI = {
     parentFeeSTK: (data) => apiRequest('/api/payments/parent/fee/stk', { method: 'POST', body: JSON.stringify(data) }),
     parentFeeManual: (data) => apiRequest('/api/payments/parent/fee/manual', { method: 'POST', body: JSON.stringify(data) }),
     getManualQueue: () => apiRequest('/api/payments/admin/manual-queue'),
+    getAdminRecords: () => apiRequest('/api/payments/admin/records'),
     approveManualPayment: (paymentId, data = {}) => apiRequest(`/api/payments/admin/manual-queue/${paymentId}/approve`, { method: 'POST', body: JSON.stringify(data) }),
     rejectManualPayment: (paymentId, data = {}) => apiRequest(`/api/payments/admin/manual-queue/${paymentId}/reject`, { method: 'POST', body: JSON.stringify(data) }),
     parentSubscriptionSTK: (data) => apiRequest('/api/payments/parent/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),

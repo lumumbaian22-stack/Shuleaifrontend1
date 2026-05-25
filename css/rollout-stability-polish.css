@@ -195,3 +195,10 @@ select, input[type="text"], input[type="number"], input[type="date"], input[type
 canvas {
   max-width: 100% !important;
 }
+
+/* v66 Payments Final Polish */
+.finance-v31-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+.finance-v31-btn { opacity: 1 !important; visibility: visible !important; color: var(--ff-text, #0f172a) !important; }
+.finance-v31-btn.primary, .finance-v31-btn.blue { color: #fff !important; }
+.finance-v31-btn.danger { color: #dc2626 !important; }
+.dark .finance-v31-btn.danger, body.dark .finance-v31-btn.danger, [data-theme="dark"] .finance-v31-btn.danger { color:#fecaca !important; }
