@@ -539,150 +539,94 @@ async function renderParentPayments() {
     try {
         const school = getCurrentSchool();
         const selectedChildId = dashboardData?.selectedChildId;
+        const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
 
         let payments = [];
-        try {
-            const paymentsResponse = await api.parent.getPayments();
-            payments = paymentsResponse.data || [];
-        } catch (error) {
-            console.log('No payment history yet');
-        }
+        try { payments = (await api.parent.getPayments()).data || []; } catch (_) {}
 
-        let plans = [];
-        try {
-            const plansResponse = await api.parent.getSubscriptionPlans();
-            plans = plansResponse.data || [];
-        } catch (error) {
-            console.log('Using default plans');
-            plans = [
-                { id: 'basic', name: 'Basic', price: 3, features: ['View attendance', 'Report absence'] },
-                { id: 'premium', name: 'Premium', price: 10, features: ['Everything in Basic', 'Grades & progress', 'Teacher comments'] },
-                { id: 'ultimate', name: 'Ultimate', price: 20, features: ['Everything in Premium', 'Live chat', 'Priority support'] }
-            ];
+        let fees = [];
+        if (selectedChildId) {
+            try { fees = (await api.parent.getFees(selectedChildId)).data || []; } catch (_) {}
         }
-
-        let schoolDetails = null;
-        try {
-            const user = getCurrentUser();
-            if (user?.schoolCode) {
-                const schoolResponse = await api.public.getSchoolInfo(user.schoolCode);
-                schoolDetails = schoolResponse.data;
-            }
-        } catch (error) {
-            console.log('Could not fetch school details');
-        }
+        const activeFee = fees.find(f => Number(f.totalAmount || 0) > Number(f.paidAmount || 0)) || fees[0] || null;
+        const balance = activeFee ? Math.max(0, Number(activeFee.totalAmount || 0) - Number(activeFee.paidAmount || 0)) : 0;
+        const elimuId = selectedChild?.elimuid || selectedChild?.elimuId || selectedChild?.admissionNumber || dashboardData?.selectedChild?.student?.elimuid || '—';
 
         return `
             <div class="space-y-6 animate-fade-in">
-                <!-- School Name Header -->
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-                    <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(school?.name || 'Your School')}</h2>
-                    <p class="text-sm text-muted-foreground">Payments & Subscriptions</p>
+                    <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(selectedChild?.schoolName || school?.name || 'Your School')}</h2>
+                    <p class="text-sm text-muted-foreground">School Fees & Payment Verification</p>
                 </div>
 
-                <div class="grid gap-4 md:grid-cols-3">
-                    <div class="rounded-xl border bg-card p-6">
-                        <h3 class="font-semibold mb-4">Make Payment</h3>
-                        <div class="space-y-3">
-                            ${schoolDetails ? `
-                                <div class="p-3 bg-muted/30 rounded-lg mb-4">
-                                    <p class="text-xs font-medium text-muted-foreground">School Account</p>
-                                    <p class="font-medium">${escapeHtml(schoolDetails.name || 'Your School')}</p>
-                                    ${schoolDetails.bankDetails ? `
-                                        <p class="text-xs mt-2">Bank: ${escapeHtml(schoolDetails.bankDetails.bankName || 'N/A')}</p>
-                                        <p class="text-xs">Account: ${escapeHtml(schoolDetails.bankDetails.accountNumber || 'N/A')}</p>
-                                    ` : ''}
+                <div class="grid gap-4 lg:grid-cols-3">
+                    <div class="rounded-xl border bg-card p-6 lg:col-span-2">
+                        <h3 class="font-semibold mb-1">Pay School Fees</h3>
+                        <p class="text-sm text-muted-foreground mb-4">Parent chooses the amount. Elimu ID locks the payment to the correct child.</p>
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <label class="text-sm">Child
+                                <select id="payment-child" onchange="selectChild(this.value)" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                    ${(dashboardData?.children || []).map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}>${escapeHtml(child.User?.name || child.name || 'Student')} • ${escapeHtml(child.grade || child.className || '')}</option>`).join('')}
+                                </select>
+                            </label>
+                            <label class="text-sm">Fee Account / Term
+                                <select id="payment-fee" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                    ${fees.length ? fees.map(f => `<option value="${f.id}" data-balance="${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0))}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Balance KES ${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0)).toLocaleString()}</option>`).join('') : '<option value="">No fee balance found</option>'}
+                                </select>
+                            </label>
+                            <div class="rounded-lg bg-muted/40 p-3 md:col-span-2">
+                                <div class="grid gap-2 md:grid-cols-4 text-sm">
+                                    <div><span class="text-muted-foreground">Elimu ID</span><br><strong>${escapeHtml(elimuId)}</strong></div>
+                                    <div><span class="text-muted-foreground">Total</span><br><strong>KES ${Number(activeFee?.totalAmount || 0).toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Paid</span><br><strong>KES ${Number(activeFee?.paidAmount || 0).toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Balance</span><br><strong>KES ${balance.toLocaleString()}</strong></div>
                                 </div>
-                            ` : ''}
-                            
-                            <select id="payment-child" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                <option value="">Select Child</option>
-                                ${dashboardData?.children?.map(child => `
-                                    <option value="${child.id}" ${child.id == selectedChildId ? 'selected' : ''}>
-                                        ${escapeHtml(child.User?.name || 'Unknown')} (${escapeHtml(child.grade)})
-                                    </option>
-                                `).join('')}
-                            </select>
-                            
-                            <select id="payment-plan" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                <option value="">Select Plan</option>
-                                ${plans.map(plan => `
-                                    <option value="${plan.id || plan.name}" data-amount="${Number(plan.price_kes || plan.price || plan.amount || 0)}">${escapeHtml(plan.displayName || plan.name || plan.id)} - KES ${Number(plan.price_kes || plan.price || plan.amount || 0).toLocaleString()}/mo</option>
-                                `).join('')}
-                            </select>
-                            
-                            <input type="number" id="payment-amount" placeholder="Amount" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <input type="tel" id="payment-phone" placeholder="M-Pesa phone e.g. 2547XXXXXXXX" value="${escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : ''))}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            
-                            <select id="payment-method" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                <option value="mpesa">M-Pesa</option>
-                                <option value="card">Credit Card</option>
-                                <option value="bank">Bank Transfer</option>
-                            </select>
-                            
-                            <button onclick="processPayment()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">
-                                Pay Now
-                            </button>
+                            </div>
+                            <label class="text-sm">Amount to Pay
+                                <input type="number" id="payment-amount" placeholder="e.g. 5000" max="${balance || ''}" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            </label>
+                            <label class="text-sm">M-Pesa Phone
+                                <input type="tel" id="payment-phone" placeholder="2547XXXXXXXX" value="${escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : ''))}" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            </label>
+                            <div class="flex flex-wrap gap-2 md:col-span-2">
+                                <button type="button" onclick="setParentFeeAmount(${Math.ceil(balance/2)||0})" class="px-3 py-2 rounded-lg border text-sm">Half Balance</button>
+                                <button type="button" onclick="setParentFeeAmount(${balance||0})" class="px-3 py-2 rounded-lg border text-sm">Full Balance</button>
+                            </div>
+                            <label class="text-sm md:col-span-2">If school is in Manual M-Pesa mode, enter the M-Pesa code after paying
+                                <input type="text" id="payment-mpesa-code" placeholder="M-Pesa code e.g. QEH123ABC" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm uppercase">
+                            </label>
+                            <div class="grid gap-2 md:grid-cols-2 md:col-span-2">
+                                <button onclick="processSchoolFeeDarajaPayment()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Pay with STK Push</button>
+                                <button onclick="submitManualSchoolFeePayment()" class="w-full border border-input py-2 rounded-lg hover:bg-muted">Submit Manual M-Pesa Code</button>
+                            </div>
                         </div>
                     </div>
-                    
+
                     <div class="rounded-xl border bg-card p-6">
                         <h3 class="font-semibold mb-4">Payment History</h3>
                         <div class="space-y-2 max-h-96 overflow-y-auto">
                             ${payments.length > 0 ? payments.map(payment => `
                                 <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
                                     <div>
-                                        <p class="text-sm font-medium">${escapeHtml(payment.Student?.User?.name || 'Payment')}</p>
-                                        <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt)}</p>
+                                        <p class="text-sm font-medium">${escapeHtml(payment.Student?.User?.name || payment.metadata?.studentElimuid || 'Payment')}</p>
+                                        <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt)} • ${escapeHtml(payment.reference || '')}</p>
                                     </div>
                                     <div class="text-right">
-                                        <p class="font-semibold">$${payment.amount}</p>
-                                        <span class="text-xs ${payment.status === 'completed' ? 'text-green-600' : 'text-yellow-600'}">
-                                            ${payment.status}
-                                        </span>
+                                        <p class="font-semibold">KES ${Number(payment.amount || 0).toLocaleString()}</p>
+                                        <span class="text-xs ${payment.status === 'completed' ? 'text-green-600' : payment.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}">${payment.status}</span>
                                     </div>
                                 </div>
-                            `).join('') : `
-                                <div class="text-center py-8">
-                                    <i data-lucide="credit-card" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i>
-                                    <p class="text-sm text-muted-foreground">No payment history</p>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-                    
-                    <div class="rounded-xl border bg-card p-6">
-                        <h3 class="font-semibold mb-4">Subscription Plans</h3>
-                        <div class="space-y-3">
-                            ${plans.map(plan => `
-                                <div class="p-4 border rounded-lg hover:border-primary transition-colors">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <p class="font-semibold">${escapeHtml(plan.name)}</p>
-                                        <p class="text-lg font-bold text-primary">KES ${Number(plan.price_kes || plan.price || plan.amount || 0).toLocaleString()}<span class="text-xs font-normal text-muted-foreground">/mo</span></p>
-                                    </div>
-                                    <ul class="space-y-1 mb-3">
-                                        ${plan.features.map(feature => `
-                                            <li class="text-xs flex items-center gap-1">
-                                                <i data-lucide="check" class="h-3 w-3 text-green-600"></i>
-                                                ${escapeHtml(feature)}
-                                            </li>
-                                        `).join('')}
-                                    </ul>
-                                    <button onclick="upgradePlan('${plan.id || plan.name}', ${Number(plan.price_kes || plan.price || plan.amount || 0)})" class="w-full py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
-                                        Select ${escapeHtml(plan.name)}
-                                    </button>
-                                </div>
-                            `).join('')}
+                            `).join('') : `<div class="text-center py-8"><i data-lucide="credit-card" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-sm text-muted-foreground">No payment history</p></div>`}
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     } catch (error) {
         console.error('Payments error:', error);
         return `<div class="text-center py-12 text-red-500">Error loading payments: ${error.message}</div>`;
     }
 }
+
 
 async function renderParentChat() {
     const selectedChild = dashboardData?.selectedChild?.student || 
@@ -850,6 +794,62 @@ function getPlanAmountFromDom(planId) {
     const option = document.querySelector(`#payment-plan option[value="${CSS.escape(String(planId || ''))}"]`);
     const amount = Number(option?.dataset?.amount || 0);
     return Number.isFinite(amount) ? amount : 0;
+}
+
+function getSelectedFeePaymentPayload() {
+    const childSelect = document.getElementById('payment-child');
+    const feeSelect = document.getElementById('payment-fee');
+    const amountInput = document.getElementById('payment-amount');
+    const phoneInput = document.getElementById('payment-phone');
+    const studentId = childSelect?.value || dashboardData?.selectedChildId;
+    const feeId = feeSelect?.value || null;
+    const amount = Number(amountInput?.value || 0);
+    const phone = phoneInput?.value?.trim() || getParentPaymentPhone();
+    return { studentId, feeId, amount, phone };
+}
+
+function setParentFeeAmount(amount) {
+    const input = document.getElementById('payment-amount');
+    if (input && amount > 0) input.value = amount;
+}
+
+async function processSchoolFeeDarajaPayment() {
+    const payload = getSelectedFeePaymentPayload();
+    if (!payload.studentId) return showToast('Please select a child', 'error');
+    if (!payload.amount || payload.amount <= 0) return showToast('Enter the amount you want to pay', 'error');
+    if (!payload.phone) return showToast('Enter the M-Pesa phone number', 'error');
+    showLoading();
+    try {
+        const response = await api.payments.parentFeeSTK({
+            studentId: parseInt(payload.studentId),
+            feeId: payload.feeId || undefined,
+            amount: payload.amount,
+            phone: payload.phone
+        });
+        showToast(response.message || 'M-Pesa prompt sent. Complete payment on your phone.', 'success');
+    } catch (error) {
+        console.error('School fee STK error:', error);
+        showToast(error.message || 'Could not start school fee payment. If the school is manual, submit the M-Pesa code instead.', 'error');
+    } finally { hideLoading(); }
+}
+
+async function submitManualSchoolFeePayment() {
+    const payload = getSelectedFeePaymentPayload();
+    const mpesaCode = document.getElementById('payment-mpesa-code')?.value?.trim()?.toUpperCase();
+    if (!payload.studentId) return showToast('Please select a child', 'error');
+    if (!payload.amount || payload.amount <= 0) return showToast('Enter the amount paid', 'error');
+    if (!mpesaCode) return showToast('Enter the M-Pesa code after paying', 'error');
+    showLoading();
+    try {
+        const response = await (api.parent.submitManualFeePayment ? api.parent.submitManualFeePayment({
+            studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, mpesaCode
+        }) : api.payments.parentFeeManual({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, mpesaCode }));
+        showToast(response.message || 'Payment submitted for verification.', 'success');
+        await showDashboardSection('payments');
+    } catch (error) {
+        console.error('Manual school fee payment error:', error);
+        showToast(error.message || 'Could not submit payment for verification.', 'error');
+    } finally { hideLoading(); }
 }
 
 async function processPayment() {
@@ -1149,6 +1149,9 @@ window.loadLiveAttendance = loadLiveAttendance;
 window.selectChild = selectChild;
 window.reportAbsence = reportAbsence;
 window.processPayment = processPayment;
+window.processSchoolFeeDarajaPayment = processSchoolFeeDarajaPayment;
+window.submitManualSchoolFeePayment = submitManualSchoolFeePayment;
+window.setParentFeeAmount = setParentFeeAmount;
 window.upgradePlan = upgradePlan;
 window.sendParentMessage = sendParentMessage;
 window.renderParentSection = renderParentSection;

@@ -421,7 +421,12 @@ const parentAPI = {
     // Subscription payments must use the real Daraja STK route.
     // The old /api/parent/pay endpoint is intentionally disabled for production safety.
     makePayment: (data) => 
-        apiRequest('/api/payments/parent/subscription/stk', {
+        apiRequest('/api/payments/parent/fee/stk', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
+    submitManualFeePayment: (data) =>
+        apiRequest('/api/payments/parent/fee/manual', {
             method: 'POST',
             body: JSON.stringify(data)
         }),
@@ -448,6 +453,7 @@ const parentAPI = {
             body: JSON.stringify(data)
         }),
     getChildMarks: (studentId) => apiRequest(`/api/parent/child/${studentId}/marks`),
+    getFees: (studentId) => apiRequest(`/api/parent/fees/${studentId}`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
     getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
     getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`)
@@ -748,6 +754,10 @@ const paymentAPI = {
     getPlatformSettings: () => apiRequest('/api/payments/superadmin/platform-settings'),
     updatePlatformSettings: (data) => apiRequest('/api/payments/superadmin/platform-settings', { method: 'PUT', body: JSON.stringify(data) }),
     parentFeeSTK: (data) => apiRequest('/api/payments/parent/fee/stk', { method: 'POST', body: JSON.stringify(data) }),
+    parentFeeManual: (data) => apiRequest('/api/payments/parent/fee/manual', { method: 'POST', body: JSON.stringify(data) }),
+    getManualQueue: () => apiRequest('/api/payments/admin/manual-queue'),
+    approveManualPayment: (paymentId, data = {}) => apiRequest(`/api/payments/admin/manual-queue/${paymentId}/approve`, { method: 'POST', body: JSON.stringify(data) }),
+    rejectManualPayment: (paymentId, data = {}) => apiRequest(`/api/payments/admin/manual-queue/${paymentId}/reject`, { method: 'POST', body: JSON.stringify(data) }),
     parentSubscriptionSTK: (data) => apiRequest('/api/payments/parent/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),
     schoolSubscriptionSTK: (data) => apiRequest('/api/payments/school/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),
     adminNameChangeSTK: (data) => apiRequest('/api/payments/admin/name-change/stk', { method: 'POST', body: JSON.stringify(data) }),
