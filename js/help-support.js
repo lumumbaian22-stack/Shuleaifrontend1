@@ -38,6 +38,32 @@
     return `Hello Shule AI Support, I need help.\n\nName: ${ctx.name}\nRole: ${ctx.role}\nSchool: ${ctx.school}\nSection: ${ctx.section}\nIssue: `;
   }
 
+  function buildEmailSupportLinks() {
+    const ctx = supportContext();
+    const subjectText = `Shule AI Support Request - ${ctx.role}`;
+    const bodyText = buildSupportMessage('email');
+    const subject = encodeURIComponent(subjectText);
+    const body = encodeURIComponent(bodyText);
+    return {
+      subjectText,
+      bodyText,
+      mailto: `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`,
+      gmail: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SUPPORT_EMAIL)}&su=${subject}&body=${body}`,
+      outlook: `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(SUPPORT_EMAIL)}&subject=${subject}&body=${body}`
+    };
+  }
+
+  window.copyShuleSupportEmail = async function copyShuleSupportEmail() {
+    const links = buildEmailSupportLinks();
+    const copyText = `${SUPPORT_EMAIL}\n\nSubject: ${links.subjectText}\n\n${links.bodyText}`;
+    try {
+      await navigator.clipboard.writeText(copyText);
+      if (typeof showToast === 'function') showToast('Support email and message copied.', 'success');
+    } catch (_) {
+      window.prompt('Copy this support email/message:', copyText);
+    }
+  };
+
   window.openShuleWhatsappSupport = function openShuleWhatsappSupport() {
     const text = encodeURIComponent(buildSupportMessage('whatsapp'));
     const url = `https://wa.me/${SUPPORT_WHATSAPP_E164}?text=${text}`;
@@ -45,18 +71,55 @@
     if (typeof showToast === 'function') showToast('Opening WhatsApp support...', 'info');
   };
 
-  window.openShuleEmailSupport = function openShuleEmailSupport() {
-    const ctx = supportContext();
-    const subject = encodeURIComponent(`Shule AI Support Request - ${ctx.role}`);
-    const body = encodeURIComponent(buildSupportMessage('email'));
-    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-    const a = document.createElement('a');
-    a.href = mailto;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => a.remove(), 1000);
-    window.location.href = mailto;
+  window.showShuleEmailFallback = function showShuleEmailFallback() {
+    const links = buildEmailSupportLinks();
+    let modal = document.getElementById('shule-email-support-modal');
+    if (!modal) {
+      document.body.insertAdjacentHTML('beforeend', `
+        <div id="shule-email-support-modal" class="fixed inset-0 z-[10000] hidden">
+          <div class="help-v78-modal-backdrop absolute inset-0" onclick="document.getElementById('shule-email-support-modal').classList.add('hidden')"></div>
+          <div class="absolute inset-x-3 top-10 md:inset-x-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-auto md:w-full md:max-w-lg">
+            <div class="help-v78-modal-card rounded-3xl p-5 md:p-6 space-y-4">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-xl font-black">Email Shule AI Support</h3>
+                  <p class="help-v78-muted text-sm mt-1">If your browser does not open an email app automatically, use Gmail, Outlook, or copy the support details.</p>
+                </div>
+                <button class="help-v78-outline-btn rounded-xl h-10 w-10" onclick="document.getElementById('shule-email-support-modal').classList.add('hidden')">×</button>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <a data-email-gmail class="help-v78-primary-btn text-center rounded-xl px-4 py-3 font-bold" target="_blank" rel="noopener noreferrer">Open Gmail</a>
+                <a data-email-outlook class="help-v78-outline-btn text-center rounded-xl px-4 py-3 font-bold" target="_blank" rel="noopener noreferrer">Open Outlook</a>
+                <a data-email-mailto class="help-v78-outline-btn text-center rounded-xl px-4 py-3 font-bold">Open Email App</a>
+                <button type="button" class="help-v78-outline-btn rounded-xl px-4 py-3 font-bold" onclick="copyShuleSupportEmail()">Copy Email Details</button>
+              </div>
+              <div class="help-v78-support-card rounded-2xl p-4 text-sm">
+                <b>Send to:</b> ${SUPPORT_EMAIL}<br>
+                <span class="help-v78-muted">Subject and body are prefilled with your role, school, section, and issue space.</span>
+              </div>
+            </div>
+          </div>
+        </div>`);
+      modal = document.getElementById('shule-email-support-modal');
+    }
+    modal.querySelector('[data-email-gmail]').href = links.gmail;
+    modal.querySelector('[data-email-outlook]').href = links.outlook;
+    modal.querySelector('[data-email-mailto]').href = links.mailto;
+    modal.classList.remove('hidden');
+  };
+
+  window.openShuleEmailSupport = function openShuleEmailSupport(preferred) {
+    const links = buildEmailSupportLinks();
+    if (preferred === 'mailto') {
+      window.location.href = links.mailto;
+      setTimeout(window.showShuleEmailFallback, 700);
+      return;
+    }
+    // Gmail web compose is the most reliable redirect on Chrome/Android/desktop when no default mail app is configured.
+    const opened = window.open(links.gmail, '_blank', 'noopener,noreferrer');
+    if (!opened) window.location.href = links.mailto;
+    setTimeout(window.showShuleEmailFallback, 800);
+    if (typeof showToast === 'function') showToast('Opening email support...', 'info');
   };
 
   const articles = {
@@ -298,10 +361,150 @@
     }
   ];
 
+
+  const troubleshootingArticles = [
+    {
+      icon: '🧭',
+      title: 'Dashboard looks empty or stuck loading',
+      summary: 'This usually happens when the internet is slow, the session expired, or the selected school/role does not have access to that section.',
+      tags: ['loading', 'empty', 'dashboard', 'session'],
+      steps: ['Check your internet connection.', 'Refresh once.', 'Log out and log in again if the dashboard still looks empty.', 'Check that you are using the correct role account.', 'Contact support with the dashboard name and screenshot.']
+    },
+    {
+      icon: '🔐',
+      title: 'Login, invalid token, or not authorized errors',
+      summary: 'Invalid token or Not authorized means the login session is expired, the wrong role is logged in, or the account does not have permission for that action.',
+      tags: ['login', 'token', 'authorized', 'permission'],
+      steps: ['Log out fully.', 'Clear the browser tab and log in again.', 'Confirm the correct role was selected.', 'If it still fails, ask the school admin to confirm your account is active.', 'Send the error text to support.']
+    },
+    {
+      icon: '🔔',
+      title: 'I cannot find my alerts',
+      summary: 'Use the top-right bell or the Alerts item in the sidebar. Alerts are grouped by date so the center stays clean.',
+      tags: ['alerts', 'bell', 'date', 'notifications'],
+      steps: ['Click the top-right bell icon.', 'Open Today, Yesterday, or the required date dropdown.', 'Use All or Unread filter.', 'Check category filters such as Financial, Academic, Wellness, Subscription or Announcement.', 'Mark alerts as read after reviewing.']
+    },
+    {
+      icon: '📆',
+      title: 'Alerts are grouped by date',
+      summary: 'If you do not see an alert immediately, open the date it arrived. Each date expands to show all alerts received that day.',
+      tags: ['alert center', 'date grouped', 'dropdown'],
+      steps: ['Open Alerts.', 'Find the date header.', 'Click the date to expand it.', 'Review all alerts inside that day.', 'Use action buttons such as View Payments or View Homework.']
+    },
+    {
+      icon: '💬',
+      title: 'WhatsApp support does not open',
+      summary: 'WhatsApp support opens through wa.me. If your browser blocks the new tab, allow popups or copy the number 0700 201 922.',
+      tags: ['whatsapp', 'support', 'popup'],
+      steps: ['Click WhatsApp Support once.', 'Allow popups if the browser asks.', 'Make sure WhatsApp or WhatsApp Web is available.', 'If it still fails, send a direct WhatsApp message to 0700 201 922.']
+    },
+    {
+      icon: '✉️',
+      title: 'Email support does not open',
+      summary: 'Some browsers do not have a default email app for mailto links. Use Open Gmail, Open Outlook, or Copy Email Details from the fallback modal.',
+      tags: ['email', 'support', 'gmail', 'mailto'],
+      steps: ['Click Email Support.', 'If Gmail opens, send the prefilled message.', 'If nothing opens, use the fallback modal.', 'Choose Open Gmail, Open Outlook, Open Email App, or Copy Email Details.', 'Send to shuleai.info@gmail.com.']
+    },
+    {
+      icon: '🌗',
+      title: 'Dark mode text or buttons are hard to see',
+      summary: 'Theme changes should update all cards, tables, modals and buttons. If a section remains white or text disappears, report the section name.',
+      tags: ['dark mode', 'theme', 'visibility', 'buttons'],
+      steps: ['Toggle light/dark mode again.', 'Refresh once if needed.', 'Check if the issue affects one section only.', 'Contact support with the section name and a screenshot.']
+    },
+    {
+      icon: '📣',
+      title: 'Sending announcements without AI',
+      summary: 'AI suggestions are optional. Admins can type their own title and message, choose recipients, and send without generating an AI suggestion.',
+      tags: ['announcement', 'manual', 'ai optional', 'send'],
+      steps: ['Open Send Announcement.', 'Choose recipients.', 'Type your own title.', 'Type your own message.', 'Do not press Get Shule AI Suggestion.', 'Press Send Announcement.']
+    },
+    {
+      icon: '✨',
+      title: 'Using Shule AI announcement suggestions',
+      summary: 'Use the AI assistant only when you want help restructuring a message. The suggestion never sends automatically; admin must review and send.',
+      tags: ['ai suggestion', 'announcement', 'admin', 'deepseek'],
+      steps: ['Choose audience, topic and tone.', 'Write a brief description.', 'Click Get Shule AI Suggestion.', 'Review title and message.', 'Edit if needed.', 'Click Send Announcement only when ready.']
+    },
+    {
+      icon: '🤖',
+      title: 'AI Tutor is locked or unavailable',
+      summary: 'Student AI Tutor requires an active Essential, Smart or Genius child subscription. If DeepSeek has insufficient balance, no usage should be deducted.',
+      tags: ['ai tutor', 'subscription', 'deepseek', 'usage'],
+      steps: ['Confirm the student has Essential, Smart or Genius plan.', 'Check today’s usage limit.', 'If the answer fails, try again later.', 'No usage is deducted when Shule AI cannot answer.', 'Parent can renew or upgrade the child plan.']
+    },
+    {
+      icon: '💳',
+      title: 'Payment submitted but balance did not reduce',
+      summary: 'Pending, failed and rejected payments are visible in history but do not reduce balance. Approved or successful payments reduce balance.',
+      tags: ['payment', 'balance', 'pending', 'failed'],
+      steps: ['Open Payments.', 'Select the correct child/student.', 'Open Payment History.', 'Check the payment status.', 'If status is Pending, wait for school approval.', 'If status is Successful/Approved and balance is wrong, contact support.']
+    },
+    {
+      icon: '🧾',
+      title: 'Payment history is missing or mixed up',
+      summary: 'Payment history must be individual per student. Always select the specific child/student before checking history.',
+      tags: ['payment history', 'student specific', 'siblings'],
+      steps: ['Select one child/student.', 'Check the fee account/term.', 'Use filters All, Pending, Successful, Failed, Rejected, Bursary/Credit.', 'If another sibling appears, report it immediately.']
+    },
+    {
+      icon: '🏦',
+      title: 'Cash, bank, card, or manual M-Pesa payments',
+      summary: 'Offline payments must be recorded or approved by admin against the selected student and fee account.',
+      tags: ['cash', 'bank', 'card', 'manual mpesa'],
+      steps: ['Keep your receipt or reference number.', 'Submit manual M-Pesa where available or contact school office.', 'Admin records/approves the payment.', 'Parent sees the payment under that child only after approval.']
+    },
+    {
+      icon: '🎓',
+      title: 'Bursary, waiver, discount or credit is missing',
+      summary: 'Credits reduce balance only after approval and should show separately from parent-paid money.',
+      tags: ['bursary', 'waiver', 'credit', 'discount'],
+      steps: ['Open Payments or student finance record.', 'Check Bursary/Credit amount.', 'Open history and filter Bursaries/Credits.', 'If pending, wait for approval.', 'Contact school if it was approved but not visible.']
+    },
+    {
+      icon: '📚',
+      title: 'Homework, marks or reports are missing',
+      summary: 'These records may be hidden until teachers/admins publish them. Also check class, subject and term selection.',
+      tags: ['homework', 'marks', 'reports', 'missing'],
+      steps: ['Confirm the correct class/term is selected.', 'Refresh the section once.', 'Ask the teacher/admin whether the record was published.', 'Contact support if published records still do not appear.']
+    },
+    {
+      icon: '📶',
+      title: 'Slow internet or failed request',
+      summary: 'If a button seems not to work, the network request may have failed. The system should not lose saved records because of a temporary network issue.',
+      tags: ['network', 'request failed', 'slow', 'retry'],
+      steps: ['Wait a few seconds.', 'Do not press the same payment button repeatedly.', 'Refresh once.', 'Check if the record already saved.', 'Contact support with the time and action attempted.']
+    }
+  ];
+
+  const roleScenarioArticles = {
+    admin: [
+      { icon: '🏗️', title: 'Fee structure created for multiple classes but looks duplicated', summary: 'Grouped fee structures should appear as one card with assigned classes inside. If you see separate duplicate cards, open the structure and check assigned classes before creating another.', tags: ['fee structure', 'grouped', 'duplicate'], steps: ['Open Finance & Fees.', 'Open the fee structure card.', 'View assigned classes.', 'Add/remove classes inside the card.', 'Do not recreate the same structure for the same term/classes.'] },
+      { icon: '🧮', title: 'Finance totals look wrong', summary: 'Totals should calculate from active student fee accounts: expected, parent paid, bursary/credit and outstanding.', tags: ['finance totals', 'expected', 'paid', 'balance'], steps: ['Confirm the fee structure is active.', 'Check student fee accounts exist.', 'Check payments are Approved/Successful.', 'Check bursaries are Approved.', 'Refresh Finance & Fees.'] },
+      { icon: '📩', title: 'Announcement recipients are empty', summary: 'Announcements need valid linked users. If a class or parent list is empty, check student-parent links and user accounts.', tags: ['announcement', 'recipients', 'parents', 'class'], steps: ['Choose the correct audience.', 'If Specific Class, select a class.', 'Confirm students in the class have linked parents.', 'If Whole School, confirm parent/teacher/student user accounts exist.'] }
+    ],
+    parent: [
+      { icon: '👥', title: 'I have many children but only one appears', summary: 'Parent-child linking may be incomplete. Contact the school so they can link the missing child to your parent account.', tags: ['children', 'parent link', 'missing child'], steps: ['Open Children.', 'Refresh once.', 'If still missing, contact school admin.', 'Share the child name, class, and admission number.'] },
+      { icon: '🔒', title: 'AI Tutor asks for subscription', summary: 'There is no free AI tier. Each child needs Essential, Smart or Genius before using the AI Tutor.', tags: ['ai tutor', 'subscription', 'essential', 'smart', 'genius'], steps: ['Open Subscriptions.', 'Select the child.', 'Choose Essential, Smart or Genius.', 'Complete payment.', 'Ask the student to reopen AI Tutor.'] }
+    ],
+    teacher: [
+      { icon: '👩‍🏫', title: 'My assigned class or subject is missing', summary: 'Teacher access depends on class and subject assignments made by admin.', tags: ['assigned class', 'subject', 'teacher'], steps: ['Open Classes/Students.', 'Refresh once.', 'Ask admin to confirm class teacher or subject teacher assignment.', 'Log out and log in again after changes.'] },
+      { icon: '📨', title: 'I am not receiving class alerts', summary: 'Teacher alerts depend on assigned classes/subjects and school announcements targeted to teachers.', tags: ['teacher alerts', 'class alerts'], steps: ['Check Alerts section.', 'Confirm class/subject assignment.', 'Check date dropdowns.', 'Contact admin if class alerts still do not appear.'] }
+    ],
+    student: [
+      { icon: '🧠', title: 'AI Tutor says no usage deducted', summary: 'That message means Shule AI could not answer because of provider/account/network issues, and the student usage count should not reduce.', tags: ['ai tutor', 'usage', 'deepseek'], steps: ['Try again later.', 'Check subscription is active.', 'Ask parent/admin if AI service is enabled.', 'Contact support if the error repeats.'] },
+      { icon: '🎒', title: 'I cannot see homework or study alerts', summary: 'Homework alerts depend on teacher assignments and published homework for your class.', tags: ['homework', 'study', 'alerts'], steps: ['Open Homework.', 'Check Alerts date groups.', 'Refresh once.', 'Ask teacher if homework was published to your class.'] }
+    ],
+    superadmin: [
+      { icon: '🏢', title: 'A school cannot access a feature', summary: 'Check the school subscription status, feature locks, payment status and account activation.', tags: ['school', 'subscription', 'feature lock'], steps: ['Open school record.', 'Check subscription status.', 'Check feature locks.', 'Check payment history.', 'Apply override only where allowed.'] }
+    ]
+  };
+
   function roleArticles(role) {
     if (role === 'super_admin') role = 'superadmin';
     const list = articles[role] || articles.admin;
-    return [...list, ...commonArticles];
+    const roleExtras = roleScenarioArticles[role] || [];
+    return [...list, ...roleExtras, ...commonArticles, ...troubleshootingArticles];
   }
 
   function renderArticleCard(article, idx) {
