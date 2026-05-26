@@ -165,9 +165,10 @@
   padding: 18px;
   min-height: calc(100vh - 120px);
 }
-body:not(.dark) .finance-v31,
 html:not(.dark) .finance-v31,
-[data-theme="light"] .finance-v31 {
+html:not(.dark) .finance-v31-modal,
+[data-theme="light"] .finance-v31,
+[data-theme="light"] .finance-v31-modal {
   --ff-bg: #f8fafc;
   --ff-panel: #ffffff;
   --ff-card: #ffffff;
@@ -187,7 +188,7 @@ html:not(.dark) .finance-v31,
 .finance-v31-btn.primary { background:linear-gradient(135deg,#16a34a,#22c55e); border-color:transparent; color:#fff; }
 .finance-v31-btn.blue { background:linear-gradient(135deg,#2563eb,#3b82f6); border-color:transparent; color:#fff; }
 .finance-v31-btn.danger { color:#fecaca; border-color:rgba(239,68,68,.4); }
-body:not(.dark) .finance-v31-btn.danger { color:#b91c1c; }
+html:not(.dark) .finance-v31-btn.danger, [data-theme="light"] .finance-v31-btn.danger { color:#b91c1c; }
 .finance-v31-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
 .finance-v31-metric { background:var(--ff-card); border:1px solid var(--ff-border); border-radius:14px; padding:18px; display:flex; justify-content:space-between; gap:14px; min-height:96px; box-shadow:0 12px 28px rgba(2,6,23,.12); }
 .finance-v31-metric small { color:var(--ff-muted); display:block; margin-top:4px; }
@@ -1205,8 +1206,7 @@ html.dark .finance-v31,
   --ff-text: #e5eef8;
   --ff-muted: #9fb0c7;
 }
-body:not(.dark):not([data-theme="dark"]) .finance-v31,
-html:not(.dark) body:not(.dark) .finance-v31,
+html:not(.dark) .finance-v31,
 [data-theme="light"] .finance-v31 {
   --ff-bg: #f8fafc;
   --ff-panel: #ffffff;
@@ -1366,4 +1366,203 @@ body.dark .finance-v31-btn.danger,
   .finance-v31-table { min-width: 760px !important; }
   .finance-v31-actions, .finance-v31-toolbar { align-items: stretch !important; }
   .finance-v31-actions .finance-v31-btn, .finance-v31-toolbar .finance-v31-btn { width: 100%; }
+}
+
+
+/* ===== V77 Finance & Fees full dark/light theme hardening =====
+   Scope: Finance & Fees only. Keeps existing finance logic intact while making
+   cards, tables, forms, popups, chips, and dropdowns inherit the active dashboard theme. */
+.finance-v31,
+.finance-v31-modal {
+  color-scheme: dark;
+  --ff-bg: #07111f;
+  --ff-panel: #0f1b2d;
+  --ff-card: #122139;
+  --ff-card-2: #0b1624;
+  --ff-border: rgba(148, 163, 184, 0.24);
+  --ff-text: #e5eef8;
+  --ff-muted: #9fb0c8;
+  --ff-green: #22c55e;
+  --ff-blue: #3b82f6;
+  --ff-orange: #f59e0b;
+  --ff-purple: #8b5cf6;
+  --ff-red: #ef4444;
+}
+html:not(.dark) .finance-v31,
+html:not(.dark) .finance-v31-modal,
+[data-theme="light"] .finance-v31,
+[data-theme="light"] .finance-v31-modal {
+  color-scheme: light;
+  --ff-bg: #f8fafc;
+  --ff-panel: #ffffff;
+  --ff-card: #ffffff;
+  --ff-card-2: #f1f5f9;
+  --ff-border: #e2e8f0;
+  --ff-text: #0f172a;
+  --ff-muted: #64748b;
+}
+html.dark .finance-v31,
+html.dark .finance-v31-modal,
+body.dark .finance-v31,
+body.dark .finance-v31-modal,
+.dark .finance-v31,
+.dark .finance-v31-modal,
+[data-theme="dark"] .finance-v31,
+[data-theme="dark"] .finance-v31-modal {
+  color-scheme: dark;
+  --ff-bg: #07111f;
+  --ff-panel: #0f1b2d;
+  --ff-card: #122139;
+  --ff-card-2: #0b1624;
+  --ff-border: rgba(148, 163, 184, 0.24);
+  --ff-text: #e5eef8;
+  --ff-muted: #9fb0c8;
+}
+.finance-v31 {
+  background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.11), transparent 28%), var(--ff-bg) !important;
+  color: var(--ff-text) !important;
+}
+html:not(.dark) .finance-v31,
+[data-theme="light"] .finance-v31 {
+  background: var(--ff-bg) !important;
+}
+.finance-v31-modal {
+  background: rgba(2, 6, 23, 0.72) !important;
+  color: var(--ff-text) !important;
+}
+.finance-v31 *,
+.finance-v31-modal * {
+  border-color: var(--ff-border);
+}
+.finance-v31 h1,
+.finance-v31 h2,
+.finance-v31 h3,
+.finance-v31 h4,
+.finance-v31 strong,
+.finance-v31 label,
+.finance-v31-modal h1,
+.finance-v31-modal h2,
+.finance-v31-modal h3,
+.finance-v31-modal h4,
+.finance-v31-modal strong,
+.finance-v31-modal label {
+  color: var(--ff-text) !important;
+}
+.finance-v31 p,
+.finance-v31 small,
+.finance-v31 .text-muted-foreground,
+.finance-v31-modal p,
+.finance-v31-modal small,
+.finance-v31-modal .text-muted-foreground {
+  color: var(--ff-muted) !important;
+}
+.finance-v31-shell,
+.finance-v31-modal-inner,
+.finance-v31-modal-head,
+.finance-v31-modal-body,
+.finance-v31-card,
+.finance-v31-card.grouped,
+.finance-v31-metric,
+.finance-v31-form-card,
+.finance-v31-total-box,
+.finance-v31-empty,
+.finance-v31-table-wrap,
+.finance-v31-target-box,
+.finance-v31-check,
+.finance-v31-chip,
+.finance-v31-defaulter,
+.finance-v31-notice,
+.finance-v31-message {
+  background-color: var(--ff-card) !important;
+  color: var(--ff-text) !important;
+  border-color: var(--ff-border) !important;
+}
+.finance-v31-shell,
+.finance-v31-modal-inner,
+.finance-v31-tabs,
+.finance-v31-table th,
+.finance-v31-total-box,
+.finance-v31-input,
+.finance-v31-select,
+.finance-v31 textarea,
+.finance-v31-modal input,
+.finance-v31-modal select,
+.finance-v31-modal textarea,
+.finance-v31-method,
+.finance-v31-class-tab,
+.finance-v31-btn:not(.primary):not(.blue):not(.danger),
+.finance-v31-close {
+  background-color: var(--ff-card-2) !important;
+  color: var(--ff-text) !important;
+  border-color: var(--ff-border) !important;
+}
+.finance-v31-input::placeholder,
+.finance-v31-modal input::placeholder,
+.finance-v31-modal textarea::placeholder {
+  color: var(--ff-muted) !important;
+  opacity: 1;
+}
+.finance-v31-select option,
+.finance-v31-modal select option {
+  background: var(--ff-panel) !important;
+  color: var(--ff-text) !important;
+}
+.finance-v31-table,
+.finance-v31-table tbody,
+.finance-v31-table tr,
+.finance-v31-table td {
+  background: var(--ff-card) !important;
+  color: var(--ff-text) !important;
+  border-color: var(--ff-border) !important;
+}
+.finance-v31-table th {
+  background: var(--ff-card-2) !important;
+  color: var(--ff-muted) !important;
+}
+.finance-v31-table tr:hover td,
+.finance-v31-defaulter:hover,
+.finance-v31-card:hover {
+  background-color: color-mix(in srgb, var(--ff-card) 88%, var(--ff-green) 12%) !important;
+}
+.finance-v31-badge,
+.finance-v31-chip,
+.finance-v31-method,
+.finance-v31-class-tab {
+  color: var(--ff-text) !important;
+}
+.finance-v31-badge.active,
+.finance-v31-method.active,
+.finance-v31-tab.active {
+  background: rgba(34,197,94,.16) !important;
+  color: var(--ff-green) !important;
+  border-color: rgba(34,197,94,.38) !important;
+}
+.finance-v31-badge.draft {
+  background: rgba(245,158,11,.18) !important;
+  color: var(--ff-orange) !important;
+}
+.finance-v31-badge.locked,
+.finance-v31-message.error {
+  background: rgba(239,68,68,.14) !important;
+  color: var(--ff-red) !important;
+}
+.finance-v31-message.success {
+  background: rgba(34,197,94,.12) !important;
+  color: var(--ff-green) !important;
+}
+.finance-v31-btn.primary,
+.finance-v31-btn.blue,
+.finance-v31-btn.danger,
+.finance-v31-class-tab.active {
+  color: #ffffff !important;
+}
+html.dark .finance-v31-modal-inner,
+html.dark .finance-v31-card,
+html.dark .finance-v31-metric,
+html.dark .finance-v31-form-card,
+html.dark .finance-v31-total-box {
+  box-shadow: 0 22px 70px rgba(0,0,0,.38) !important;
+}
+@media (max-width: 720px) {
+  .finance-v31-modal-inner { width: 98vw !important; }
 }
