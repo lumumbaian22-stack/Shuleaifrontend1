@@ -82,7 +82,8 @@ function updateSidebar(role) {
                 { icon: 'message-circle', label: 'Messages', section: 'staff-chat' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'calendar', label: 'My Timetable', section: 'my-timetable' },
-                { icon: 'book-open', label: 'Homework', section: 'homework' }
+                { icon: 'book-open', label: 'Homework', section: 'homework' },
+                { icon: 'bell', label: 'Alerts', section: 'alerts' }
             ],
             settings: [
                 { icon: 'settings', label: 'My Settings', section: 'settings' },
@@ -96,6 +97,7 @@ function updateSidebar(role) {
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
                 { icon: 'calendar', label: 'Child Timetable', section: 'timetable' },
                 { icon: 'message-circle', label: 'Messages', section: 'chat' },
+                { icon: 'bell', label: 'Alerts', section: 'alerts' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
             settings: [
@@ -579,7 +581,8 @@ async function showDashboardSection(section) {
             'custom-subjects': 'Custom Subjects',
             'duty-preferences': 'Duty Preferences',
             'fairness-report': 'Fairness Report',
-            'teacher-workload': 'Teacher Workload'
+            'teacher-workload': 'Teacher Workload',
+            alerts: 'Alerts Center'
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';
 

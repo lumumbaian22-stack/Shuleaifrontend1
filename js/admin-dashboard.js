@@ -630,7 +630,7 @@ function renderAdminDashboard() {
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold mb-4 flex items-center gap-2">
                     <i data-lucide="megaphone" class="h-5 w-5 text-primary"></i>
-                    📢 Send Parent Message
+                    📢 Send Announcement
                     <span class="ml-auto text-[11px] rounded-full bg-primary/10 text-primary px-2 py-1">Shule AI assisted</span>
                 </h3>
                 <div class="space-y-3">
@@ -639,8 +639,14 @@ function renderAdminDashboard() {
                             <label class="block text-sm font-medium mb-1">Recipients</label>
                             <select id="announcement-recipients" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                 <option value="all_parents">All Parents</option>
+                                <option value="whole_school">Whole School</option>
                                 <option value="specific_class">Specific Class</option>
                                 <option value="individual_parent">Individual Parent</option>
+                                <option value="teachers">Teachers</option>
+                                <option value="students">Students</option>
+                                <option value="fee_defaulters">Fee Defaulters</option>
+                                <option value="pending_payments">Parents with Pending Payments</option>
+                                <option value="subscription_expiry">Parents with Subscription Expiry</option>
                             </select>
                         </div>
                         <div>
@@ -655,6 +661,7 @@ function renderAdminDashboard() {
                                 <option value="Subscription renewal">Subscription renewal</option>
                                 <option value="Emergency alert">Emergency alert</option>
                                 <option value="General announcement">General announcement</option>
+                                <option value="Wellness reminder">Wellness reminder</option>
                             </select>
                         </div>
                     </div>
@@ -680,6 +687,7 @@ function renderAdminDashboard() {
                                 <option value="Polite">Polite</option>
                                 <option value="Formal">Formal</option>
                                 <option value="Encouraging">Encouraging</option>
+                                <option value="Short and direct">Short and direct</option>
                             </select>
                         </div>
                         <div>
@@ -1603,10 +1611,10 @@ async function generateAnnouncementSuggestion() {
     }
     if (panel) {
         panel.classList.remove('hidden');
-        panel.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><span class="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span> Shule AI is preparing a parent-friendly message...</div>';
+        panel.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><span class="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span> Shule AI is preparing an announcement suggestion...</div>';
     }
     try {
-        const res = await (api?.alerts?.suggestParentMessage ? api.alerts.suggestParentMessage({
+        const res = await (api?.alerts?.suggestParentMessage ? (api.alerts.suggestAnnouncement || api.alerts.suggestParentMessage)({
             audience: recipientType,
             topic,
             tone,
@@ -1659,9 +1667,22 @@ async function sendAnnouncement() {
     showLoading();
     try {
         let userIds = [];
-        if (recipientType === 'all_parents') {
+        if (['all_parents','fee_defaulters','pending_payments','subscription_expiry'].includes(recipientType)) {
             const parents = await api.admin.getParents();
-            userIds = parents.data.map(p => p.userId);
+            userIds = (parents.data || []).map(p => p.userId).filter(Boolean);
+        } else if (recipientType === 'whole_school') {
+            const [parents, teachers, students] = await Promise.allSettled([api.admin.getParents(), api.admin.getTeachers ? api.admin.getTeachers() : Promise.resolve({data: []}), api.admin.getStudents ? api.admin.getStudents() : Promise.resolve({data: []})]);
+            userIds = [
+                ...((parents.value?.data || []).map(p => p.userId || p.User?.id)),
+                ...((teachers.value?.data || []).map(t => t.userId || t.User?.id)),
+                ...((students.value?.data || []).map(st => st.userId || st.User?.id))
+            ].filter(Boolean);
+        } else if (recipientType === 'teachers') {
+            const teachers = await (api.admin.getTeachers ? api.admin.getTeachers() : apiRequest('/api/admin/teachers'));
+            userIds = (teachers.data || []).map(t => t.userId || t.User?.id).filter(Boolean);
+        } else if (recipientType === 'students') {
+            const students = await (api.admin.getStudents ? api.admin.getStudents() : apiRequest('/api/admin/students'));
+            userIds = (students.data || []).map(st => st.userId || st.User?.id).filter(Boolean);
         } else if (recipientType === 'specific_class') {
             const classId = document.getElementById('announcement-class').value;
             if (!classId) { showToast('Please select a class', 'error'); hideLoading(); return; }
@@ -1684,7 +1705,7 @@ async function sendAnnouncement() {
         for (const userId of userIds) {
             await apiRequest('/api/alerts', {
                 method: 'POST',
-                body: JSON.stringify({ userId, role: 'parent', type: 'system', severity: 'info', title, message, data: { sourceType: 'ai_assisted_admin_message', aiLabel: 'Shule AI assisted parent message' } })
+                body: JSON.stringify({ userId, type: 'system', category: 'Announcement', severity: 'info', title, message, data: { sourceType: 'ai_assisted_admin_message', aiLabel: 'Shule AI assisted announcement', actionUrl: '#alerts' } })
             });
         }
 

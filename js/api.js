@@ -600,7 +600,8 @@ const alertsAPI = {
     create: (data) => apiRequest('/api/alerts', { method: 'POST', body: JSON.stringify(data) }),
     markRead: (id) => apiRequest(`/api/alerts/${id}/read`, { method: 'PUT' }),
     markAllRead: () => apiRequest('/api/alerts/read-all', { method: 'PUT' }),
-    suggestParentMessage: (data) => apiRequest('/api/alerts/suggest-parent-message', { method: 'POST', body: JSON.stringify(data) })
+    suggestParentMessage: (data) => apiRequest('/api/alerts/suggest-parent-message', { method: 'POST', body: JSON.stringify(data) }),
+    suggestAnnouncement: (data) => apiRequest('/api/alerts/suggest-announcement', { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ CONSENT ENDPOINTS ============

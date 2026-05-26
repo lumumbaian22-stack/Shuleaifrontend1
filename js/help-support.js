@@ -49,7 +49,14 @@
     const ctx = supportContext();
     const subject = encodeURIComponent(`Shule AI Support Request - ${ctx.role}`);
     const body = encodeURIComponent(buildSupportMessage('email'));
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+    const a = document.createElement('a');
+    a.href = mailto;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 1000);
+    window.location.href = mailto;
   };
 
   const articles = {
@@ -258,9 +265,41 @@
     admin: 'School Admin', parent: 'Parent', teacher: 'Teacher', student: 'Student', superadmin: 'Super Admin', super_admin: 'Super Admin'
   };
 
+  const commonArticles = [
+    {
+      icon: '🔔',
+      title: 'How the Alert Center works',
+      summary: 'Alerts are grouped by date to avoid clutter. Open a date to see the alerts that arrived that day, mark them as read, and use action buttons where available.',
+      tags: ['alerts', 'dates', 'bell', 'read'],
+      steps: ['Click the bell icon or Alerts in the sidebar.', 'Open Today, Yesterday, or another date.', 'Use filters such as Financial, Academic, Wellness or Subscription.', 'Mark alerts as read after reviewing them.']
+    },
+    {
+      icon: '✨',
+      title: 'What Shule AI Insight means',
+      summary: 'Shule AI Insight labels show smart recommendations from the analytics engine or AI-assisted tools. They help users understand what needs attention without searching through every section.',
+      tags: ['shule ai', 'insight', 'analytics', 'recommendations'],
+      steps: ['Read the insight label.', 'Check the category.', 'Open the suggested section if there is an action button.', 'Contact support if the insight looks wrong.']
+    },
+    {
+      icon: '🌗',
+      title: 'Using dark and light mode',
+      summary: 'Theme changes should apply to cards, tables, popups, forms and text. If something is hard to read, refresh once and report the section to support.',
+      tags: ['dark mode', 'light mode', 'theme', 'visibility'],
+      steps: ['Use the top-right theme toggle.', 'Check that the current section changes theme.', 'If text is invisible, open Help and contact support with the section name.']
+    },
+    {
+      icon: '🛟',
+      title: 'When to contact support',
+      summary: 'Contact support when payments look wrong, records are missing, a dashboard is not loading, a button is dead, or you are unsure what action to take.',
+      tags: ['support', 'whatsapp', 'email', 'issue'],
+      steps: ['Open Help.', 'Choose WhatsApp or Email Support.', 'The message includes your role, school and current section.', 'Add a clear description of what happened.']
+    }
+  ];
+
   function roleArticles(role) {
     if (role === 'super_admin') role = 'superadmin';
-    return articles[role] || articles.admin;
+    const list = articles[role] || articles.admin;
+    return [...list, ...commonArticles];
   }
 
   function renderArticleCard(article, idx) {

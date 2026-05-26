@@ -811,9 +811,9 @@
                         <div id="search-results" class="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg hidden z-50 max-h-96 overflow-y-auto"></div>
                     </div>
                     
-                    <button onclick="toggleNotifications()" class="relative p-2 hover:bg-accent rounded-lg touch-target">
+                    <button onclick="openAlertsFromBell()" class="relative p-2 hover:bg-accent rounded-lg touch-target" title="Open Alerts Center" aria-label="Open Alerts Center">
                         <i data-lucide="bell" class="h-5 w-5"></i>
-                        <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500"></span>
+                        <span id="notification-badge" data-alert-badge class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] leading-[18px] text-center font-bold hidden"></span>
                     </button>
                     
                     <button onclick="toggleTheme()" id="global-theme-toggle" class="theme-toggle-btn p-2 border border-border bg-background text-foreground hover:bg-accent rounded-lg touch-target" aria-label="Toggle dark/light mode">

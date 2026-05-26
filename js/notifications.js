@@ -1,268 +1,336 @@
-// notifications.js - Complete real-time notification system
+// notifications.js - Shule AI final alert center, bell redirect, date grouping, and background refresh
+(function () {
+  'use strict';
 
-let notifications = [];
-let unreadCount = 0;
-let notificationSocket = null;
+  let notifications = [];
+  let unreadCount = 0;
+  const expandedDateGroups = new Set();
+  const FILTERS = ['all', 'unread', 'financial', 'academic', 'wellness', 'subscription', 'announcement', 'system', 'ai insight'];
 
-// Load notifications from backend
-async function loadNotifications() {
-  try {
-    const res = await api.user.getAlerts(); // you'll need to add this to api.js
-    notifications = res.data || [];
-    notifications.forEach(n => {
-      if (!n.isRead && (n.severity === 'critical' || n.severity === 'warning')) {
-        showAlertPopup(n.title, n.message, n.severity === 'critical' ? 'error' : 'warning');
-        n.isRead = true; // so it doesn't pop up again on next load
-      }
-    });
-        
-    updateUnreadCount();
-    renderNotificationsPanel();
-    return notifications;
-  } catch (error) {
-    console.error('Failed to load notifications:', error);
-    return [];
+  const esc = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  function apiAlerts() {
+    if (window.api?.alerts) return window.api.alerts;
+    return {
+      getMine: () => apiRequest('/api/alerts'),
+      markRead: (id) => apiRequest(`/api/alerts/${id}/read`, { method: 'PUT' }),
+      markAllRead: () => apiRequest('/api/alerts/read-all', { method: 'PUT' })
+    };
   }
-}
 
-function updateUnreadCount() {
-  unreadCount = notifications.filter(n => !n.read).length;
-  const badge = document.getElementById('notification-badge');
-  if (badge) {
-    if (unreadCount > 0) {
-      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-      badge.classList.remove('hidden');
-    } else {
-      badge.classList.add('hidden');
+  function normalizeRole(role) {
+    return String(role || '').toLowerCase().replace('-', '_') || 'user';
+  }
+
+  function getCurrentRoleSafe() {
+    try {
+      const user = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
+      return normalizeRole(user?.role || localStorage.getItem('role'));
+    } catch (_) { return normalizeRole(localStorage.getItem('role')); }
+  }
+
+  function normalizeCategory(alert) {
+    const raw = String(alert.categoryLabel || alert.category || alert.type || alert.data?.category || '').toLowerCase();
+    if (/fee|payment|finance|bursary|credit|cash|bank|mpesa|balance/.test(raw)) return 'Financial';
+    if (/academic|grade|mark|report|homework|study/.test(raw)) return 'Academic';
+    if (/wellness|mood|emotion|emotional/.test(raw)) return 'Emotional / Wellness';
+    if (/physical|safety|attendance|absent|late/.test(raw)) return 'Physical / Safety';
+    if (/subscription|renew|expiry|expired/.test(raw)) return 'Subscription';
+    if (/announce|message|notice/.test(raw)) return 'Announcement';
+    if (/ai|insight|recommend/.test(raw)) return 'Shule AI Insight';
+    if (/system|health|error/.test(raw)) return 'System';
+    return alert.categoryLabel || alert.type || 'System';
+  }
+
+  function normalizeAlert(alert) {
+    const createdAt = alert.createdAt || alert.timestamp || alert.date || new Date().toISOString();
+    const category = normalizeCategory(alert);
+    const sourceType = alert.sourceType || alert.data?.sourceType || (category === 'Shule AI Insight' ? 'ai_insight' : 'system_auto');
+    return {
+      ...alert,
+      id: alert.id || `${createdAt}-${alert.title || 'alert'}`,
+      title: alert.title || alert.data?.title || 'Alert',
+      message: alert.message || alert.description || alert.data?.message || '',
+      createdAt,
+      isRead: !!(alert.isRead || alert.read || alert.readAt),
+      category,
+      sourceLabel: alert.sourceLabel || alert.data?.aiLabel || sourceLabel(sourceType, category),
+      actionUrl: alert.actionUrl || alert.data?.actionUrl || '',
+      actionLabel: alert.actionLabel || alert.data?.actionLabel || defaultActionLabel(category),
+      studentName: alert.studentName || alert.data?.studentName || alert.data?.student || '',
+      priority: alert.priority || alert.severity || alert.data?.priority || 'info'
+    };
+  }
+
+  function sourceLabel(sourceType, category) {
+    const source = String(sourceType || '').toLowerCase();
+    if (source.includes('ai_generated')) return 'AI-generated suggestion';
+    if (source.includes('ai') || category === 'Shule AI Insight') return 'Shule AI Insight';
+    if (source.includes('admin')) return 'Admin announcement';
+    if (source.includes('teacher')) return 'Teacher update';
+    if (source.includes('finance')) return 'Finance update';
+    if (source.includes('wellness')) return 'Wellness update';
+    return 'System reminder';
+  }
+
+  function defaultActionLabel(category) {
+    const c = String(category || '').toLowerCase();
+    if (c.includes('financial')) return 'View Payments';
+    if (c.includes('subscription')) return 'Renew Subscription';
+    if (c.includes('academic')) return 'View Progress';
+    if (c.includes('wellness')) return 'View Wellness';
+    if (c.includes('announcement')) return 'View Announcement';
+    return '';
+  }
+
+  function dateKey(dateValue) {
+    const d = new Date(dateValue || Date.now());
+    if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0,10);
+    return d.toISOString().slice(0,10);
+  }
+
+  function dateLabel(key) {
+    const today = new Date();
+    const y = new Date(today); y.setDate(today.getDate() - 1);
+    const todayKey = today.toISOString().slice(0,10);
+    const yKey = y.toISOString().slice(0,10);
+    const d = new Date(`${key}T00:00:00`);
+    const nice = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    if (key === todayKey) return `Today - ${nice}`;
+    if (key === yKey) return `Yesterday - ${nice}`;
+    return nice;
+  }
+
+  function timeLabel(value) {
+    const d = new Date(value || Date.now());
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function groupAlerts(alerts) {
+    const groups = {};
+    alerts.forEach(a => {
+      const key = dateKey(a.createdAt);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    });
+    return Object.entries(groups)
+      .sort((a,b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, items: items.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)) }));
+  }
+
+  async function loadNotifications({ silent = false } = {}) {
+    try {
+      const res = await apiAlerts().getMine();
+      const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.alerts) ? res.alerts : []);
+      notifications = data.map(normalizeAlert);
+      updateUnreadCount();
+      if (!silent && document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
+      return notifications;
+    } catch (error) {
+      if (!silent) console.error('Failed to load alerts:', error);
+      return notifications;
     }
   }
-}
 
-async function saveNotifications() {
-  localStorage.setItem(`notifications_${getCurrentUser()?.id}`, JSON.stringify(notifications));
-  updateUnreadCount();
-}
-
-async function markAsRead(notificationId) {
-  const notif = notifications.find(n => n.id === notificationId);
-  if (notif && !notif.read) {
-    notif.read = true;
-    await saveNotifications();
-    renderNotificationsPanel();
-    // Optionally call API to mark as read on server
-    // await api.notifications.markAsRead(notificationId);
-  }
-}
-
-async function markAllAsRead() {
-  notifications.forEach(n => n.read = true);
-  await saveNotifications();
-  renderNotificationsPanel();
-  showToast('All notifications marked as read', 'success');
-}
-
-async function deleteNotification(notificationId) {
-  notifications = notifications.filter(n => n.id !== notificationId);
-  await saveNotifications();
-  renderNotificationsPanel();
-}
-
-async function clearAllNotifications() {
-  if (notifications.length === 0) return;
-  if (confirm('Clear all notifications?')) {
-    notifications = [];
-    await saveNotifications();
-    renderNotificationsPanel();
-    showToast('All notifications cleared', 'info');
-  }
-}
-
-function toggleNotifications() {
-  let panel = document.getElementById('notifications-panel');
-  if (!panel) {
-    createNotificationsPanel();
-    panel = document.getElementById('notifications-panel');
-  }
-  if (panel.classList.contains('hidden')) {
-    renderNotificationsPanel();
-    panel.classList.remove('hidden');
-  } else {
-    panel.classList.add('hidden');
-  }
-}
-
-function createNotificationsPanel() {
-  const panelHTML = `
-    <div id="notifications-panel" class="fixed right-4 top-16 z-50 w-96 max-w-[calc(100vw-2rem)] bg-card border rounded-xl shadow-2xl hidden animate-fade-in">
-      <div class="flex flex-col h-[500px]">
-        <div class="p-4 border-b flex justify-between items-center">
-          <h3 class="font-semibold">Notifications</h3>
-          <div class="flex gap-2">
-            <button onclick="markAllAsRead()" class="text-xs text-primary hover:underline">Mark all read</button>
-            <button onclick="clearAllNotifications()" class="text-xs text-red-600 hover:underline">Clear all</button>
-          </div>
-        </div>
-        <div id="notifications-list" class="flex-1 overflow-y-auto"></div>
-        <div class="p-3 border-t text-center">
-          <button onclick="viewAllNotifications()" class="text-xs text-primary hover:underline">View all notifications</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.insertAdjacentHTML('beforeend', panelHTML);
-}
-
-function renderNotificationsPanel() {
-  const container = document.getElementById('notifications-list');
-  if (!container) return;
-  if (notifications.length === 0) {
-    container.innerHTML = `<div class="p-8 text-center"><i data-lucide="bell-off" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-muted-foreground">No notifications</p></div>`;
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-  container.innerHTML = notifications.map(notif => `
-    <div class="p-4 border-b hover:bg-accent/50 transition-colors ${!notif.read ? 'bg-primary/5' : ''}" onclick="markAsRead('${notif.id}')">
-      <div class="flex gap-3">
-        <div class="h-10 w-10 rounded-full ${getNotifBg(notif.type)} flex items-center justify-center flex-shrink-0">
-          <i data-lucide="${getNotifIcon(notif.type)}" class="h-5 w-5 ${getNotifColor(notif.type)}"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium">${escapeHtml(notif.title)}</p>
-          <p class="text-xs text-muted-foreground mt-1">${escapeHtml(notif.message)}</p>
-          <p class="text-xs text-muted-foreground mt-2">${timeAgo(notif.timestamp)}</p>
-        </div>
-        ${!notif.read ? '<span class="h-2 w-2 bg-primary rounded-full flex-shrink-0 mt-2"></span>' : ''}
-      </div>
-    </div>
-  `).join('');
-  if (window.lucide) lucide.createIcons();
-}
-
-function getNotifIcon(type) {
-  const icons = { system: 'settings', alert: 'alert-triangle', message: 'message-circle', duty: 'clock', approval: 'check-circle', attendance: 'calendar-check', payment: 'credit-card', academic: 'book-open' };
-  return icons[type] || 'bell';
-}
-function getNotifBg(type) {
-  const bgs = { system: 'bg-gray-100', alert: 'bg-red-100', message: 'bg-blue-100', duty: 'bg-amber-100', approval: 'bg-green-100', attendance: 'bg-purple-100', payment: 'bg-emerald-100', academic: 'bg-indigo-100' };
-  return bgs[type] || 'bg-gray-100';
-}
-function getNotifColor(type) {
-  const colors = { system: 'text-gray-600', alert: 'text-red-600', message: 'text-blue-600', duty: 'text-amber-600', approval: 'text-green-600', attendance: 'text-purple-600', payment: 'text-emerald-600', academic: 'text-indigo-600' };
-  return colors[type] || 'text-gray-600';
-}
-
-function viewAllNotifications() {
-  showDashboardSection('notifications');
-  const panel = document.getElementById('notifications-panel');
-  if (panel) panel.classList.add('hidden');
-}
-
-async function viewAllNotifications() {
-  await loadNotifications();
-  // Show a modal or a full page with list
-  let modal = document.getElementById('all-notifications-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'all-notifications-modal';
-    modal.className = 'fixed inset-0 z-50 hidden bg-black/50 flex items-center justify-center';
-    modal.innerHTML = `<div class="bg-card rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto p-4"><div class="flex justify-between items-center border-b pb-2"><h3 class="font-bold">All Notifications</h3><button onclick="closeAllNotificationsModal()">✖</button></div><div id="all-notifications-list" class="mt-4 space-y-2"></div></div>`;
-    document.body.appendChild(modal);
-  }
-  const listDiv = document.getElementById('all-notifications-list');
-  listDiv.innerHTML = notifications.map(n => `<div class="p-3 border rounded ${!n.read ? 'bg-primary/5' : ''}"><p class="font-medium">${n.title}</p><p class="text-sm">${n.message}</p><p class="text-xs text-muted-foreground">${timeAgo(n.timestamp)}</p></div>`).join('');
-  modal.classList.remove('hidden');
-}
-window.viewAllNotifications = viewAllNotifications;
-window.closeAllNotificationsModal = () => document.getElementById('all-notifications-modal')?.classList.add('hidden');
-
-// WebSocket integration: listen for real-time alerts
-function initNotificationWebSocket() {
-  if (window.socket) {
-    window.socket.on('alert', (alert) => {
-      // Add new notification
-      const newNotif = {
-        id: alert.id || Date.now(),
-        title: alert.title,
-        message: alert.message,
-        type: alert.type,
-        timestamp: alert.createdAt || new Date().toISOString(),
-        read: false
-      };
-      notifications.unshift(newNotif);
-      saveNotifications();
-      renderNotificationsPanel();
-      showToast(alert.title, 'info');
+  function updateUnreadCount() {
+    unreadCount = notifications.filter(n => !n.isRead).length;
+    document.querySelectorAll('#notification-badge,[data-alert-badge],.alert-badge').forEach(badge => {
+      if (unreadCount > 0) {
+        badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+        badge.classList.remove('hidden');
+      } else {
+        badge.textContent = '';
+        badge.classList.add('hidden');
+      }
     });
   }
-}
 
-// Call this after WebSocket connects
-window.addEventListener('load', () => {
-  setTimeout(initNotificationWebSocket, 1000);
-});
-
-// Export functions
-window.loadNotifications = loadNotifications;
-window.markAsRead = markAsRead;
-window.markAllAsRead = markAllAsRead;
-window.deleteNotification = deleteNotification;
-window.clearAllNotifications = clearAllNotifications;
-window.toggleNotifications = toggleNotifications;
-window.renderNotificationsPanel = renderNotificationsPanel;
-
-// Render a full-page alerts center for dashboard sections.
-// Kept here because older dashboard sections call v12RenderAlertsCenter(role).
-// This uses the real alerts API and does not create demo/placeholder alerts.
-async function renderAlertsCenter(role = 'user') {
-  let alerts = [];
-  let errorMessage = '';
-  try {
-    const res = await api.user.getAlerts();
-    alerts = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.alerts) ? res.alerts : []);
-  } catch (error) {
-    errorMessage = error?.message || 'Failed to load alerts';
+  async function markAsRead(alertId) {
+    const alert = notifications.find(n => String(n.id) === String(alertId));
+    if (alert) alert.isRead = true;
+    updateUnreadCount();
+    const row = document.querySelector(`[data-alert-id="${CSS.escape(String(alertId))}"]`);
+    if (row) row.classList.add('is-read');
+    try { await apiAlerts().markRead(alertId); } catch (e) { console.warn('Mark alert read failed:', e.message); }
   }
 
-  const safe = (value) => typeof escapeHtml === 'function'
-    ? escapeHtml(value ?? '')
-    : String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c]));
+  async function markAllAsRead() {
+    notifications.forEach(n => { n.isRead = true; });
+    updateUnreadCount();
+    document.querySelectorAll('.alert-v82-card').forEach(el => el.classList.add('is-read'));
+    try { await apiAlerts().markAllRead(); } catch (e) { console.warn('Mark all alerts read failed:', e.message); }
+    if (typeof showToast === 'function') showToast('All alerts marked as read', 'success');
+  }
 
-  const title = role === 'admin' ? 'Alerts Center' : 'Alerts';
-  const rows = alerts.map(alert => {
-    const severity = alert.severity || alert.type || 'info';
-    const isRead = alert.read || alert.isRead;
-    const created = alert.createdAt || alert.timestamp || alert.date || '';
+  function currentFilter() {
+    return (document.getElementById('alerts-filter-v82')?.value || 'all').toLowerCase();
+  }
+
+  function filteredAlerts() {
+    const filter = currentFilter();
+    if (filter === 'all') return notifications;
+    if (filter === 'unread') return notifications.filter(a => !a.isRead);
+    return notifications.filter(a => String(a.category || '').toLowerCase().includes(filter));
+  }
+
+  function renderAlertCard(alert) {
+    const unread = !alert.isRead;
+    const priority = String(alert.priority || 'info').toLowerCase();
     return `
-      <div class="rounded-xl border bg-card p-4 shadow-sm ${!isRead ? 'ring-1 ring-primary/20' : ''}">
-        <div class="flex items-start justify-between gap-3">
+      <article class="alert-v82-card ${unread ? 'is-unread' : 'is-read'} priority-${esc(priority)}" data-alert-id="${esc(alert.id)}">
+        <div class="alert-v82-card-head">
           <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h3 class="font-semibold text-foreground">${safe(alert.title || 'Alert')}</h3>
-              <span class="rounded-full border px-2 py-0.5 text-xs capitalize text-muted-foreground">${safe(severity)}</span>
+            <div class="alert-v82-badges">
+              <span class="alert-v82-category">${esc(alert.category)}</span>
+              <span class="alert-v82-source">${esc(alert.sourceLabel)}</span>
+              ${unread ? '<span class="alert-v82-unread">Unread</span>' : ''}
             </div>
-            <p class="mt-1 text-sm text-muted-foreground">${safe(alert.message || alert.description || '')}</p>
-            ${created ? `<p class="mt-2 text-xs text-muted-foreground">${safe(created)}</p>` : ''}
+            <h3>${esc(alert.title)}</h3>
           </div>
-          ${!isRead && alert.id ? `<button class="rounded-lg border px-3 py-1 text-xs hover:bg-accent" onclick="markAsRead('${safe(alert.id)}')">Mark read</button>` : ''}
+          <time>${esc(timeLabel(alert.createdAt))}</time>
         </div>
-      </div>`;
-  }).join('');
-
-  return `
-    <div class="space-y-6 animate-fade-in">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-2xl font-bold">${safe(title)}</h2>
-          <p class="text-sm text-muted-foreground">View system, academic, payment, attendance, and operational alerts.</p>
+        <p class="alert-v82-message">${esc(alert.message)}</p>
+        ${alert.studentName ? `<p class="alert-v82-student">Student: ${esc(alert.studentName)}</p>` : ''}
+        <div class="alert-v82-actions">
+          ${alert.actionUrl && alert.actionLabel ? `<button type="button" onclick="openAlertAction('${esc(alert.actionUrl)}')">${esc(alert.actionLabel)}</button>` : ''}
+          ${unread ? `<button type="button" onclick="markAsRead('${esc(alert.id)}')">Mark as read</button>` : ''}
         </div>
-        <button onclick="loadNotifications && loadNotifications()" class="rounded-lg border px-4 py-2 text-sm hover:bg-accent">Refresh</button>
-      </div>
-      ${errorMessage ? `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200">${safe(errorMessage)}</div>` : ''}
-      <div class="grid gap-3">
-        ${rows || '<div class="rounded-xl border bg-card p-8 text-center text-muted-foreground">No alerts found.</div>'}
-      </div>
-    </div>`;
-}
+      </article>`;
+  }
 
-window.renderAlertsCenter = window.renderAlertsCenter || renderAlertsCenter;
-window.v12RenderAlertsCenter = window.v12RenderAlertsCenter || renderAlertsCenter;
+  function renderGroup(group, index) {
+    const isOpen = expandedDateGroups.has(group.key) || index === 0;
+    if (isOpen) expandedDateGroups.add(group.key);
+    const unread = group.items.filter(a => !a.isRead).length;
+    return `
+      <section class="alert-v82-date-group" data-alert-date="${esc(group.key)}">
+        <button type="button" class="alert-v82-date-toggle" onclick="toggleAlertDateGroup('${esc(group.key)}')">
+          <span>${isOpen ? '▼' : '▶'} ${esc(dateLabel(group.key))}</span>
+          <small>${group.items.length} alert${group.items.length === 1 ? '' : 's'}${unread ? ` • ${unread} unread` : ''}</small>
+        </button>
+        <div class="alert-v82-group-list ${isOpen ? '' : 'hidden'}">
+          ${group.items.map(renderAlertCard).join('')}
+        </div>
+      </section>`;
+  }
+
+  function renderAlertsHtml(role = getCurrentRoleSafe(), errorMessage = '') {
+    const list = filteredAlerts();
+    const groups = groupAlerts(list);
+    const roleLabel = role.replace('_', ' ');
+    return `
+      <section id="alerts-center-v82" class="alerts-v82-shell animate-fade-in" data-role="${esc(role)}">
+        <div class="alerts-v82-hero">
+          <div>
+            <p class="alerts-v82-kicker">Shule AI Alert Center</p>
+            <h2>Alerts for ${esc(roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1))}</h2>
+            <p>Financial, academic, physical/safety, emotional/wellness, subscription, announcement, and Shule AI insight alerts grouped by date.</p>
+          </div>
+          <div class="alerts-v82-actions">
+            <select id="alerts-filter-v82" onchange="renderAlertsCenterIntoDom()">
+              ${FILTERS.map(f => `<option value="${esc(f)}" ${currentFilter() === f ? 'selected' : ''}>${esc(f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1))}</option>`).join('')}
+            </select>
+            <button type="button" onclick="markAllAsRead()">Mark all as read</button>
+            <button type="button" onclick="loadNotifications()">Refresh</button>
+          </div>
+        </div>
+        ${errorMessage ? `<div class="alerts-v82-error">${esc(errorMessage)}</div>` : ''}
+        ${groups.length ? `<div class="alerts-v82-groups">${groups.map(renderGroup).join('')}</div>` : '<div class="alerts-v82-empty">No alerts found for this filter yet.</div>'}
+      </section>`;
+  }
+
+  async function renderAlertsCenter(role = getCurrentRoleSafe()) {
+    let errorMessage = '';
+    try { await loadNotifications({ silent: true }); } catch (e) { errorMessage = e.message || 'Failed to load alerts'; }
+    return renderAlertsHtml(role, errorMessage);
+  }
+
+  function renderAlertsCenterIntoDom() {
+    const shell = document.getElementById('alerts-center-v82');
+    if (!shell) return;
+    const role = shell.dataset.role || getCurrentRoleSafe();
+    shell.outerHTML = renderAlertsHtml(role);
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function toggleAlertDateGroup(key) {
+    if (expandedDateGroups.has(key)) expandedDateGroups.delete(key); else expandedDateGroups.add(key);
+    renderAlertsCenterIntoDom();
+  }
+
+  function openAlertAction(actionUrl) {
+    const target = String(actionUrl || '').trim();
+    if (!target) return;
+    if (target.startsWith('#')) {
+      const section = target.replace('#', '');
+      if (typeof showDashboardSection === 'function') showDashboardSection(section);
+      return;
+    }
+    if (/^https?:\/\//i.test(target)) window.open(target, '_blank', 'noopener,noreferrer');
+    else if (typeof showDashboardSection === 'function') showDashboardSection(target);
+  }
+
+  function openAlertsFromBell() {
+    const panel = document.getElementById('notifications-panel');
+    if (panel) panel.classList.add('hidden');
+    if (typeof showDashboardSection === 'function') return showDashboardSection('alerts');
+    if (typeof navigateToSection === 'function') return navigateToSection('alerts');
+    window.location.hash = '#alerts';
+  }
+
+  function toggleNotifications() { return openAlertsFromBell(); }
+  function viewAllNotifications() { return openAlertsFromBell(); }
+
+  function renderNotificationsPanel() { updateUnreadCount(); }
+  function createNotificationsPanel() {}
+  async function deleteNotification() {}
+  async function clearAllNotifications() {}
+
+  function initNotificationWebSocket() {
+    if (window.socket && !window.socket.__alertsV82Attached) {
+      window.socket.__alertsV82Attached = true;
+      window.socket.on('alert', (alert) => {
+        notifications.unshift(normalizeAlert(alert));
+        updateUnreadCount();
+        if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
+        if (typeof showToast === 'function') showToast(alert.title || 'New alert', 'info');
+      });
+      window.socket.on('alerts:updated', () => loadNotifications({ silent: true }).then(() => {
+        if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
+      }));
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => loadNotifications({ silent: true }), 1200);
+    setTimeout(initNotificationWebSocket, 1500);
+    setInterval(() => loadNotifications({ silent: true }).then(() => {
+      if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
+    }), 60000);
+  });
+
+  window.loadNotifications = loadNotifications;
+  window.loadAlerts = loadNotifications;
+  window.v94LoadAlerts = loadNotifications;
+  window.updateUnreadCount = updateUnreadCount;
+  window.markAsRead = markAsRead;
+  window.markAllAsRead = markAllAsRead;
+  window.deleteNotification = deleteNotification;
+  window.clearAllNotifications = clearAllNotifications;
+  window.toggleNotifications = toggleNotifications;
+  window.openAlertsFromBell = openAlertsFromBell;
+  window.viewAllNotifications = viewAllNotifications;
+  window.renderNotificationsPanel = renderNotificationsPanel;
+  window.renderAlertsCenter = renderAlertsCenter;
+  window.v12RenderAlertsCenter = renderAlertsCenter;
+  window.renderAlertsCenterIntoDom = renderAlertsCenterIntoDom;
+  window.toggleAlertDateGroup = toggleAlertDateGroup;
+  window.openAlertAction = openAlertAction;
+  window.ShuleAlerts = { load: loadNotifications, open: openAlertsFromBell, render: renderAlertsCenter };
+})();
