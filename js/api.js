@@ -431,6 +431,8 @@ const parentAPI = {
             body: JSON.stringify(data)
         }),
     getPayments: () => apiRequest('/api/parent/payments'),
+    getStudentFeeAccounts: (studentId) => apiRequest(`/api/payments/parent/students/${studentId}/fee-accounts`),
+    getStudentPaymentHistory: (studentId, params = {}) => apiRequest(`/api/payments/parent/students/${studentId}/history${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
     getSubscriptionPlans: () => apiRequest('/api/parent/plans'),
     // Upgrade/renew a child plan through real Daraja STK.
     // Keeps legacy callers working while avoiding disabled fake payment routes.
@@ -757,6 +759,11 @@ const paymentAPI = {
     parentFeeManual: (data) => apiRequest('/api/payments/parent/fee/manual', { method: 'POST', body: JSON.stringify(data) }),
     getManualQueue: () => apiRequest('/api/payments/admin/manual-queue'),
     getAdminRecords: () => apiRequest('/api/payments/admin/records'),
+    getAdminFinanceSummary: () => apiRequest('/api/payments/admin/finance-summary'),
+    getStudentFinance: (studentId) => apiRequest(`/api/payments/admin/students/${studentId}/finance`),
+    getStudentHistory: (studentId, params = {}) => apiRequest(`/api/payments/admin/students/${studentId}/history${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
+    recordManualPayment: (studentId, data) => apiRequest(`/api/payments/admin/students/${studentId}/manual-payment`, { method: 'POST', body: JSON.stringify(data) }),
+    recordBursary: (studentId, data) => apiRequest(`/api/payments/admin/students/${studentId}/bursary`, { method: 'POST', body: JSON.stringify(data) }),
     approveManualPayment: (paymentId, data = {}) => apiRequest(`/api/payments/admin/manual-queue/${paymentId}/approve`, { method: 'POST', body: JSON.stringify(data) }),
     rejectManualPayment: (paymentId, data = {}) => apiRequest(`/api/payments/admin/manual-queue/${paymentId}/reject`, { method: 'POST', body: JSON.stringify(data) }),
     parentSubscriptionSTK: (data) => apiRequest('/api/payments/parent/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),

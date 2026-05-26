@@ -538,47 +538,59 @@ async function renderParentProgress() {
 async function renderParentPayments() {
     try {
         const school = getCurrentSchool();
-        const selectedChildId = dashboardData?.selectedChildId;
+        const selectedChildId = dashboardData?.selectedChildId || dashboardData?.children?.[0]?.id;
         const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
+        const historyFilter = localStorage.getItem('parent_payment_history_filter') || 'all';
 
+        let finance = { accounts: [], totals: { totalExpected:0, parentPaidAmount:0, creditAmount:0, balance:0 } };
         let payments = [];
-        try { const payRes = await api.parent.getPayments(); payments = Array.isArray(payRes?.data) ? payRes.data : (payRes?.data?.payments || []); } catch (_) {}
-
-        let fees = [];
         if (selectedChildId) {
-            try { fees = (await api.parent.getFees(selectedChildId)).data || []; } catch (_) {}
+            try { finance = (await api.parent.getStudentFeeAccounts(selectedChildId)).data || finance; } catch (e) { console.warn('Student fee accounts failed', e.message); }
+            try { payments = (await api.parent.getStudentPaymentHistory(selectedChildId, { status: historyFilter })).data || []; } catch (e) { console.warn('Student payment history failed', e.message); }
         }
-        const activeFee = fees.find(f => Number(f.totalAmount || 0) > Number(f.paidAmount || 0)) || fees[0] || null;
-        const balance = activeFee ? Math.max(0, Number(activeFee.totalAmount || 0) - Number(activeFee.paidAmount || 0)) : 0;
-        const elimuId = selectedChild?.elimuid || selectedChild?.elimuId || selectedChild?.admissionNumber || dashboardData?.selectedChild?.student?.elimuid || '—';
+        const fees = finance.accounts || [];
+        const activeFee = fees.find(f => Number(f.balance || 0) > 0) || fees[0] || null;
+        const balance = Number(activeFee?.balance ?? Math.max(0, Number(activeFee?.totalAmount||0) - Number((activeFee?.parentPaidAmount ?? activeFee?.paidAmount) || 0) - Number(activeFee?.creditAmount||0))) || 0;
+        const parentPaid = Number(activeFee?.parentPaidAmount ?? activeFee?.paidAmount ?? 0);
+        const credit = Number(activeFee?.creditAmount || 0);
+        const paidCovered = parentPaid + credit;
+        const elimuId = selectedChild?.elimuid || selectedChild?.elimuId || selectedChild?.admissionNumber || finance.student?.elimuid || '—';
+        const feeSelectHtml = fees.length > 1 ? `
+            <label class="text-sm">Fee Account / Term
+                <select id="payment-fee" onchange="updateParentFeeSummaryFromSelect()" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    ${fees.map(f => `<option value="${f.id}" data-total="${Number(f.totalAmount||0)}" data-parent-paid="${Number((f.parentPaidAmount ?? f.paidAmount) || 0)}" data-credit="${Number(f.creditAmount||0)}" data-balance="${Number(f.balance||0)}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Total KES ${Number(f.totalAmount||0).toLocaleString()} • Paid KES ${Number((f.parentPaidAmount ?? f.paidAmount) || 0).toLocaleString()} • Credits KES ${Number(f.creditAmount||0).toLocaleString()} • Balance KES ${Number(f.balance||0).toLocaleString()}</option>`).join('')}
+                </select>
+            </label>` : `
+            <div class="text-sm rounded-lg border border-input bg-background px-3 py-2">
+                <span class="text-muted-foreground">Fee Account / Term</span><br>
+                <strong>${activeFee ? `${escapeHtml(activeFee.term || 'Fees')} ${escapeHtml(String(activeFee.year || ''))}` : 'No active fee account found'}</strong>
+                ${activeFee ? `<input type="hidden" id="payment-fee" value="${activeFee.id}">` : '<input type="hidden" id="payment-fee" value="">'}
+            </div>`;
 
         return `
-            <div class="space-y-6 animate-fade-in">
+            <div class="space-y-6 animate-fade-in" id="parent-payments-root" data-student-id="${escapeHtml(selectedChildId || '')}">
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
                     <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(selectedChild?.schoolName || school?.name || 'Your School')}</h2>
-                    <p class="text-sm text-muted-foreground">School Fees & Payment Verification</p>
+                    <p class="text-sm text-muted-foreground">School Fees & Student-Specific Payment Verification</p>
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-3">
                     <div class="rounded-xl border bg-card p-6 lg:col-span-2">
                         <h3 class="font-semibold mb-1">Pay School Fees</h3>
-                        <p class="text-sm text-muted-foreground mb-4">Parent chooses the amount. Elimu ID locks the payment to the correct child.</p>
+                        <p class="text-sm text-muted-foreground mb-4">Each balance and history is personal to the selected child only.</p>
                         <div class="grid gap-3 md:grid-cols-2">
                             <label class="text-sm">Child
                                 <select id="payment-child" onchange="selectChild(this.value)" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                     ${(dashboardData?.children || []).map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}>${escapeHtml(child.User?.name || child.name || 'Student')} • ${escapeHtml(child.grade || child.className || '')}</option>`).join('')}
                                 </select>
                             </label>
-                            <label class="text-sm">Fee Account / Term
-                                <select id="payment-fee" onchange="updateParentFeeSummaryFromSelect()" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                    ${fees.length ? fees.map(f => `<option value="${f.id}" data-total="${Number(f.totalAmount||0)}" data-paid="${Number(f.paidAmount||0)}" data-balance="${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0))}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Total KES ${Number(f.totalAmount||0).toLocaleString()} • Paid KES ${Number(f.paidAmount||0).toLocaleString()} • Balance KES ${Math.max(0,Number(f.totalAmount||0)-Number(f.paidAmount||0)).toLocaleString()}</option>`).join('') : '<option value="">No active fee account found. Ask the school admin to activate/assign the fee structure.</option>'}
-                                </select>
-                            </label>
-                            <div class="rounded-lg bg-muted/40 p-3 md:col-span-2">
-                                <div class="grid gap-2 md:grid-cols-4 text-sm">
+                            ${feeSelectHtml}
+                            <div class="rounded-lg bg-muted/40 p-3 md:col-span-2" id="parent-fee-summary-card">
+                                <div class="grid gap-2 md:grid-cols-5 text-sm">
                                     <div><span class="text-muted-foreground">Elimu ID</span><br><strong>${escapeHtml(elimuId)}</strong></div>
                                     <div><span class="text-muted-foreground">Total</span><br><strong id="parent-fee-total">KES ${Number(activeFee?.totalAmount || 0).toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Paid</span><br><strong id="parent-fee-paid">KES ${Number(activeFee?.paidAmount || 0).toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Parent Paid</span><br><strong id="parent-fee-paid">KES ${parentPaid.toLocaleString()}</strong></div>
+                                    <div><span class="text-muted-foreground">Bursary/Credit</span><br><strong id="parent-fee-credit">KES ${credit.toLocaleString()}</strong></div>
                                     <div><span class="text-muted-foreground">Balance</span><br><strong id="parent-fee-balance">KES ${balance.toLocaleString()}</strong></div>
                                 </div>
                             </div>
@@ -603,21 +615,26 @@ async function renderParentPayments() {
                     </div>
 
                     <div class="rounded-xl border bg-card p-6">
-                        <h3 class="font-semibold mb-4">Payment History</h3>
-                        <div class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="flex items-center justify-between gap-2 mb-4">
+                            <h3 class="font-semibold">Payment History</h3>
+                            <select id="parent-payment-history-filter" onchange="setParentPaymentHistoryFilter(this.value)" class="rounded-lg border border-input bg-background px-2 py-1 text-xs">
+                                ${['all','pending','successful','failed','rejected','bursaries','credits'].map(v => `<option value="${v}" ${historyFilter===v?'selected':''}>${v === 'all' ? 'All' : v.charAt(0).toUpperCase()+v.slice(1)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="space-y-2 max-h-96 overflow-y-auto" id="parent-student-payment-history">
                             ${payments.length > 0 ? payments.map(payment => `
-                                <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                                <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg" data-payment-id="${payment.id}">
                                     <div>
-                                        <p class="text-sm font-medium">${escapeHtml(payment.Student?.User?.name || payment.metadata?.studentElimuid || 'Payment')}</p>
+                                        <p class="text-sm font-medium">${escapeHtml(payment.transactionTypeLabel || payment.transactionType || 'Payment')}</p>
                                         <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt)} • ${escapeHtml(payment.reference || '')}</p>
-                                        <p class="text-[11px] text-muted-foreground">${escapeHtml(payment.feeTerm || payment.Fee?.term || payment.metadata?.term || 'Fee')} ${escapeHtml(String(payment.feeYear || payment.Fee?.year || payment.metadata?.year || ''))}</p>
+                                        <p class="text-[11px] text-muted-foreground">${escapeHtml(payment.feeTerm || payment.Fee?.term || payment.metadata?.term || 'Fee')} ${escapeHtml(String(payment.feeYear || payment.Fee?.year || payment.metadata?.year || ''))} • ${escapeHtml(payment.method || '')}</p>
                                     </div>
                                     <div class="text-right">
                                         <p class="font-semibold">KES ${Number(payment.amount || 0).toLocaleString()}</p>
-                                        <span class="text-xs ${payment.status === 'completed' ? 'text-green-600' : payment.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}">${payment.status}</span>
+                                        <span class="text-xs ${['completed','success','successful','approved'].includes(String(payment.status).toLowerCase()) ? 'text-green-600' : ['failed','rejected'].includes(String(payment.status).toLowerCase()) ? 'text-red-600' : 'text-yellow-600'}">${escapeHtml(payment.statusLabel || payment.status)}</span>
                                     </div>
                                 </div>
-                            `).join('') : `<div class="text-center py-8"><i data-lucide="credit-card" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-sm text-muted-foreground">No payment history</p></div>`}
+                            `).join('') : `<div class="text-center py-8"><i data-lucide="credit-card" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-sm text-muted-foreground">No ${historyFilter !== 'all' ? historyFilter + ' ' : ''}history for this student</p></div>`}
                         </div>
                     </div>
                 </div>
@@ -850,7 +867,7 @@ async function submitManualSchoolFeePayment() {
         showToast(response.message || 'Payment submitted for verification.', 'success');
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'manual-payment-submitted'}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
-        if (typeof showDashboardSection === 'function') await showDashboardSection('payments');
+        await refreshParentPaymentPanelSoft();
     } catch (error) {
         console.error('Manual school fee payment error:', error);
         showToast(error.message || 'Could not submit payment for verification.', 'error');
@@ -955,7 +972,7 @@ async function upgradePlan(planId, amountFromCard = 0) {
         if (response.success) {
             showToast(response.message || `✅ M-Pesa prompt sent for ${planId} plan`, 'success');
             if (currentSection === 'payments') {
-                if (typeof showDashboardSection === 'function') await showDashboardSection('payments');
+                await refreshParentPaymentPanelSoft();
             }
         } else {
             throw new Error(response.message || 'Upgrade failed');
@@ -1204,11 +1221,32 @@ function updateParentFeeSummaryFromSelect() {
     const balance = Number(option?.dataset?.balance || Math.max(0, total - paid));
     const totalEl = document.getElementById('parent-fee-total');
     const paidEl = document.getElementById('parent-fee-paid');
+    const creditEl = document.getElementById('parent-fee-credit');
     const balanceEl = document.getElementById('parent-fee-balance');
     const amountEl = document.getElementById('payment-amount');
     if (totalEl) totalEl.textContent = `KES ${total.toLocaleString()}`;
     if (paidEl) paidEl.textContent = `KES ${paid.toLocaleString()}`;
+    if (creditEl) creditEl.textContent = `KES ${credit.toLocaleString()}`;
     if (balanceEl) balanceEl.textContent = `KES ${balance.toLocaleString()}`;
     if (amountEl) amountEl.max = balance || '';
 }
 window.updateParentFeeSummaryFromSelect = updateParentFeeSummaryFromSelect;
+
+
+async function setParentPaymentHistoryFilter(value) {
+    localStorage.setItem('parent_payment_history_filter', value || 'all');
+    await refreshParentPaymentPanelSoft();
+}
+window.setParentPaymentHistoryFilter = setParentPaymentHistoryFilter;
+
+async function refreshParentPaymentPanelSoft() {
+    const root = document.getElementById('parent-payments-root');
+    if (!root || typeof renderParentPayments !== 'function') return;
+    const html = await renderParentPayments();
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html.trim();
+    const next = wrapper.firstElementChild;
+    if (next) root.replaceWith(next);
+    if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+window.refreshParentPaymentPanelSoft = refreshParentPaymentPanelSoft;
