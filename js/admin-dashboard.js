@@ -631,7 +631,7 @@ function renderAdminDashboard() {
                 <h3 class="font-semibold mb-4 flex items-center gap-2">
                     <i data-lucide="megaphone" class="h-5 w-5 text-primary"></i>
                     📢 Send Announcement
-                    <span class="ml-auto text-[11px] rounded-full bg-primary/10 text-primary px-2 py-1">Shule AI assisted</span>
+                    <span class="ml-auto text-[11px] rounded-full bg-primary/10 text-primary px-2 py-1">✨ Shule AI Announcement Assistant</span>
                 </h3>
                 <div class="space-y-3">
                     <div class="grid gap-3 md:grid-cols-2">
@@ -1614,7 +1614,8 @@ async function generateAnnouncementSuggestion() {
         panel.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><span class="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span> Shule AI is preparing an announcement suggestion...</div>';
     }
     try {
-        const res = await (api?.alerts?.suggestParentMessage ? (api.alerts.suggestAnnouncement || api.alerts.suggestParentMessage)({
+        const suggestAnnouncementApi = api?.alerts?.suggestAnnouncement || api?.alerts?.suggestParentMessage;
+        const payload = {
             audience: recipientType,
             topic,
             tone,
@@ -1623,7 +1624,10 @@ async function generateAnnouncementSuggestion() {
                 classId: document.getElementById('announcement-class')?.value || null,
                 parentId: document.getElementById('announcement-parent')?.value || null
             }
-        }) : apiRequest('/api/alerts/suggest-parent-message', { method: 'POST', body: JSON.stringify({ audience: recipientType, topic, tone, description }) }));
+        };
+        const res = await (suggestAnnouncementApi
+            ? suggestAnnouncementApi(payload)
+            : apiRequest('/api/alerts/suggest-announcement', { method: 'POST', body: JSON.stringify(payload) }));
         const data = res.data || {};
         const title = data.title || `${topic} Notice`;
         const message = data.message || description;

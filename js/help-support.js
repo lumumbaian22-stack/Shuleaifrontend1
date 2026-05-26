@@ -261,6 +261,8 @@
     ]
   };
 
+  articles.super_admin = articles.superadmin;
+
   const roleNames = {
     admin: 'School Admin', parent: 'Parent', teacher: 'Teacher', student: 'Student', superadmin: 'Super Admin', super_admin: 'Super Admin'
   };
