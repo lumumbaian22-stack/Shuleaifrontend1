@@ -1,0 +1,617 @@
+/* Shule AI V85 - Full mobile responsive + PWA shell
+   This file is intentionally additive. It does not change business logic. */
+
+:root {
+  --mobile-header-height: 64px;
+  --mobile-bottom-nav-height: 72px;
+  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --shule-card-bg: hsl(var(--card));
+  --shule-card-fg: hsl(var(--card-foreground));
+  --shule-page-bg: hsl(var(--background));
+  --shule-page-fg: hsl(var(--foreground));
+  --shule-muted-bg: hsl(var(--muted));
+  --shule-muted-fg: hsl(var(--muted-foreground));
+  --shule-border: hsl(var(--border));
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+button,
+[role="button"],
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+button,
+.btn,
+.touch-target,
+a.sidebar-link,
+.mobile-nav-item {
+  min-height: 44px;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Keep hidden sections truly hidden. */
+.hidden { display: none !important; }
+
+/* Mobile dashboard shell */
+@media (max-width: 1023px) {
+  #dashboard-container {
+    min-height: 100dvh;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  #dashboard-container > .lg\:ml-64,
+  #dashboard-container .lg\:ml-64 {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  #sidebar {
+    width: min(86vw, 320px) !important;
+    max-width: 320px !important;
+    box-shadow: 12px 0 40px rgba(15, 23, 42, 0.22);
+  }
+
+  #sidebar.mobile-open,
+  body.mobile-sidebar-open #sidebar {
+    transform: translateX(0) !important;
+  }
+
+  #mobile-overlay.mobile-open,
+  body.mobile-sidebar-open #mobile-overlay {
+    display: block !important;
+  }
+
+  header.sticky {
+    height: var(--mobile-header-height);
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    gap: 10px !important;
+  }
+
+  #page-title {
+    font-size: 1rem !important;
+    line-height: 1.2 !important;
+    max-width: 45vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #global-search,
+  #search-results,
+  header .hidden.md\:flex {
+    display: none !important;
+  }
+
+  header .flex.items-center.gap-4 {
+    gap: 6px !important;
+  }
+
+  #user-name,
+  #user-menu .hidden.md\:block {
+    display: none !important;
+  }
+
+  main.flex-1 {
+    padding: 14px !important;
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-bottom) + 22px) !important;
+  }
+
+  #dashboard-content {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    min-height: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-bottom));
+    padding-bottom: var(--mobile-safe-bottom);
+    background: color-mix(in oklab, hsl(var(--background)) 92%, transparent);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid hsl(var(--border));
+    box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .dark .mobile-bottom-nav {
+    background: color-mix(in oklab, hsl(var(--background)) 88%, transparent);
+    box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.42);
+  }
+
+  #mobile-nav {
+    min-height: var(--mobile-bottom-nav-height);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    justify-content: flex-start !important;
+    gap: 2px;
+    padding: 0 8px;
+  }
+
+  #mobile-nav::-webkit-scrollbar { display: none; }
+
+  #mobile-nav .mobile-nav-item {
+    flex: 0 0 20%;
+    min-width: 66px;
+    max-width: 92px;
+    border-radius: 16px;
+    padding: 6px 3px;
+    color: hsl(var(--muted-foreground));
+  }
+
+  #mobile-nav .mobile-nav-item.active,
+  #mobile-nav .mobile-nav-item.text-primary {
+    color: hsl(var(--primary));
+    background: color-mix(in oklab, hsl(var(--primary)) 12%, transparent);
+  }
+
+  #mobile-nav .mobile-nav-item span {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10.5px;
+  }
+}
+
+/* Responsive grids/cards across dashboard modules */
+@media (max-width: 767px) {
+  .grid,
+  .dashboard-grid,
+  .stats-grid,
+  .analytics-grid,
+  .finance-grid,
+  .cards-grid,
+  .lp-portal-grid,
+  .lp-feature-grid,
+  .help-grid,
+  .alert-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  [class*="grid-cols-2"],
+  [class*="grid-cols-3"],
+  [class*="grid-cols-4"],
+  [class*="md:grid-cols"],
+  [class*="lg:grid-cols"],
+  [class*="xl:grid-cols"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .card,
+  .dashboard-card,
+  .stat-card,
+  .finance-card,
+  .subscription-card,
+  .student-card,
+  .teacher-card,
+  .homework-card,
+  .alert-card,
+  .help-card,
+  .rounded-xl,
+  .rounded-2xl {
+    max-width: 100%;
+  }
+
+  .overflow-x-auto,
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Mobile table -> readable cards. JS adds .shule-mobile-card-table and data-labels. */
+@media (max-width: 720px) {
+  table.shule-mobile-card-table {
+    display: block;
+    width: 100%;
+    border: 0 !important;
+  }
+
+  table.shule-mobile-card-table thead {
+    display: none !important;
+  }
+
+  table.shule-mobile-card-table tbody,
+  table.shule-mobile-card-table tr,
+  table.shule-mobile-card-table td {
+    display: block;
+    width: 100%;
+  }
+
+  table.shule-mobile-card-table tr {
+    margin: 0 0 12px;
+    padding: 12px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 18px;
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  }
+
+  .dark table.shule-mobile-card-table tr {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  }
+
+  table.shule-mobile-card-table td {
+    border: 0 !important;
+    padding: 8px 0 !important;
+    min-height: 34px;
+    display: grid;
+    grid-template-columns: minmax(104px, 38%) 1fr;
+    gap: 10px;
+    align-items: start;
+    word-break: break-word;
+  }
+
+  table.shule-mobile-card-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  table.shule-mobile-card-table td:empty {
+    display: none;
+  }
+
+  table.shule-mobile-card-table td:last-child {
+    border-top: 1px solid hsl(var(--border)) !important;
+    padding-top: 12px !important;
+    margin-top: 4px;
+  }
+
+  table.shule-mobile-card-table td:last-child::before {
+    content: "Actions";
+  }
+}
+
+/* Mobile forms */
+@media (max-width: 767px) {
+  form,
+  .form-grid,
+  .modal-form,
+  .finance-form,
+  .payment-form,
+  .announcement-form {
+    grid-template-columns: 1fr !important;
+  }
+
+  form .flex,
+  .modal-form .flex,
+  .payment-form .flex,
+  .announcement-form .flex {
+    flex-wrap: wrap;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  textarea {
+    min-height: 110px;
+  }
+
+  .form-actions,
+  .modal-actions,
+  .finance-actions,
+  .payment-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-top: 12px;
+    background: hsl(var(--card));
+    border-top: 1px solid hsl(var(--border));
+  }
+
+  .form-actions button,
+  .modal-actions button,
+  .finance-actions button,
+  .payment-actions button {
+    flex: 1 1 100%;
+    min-height: 46px;
+  }
+}
+
+/* Mobile modals become full-screen/bottom-sheet style */
+@media (max-width: 640px) {
+  [id$="modal"],
+  [id$="-modal"],
+  .modal,
+  .shule-modal,
+  .finance-modal,
+  .help-modal,
+  .alert-modal {
+    align-items: flex-end !important;
+  }
+
+  [id$="modal"] > div:not(:first-child),
+  [id$="-modal"] > div:not(:first-child),
+  .modal > div,
+  .shule-modal > div,
+  .finance-modal > div,
+  .help-modal > div,
+  .alert-modal > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh !important;
+    overflow-y: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    transform: none !important;
+    padding: 10px !important;
+  }
+
+  [id$="modal"] .rounded-xl,
+  [id$="modal"] .rounded-2xl,
+  [id$="-modal"] .rounded-xl,
+  [id$="-modal"] .rounded-2xl,
+  .modal .rounded-xl,
+  .modal .rounded-2xl {
+    border-radius: 24px 24px 0 0 !important;
+  }
+}
+
+/* Finance & Fees mobile and theme hardening */
+#finance-fees-section,
+.finance-fees-section,
+.finance-v31,
+[data-section="finance-fees"] {
+  color: hsl(var(--foreground));
+}
+
+#finance-fees-section *,
+.finance-fees-section *,
+.finance-v31 * {
+  border-color: hsl(var(--border));
+}
+
+.dark #finance-fees-section,
+.dark .finance-fees-section,
+.dark .finance-v31,
+.dark [data-section="finance-fees"] {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark #finance-fees-section .bg-white,
+.dark .finance-fees-section .bg-white,
+.dark .finance-v31 .bg-white,
+.dark .finance-v31-card,
+.dark .finance-card,
+.dark .payment-card,
+.dark .fee-card {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark #finance-fees-section input,
+.dark #finance-fees-section select,
+.dark #finance-fees-section textarea,
+.dark .finance-v31 input,
+.dark .finance-v31 select,
+.dark .finance-v31 textarea {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark #finance-fees-section table,
+.dark .finance-v31 table,
+.dark #finance-fees-section th,
+.dark .finance-v31 th,
+.dark #finance-fees-section td,
+.dark .finance-v31 td {
+  background-color: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark #finance-fees-section .text-gray-900,
+.dark #finance-fees-section .text-slate-900,
+.dark #finance-fees-section .text-black,
+.dark .finance-v31 .text-gray-900,
+.dark .finance-v31 .text-slate-900,
+.dark .finance-v31 .text-black {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark #finance-fees-section .text-gray-600,
+.dark #finance-fees-section .text-gray-500,
+.dark #finance-fees-section .text-slate-500,
+.dark .finance-v31 .text-gray-600,
+.dark .finance-v31 .text-gray-500,
+.dark .finance-v31 .text-slate-500 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+@media (max-width: 767px) {
+  #finance-fees-section .finance-summary,
+  .finance-v31 .finance-summary,
+  #finance-fees-section .stats-grid,
+  .finance-v31 .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  #finance-fees-section .finance-toolbar,
+  .finance-v31 .finance-toolbar,
+  #finance-fees-section .tabs,
+  .finance-v31 .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+
+  #finance-fees-section .finance-toolbar button,
+  .finance-v31 .finance-toolbar button,
+  #finance-fees-section .tabs button,
+  .finance-v31 .tabs button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+/* Alert Center mobile rules */
+.alert-center,
+.shule-alert-center,
+#alerts-section {
+  color: hsl(var(--foreground));
+}
+
+@media (max-width: 767px) {
+  .alert-date-group,
+  .alert-day-group,
+  .shule-alert-date-group {
+    border-radius: 18px;
+    overflow: hidden;
+  }
+
+  .alert-card,
+  .shule-alert-card {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .alert-filter-bar,
+  .alerts-filter-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* AI tutor mobile chat */
+@media (max-width: 767px) {
+  #ai-tutor-section,
+  .ai-tutor-section,
+  .student-ai-tutor {
+    min-height: calc(100dvh - var(--mobile-header-height) - var(--mobile-bottom-nav-height) - 40px);
+  }
+
+  .ai-chat-messages,
+  #ai-chat-messages,
+  .tutor-messages {
+    max-height: calc(100dvh - 230px) !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ai-chat-input,
+  .tutor-input-bar {
+    position: sticky;
+    bottom: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-bottom));
+    background: hsl(var(--background));
+    border-top: 1px solid hsl(var(--border));
+    padding-top: 10px;
+  }
+}
+
+/* Help/support mobile */
+@media (max-width: 767px) {
+  .help-support-grid,
+  .help-grid,
+  .support-grid,
+  .help-scenarios-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .help-card,
+  .support-card {
+    border-radius: 18px !important;
+  }
+
+  .help-actions,
+  .support-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* PWA install prompt */
+#shule-pwa-install-card {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-bottom) + 12px);
+  z-index: 60;
+  display: none;
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 20px;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
+  padding: 14px;
+}
+
+#shule-pwa-install-card.show {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  #shule-pwa-install-card {
+    left: auto;
+    width: 390px;
+    bottom: 24px;
+  }
+}
+
+/* Landing page phone polish */
+@media (max-width: 767px) {
+  .lp-hero-grid,
+  .lp-game-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .lp-hero-copy h1 {
+    font-size: clamp(2.35rem, 11vw, 3.6rem) !important;
+  }
+
+  .lp-hero-actions,
+  .lp-card-actions,
+  .lp-nav-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .lp-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
