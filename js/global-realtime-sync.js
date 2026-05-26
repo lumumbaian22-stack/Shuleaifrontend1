@@ -13,6 +13,18 @@
     try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch (_) { return {}; }
   }
 
+  function currentRole() {
+    const u = currentUser();
+    return String(u.role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_');
+  }
+
+  function isAdminLike() {
+    const role = currentRole();
+    return role === 'admin' || role === 'super_admin' || role === 'superadmin';
+  }
+
+  function isParent() { return currentRole() === 'parent'; }
+
   function currentSchoolCode() {
     const u = currentUser();
     if (u.schoolCode) return String(u.schoolCode);
@@ -51,6 +63,21 @@
 
   function refreshFinance(evt) {
     debounce('finance', async () => {
+      // HARD ROLE GATE: parent/student/teacher dashboards must never call admin finance endpoints.
+      // This prevents /api/admin/classes, /api/fee-structures, /api/payments/admin/* 403 spam on parent dashboards.
+      if (isParent()) {
+        await Promise.allSettled([
+          callIf('refreshParentPaymentsSilent'),
+          callIf('v75ParentPaymentsRefresh'),
+          callIf('loadParentPaymentHistory'),
+          callIf('loadParentSubscriptions'),
+          callIf('loadNotifications'),
+          callIf('loadAlerts')
+        ]);
+        if (w.currentSection === 'payments') refreshCurrentSection(evt.type);
+        return;
+      }
+      if (!isAdminLike()) return;
       if (typeof w.financeV31Refresh === 'function') return w.financeV31Refresh();
       if (typeof w.v31RenderFinanceFees === 'function' && (w.currentSection === 'finance' || w.currentSection === 'finance-fees')) return w.v31RenderFinanceFees();
       refreshCurrentSection(evt.type);

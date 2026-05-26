@@ -5,9 +5,13 @@
   const money = (n) => 'KES ' + Number(n || 0).toLocaleString();
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const state = { tab:'structures', structures:[], classes:[], settings:{}, accounts:[], paymentRecords:[], manualQueue:[], loading:false, filters:{ className:'', term:'', year:String(new Date().getFullYear()) } };
+  function currentUser(){ try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch(_) { return {}; } }
+  function currentRole(){ return String(currentUser().role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_'); }
+  function isAdminFinanceRole(){ const r=currentRole(); return r==='admin' || r==='super_admin' || r==='superadmin'; }
+  function blockNonAdminFinance(){ if(isAdminFinanceRole()) return false; console.warn('[Finance & Fees] Blocked admin finance render/refresh for role:', currentRole() || 'unknown'); return true; }
 
   function apiSafe(){ return w.api || {}; }
-  async function call(fn, fallback){ try { const res = await fn(); return res?.data ?? res ?? fallback; } catch(e){ console.error('[Finance & Fees]', e); return fallback; } }
+  async function call(fn, fallback){ try { const res = await fn(); return res?.data ?? res ?? fallback; } catch(e){ if(e?.message !== 'Forbidden') console.error('[Finance & Fees]', e); return fallback; } }
   function schoolSettings(){ return state.settings?.paymentSettings || state.settings || {}; }
   function bankSettings(){ return state.settings?.bankDetails || state.settings?.bank || {}; }
   function getClassName(c){ return c?.name || c?.grade || c?.className || c?.level || 'Class'; }
@@ -60,7 +64,7 @@
     state.paymentRecords = Array.isArray(recordsRes) ? recordsRes : (recordsRes.records || recordsRes.items || recordsRes.data || []);
   }
   async function loadManualQueue(){ const api = apiSafe(); state.manualQueue = await call(() => api.payments?.getManualQueue ? api.payments.getManualQueue() : apiRequest('/api/payments/admin/manual-queue'), []); }
-  async function loadAll(){ state.loading=true; await Promise.all([loadClasses(), loadStructures(), loadSettings(), loadPayments(), loadManualQueue()]); state.loading=false; }
+  async function loadAll(){ if(blockNonAdminFinance()){ state.loading=false; return; } state.loading=true; await Promise.all([loadClasses(), loadStructures(), loadSettings(), loadPayments(), loadManualQueue()]); state.loading=false; }
 
   function totals(){
     const structures = state.structures || [];
@@ -107,8 +111,27 @@
     if(!items.length) return '<div class="finance-v31-item-row"><span>No fee items configured</span><span></span></div>';
     return items.map(i=>`<div class="finance-v31-item-row"><span>${esc(i.name || i.itemName || i.label)}</span><span>${money(i.amount)}</span></div>`).join('');
   }
+  function groupedStructures(){
+    const map = new Map();
+    (state.structures || []).forEach(s=>{
+      const key = String(s.groupKey || [s.schoolCode, s.name, s.term, s.year, s.curriculum || 'CBC'].join(':')).toLowerCase();
+      const existing = map.get(key);
+      if(!existing){
+        map.set(key, {...s, classIds:[...(Array.isArray(s.classIds)?s.classIds:[]), s.classId].filter(Boolean), assignedClasses:Array.isArray(s.assignedClasses)?[...s.assignedClasses]:[]});
+        return;
+      }
+      existing.classIds = [...new Set([...(existing.classIds||[]), ...(Array.isArray(s.classIds)?s.classIds:[]), s.classId].filter(Boolean).map(String))];
+      const allClasses = [...(existing.assignedClasses||[]), ...(Array.isArray(s.assignedClasses)?s.assignedClasses:[])];
+      const classMap = new Map();
+      allClasses.forEach(c=>{ const k=String(c.id||c.name||c.grade||''); if(k) classMap.set(k,c); });
+      existing.assignedClasses = [...classMap.values()];
+      existing.studentsAssigned = Math.max(Number(existing.studentsAssigned||0), Number(s.studentsAssigned||0));
+    });
+    return [...map.values()];
+  }
+
   function filteredStructures(){
-    return (state.structures || []).filter(s=>{
+    return groupedStructures().filter(s=>{
       const className = getStructureClassName(s);
       if(state.filters.className && !String(className).split(',').map(x=>x.trim()).includes(state.filters.className)) return false;
       if(state.filters.term && s.term !== state.filters.term) return false;
@@ -121,23 +144,30 @@
     const status = normalizedStatus(s);
     const main = status === 'draft'
       ? `<button class="finance-v31-btn blue" onclick="financeV31Activate('${id}')">Activate</button>`
-      : `<button class="finance-v31-btn blue" onclick="financeV31Assign('${id}')">Assign</button>`;
+      : `<button class="finance-v31-btn blue" onclick="financeV31Assign('${id}')">Generate/Update Accounts</button>`;
     const lock = status === 'locked'
       ? `<button class="finance-v31-btn muted" disabled>Locked</button>`
       : `<button class="finance-v31-btn danger" onclick="financeV31Lock('${id}')">Lock</button>`;
-    return `<button class="finance-v31-btn" onclick="financeV31OpenStructureModal('${id}')">Edit</button>${main}${lock}`;
+    return `<button class="finance-v31-btn" onclick="financeV31ViewStructure('${id}')">View Classes</button><button class="finance-v31-btn" onclick="financeV31OpenStructureModal('${id}')">Edit</button>${main}${lock}<button class="finance-v31-btn danger" onclick="financeV31DeleteStructure('${id}')">Delete/Archive</button>`;
   }
   function renderStructures(){
     const structures = filteredStructures();
     const year = new Date().getFullYear();
+    const cardHtml = structures.length ? structures.map(s=>{
+      const assigned = Array.isArray(s.assignedClasses) ? s.assignedClasses : [];
+      const classNames = assigned.length ? assigned.map(c=>c.name||c.grade||c.id).filter(Boolean) : getStructureClassName(s).split(',').map(x=>x.trim()).filter(Boolean);
+      const visible = classNames.slice(0,4).map(c=>`<span class="finance-v31-chip">${esc(c)}</span>`).join('');
+      const more = classNames.length > 4 ? `<span class="finance-v31-chip muted">+${classNames.length-4} more</span>` : '';
+      return `<div class="finance-v31-card grouped"><div class="finance-v31-card-head"><div><h3>${esc(s.name || `${getStructureClassName(s)} — ${s.term}`)}</h3><p>${esc(s.term || 'Term')} ${esc(String(s.year || ''))} • ${esc(s.curriculum || 'CBC')}</p></div><span class="finance-v31-badge ${normalizedStatus(s)}">${esc(s.status || 'draft')}</span></div><div class="finance-v31-class-list">${visible}${more || ''}</div><div class="finance-v31-items">${structureItems(s)}</div><div class="finance-v31-card-foot"><strong>${money(s.totalAmount || 0)}</strong><small>${Number(s.studentsAssigned||0).toLocaleString()} students assigned • ${classNames.length || 1} class${(classNames.length||1)===1?'':'es'}</small></div><div class="finance-v31-actions-row">${actionButtons(s)}</div></div>`;
+    }).join('') : '<div class="finance-v31-empty">No fee structures yet. Create one grouped structure and assign it to one or more classes.</div>';
     return `<div class="finance-v31-body"><div id="finance-v31-message" class="finance-v31-message"></div>
-      <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Fee Structures</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Create and manage class-based school fees.</p></div><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div>
+      <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Fee Structures</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Create one grouped fee structure and attach one or multiple classes. Classes remain grouped inside the same structure card.</p></div><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div>
       <div class="finance-v31-filters">
         <select id="finance-v31-class-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option value="">All Classes</option>${state.classes.map(c=>`<option value="${esc(getClassName(c))}" ${state.filters.className===getClassName(c)?'selected':''}>${esc(getClassName(c))}</option>`).join('')}</select>
         <select id="finance-v31-term-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option value="">All Terms</option><option ${state.filters.term==='Term 1'?'selected':''}>Term 1</option><option ${state.filters.term==='Term 2'?'selected':''}>Term 2</option><option ${state.filters.term==='Term 3'?'selected':''}>Term 3</option></select>
         <select id="finance-v31-year-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option ${String(state.filters.year)===String(year)?'selected':''}>${year}</option><option ${String(state.filters.year)===String(year+1)?'selected':''}>${year+1}</option><option value="">All Years</option></select>
       </div>
-      <div class="finance-v31-grid" style="margin-top:16px">${structures.length?structures.map(s=>`<div class="finance-v31-card"><div class="finance-v31-card-head"><h3>${esc(s.name || `${getStructureClassName(s)} — ${s.term || ''} — ${s.year || ''}`)}</h3><span class="finance-v31-badge ${esc(normalizedStatus(s))}">${esc(s.status||'Draft')}</span></div><div class="finance-v31-items">${structureItems(s)}</div><div class="finance-v31-total"><span>Total:</span><span>${money(s.totalAmount || s.total)}</span></div><div class="finance-v31-card-actions">${actionButtons(s)}</div></div>`).join(''):'<div class="finance-v31-empty" style="grid-column:1/-1">No fee structures found for the selected filters.</div>'}</div>
+      <div class="finance-v31-grid" style="margin-top:16px">${cardHtml}</div>
     </div>`;
   }
 
@@ -180,17 +210,25 @@
   }
 
   function body(){ if(state.tab==='settings') return renderSettings(); if(state.tab==='records') return renderRecords(); if(state.tab==='verification') return renderVerification(); return renderStructures(); }
-  async function render(){ const root=document.getElementById('dashboard-content'); if(!root) return; root.innerHTML='<div class="finance-v31"><div class="finance-v31-empty">Loading Finance & Fees...</div></div>'; await loadAll(); root.innerHTML=`<section class="finance-v31"><div class="finance-v31-header"><div class="finance-v31-title"><h1>Finance & Fees</h1><p>Manage fee structures, payment settings, and all school payment records.</p></div><div class="finance-v31-actions"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh</button><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div></div><div id="finance-v31-summary-wrap">${renderSummary()}</div><div class="finance-v31-shell">${renderTabs()}<div id="finance-v31-tab-body">${body()}</div></div></section>`; }
+  async function render(){
+    if(blockNonAdminFinance()) return '';
+    const root=document.getElementById('dashboard-content');
+    if(!root) return '';
+    if(!document.querySelector('.finance-v31')) root.innerHTML='<div class="finance-v31"><div class="finance-v31-empty">Loading Finance & Fees...</div></div>';
+    await loadAll();
+    const html = `<section class="finance-v31"><div class="finance-v31-header"><div class="finance-v31-title"><h1>Finance & Fees</h1><p>Manage grouped fee structures, payment settings, and student-specific payment records.</p></div><div class="finance-v31-actions"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh</button><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div></div><div id="finance-v31-summary-wrap">${renderSummary()}</div><div class="finance-v31-shell">${renderTabs()}<div id="finance-v31-tab-body">${body()}</div></div></section>`;
+    root.innerHTML = html;
+    return html;
+  }
 
-  w.financeV31Refresh = async function(){ if(document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); } else { await render(); } };
+  w.financeV31Refresh = async function(){ if(blockNonAdminFinance()) return; if(isAdminFinanceRole() && document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); } else { await render(); } };
   w.financeV31SetTab = function(tab){ state.tab=tab; const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=body(); document.querySelectorAll('.finance-v31-tab').forEach(x=>x.classList.toggle('active', x.getAttribute('onclick')?.includes(tab))); };
   w.financeV31ApplyFilter = function(){ state.filters.className=document.getElementById('finance-v31-class-filter')?.value||''; state.filters.term=document.getElementById('finance-v31-term-filter')?.value||''; state.filters.year=document.getElementById('finance-v31-year-filter')?.value||''; const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderStructures(); };
   w.financeV31OpenStructureModal = function(id){
     const s=(state.structures||[]).find(x=>String(x.id)===String(id))||{};
     const selectedIds = new Set([...(Array.isArray(s.classIds)?s.classIds:[]), s.classId].filter(Boolean).map(String));
     const classChecks=state.classes.map(c=>`<label class="finance-v31-check"><input type="checkbox" class="ff-class-check" value="${esc(c.id||getClassName(c))}" data-name="${esc(getClassName(c))}" ${selectedIds.has(String(c.id))?'checked':''}> <span>${esc(getClassName(c))}</span></label>`).join('');
-    const classOptions=state.classes.map(c=>`<option value="${esc(c.id||c.name)}" ${String(s.classId||'')===String(c.id)?'selected':''}>${esc(getClassName(c))}</option>`).join('');
-    document.body.insertAdjacentHTML('beforeend',`<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner wide"><div class="finance-v31-modal-head"><div><strong>${id?'Edit':'Create'} Fee Structure</strong><p style="margin:4px 0 0;color:var(--ff-muted)">${id?'Edit this fee structure.':'Create one fee structure for one class or many class groups.'}</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body"><div id="finance-v31-modal-message" class="finance-v31-message"></div><div class="finance-v31-form-grid wide"><div class="finance-v31-form-card full"><div class="finance-v31-form-row"><input id="ff-name" class="finance-v31-input" placeholder="Structure name e.g. Term 1 Fees" value="${esc(s.name||'')}"><select id="ff-term" class="finance-v31-select"><option ${s.term==='Term 1'?'selected':''}>Term 1</option><option ${s.term==='Term 2'?'selected':''}>Term 2</option><option ${s.term==='Term 3'?'selected':''}>Term 3</option></select><input id="ff-year" class="finance-v31-input" type="number" value="${esc(s.year||new Date().getFullYear())}"></div><div class="finance-v31-form-row"><select id="ff-curriculum" class="finance-v31-select"><option ${s.curriculum==='CBC'?'selected':''}>CBC</option><option ${s.curriculum==='CBE'?'selected':''}>CBE</option><option ${s.curriculum==='8-4-4'?'selected':''}>8-4-4</option></select><input id="ff-due" class="finance-v31-input" type="date" value="${esc((s.dueDate||'').slice(0,10))}"></div><div class="finance-v31-target-box"><div><strong>Apply to classes</strong><p style="margin:4px 0 10px;color:var(--ff-muted)">${id?'Editing keeps this structure attached to its current class.':'Select one class or tick several classes/groups such as Grade 1–6.'}</p></div>${id?`<select id="ff-class" class="finance-v31-select"><option value="">Select class</option>${classOptions}</select>`:`<div class="finance-v31-class-checks">${classChecks || '<div class="finance-v31-empty">No classes found.</div>'}</div><div class="finance-v31-mini-actions"><button type="button" class="finance-v31-btn" onclick="document.querySelectorAll('.ff-class-check').forEach(x=>x.checked=true)">Select All</button><button type="button" class="finance-v31-btn" onclick="document.querySelectorAll('.ff-class-check').forEach(x=>x.checked=false)">Clear</button></div>`}</div><h3>Fee Items</h3><div id="ff-items"></div><button class="finance-v31-btn" onclick="financeV31AddFeeItem()">+ Add Item</button></div><div class="finance-v31-total-box sticky"><strong>Calculated Total</strong><h2 id="ff-total">KES 0</h2><p style="color:var(--ff-muted)">Required items are assigned to every selected class, but the fee structure remains one grouped structure. Each student receives an individual fee account.</p><button class="finance-v31-btn" onclick="this.closest('.finance-v31-modal').remove()">Cancel</button> <button class="finance-v31-btn primary" onclick="financeV31SaveStructure('${esc(id||'')}')">Save Fee Structure</button></div></div></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner wide"><div class="finance-v31-modal-head"><div><strong>${id?'Edit Grouped Fee Structure':'Create Grouped Fee Structure'}</strong><p style="margin:4px 0 0;color:var(--ff-muted)">${id?'Add, remove or edit classes inside this same structure.':'Select one or multiple classes; they will stay grouped under one structure card.'}</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body spacious"><div id="finance-v31-modal-message" class="finance-v31-message"></div><div class="finance-v31-form-grid wide"><div class="finance-v31-form-card full"><div class="finance-v31-form-row"><input id="ff-name" class="finance-v31-input" placeholder="Structure name e.g. Term 1 Fees" value="${esc(s.name||'')}"><select id="ff-term" class="finance-v31-select"><option ${s.term==='Term 1'?'selected':''}>Term 1</option><option ${s.term==='Term 2'?'selected':''}>Term 2</option><option ${s.term==='Term 3'?'selected':''}>Term 3</option></select><input id="ff-year" class="finance-v31-input" type="number" value="${esc(s.year||new Date().getFullYear())}"></div><div class="finance-v31-form-row"><select id="ff-curriculum" class="finance-v31-select"><option ${s.curriculum==='CBC'?'selected':''}>CBC</option><option ${s.curriculum==='CBE'?'selected':''}>CBE</option><option ${s.curriculum==='8-4-4'?'selected':''}>8-4-4</option></select><input id="ff-due" class="finance-v31-input" type="date" value="${esc((s.dueDate||'').slice(0,10))}"></div><div class="finance-v31-target-box"><div><strong>Assigned Classes</strong><p style="margin:4px 0 10px;color:var(--ff-muted)">Tick classes to include. Untick to remove a class from this grouped structure.</p></div><div class="finance-v31-class-checks">${classChecks || '<div class="finance-v31-empty">No classes found.</div>'}</div><div class="finance-v31-mini-actions"><button type="button" class="finance-v31-btn" onclick="document.querySelectorAll('.ff-class-check').forEach(x=>x.checked=true)">Select All</button><button type="button" class="finance-v31-btn" onclick="document.querySelectorAll('.ff-class-check').forEach(x=>x.checked=false)">Clear</button></div></div><h3>Fee Items</h3><div id="ff-items"></div><button class="finance-v31-btn" onclick="financeV31AddFeeItem()">+ Add Item</button></div><div class="finance-v31-total-box sticky"><strong>Calculated Total</strong><h2 id="ff-total">KES 0</h2><p style="color:var(--ff-muted)">One grouped structure can cover many classes, while every student still gets their own personal fee account.</p><button class="finance-v31-btn" onclick="this.closest('.finance-v31-modal').remove()">Cancel</button> <button class="finance-v31-btn primary" onclick="financeV31SaveStructure('${esc(id||'')}')">Save Fee Structure</button></div></div></div></div></div>`);
     const items=Array.isArray(s.items)?s.items:Array.isArray(s.feeItems)?s.feeItems:[{name:'Tuition',amount:''},{name:'Lunch',amount:''},{name:'Transport',amount:''}];
     items.forEach(i=>financeV31AddFeeItem(i)); financeV31RecalcTotal();
   };
@@ -199,25 +237,39 @@
   w.financeV31RecalcTotal = function(){ let total=0; document.querySelectorAll('.finance-v31-fee-item').forEach(r=>{ const type=r.querySelector('.ff-item-type')?.value; if(type!=='optional') total+=Number(r.querySelector('.ff-item-amount')?.value||0); }); const el=document.getElementById('ff-total'); if(el)el.textContent=money(total); };
   w.financeV31SaveStructure = async function(id){
     const rows=[...document.querySelectorAll('.finance-v31-fee-item')];
-    const items=rows.map(r=>({name:r.querySelector('.ff-item-name')?.value?.trim(), amount:Number(r.querySelector('.ff-item-amount')?.value||0), required:r.querySelector('.ff-item-type')?.value!=='optional'})).filter(i=>i.name&&i.amount>0);
-    const base={ name:document.getElementById('ff-name')?.value?.trim(), term:document.getElementById('ff-term')?.value, year:Number(document.getElementById('ff-year')?.value), curriculum:document.getElementById('ff-curriculum')?.value, dueDate:document.getElementById('ff-due')?.value || null, items, feeItems:items, totalAmount:items.filter(i=>i.required!==false).reduce((s,i)=>s+i.amount,0) };
+    const items=rows.map(r=>({name:r.querySelector('.ff-item-name')?.value?.trim(), amount:Number(r.querySelector('.ff-item-amount')?.value||0), required:r.querySelector('.ff-item-type')?.value!=='optional'})).filter(i=>i.name && i.amount>=0);
+    const checked=[...document.querySelectorAll('.ff-class-check:checked')].map(x=>({id:x.value, name:x.dataset.name||x.value}));
+    const base={ name:document.getElementById('ff-name')?.value?.trim(), term:document.getElementById('ff-term')?.value, year:Number(document.getElementById('ff-year')?.value), curriculum:document.getElementById('ff-curriculum')?.value, dueDate:document.getElementById('ff-due')?.value || null, items, classIds: checked.map(c=>c.id), classes: checked.map(c=>c.id), assignedClasses: checked, className: checked.map(c=>c.name).join(', '), gradeLevel: checked.map(c=>c.name).join(', ') };
     const m=document.getElementById('finance-v31-modal-message');
     if(!base.name || !items.length){ if(m){m.className='finance-v31-message show error';m.textContent='Please name the structure and add fee items with amounts.';} return; }
+    if(!checked.length){ if(m){m.className='finance-v31-message show error';m.textContent='Select at least one class for this grouped fee structure.';} return; }
     try{
-      if(id){
-        const classSelect=document.getElementById('ff-class');
-        const selectedClass=state.classes.find(c=>String(c.id)===String(classSelect?.value));
-        if(!selectedClass){ if(m){m.className='finance-v31-message show error';m.textContent='Please select a class.';} return; }
-        await apiSafe().feeStructures.update(id,{...base, classIds:[classSelect?.value], classes:[classSelect?.value], classId:classSelect?.value, className:getClassName(selectedClass), gradeLevel:getClassName(selectedClass)});
-      } else {
-        const checked=[...document.querySelectorAll('.ff-class-check:checked')].map(x=>({id:x.value, name:x.dataset.name||x.value}));
-        if(!checked.length){ if(m){m.className='finance-v31-message show error';m.textContent='Select at least one class. You can select one class or a group of classes.';} return; }
-        await apiSafe().feeStructures.create({...base, classIds: checked.map(c=>c.id), classes: checked.map(c=>c.id), assignedClasses: checked, className: checked.map(c=>c.name).join(', '), gradeLevel: checked.map(c=>c.name).join(', ')});
-      }
+      if(id) await apiSafe().feeStructures.update(id, base); else await apiSafe().feeStructures.create(base);
       document.querySelector('.finance-v31-modal')?.remove();
       window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'fee-structure-saved'}}));
       await render();
     }catch(e){ if(m){m.className='finance-v31-message show error';m.textContent=e.message||'Could not save fee structure.';} }
+  };
+
+
+  w.financeV31ViewStructure = function(id){
+    const s=(state.structures||[]).find(x=>String(x.id)===String(id));
+    if(!s) return;
+    const assigned = Array.isArray(s.assignedClasses) ? s.assignedClasses : [];
+    const classNames = assigned.length ? assigned.map(c=>c.name||c.grade||c.id).filter(Boolean) : getStructureClassName(s).split(',').map(x=>x.trim()).filter(Boolean);
+    document.body.insertAdjacentHTML('beforeend', `<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner wide"><div class="finance-v31-modal-head"><div><strong>${esc(s.name || 'Fee Structure')}</strong><p style="margin:4px 0 0;color:var(--ff-muted)">${esc(s.term || '')} ${esc(String(s.year || ''))} • ${esc(s.curriculum || 'CBC')}</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body spacious"><div class="finance-v31-summary compact"><div class="finance-v31-metric"><strong>Total</strong><h3>${money(s.totalAmount||0)}</h3></div><div class="finance-v31-metric"><strong>Status</strong><h3>${esc(s.status||'draft')}</h3></div><div class="finance-v31-metric"><strong>Classes</strong><h3>${classNames.length||1}</h3></div><div class="finance-v31-metric"><strong>Students</strong><h3>${Number(s.studentsAssigned||0).toLocaleString()}</h3></div></div><div class="finance-v31-card"><h3>Classes in this fee structure</h3><div class="finance-v31-class-list large">${classNames.length?classNames.map(c=>`<span class="finance-v31-chip">${esc(c)}</span>`).join(''):'<div class="finance-v31-empty">No classes attached yet.</div>'}</div></div><div class="finance-v31-card"><h3>Fee items</h3><div class="finance-v31-items">${structureItems(s)}</div></div><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button class="finance-v31-btn" onclick="this.closest('.finance-v31-modal').remove();financeV31OpenStructureModal('${esc(id)}')">Edit / Add / Remove Classes</button><button class="finance-v31-btn danger" onclick="this.closest('.finance-v31-modal').remove();financeV31DeleteStructure('${esc(id)}')">Delete / Archive</button></div></div></div></div>`);
+  };
+
+  w.financeV31DeleteStructure = async function(id){
+    clearMessage();
+    const s=(state.structures||[]).find(x=>String(x.id)===String(id));
+    const ok = confirm(`Delete/archive ${s?.name || 'this fee structure'}?\n\nIf payments or fee accounts already exist, it will be archived safely instead of permanently deleted.`);
+    if(!ok) return;
+    try{
+      if(apiSafe().feeStructures.delete) await apiSafe().feeStructures.delete(id); else await apiRequest(`/api/fee-structures/${id}`, { method:'DELETE' });
+      setMessage('success','Fee structure deleted or archived safely.');
+      await loadAll(); renderBodyOnly();
+    }catch(e){ setMessage('error', e.message || 'Could not delete/archive fee structure.'); }
   };
 
   w.financeV31Activate = async function(id){ clearMessage(); try{ await apiSafe().feeStructures.activate(id); setMessage('success','Fee structure activated and fee accounts generated for eligible students.'); await loadAll(); renderBodyOnly(); }catch(e){ setMessage('error',e.message||'Could not activate fee structure.'); } };
@@ -230,7 +282,11 @@
   w.financeV31RejectManual = async function(id){ clearMessage(); const reason=prompt('Reason for rejection?') || 'Rejected by school finance/admin'; try{ await apiSafe().payments.rejectManualPayment(id,{reason}); await loadAll(); renderBodyOnly(); window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'payment-rejected',id}})); localStorage.setItem('shule:lastFinanceUpdate', String(Date.now())); setMessage('success','Payment rejected. Records refreshed.'); }catch(e){ setMessage('error',e.message||'Could not reject payment.'); } };
   w.financeV31RenderRecordsOnly = function(){ const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML = renderRecords(); };
   w.financeV31SetRecordClass = setRecordClass;
-  w.financeV31ViewRecord = function(id){ const r=(state.paymentRecords||[]).find(x=>String(x.id)===String(id)); if(!r) return; alert(`Student: ${r.Student?.User?.name||r.Student?.name||'Student'}\nAmount: ${money(r.amount)}\nM-Pesa Code: ${r.mpesaReceiptNumber || r.reference || '—'}\nStatus: ${r.status||'pending'}\nDate: ${(r.completedAt || r.verifiedAt || r.createdAt || '').slice(0,10)}`); };
+  w.financeV31ViewRecord = function(id){
+    const r=(state.paymentRecords||[]).find(x=>String(x.id)===String(id));
+    if(!r) return;
+    document.body.insertAdjacentHTML('beforeend', `<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner"><div class="finance-v31-modal-head"><div><strong>Payment Record</strong><p style="margin:4px 0 0;color:var(--ff-muted)">${esc(recordStudentName(r))} • ${esc(recordClassName(r))}</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body spacious"><div class="finance-v31-summary compact"><div class="finance-v31-metric"><strong>Amount</strong><h3>${money(r.amount)}</h3></div><div class="finance-v31-metric"><strong>Status</strong><h3>${esc(r.status||'pending')}</h3></div><div class="finance-v31-metric"><strong>Method</strong><h3>${esc(r.method||r.paymentGateway||'—')}</h3></div></div><div class="finance-v31-card"><p><strong>Reference:</strong> ${esc(r.mpesaReceiptNumber || r.reference || '—')}</p><p><strong>Date:</strong> ${esc((r.completedAt || r.verifiedAt || r.createdAt || '').slice(0,10))}</p><p><strong>Notes:</strong> ${esc(r.notes || '—')}</p></div></div></div></div>`);
+  };
   w.financeV31ExportRecords = function(){
     clearMessage();
     const rows = state.paymentRecords || [];
@@ -260,7 +316,7 @@
   }
   function openFinanceTransactionModal(kind, studentId='', feeId=''){
     const isBursary = kind === 'bursary';
-    document.body.insertAdjacentHTML('beforeend', `<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner"><div class="finance-v31-modal-head"><div><strong>${isBursary?'Add Bursary / Credit':'Record Manual Payment'}</strong><p style="margin:4px 0 0;color:var(--ff-muted)">This updates one selected student only.</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body"><div id="finance-tx-message" class="finance-v31-message"></div><div class="finance-v31-form-card"><label>Student</label><select id="finance-tx-student" class="finance-v31-select" onchange="document.getElementById('finance-tx-fee').innerHTML=financeV31FeeOptions(this.value)"><option value="">Select student</option>${studentOptions(studentId)}</select><label>Fee Account / Term</label><select id="finance-tx-fee" class="finance-v31-select"><option value="">Select fee account</option>${feeOptions(studentId, feeId)}</select><label>Amount</label><input id="finance-tx-amount" type="number" class="finance-v31-input" placeholder="Amount"><label>${isBursary?'Bursary / Credit Type':'Payment Method'}</label><select id="finance-tx-method" class="finance-v31-select">${isBursary?'<option value="bursary">Government/County Bursary</option><option value="scholarship">School Scholarship</option><option value="waiver">Hardship Waiver</option><option value="discount">Discount</option><option value="adjustment">Correction / Adjustment</option>':'<option value="cash">Cash</option><option value="bank">Bank Transfer</option><option value="card">Card</option><option value="manual_mpesa">Manual M-Pesa</option><option value="admin_adjustment">Correction / Adjustment</option>'}</select><label>Reference / Receipt No.</label><input id="finance-tx-reference" class="finance-v31-input" placeholder="Reference number"><label>Status</label><select id="finance-tx-status" class="finance-v31-select"><option value="completed">Approved / Successful now</option><option value="pending">Pending verification</option><option value="rejected">Rejected</option></select><label>Notes</label><textarea id="finance-tx-notes" class="finance-v31-input" rows="3" placeholder="Optional notes"></textarea><div style="display:flex;gap:8px;margin-top:12px"><button class="finance-v31-btn" onclick="this.closest('.finance-v31-modal').remove()">Cancel</button><button class="finance-v31-btn primary" onclick="financeV31SaveTransaction('${kind}')">Save</button></div></div></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend', `<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner finance-v31-payment-modal"><div class="finance-v31-modal-head"><div><strong>${isBursary?'Add Bursary / Credit':'Record Manual Payment'}</strong><p style="margin:4px 0 0;color:var(--ff-muted)">This updates one selected student only and keeps parent/admin histories separate.</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body spacious"><div id="finance-tx-message" class="finance-v31-message"></div><div class="finance-v31-form-card spacious"><div class="finance-v31-form-row"><div><label>Student</label><select id="finance-tx-student" class="finance-v31-select" onchange="document.getElementById('finance-tx-fee').innerHTML=financeV31FeeOptions(this.value)"><option value="">Select student</option>${studentOptions(studentId)}</select></div><div><label>Fee Account / Term</label><select id="finance-tx-fee" class="finance-v31-select"><option value="">Select fee account</option>${feeOptions(studentId, feeId)}</select></div></div><div class="finance-v31-form-row"><div><label>Amount</label><input id="finance-tx-amount" type="number" class="finance-v31-input" placeholder="Amount"></div><div><label>${isBursary?'Bursary / Credit Type':'Payment Method'}</label><select id="finance-tx-method" class="finance-v31-select">${isBursary?'<option value="bursary">Government/County Bursary</option><option value="scholarship">School Scholarship</option><option value="waiver">Hardship Waiver</option><option value="discount">Discount</option><option value="adjustment">Correction / Adjustment</option>':'<option value="cash">Cash</option><option value="bank">Bank Transfer</option><option value="card">Card</option><option value="manual_mpesa">Manual M-Pesa</option><option value="admin_adjustment">Correction / Adjustment</option>'}</select></div></div><div class="finance-v31-form-row"><div><label>Reference / Receipt No.</label><input id="finance-tx-reference" class="finance-v31-input" placeholder="Reference number"></div><div><label>Status</label><select id="finance-tx-status" class="finance-v31-select"><option value="completed">Approved / Successful now</option><option value="pending">Pending verification</option><option value="rejected">Rejected</option></select></div></div><label>Notes</label><textarea id="finance-tx-notes" class="finance-v31-input" rows="4" placeholder="Optional notes"></textarea><div class="finance-v31-modal-actions"><button class="finance-v31-btn" onclick="this.closest('.finance-v31-modal').remove()">Cancel</button><button class="finance-v31-btn primary" onclick="financeV31SaveTransaction('${kind}')">Save</button></div></div></div></div></div>`);
   }
   w.financeV31FeeOptions = feeOptions;
   w.financeV31OpenManualModal = function(studentId='', feeId=''){ openFinanceTransactionModal('payment', studentId, feeId); };
@@ -284,18 +340,29 @@
     }catch(e){ if(msg){msg.className='finance-v31-message show error';msg.textContent=e.message||'Could not save transaction.';} }
   };
   w.financeV31ViewStudentHistory = async function(studentId){
-    try{ const res=await apiSafe().payments.getStudentHistory(studentId,{}); const rows=res?.data||[]; alert(rows.length?rows.map(r=>`${(r.createdAt||'').slice(0,10)} — ${r.transactionType||'payment'} — ${money(r.amount)} — ${r.status} — ${r.reference||''}`).join('\n'):'No history for this student.'); }catch(e){ setMessage('error', e.message||'Could not load student history.'); }
+    try{
+      const [historyRes, financeRes] = await Promise.allSettled([apiSafe().payments.getStudentHistory(studentId,{}), apiSafe().payments.getStudentFinance(studentId)]);
+      const rows = historyRes.status==='fulfilled' ? (historyRes.value?.data || historyRes.value || []) : [];
+      const finance = financeRes.status==='fulfilled' ? (financeRes.value?.data || financeRes.value || {}) : {};
+      const accounts = finance.accounts || finance.feeAccounts || [];
+      const first = accounts[0] || (state.accounts||[]).find(a=>String(a.studentId)===String(studentId)) || {};
+      const studentName = finance.student?.name || first.studentName || accountStudentName(first) || 'Student';
+      const className = finance.student?.className || first.className || accountClassName(first) || 'Class';
+      const summary = finance.summary || { totalExpected:first.totalAmount||first.feeTotalAmount||0, parentPaid:first.parentPaidAmount||first.feeParentPaidAmount||0, credits:first.creditAmount||first.feeCreditAmount||0, balance:first.balance||first.feeBalance||0 };
+      const bodyRows = rows.length ? rows.map(r=>`<tr><td>${esc((r.createdAt||r.paymentDate||'').slice(0,10))}</td><td>${esc(r.transactionType||'payment')}</td><td>${esc(r.method||r.paymentGateway||'—')}</td><td>${money(r.amount)}</td><td>${esc(r.reference||r.mpesaReceiptNumber||'—')}</td><td><span class="finance-v31-badge ${esc(String(r.status||'pending').toLowerCase())}">${esc(r.status||'pending')}</span></td><td>${esc(r.processedByName||r.approvedByName||r.processedBy||'—')}</td><td>${esc(r.notes||'')}</td></tr>`).join('') : '<tr><td colspan="8"><div class="finance-v31-empty">No payment history for this student yet.</div></td></tr>';
+      document.body.insertAdjacentHTML('beforeend', `<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner wide"><div class="finance-v31-modal-head"><div><strong>${esc(studentName)} — Payment History</strong><p style="margin:4px 0 0;color:var(--ff-muted)">${esc(className)} • individual student records only</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body spacious"><div class="finance-v31-summary compact"><div class="finance-v31-metric"><strong>Total Expected</strong><h3>${money(summary.totalExpected||0)}</h3></div><div class="finance-v31-metric"><strong>Parent Paid</strong><h3>${money(summary.parentPaid||0)}</h3></div><div class="finance-v31-metric"><strong>Bursary/Credit</strong><h3>${money(summary.credits||0)}</h3></div><div class="finance-v31-metric"><strong>Balance</strong><h3>${money(summary.balance||0)}</h3></div></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Date</th><th>Type</th><th>Method</th><th>Amount</th><th>Reference</th><th>Status</th><th>Processed By</th><th>Notes</th></tr></thead><tbody>${bodyRows}</tbody></table></div></div></div></div>`);
+    }catch(e){ setMessage('error', e.message||'Could not load student history.'); }
   };
 
   w.renderFinanceFeesV31 = render;
   w.v31RenderFinanceFees = render;
   window.addEventListener('shule:finance-updated', async function(){
-    if(document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); }
+    if(isAdminFinanceRole() && document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); }
   });
   window.addEventListener('storage', async function(e){
     if(e.key === 'shule:lastFinanceUpdate' && document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); }
   });
-  w.financeV31SoftRefresh = async function(){ if(document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); } };
+  w.financeV31SoftRefresh = async function(){ if(isAdminFinanceRole() && document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); } };
 
 })();
 
@@ -326,6 +393,18 @@
   style.id='finance-v66-polish-style';
   style.textContent=`
     .finance-v31-modal{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.finance-v31-modal-inner{width:min(980px,96vw);max-height:92vh;overflow:auto;background:var(--card,#fff);color:var(--foreground,#111827);border:1px solid var(--border,#e5e7eb);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.3)}.finance-v31-modal-inner.wide{width:min(1120px,98vw)}.finance-v31-modal-body{padding:18px;overflow:visible}.finance-v31-form-grid.wide{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}.finance-v31-form-card.full{min-width:0}.finance-v31-form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}.finance-v31-target-box{border:1px solid var(--border,#e5e7eb);border-radius:16px;padding:12px;margin:12px 0;background:var(--background,#fff)}.finance-v31-class-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;max-height:240px;overflow:auto;padding-right:4px}.finance-v31-check{display:flex;gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--border,#e5e7eb);border-radius:12px;background:var(--card,#fff);font-size:13px;line-height:1.2}.finance-v31-mini-actions{display:flex;gap:8px;margin-top:10px}.finance-v31-total-box.sticky{position:sticky;top:12px}.finance-v31-class-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.finance-v31-class-tab{border:1px solid var(--border,#e5e7eb);background:var(--card,#fff);color:var(--foreground,#111827);border-radius:999px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer}.finance-v31-class-tab.active{background:#0f766e;color:white;border-color:#0f766e}.finance-v31-summary.compact{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:10px 0 14px}.finance-v31-two-col{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,.8fr);gap:14px}.finance-v31-card.wide{min-width:0}.finance-v31-defaulter-list{display:grid;gap:8px;max-height:520px;overflow:auto}.finance-v31-defaulter{display:flex;justify-content:space-between;gap:12px;padding:10px;border-radius:12px;border:1px solid var(--border,#e5e7eb);background:var(--background,#fff)}.finance-v31-defaulter small{display:block;color:var(--muted-foreground,#64748b);font-size:11px}.finance-v31-defaulter.owing{border-left:4px solid #f97316}.finance-v31-defaulter.paid{border-left:4px solid #22c55e}.finance-v31-btn,.finance-v31-tab,.finance-v31-select,.finance-v31-input{color:var(--foreground,#111827)!important}.finance-v31-btn.primary,.finance-v31-btn.blue,.finance-v31-btn.danger,.finance-v31-class-tab.active{color:#fff!important}@media(max-width:860px){.finance-v31-form-grid.wide,.finance-v31-two-col{grid-template-columns:1fr}.finance-v31-total-box.sticky{position:static}.finance-v31-modal{align-items:flex-start;padding:10px}.finance-v31-modal-inner{max-height:96vh}.finance-v31-class-checks{grid-template-columns:1fr}.finance-v31-table-wrap{overflow-x:auto}}
+  `;
+  document.head.appendChild(style);
+})();
+
+
+// v76 finance role-gate + grouped structure UI refinements.
+(function(){
+  if (document.getElementById('finance-v76-locked-style')) return;
+  const style=document.createElement('style');
+  style.id='finance-v76-locked-style';
+  style.textContent=`
+    .finance-v31-card.grouped{display:flex;flex-direction:column;gap:12px}.finance-v31-class-list{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.finance-v31-class-list.large{gap:10px}.finance-v31-chip{display:inline-flex;align-items:center;border:1px solid var(--border,#e5e7eb);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;background:var(--background,#fff);color:var(--foreground,#111827)}.finance-v31-chip.muted{color:var(--muted-foreground,#64748b)}.finance-v31-actions-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.finance-v31-modal-body.spacious{padding:24px}.finance-v31-form-card.spacious{padding:22px;border-radius:18px}.finance-v31-payment-modal{width:min(920px,96vw)}.finance-v31-modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border,#e5e7eb)}.finance-v31-payment-modal label{display:block;margin:10px 0 6px;font-weight:800}.finance-v31-payment-modal .finance-v31-input,.finance-v31-payment-modal .finance-v31-select{min-height:46px}.finance-v31-payment-modal textarea.finance-v31-input{min-height:110px}.finance-v31-card-foot{display:flex;justify-content:space-between;gap:12px;align-items:flex-end}.finance-v31-card-foot small{color:var(--muted-foreground,#64748b);font-weight:700}@media(max-width:720px){.finance-v31-card-foot{display:block}.finance-v31-actions-row .finance-v31-btn{width:100%;justify-content:center}.finance-v31-payment-modal{width:98vw}.finance-v31-modal-body.spacious{padding:14px}}
   `;
   document.head.appendChild(style);
 })();

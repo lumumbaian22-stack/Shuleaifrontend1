@@ -1350,7 +1350,7 @@ window.searchHelpArticles = function() {
   });
 };
 window.showHelpArticleDetail = function(title, content) {
-  alert(`${title}\n\n${content}`);
+  document.body.insertAdjacentHTML('beforeend', `<div class="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4"><div class="bg-card text-foreground rounded-2xl border shadow-2xl max-w-2xl w-full p-6"><div class="flex justify-between items-start gap-4"><h2 class="text-2xl font-bold">${escapeHtml(title)}</h2><button onclick="this.closest('.fixed').remove()" class="text-2xl">×</button></div><p class="mt-4 text-muted-foreground leading-7">${escapeHtml(content)}</p><div class="mt-6 flex justify-end"><button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Close</button></div></div></div>`);
 };
 
 // ============ PROFILE SECTION ============

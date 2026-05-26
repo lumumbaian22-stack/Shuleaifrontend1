@@ -741,6 +741,7 @@ const feeStructureAPI = {
     get: (id) => apiRequest(`/api/fee-structures/${id}`),
     create: (data) => apiRequest('/api/fee-structures', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiRequest(`/api/fee-structures/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => apiRequest(`/api/fee-structures/${id}`, { method: 'DELETE' }),
     activate: (id) => apiRequest(`/api/fee-structures/${id}/activate`, { method: 'POST' }),
     lock: (id) => apiRequest(`/api/fee-structures/${id}/lock`, { method: 'POST' }),
     assign: (id, data) => apiRequest(`/api/fee-structures/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }),
