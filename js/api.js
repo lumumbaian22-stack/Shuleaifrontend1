@@ -599,7 +599,8 @@ const alertsAPI = {
     getMine: () => apiRequest('/api/alerts'),
     create: (data) => apiRequest('/api/alerts', { method: 'POST', body: JSON.stringify(data) }),
     markRead: (id) => apiRequest(`/api/alerts/${id}/read`, { method: 'PUT' }),
-    markAllRead: () => apiRequest('/api/alerts/read-all', { method: 'PUT' })
+    markAllRead: () => apiRequest('/api/alerts/read-all', { method: 'PUT' }),
+    suggestParentMessage: (data) => apiRequest('/api/alerts/suggest-parent-message', { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ CONSENT ENDPOINTS ============

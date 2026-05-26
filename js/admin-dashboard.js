@@ -626,20 +626,37 @@ function renderAdminDashboard() {
                 </button>
             </div>
 
-            <!-- Send Announcement Card (NEW) -->
+            <!-- Send Announcement Card with Shule AI suggestions -->
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold mb-4 flex items-center gap-2">
                     <i data-lucide="megaphone" class="h-5 w-5 text-primary"></i>
-                    📢 Send Announcement
+                    📢 Send Parent Message
+                    <span class="ml-auto text-[11px] rounded-full bg-primary/10 text-primary px-2 py-1">Shule AI assisted</span>
                 </h3>
                 <div class="space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Recipients</label>
-                        <select id="announcement-recipients" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <option value="all_parents">All Parents</option>
-                            <option value="specific_class">Specific Class</option>
-                            <option value="individual_parent">Individual Parent</option>
-                        </select>
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Recipients</label>
+                            <select id="announcement-recipients" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="all_parents">All Parents</option>
+                                <option value="specific_class">Specific Class</option>
+                                <option value="individual_parent">Individual Parent</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Topic</label>
+                            <select id="announcement-ai-topic" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="Fee reminder">Fee reminder</option>
+                                <option value="School event">School event</option>
+                                <option value="Exam reminder">Exam reminder</option>
+                                <option value="Attendance concern">Attendance concern</option>
+                                <option value="Homework reminder">Homework reminder</option>
+                                <option value="Discipline notice">Discipline notice</option>
+                                <option value="Subscription renewal">Subscription renewal</option>
+                                <option value="Emergency alert">Emergency alert</option>
+                                <option value="General announcement">General announcement</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="class-selector-container" class="hidden">
                         <label class="block text-sm font-medium mb-1">Select Class</label>
@@ -653,15 +670,35 @@ function renderAdminDashboard() {
                             <option value="">Loading parents...</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Title</label>
-                        <input type="text" id="announcement-title" placeholder="Announcement Title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Tone</label>
+                            <select id="announcement-ai-tone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="Professional">Professional</option>
+                                <option value="Friendly">Friendly</option>
+                                <option value="Urgent">Urgent</option>
+                                <option value="Polite">Polite</option>
+                                <option value="Formal">Formal</option>
+                                <option value="Encouraging">Encouraging</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Title</label>
+                            <input type="text" id="announcement-title" placeholder="Announcement Title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Message</label>
-                        <textarea id="announcement-message" rows="3" placeholder="Your message..." class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></textarea>
+                        <label class="block text-sm font-medium mb-1">Brief description / message</label>
+                        <textarea id="announcement-message" rows="4" placeholder="Example: Tell Grade 4 parents that Term 2 balances should be cleared by Friday and thank them for support." class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></textarea>
                     </div>
-                    <button onclick="sendAnnouncement()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Send Announcement</button>
+                    <div id="announcement-ai-suggestion-panel" class="hidden rounded-xl border bg-muted/30 p-3 text-sm space-y-2"></div>
+                    <div class="grid gap-2 md:grid-cols-2">
+                        <button onclick="generateAnnouncementSuggestion()" class="w-full border border-primary/30 text-primary py-2 rounded-lg hover:bg-primary/10 flex items-center justify-center gap-2">
+                            <i data-lucide="sparkles" class="h-4 w-4"></i> Get Shule AI Suggestion
+                        </button>
+                        <button onclick="sendAnnouncement()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Send Announcement</button>
+                    </div>
+                    <p class="text-xs text-muted-foreground">AI suggestions are limited by the school subscription. You can edit everything before sending.</p>
                 </div>
             </div>
 
@@ -1553,6 +1590,62 @@ async function loadParentsForSelect() {
     }
 }
 
+
+async function generateAnnouncementSuggestion() {
+    const topic = document.getElementById('announcement-ai-topic')?.value || 'General announcement';
+    const tone = document.getElementById('announcement-ai-tone')?.value || 'Professional';
+    const recipientType = document.getElementById('announcement-recipients')?.value || 'all_parents';
+    const description = document.getElementById('announcement-message')?.value.trim() || '';
+    const panel = document.getElementById('announcement-ai-suggestion-panel');
+    if (!description) {
+        showToast('Write a brief description first so Shule AI can restructure it.', 'error');
+        return;
+    }
+    if (panel) {
+        panel.classList.remove('hidden');
+        panel.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><span class="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span> Shule AI is preparing a parent-friendly message...</div>';
+    }
+    try {
+        const res = await (api?.alerts?.suggestParentMessage ? api.alerts.suggestParentMessage({
+            audience: recipientType,
+            topic,
+            tone,
+            description,
+            extraContext: {
+                classId: document.getElementById('announcement-class')?.value || null,
+                parentId: document.getElementById('announcement-parent')?.value || null
+            }
+        }) : apiRequest('/api/alerts/suggest-parent-message', { method: 'POST', body: JSON.stringify({ audience: recipientType, topic, tone, description }) }));
+        const data = res.data || {};
+        const title = data.title || `${topic} Notice`;
+        const message = data.message || description;
+        document.getElementById('announcement-title').value = title;
+        document.getElementById('announcement-message').value = message;
+        if (panel) {
+            const alternatives = Array.isArray(data.alternatives) ? data.alternatives : [];
+            panel.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <i data-lucide="sparkles" class="h-4 w-4 text-primary mt-0.5"></i>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(data.aiLabel || 'AI-generated message suggestion')}</span>
+                            ${data.usage ? `<span class="text-xs text-muted-foreground">${Number(data.usage.used || 0)}/${Number(data.usage.limit || 0)} suggestions used this month</span>` : ''}
+                        </div>
+                        <p><b>${escapeHtml(title)}</b></p>
+                        <p class="whitespace-pre-line">${escapeHtml(message)}</p>
+                        ${data.reason ? `<p class="text-xs text-muted-foreground"><b>Why:</b> ${escapeHtml(data.reason)}</p>` : ''}
+                        ${alternatives.length ? `<div class="space-y-1"><p class="text-xs font-semibold text-muted-foreground">Alternative versions</p>${alternatives.map((alt, idx) => `<button type="button" class="block w-full text-left rounded-lg border bg-background px-3 py-2 text-xs hover:bg-accent" onclick="document.getElementById('announcement-message').value='${escapeHtml(String(alt)).replace(/'/g, '&apos;')}'">${idx + 1}. ${escapeHtml(String(alt))}</button>`).join('')}</div>` : ''}
+                    </div>
+                </div>`;
+            if (window.lucide) lucide.createIcons();
+        }
+        showToast('Shule AI suggestion added. Review before sending.', 'success');
+    } catch (error) {
+        if (panel) panel.innerHTML = `<p class="text-red-600">${escapeHtml(error.message || 'Could not generate suggestion')}</p>`;
+        showToast(error.message || 'Could not generate Shule AI suggestion', 'error');
+    }
+}
+
 async function sendAnnouncement() {
     const recipientType = document.getElementById('announcement-recipients').value;
     const title = document.getElementById('announcement-title').value.trim();
@@ -1572,14 +1665,15 @@ async function sendAnnouncement() {
         } else if (recipientType === 'specific_class') {
             const classId = document.getElementById('announcement-class').value;
             if (!classId) { showToast('Please select a class', 'error'); hideLoading(); return; }
-            // Get students in class, then their parents
             const students = await api.admin.getClassStudents(classId);
             const parentIds = new Set();
-            for (const student of students.data) {
-                const parents = await api.parent.getChildren(); // This is not correct; need a better way.
-                // For simplicity, assume we have a direct endpoint.
-            }
-            // Placeholder: you'd need a proper endpoint to get parents by class.
+            (students.data || []).forEach(student => {
+                (student.parents || student.Parents || []).forEach(parent => {
+                    const uid = parent.userId || parent.User?.id;
+                    if (uid) parentIds.add(uid);
+                });
+            });
+            userIds = Array.from(parentIds);
         } else {
             const parentId = document.getElementById('announcement-parent').value;
             if (!parentId) { showToast('Please select a parent', 'error'); hideLoading(); return; }
@@ -1590,7 +1684,7 @@ async function sendAnnouncement() {
         for (const userId of userIds) {
             await apiRequest('/api/alerts', {
                 method: 'POST',
-                body: JSON.stringify({ userId, role: 'parent', type: 'system', severity: 'info', title, message })
+                body: JSON.stringify({ userId, role: 'parent', type: 'system', severity: 'info', title, message, data: { sourceType: 'ai_assisted_admin_message', aiLabel: 'Shule AI assisted parent message' } })
             });
         }
 
