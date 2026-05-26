@@ -469,6 +469,13 @@ const studentAPI = {
         const query = new URLSearchParams(params).toString();
         return apiRequest(`/api/student/recommendations${query ? `?${query}` : ''}`);
     },
+    careerOptions: (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return apiRequest(`/api/student/careers${query ? `?${query}` : ''}`);
+    },
+    getCareerInterests: () => apiRequest('/api/student/career/interests'),
+    saveCareerInterests: (data) => apiRequest('/api/student/career/interests', { method: 'PUT', body: JSON.stringify(data) }),
+    generateCareerInsights: () => apiRequest('/api/student/career/insights', { method: 'POST' }),
     getAttendance: () => apiRequest('/api/student/attendance'),
     sendGroupMessage: (data) => apiRequest('/api/student/group-message', { method: 'POST', body: JSON.stringify(data) }),
     getMaterials: () => apiRequest('/api/student/materials'),

@@ -1,5 +1,5 @@
 /* Shule AI V86 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai-v86-shell';
+const CACHE_NAME = 'shule-ai-v87-shell';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -11,8 +11,10 @@ const APP_SHELL = [
   '/css/help-support.css',
   '/css/mobile-responsive-pwa.css',
   '/css/mobile-complete-v86.css',
+  '/css/v87-locked-rollout-fixes.css',
   '/js/mobile-responsive-pwa.js',
   '/js/mobile-complete-v86.js',
+  '/js/v87-locked-rollout-fixes.js',
   '/assets/logo.png',
   '/assets/logo-light.png',
   '/assets/logo-dark.png'
@@ -32,6 +34,7 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+// V87_DO_NOT_CACHE_API: never cache authenticated/sensitive API responses
 self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
@@ -42,7 +45,8 @@ self.addEventListener('fetch', event => {
   if (url.pathname.startsWith('/api/') || url.hostname.includes('onrender.com')) return;
 
   if (req.mode === 'navigate') {
-    event.respondWith(
+    if (event.request.url.includes('/api/')) return event.respondWith(fetch(event.request));
+  event.respondWith(
       fetch(req).then(response => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put('/index.html', copy)).catch(() => null);

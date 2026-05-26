@@ -663,3 +663,30 @@
     openEmail: window.openShuleEmailSupport
   };
 })();
+
+
+// V87_DEEP_TROUBLESHOOTING - expanded practical help scenarios appended without removing existing help.
+(function(){
+  const scenarios = [
+    ['Payment pending','Pending payments are visible but do not reduce balance until school finance approves them. Check the selected child and fee account.'],
+    ['Balance not reducing','Balances reduce only after successful/approved payments, bursaries, waivers or credits. Failed/rejected payments stay in history but do not reduce the balance.'],
+    ['Payment history missing','Select the correct child first. Payment history is student-specific and never mixes siblings.'],
+    ['AI Tutor locked','AI Tutor requires an active Essential, Smart or Genius child plan. There is no free tier.'],
+    ['AI Tutor unavailable','If DeepSeek has insufficient balance or network fails, no student usage is deducted. Try again after support confirms the AI provider is funded.'],
+    ['Marks showing N/A','Marks must be between 0 and 100. The system calculates grade using the school curriculum. Refresh if curriculum settings were just changed.'],
+    ['Report card not opening','Make sure the student belongs to your class/school/parent account and that published marks exist.'],
+    ['Class teacher not found','If class teacher messaging fails, message the school admin and ask them to assign a class teacher.'],
+    ['Duty swap invalid date','Select a valid duty date from the date picker before submitting a swap request.'],
+    ['Bank details missing','Ask the school admin to update Finance & Fees > Payment Settings. Parents should refresh payment details.'],
+    ['Profile picture missing','Upload a clear image. If an old uploaded file is unavailable, Shule AI falls back to initials until you upload again.'],
+    ['Mobile layout issue','Use Chrome/Safari, refresh cache, and avoid desktop mode. Install the PWA for best phone experience.'],
+    ['Invalid token/session expired','Log out and log back in. If the issue continues, contact support.'],
+    ['Alerts not appearing','Open Alerts from the bell icon. Alerts are grouped by date and only show items relevant to your role/student.']
+  ];
+  const old = window.renderHelpSection;
+  window.renderHelpSection = function(){
+    const base = typeof old === 'function' ? old.apply(this, arguments) : '<div class="space-y-6"><h2 class="text-2xl font-bold">Help Center</h2></div>';
+    const extra = `<section class="rounded-xl border bg-card p-5 mt-6"><h3 class="text-xl font-bold mb-3">Troubleshooting Guide</h3><div class="grid gap-3 md:grid-cols-2">${scenarios.map(([t,m])=>`<div class="rounded-lg border p-3"><strong>${t}</strong><p class="text-sm text-muted-foreground mt-1">${m}</p></div>`).join('')}</div><div class="mt-4 flex flex-wrap gap-2"><a class="px-4 py-2 rounded-lg bg-primary text-white" href="https://mail.google.com/mail/?view=cm&fs=1&to=shuleai.info@gmail.com&su=Shule%20AI%20Support%20Request" target="_blank">Open Gmail Support</a><a class="px-4 py-2 rounded-lg border" href="mailto:shuleai.info@gmail.com?subject=Shule%20AI%20Support%20Request">Open Email App</a><a class="px-4 py-2 rounded-lg border" href="https://wa.me/254700201922" target="_blank">WhatsApp Support</a></div></section>`;
+    return String(base).replace('</div>', extra + '</div>');
+  };
+})();

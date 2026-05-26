@@ -578,6 +578,16 @@ async function renderParentPayments() {
                     <div class="rounded-xl border bg-card p-6 lg:col-span-2">
                         <h3 class="font-semibold mb-1">Pay School Fees</h3>
                         <p class="text-sm text-muted-foreground mb-4">Each balance and history is personal to the selected child only.</p>
+                        <div id="parent-school-payment-info-card" class="rounded-xl border bg-muted/30 p-4 mb-4">
+                            <div class="flex items-center justify-between gap-3 flex-wrap">
+                                <div>
+                                    <h4 class="font-semibold">School Payment Information</h4>
+                                    <p class="text-sm text-muted-foreground">Use the school details below for bank, manual M-Pesa, cash/card verification, or STK instructions.</p>
+                                </div>
+                                <button type="button" onclick="refreshParentSchoolPaymentInfo()" class="px-3 py-2 rounded-lg border text-sm">Refresh Details</button>
+                            </div>
+                            <div id="parent-school-payment-info-body" class="mt-3 text-sm text-muted-foreground">Loading school payment details...</div>
+                        </div>
                         <div class="grid gap-3 md:grid-cols-2">
                             <label class="text-sm">Child
                                 <select id="payment-child" onchange="selectChild(this.value)" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
@@ -1079,7 +1089,7 @@ async function sendParentMessage() {
             container.insertAdjacentHTML('beforeend', newMessageHtml);
             container.scrollTop = container.scrollHeight;
 
-            showToast('✅ Message sent to class teacher', 'success');
+            showToast(response.data?.recipientType === 'admin' ? '✅ Message sent to school admin' : '✅ Message sent to class teacher', 'success');
         } else {
             throw new Error(response.message || 'Failed to send message');
         }

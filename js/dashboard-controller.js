@@ -112,6 +112,7 @@ function updateSidebar(role) {
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
                 { icon: 'bot', label: 'AI Tutor', section: 'ai-tutor' },
+                { icon: 'compass', label: 'Career Path', section: 'career-path' },
                 { icon: 'bell', label: 'Alerts', section: 'alerts' },
                 { icon: 'calendar', label: 'My Timetable', section: 'schedule' },
                 { icon: 'shopping-bag', label: 'Rewards', section: 'rewards' },
@@ -582,7 +583,8 @@ async function showDashboardSection(section) {
             'duty-preferences': 'Duty Preferences',
             'fairness-report': 'Fairness Report',
             'teacher-workload': 'Teacher Workload',
-            alerts: 'Alerts Center'
+            alerts: 'Alerts Center',
+            'career-path': 'Career Path'
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';
 

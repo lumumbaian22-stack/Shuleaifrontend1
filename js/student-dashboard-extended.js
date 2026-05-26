@@ -41,6 +41,8 @@ async function renderStudentSection(section) {
             return await renderStudentV9Classroom();
         case 'ai-tutor':
             return renderStudentAITutor();
+        case 'career-path':
+            return renderStudentCareerPathSection();
         case 'schedule':
             return await (window.v12RenderStudentTimetable || window.renderStudentTimetable || window.renderAdminTimetable)();
         case 'help':
