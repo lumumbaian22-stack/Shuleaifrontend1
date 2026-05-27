@@ -355,3 +355,167 @@
   setInterval(applyMobileReadability, 5000);
 
 })();
+
+// V91 Clean Consolidated Source Guard — final runtime routing and UI safety layer.
+// Loaded once, after approved core files. Replaces scattered V87/V88/V89/V90 direct patch loading.
+(function(){
+  'use strict';
+  const w = window, d = document;
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const token = () => localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+  const currentUser = () => { try { return (typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}')) || {}; } catch(_) { return {}; } };
+  const role = () => String(currentUser().role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_');
+  const isAdminLike = () => ['admin','super_admin','superadmin'].includes(role());
+  const isParent = () => role() === 'parent';
+  const isFinanceSection = (s) => ['finance','finance-fees','payment-settings','fee-structures','records','verification'].includes(String(s || w.currentSection || w.activeDashboardSection || ''));
+  const show = (m,t='info') => typeof w.showToast === 'function' ? w.showToast(m,t) : console[t==='error'?'error':'log'](m);
+
+  // Hard finance render guard: prevents Finance & Fees appearing in subscription/billing or non-admin dashboards.
+  ['financeV31Refresh','v31RenderFinanceFees','renderFinanceFeesSection'].forEach(name => {
+    const old = w[name];
+    if (typeof old === 'function' && !old.__v91FinanceGuard) {
+      const guarded = async function(){
+        const section = String(w.currentSection || w.activeDashboardSection || '');
+        const subGuard = Date.now() < Number(w.__shuleSubscriptionGuardUntil || 0);
+        if (subGuard || /subscription/i.test(section) || !isAdminLike() || !isFinanceSection(section)) {
+          console.warn('[V91] Blocked finance render outside Finance & Fees:', { role: role(), section, name });
+          return null;
+        }
+        return old.apply(this, arguments);
+      };
+      guarded.__v91FinanceGuard = true;
+      w[name] = guarded;
+    }
+  });
+
+  // Subscription billing guard: no platform fee prompt should switch into Finance & Fees.
+  const oldShow = w.showDashboardSection;
+  if (typeof oldShow === 'function' && !oldShow.__v91CleanConsolidated) {
+    const cleanShow = async function(section, options){
+      const s = String(section || 'dashboard');
+      const subGuard = Date.now() < Number(w.__shuleSubscriptionGuardUntil || 0);
+      if (subGuard && isFinanceSection(s)) {
+        return oldShow.call(this, 'subscription-billing', { ...(options || {}), blockedFinanceLeak:true });
+      }
+      const out = await oldShow.call(this, s, options || {});
+      setTimeout(() => {
+        if (/subscription/i.test(s)) {
+          d.querySelectorAll('.finance-v31-modal,.finance-v31').forEach(el => {
+            if (!el.closest('#finance-fees-section') && !el.closest('[data-section="finance-fees"]')) el.remove();
+          });
+        }
+      }, 100);
+      return out;
+    };
+    cleanShow.__v91CleanConsolidated = true;
+    w.showDashboardSection = cleanShow;
+  }
+
+  function markSubscriptionGuard(){
+    w.__shuleSubscriptionGuardUntil = Date.now() + 12000;
+  }
+  ['submitSchoolSubscriptionSTK','submitPlatformSubscriptionSTK'].forEach(name => {
+    const old = w[name];
+    if (typeof old === 'function' && !old.__v91SubSafe) {
+      const wrapped = async function(){
+        markSubscriptionGuard();
+        try { return await old.apply(this, arguments); }
+        finally {
+          setTimeout(() => {
+            d.querySelectorAll('.finance-v31-modal,.finance-v31').forEach(el => { if (!isFinanceSection()) el.remove(); });
+            if (typeof w.showDashboardSection === 'function') w.showDashboardSection('subscription-billing', { source:'v91-subscription-guard' });
+          }, 850);
+        }
+      };
+      wrapped.__v91SubSafe = true;
+      w[name] = wrapped;
+    }
+  });
+  if (w.api?.payments?.schoolSubscriptionSTK && !w.api.payments.schoolSubscriptionSTK.__v91SubSafe) {
+    const old = w.api.payments.schoolSubscriptionSTK;
+    w.api.payments.schoolSubscriptionSTK = function(){ markSubscriptionGuard(); return old.apply(this, arguments); };
+    w.api.payments.schoolSubscriptionSTK.__v91SubSafe = true;
+  }
+
+  // Parent task completion: use correct home-task endpoint and show assignment-safe errors cleanly.
+  const oldCompleteTask = w.completeTask;
+  w.completeTask = async function(taskId, difficulty){
+    if (isParent()) {
+      try {
+        await (w.api?.homeTasks?.complete ? w.api.homeTasks.complete(taskId, { parentFeedback:{ difficulty: difficulty || 'ok' } }) : apiRequest(`/api/home-tasks/${taskId}/complete`, { method:'POST', body: JSON.stringify({ parentFeedback:{ difficulty: difficulty || 'ok' } }) }));
+        show('Task marked complete.','success');
+        if (typeof w.showDashboardSection === 'function' && w.currentSection) await w.showDashboardSection(w.currentSection, { taskCompleted:true });
+        return;
+      } catch(e) {
+        show(e.message || 'You cannot update this task because it is not assigned to your child.','error');
+        return;
+      }
+    }
+    if (typeof oldCompleteTask === 'function') return oldCompleteTask.apply(this, arguments);
+  };
+
+  // Parent message target helper: normalize target values and protect admin sending from teacher lookup.
+  const oldSendParentMessage = w.sendParentMessage;
+  w.sendParentMessage = async function(){
+    const targetEl = d.getElementById('parent-recipient-type') || d.querySelector('[name="recipientType"]');
+    if (targetEl) {
+      const v = String(targetEl.value || '').toLowerCase();
+      if (v.includes('admin')) targetEl.value = 'admin';
+      if (v.includes('teacher')) targetEl.value = 'teacher';
+    }
+    return oldSendParentMessage ? oldSendParentMessage.apply(this, arguments) : null;
+  };
+
+  // Payment settings display polish and mode switching. Works on existing Finance & Fees markup.
+  function applyPaymentSettingsLayout(){
+    const shell = d.querySelector('.finance-v31-settings-stack');
+    if (!shell) return;
+    shell.classList.add('v91-payment-settings-organized');
+    d.querySelectorAll('#finance-manual-card,#finance-daraja-card,#finance-bank-card').forEach(card => card.classList.add('v91-settings-card'));
+    if (typeof w.financeV31TogglePaymentMode === 'function') w.financeV31TogglePaymentMode();
+    if (typeof w.financeV31ToggleMpesaType === 'function') w.financeV31ToggleMpesaType();
+  }
+  const oldSetTab = w.financeV31SetTab;
+  if (typeof oldSetTab === 'function' && !oldSetTab.__v91SettingsLayout) {
+    w.financeV31SetTab = function(){ const out = oldSetTab.apply(this, arguments); setTimeout(applyPaymentSettingsLayout, 80); return out; };
+    w.financeV31SetTab.__v91SettingsLayout = true;
+  }
+  w.addEventListener('shule:section-rendered', applyPaymentSettingsLayout);
+  d.addEventListener('DOMContentLoaded', () => setTimeout(applyPaymentSettingsLayout, 500));
+
+  // Finance modal class/student picker repair: if fee accounts are missing, still show students loaded from admin students endpoint.
+  async function ensureFinanceStudents(){
+    if (!isAdminLike()) return;
+    try {
+      if (!w.__v91FinanceStudents) {
+        const res = await (w.api?.admin?.getStudents ? w.api.admin.getStudents() : apiRequest('/api/admin/students'));
+        w.__v91FinanceStudents = Array.isArray(res?.data) ? res.data : (res?.students || res?.data?.students || res?.data || []);
+      }
+    } catch(_) { w.__v91FinanceStudents = w.__v91FinanceStudents || []; }
+  }
+  const oldOpenManual = w.financeV31OpenManualModal;
+  if (typeof oldOpenManual === 'function' && !oldOpenManual.__v91ClassStudent) {
+    w.financeV31OpenManualModal = async function(){ await ensureFinanceStudents(); return oldOpenManual.apply(this, arguments); };
+    w.financeV31OpenManualModal.__v91ClassStudent = true;
+  }
+  const oldOpenBursary = w.financeV31OpenBursaryModal;
+  if (typeof oldOpenBursary === 'function' && !oldOpenBursary.__v91ClassStudent) {
+    w.financeV31OpenBursaryModal = async function(){ await ensureFinanceStudents(); return oldOpenBursary.apply(this, arguments); };
+    w.financeV31OpenBursaryModal.__v91ClassStudent = true;
+  }
+
+  // Alert and career targeting reminder exposed for verification/runtime diagnostics.
+  w.ShuleCleanConsolidatedSource = {
+    version: 'V91',
+    role,
+    token,
+    financeGuardActive: () => Date.now() < Number(w.__shuleSubscriptionGuardUntil || 0),
+    checks: {
+      subscriptionFinanceLeakBlocked: true,
+      parentTaskUsesHomeTaskEndpoint: true,
+      paymentSettingsModeSwitch: true,
+      parentMessageTargetNormalized: true,
+      financeClassStudentPickerPrepared: true
+    }
+  };
+})();

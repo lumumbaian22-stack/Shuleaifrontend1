@@ -1,5 +1,5 @@
 /* Shule AI V86 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai-v89-stabilized-consolidation';
+const CACHE_NAME = 'shule-ai-v91-clean-consolidated-source';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -11,10 +11,10 @@ const APP_SHELL = [
   '/css/help-support.css',
   '/css/mobile-responsive-pwa.css',
   '/css/mobile-complete-v86.css',
-  '/css/v87-locked-rollout-fixes.css',
+  '/css/shule-clean-consolidated-source.css',
   '/js/mobile-responsive-pwa.js',
   '/js/mobile-complete-v86.js',
-  '/js/v87-locked-rollout-fixes.js',
+  '/js/shule-clean-consolidated-source.js',
   '/assets/logo.png',
   '/assets/logo-light.png',
   '/assets/logo-dark.png'

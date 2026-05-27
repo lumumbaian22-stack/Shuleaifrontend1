@@ -67,7 +67,12 @@
     }, MAX_DELAY);
   }
 
+  function isPlatformSubscriptionEvent(evt){ const t=String(evt?.type||'').toLowerCase(); const paid=String(evt?.paidTo||evt?.metadata?.paidTo||evt?.data?.paidTo||'').toLowerCase(); const ptype=String(evt?.paymentType||evt?.metadata?.paymentType||evt?.data?.paymentType||'').toLowerCase(); const src=String(evt?.source||evt?.metadata?.source||evt?.data?.source||'').toLowerCase(); return t.includes('subscription') || paid==='platform' || ptype==='subscription' || src.includes('subscription'); }
+  function isFinanceSection(){ return ['finance','finance-fees','payment-settings','fee-structures','records','verification'].includes(String(w.currentSection||w.activeDashboardSection||'')); }
+  function refreshSubscription(evt){ debounce('subscription', async()=>{ if (typeof w.refreshSubscriptionBilling === 'function') return w.refreshSubscriptionBilling(); if (isAdminLike() && String(w.currentSection||'')==='subscription-billing' && typeof w.showDashboardSection==='function') return w.showDashboardSection('subscription-billing',{realtime:true,reason:evt?.type}); if (isParent() && typeof w.loadParentSubscriptions==='function') return w.loadParentSubscriptions(); }, MAX_DELAY); }
+
   function refreshFinance(evt) {
+    if (isPlatformSubscriptionEvent(evt)) { refreshSubscription(evt); return; }
     debounce('finance', async () => {
       // HARD ROLE GATE: parent/student/teacher dashboards must never call admin finance endpoints.
       // This prevents /api/admin/classes, /api/fee-structures, /api/payments/admin/* 403 spam on parent dashboards.
@@ -84,6 +89,7 @@
         return;
       }
       if (!isAdminLike()) return;
+      if (!isFinanceSection()) return;
       if (typeof w.financeV31Refresh === 'function') return w.financeV31Refresh();
       if (typeof w.v31RenderFinanceFees === 'function' && (w.currentSection === 'finance' || w.currentSection === 'finance-fees')) return w.v31RenderFinanceFees();
       refreshCurrentSection(evt.type);
@@ -153,7 +159,8 @@
     if (!evt || !evt.type || !belongsToThisSchool(evt)) return;
     const type = String(evt.type);
 
-    if (type.includes('payment') || type.includes('fee')) refreshFinance(evt);
+    if (type.includes('subscription')) refreshSubscription(evt);
+    if ((type.includes('payment') || type.includes('fee')) && !isPlatformSubscriptionEvent(evt)) refreshFinance(evt);
     if (type.includes('grade') || type.includes('mark') || type.includes('report')) refreshGrades(evt);
     if (type.includes('attendance')) refreshAttendance(evt);
     if (type.includes('homework')) refreshHomework(evt);
