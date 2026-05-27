@@ -1021,22 +1021,23 @@ function escapeHtml(str) {
     });
 }
 
-async function loadCalendarEvents() {
+async function loadAdminCalendarPreviewEvents() {
     const res = await apiRequest('/api/calendar');
     if (res.success) {
         const container = document.getElementById('admin-calendar-events');
         if (!container) return;
-        const events = res.data || [];
+        const events = Array.isArray(res.data) ? res.data : (Array.isArray(res.events) ? res.events : (Array.isArray(res.data?.events) ? res.data.events : []));
         if (events.length === 0) {
             container.innerHTML = '<p class="text-sm text-muted-foreground">No events yet.</p>';
         } else {
+            container.classList.add('max-h-72','overflow-y-auto','pr-2');
             container.innerHTML = events.map(e => `
-                <div class="flex justify-between items-center py-2 border-b">
-                    <div>
-                        <span class="font-medium">${escapeHtml(e.eventName)}</span>
-                        <span class="text-xs text-muted-foreground ml-2">${formatDate(e.startDate)} ${e.endDate ? '→ '+formatDate(e.endDate) : ''}</span>
+                <div class="flex justify-between items-start gap-3 py-2 border-b">
+                    <div class="min-w-0">
+                        <span class="font-medium block truncate">${escapeHtml(e.eventName || e.title || 'Untitled Event')}</span>
+                        <span class="text-xs text-muted-foreground">${formatDate(e.startDate || e.date)} ${e.endDate ? '→ '+formatDate(e.endDate) : ''}</span>
                     </div>
-                    <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs">X</button>
+                    <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs shrink-0">Delete</button>
                 </div>
             `).join('');
         }
@@ -1053,13 +1054,13 @@ function showAddCalendarEventModal() {
     apiRequest('/api/calendar', {
         method: 'POST',
         body: JSON.stringify({ eventName: name, startDate, endDate: endDate || null, eventType: eventType || 'other' })
-    }).then(() => loadCalendarEvents()).catch(e => showToast(e.message, 'error'));
+    }).then(() => loadAdminCalendarPreviewEvents()).catch(e => showToast(e.message, 'error'));
 }
 
 async function deleteCalendarEvent(id) {
     if (confirm('Delete this event?')) {
         await apiRequest(`/api/calendar/${id}`, { method: 'DELETE' });
-        loadCalendarEvents();
+        loadAdminCalendarPreviewEvents();
     }
 }
 
@@ -1727,7 +1728,7 @@ async function renderCalendarManagement() {
     showLoading();
     try {
         const res = await apiRequest('/api/calendar');
-        const events = res.data || [];
+        const events = Array.isArray(res.data) ? res.data : (Array.isArray(res.events) ? res.events : (Array.isArray(res.data?.events) ? res.data.events : []));
         hideLoading();
         return `
             <div class="space-y-6 animate-fade-in">
@@ -1918,3 +1919,19 @@ window.submitSchoolSubscriptionSTK = async function() {
         alert(error.message || 'Could not start M-PESA payment.');
     }
 };
+
+
+// V88: load admin dashboard academic calendar preview immediately without overriding main calendar functions.
+(function(){
+  const oldRenderAdminDashboard = window.renderAdminDashboard;
+  if (typeof oldRenderAdminDashboard === 'function' && !oldRenderAdminDashboard.__v88CalendarPreview) {
+    const wrapped = function(){
+      const html = oldRenderAdminDashboard.apply(this, arguments);
+      setTimeout(() => { if (typeof window.loadAdminCalendarPreviewEvents === 'function') window.loadAdminCalendarPreviewEvents(); }, 200);
+      return html;
+    };
+    wrapped.__v88CalendarPreview = true;
+    window.renderAdminDashboard = wrapped;
+  }
+  window.loadAdminCalendarPreviewEvents = loadAdminCalendarPreviewEvents;
+})();

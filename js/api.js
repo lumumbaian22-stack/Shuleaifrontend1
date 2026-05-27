@@ -55,6 +55,7 @@ async function apiRequest(endpoint, options = {}) {
         return data;
     } catch (error) {
         console.error('API Request failed:', error);
+        if (error && error.message) throw error;
         throw new Error(error.message || 'Network error');
     }
 }

@@ -925,19 +925,26 @@ async function processPayment() {
 
     showLoading();
     try {
-        const response = await api.parent.makePayment({
+        const response = await (api.payments?.parentSubscriptionSTK ? api.payments.parentSubscriptionSTK({
             studentId: parseInt(studentId),
             amount: parseFloat(amount),
-            method: 'mpesa',
             phone,
             plan,
             planCode: plan,
             billingPeriod: 'monthly',
             reference: `SUB-${Date.now()}`
-        });
+        }) : api.parent.upgradePlan({
+            studentId: parseInt(studentId),
+            amount: parseFloat(amount),
+            phone,
+            plan,
+            planCode: plan,
+            billingPeriod: 'monthly'
+        }));
 
         if (response.success) {
-            showToast(response.message || '✅ M-Pesa prompt sent. Complete payment on your phone.', 'success');
+            showToast(response.message || '✅ Subscription M-Pesa prompt sent. Complete payment on your phone.', 'success');
+            window.dispatchEvent(new CustomEvent('shule:subscription-updated',{detail:{type:'parent-subscription-stk'}}));
         } else {
             throw new Error(response.message || 'Payment initiation failed');
         }
@@ -1020,9 +1027,9 @@ async function renderHomeTasks() {
             <p>${escapeHtml(task.instructions)}</p>
             ${task.materials ? `<p class="mt-1 text-xs">📦 Materials: ${escapeHtml(task.materials)}</p>` : ''}
             <div class="flex gap-2 mt-3">
-              <button onclick="completeTask(${task.id}, 'easy')" class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">😊 Easy</button>
-              <button onclick="completeTask(${task.id}, 'ok')" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">😐 Okay</button>
-              <button onclick="completeTask(${task.id}, 'hard')" class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">😓 Hard</button>
+              <button onclick="completeTask(${task.assignmentId || task.id}, 'easy')" class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">😊 Easy</button>
+              <button onclick="completeTask(${task.assignmentId || task.id}, 'ok')" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">😐 Okay</button>
+              <button onclick="completeTask(${task.assignmentId || task.id}, 'hard')" class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">😓 Hard</button>
             </div>
           </div>
         </div>
@@ -1095,7 +1102,14 @@ async function sendParentMessage() {
         }
     } catch (error) {
         console.error('Send message error:', error);
-        showToast(error.message || 'Failed to send message', 'error');
+        const msg = error.message || 'Failed to send message';
+        if (/class teacher/i.test(msg)) {
+            const selector = document.getElementById('parent-recipient-type');
+            if (selector) selector.value = 'admin';
+            showToast('Class teacher has not been assigned yet. Switch recipient to School Admin and send again.', 'warning');
+        } else {
+            showToast(msg, 'error');
+        }
     } finally {
         hideLoading();
     }

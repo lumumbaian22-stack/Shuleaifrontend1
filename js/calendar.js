@@ -22,16 +22,37 @@ let calendarEventsLoaded = false;
 let calendarEventsLoading = false;
 
 function normalizeCalendarEvent(event) {
+    const raw = event || {};
     return {
-        ...event,
-        id: String(event.id),
-        title: event.title || event.eventName || 'Untitled Event',
-        date: event.date || event.startDate,
-        description: event.description || '',
-        time: event.time || '',
-        location: event.location || '',
-        type: event.type || event.eventType || 'other'
+        ...raw,
+        id: String(raw.id || raw._id || `${raw.startDate || raw.date || 'event'}-${raw.eventName || raw.title || Date.now()}`),
+        title: raw.title || raw.eventName || raw.name || 'Untitled Event',
+        eventName: raw.eventName || raw.title || raw.name || 'Untitled Event',
+        date: raw.date || raw.startDate,
+        startDate: raw.startDate || raw.date,
+        endDate: raw.endDate || raw.date || raw.startDate,
+        description: raw.description || '',
+        time: raw.time || '',
+        location: raw.location || '',
+        type: raw.type || raw.eventType || 'other',
+        eventType: raw.eventType || raw.type || 'other',
+        audience: raw.audience || raw.broadcastTo || 'whole_school'
     };
+}
+
+function normalizeCalendarEventsResponse(response) {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.events)) return response.events;
+    if (Array.isArray(response?.data?.events)) return response.data.events;
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    if (Array.isArray(response?.items)) return response.items;
+    return [];
+}
+
+function getCalendarEventsArray() {
+    if (!Array.isArray(calendarEventsCache)) calendarEventsCache = normalizeCalendarEventsResponse(calendarEventsCache).map(normalizeCalendarEvent);
+    return calendarEventsCache;
 }
 
 async function refreshCalendarEvents() {
@@ -39,14 +60,14 @@ async function refreshCalendarEvents() {
     calendarEventsLoading = true;
     try {
         const res = await api.calendar.getEvents();
-        calendarEventsCache = Array.isArray(res.data) ? res.data.map(normalizeCalendarEvent) : [];
+        calendarEventsCache = normalizeCalendarEventsResponse(res).map(normalizeCalendarEvent);
         calendarEventsLoaded = true;
         localStorage.setItem('calendarEventsFallback', JSON.stringify(calendarEventsCache));
         return calendarEventsCache;
     } catch (error) {
         console.error('Error loading school calendar from backend:', error);
         try {
-            calendarEventsCache = JSON.parse(localStorage.getItem('calendarEventsFallback') || '[]');
+            calendarEventsCache = normalizeCalendarEventsResponse(JSON.parse(localStorage.getItem('calendarEventsFallback') || '[]')).map(normalizeCalendarEvent);
         } catch (_) { calendarEventsCache = []; }
         return calendarEventsCache;
     } finally {
@@ -62,18 +83,17 @@ function loadCalendarEvents() {
             }
         });
     }
-    return calendarEventsCache;
+    return getCalendarEventsArray();
 }
 
 async function saveCalendarEvents(events) {
-    calendarEventsCache = Array.isArray(events) ? events.map(normalizeCalendarEvent) : [];
+    calendarEventsCache = normalizeCalendarEventsResponse(events).map(normalizeCalendarEvent);
     localStorage.setItem('calendarEventsFallback', JSON.stringify(calendarEventsCache));
     return calendarEventsCache;
 }
 
 function renderAdminCalendar() {
-    let events = loadCalendarEvents();
-    if (!Array.isArray(events)) events = [];
+    let events = getCalendarEventsArray();
     const year = calendarState.currentDate.getFullYear();
     const month = calendarState.currentDate.getMonth();
 
@@ -570,10 +590,12 @@ async function saveCalendarEvent() {
             audience,
             isPublic: true
         });
-        const events = loadCalendarEvents();
-        events.push(normalizeCalendarEvent(res.data));
+        const created = normalizeCalendarEventsResponse(res).map(normalizeCalendarEvent)[0] || normalizeCalendarEvent(res.data || res.event || {});
+        const events = getCalendarEventsArray().filter(e => String(e.id) !== String(created.id));
+        events.push(created);
         await saveCalendarEvents(events);
-        showToast('Event added successfully and broadcasted to the school', 'success');
+        await refreshCalendarEvents();
+        showToast(res.message || 'Event added successfully and broadcasted to the school', 'success');
     } catch (error) {
         showToast(error.message || 'Could not save event', 'error');
         return;
@@ -590,7 +612,7 @@ async function deleteEvent(eventId) {
 
     try {
         await api.calendar.deleteEvent(eventId);
-        const events = loadCalendarEvents();
+        const events = getCalendarEventsArray();
         const filtered = events.filter(e => String(e.id) !== String(eventId));
         await saveCalendarEvents(filtered);
         showToast('Event deleted', 'success');
@@ -605,8 +627,8 @@ async function deleteEvent(eventId) {
 }
 
 function showDayDetails(dateStr) {
-    const events = loadCalendarEvents();
-    const dayEvents = events.filter(e => e.date === dateStr);
+    const events = getCalendarEventsArray();
+    const dayEvents = events.filter(e => e.date === dateStr || e.startDate === dateStr);
     const date = new Date(dateStr);
 
     let modal = document.getElementById('day-details-modal');
@@ -717,3 +739,9 @@ window.deleteEvent = deleteEvent;
 window.calendarChangeMonth = calendarChangeMonth;
 window.calendarGoToToday = calendarGoToToday;
 window.calendarGoToDate = calendarGoToDate;
+
+
+// V88 calendar safe exports
+window.normalizeCalendarEventsResponse = window.normalizeCalendarEventsResponse || normalizeCalendarEventsResponse;
+window.getCalendarEventsArray = window.getCalendarEventsArray || getCalendarEventsArray;
+window.refreshCalendarEvents = window.refreshCalendarEvents || refreshCalendarEvents;

@@ -34,6 +34,12 @@
     } catch (_) { return normalizeRole(localStorage.getItem('role')); }
   }
 
+  function hasAuthToken() {
+    return !!(localStorage.getItem('authToken') || localStorage.getItem('token'));
+  }
+
+  let notifiedSessionMissing = false;
+
   function normalizeCategory(alert) {
     const raw = String(alert.categoryLabel || alert.category || alert.type || alert.data?.category || '').toLowerCase();
     if (/fee|payment|finance|bursary|credit|cash|bank|mpesa|balance/.test(raw)) return 'Financial';
@@ -125,6 +131,15 @@
   }
 
   async function loadNotifications({ silent = false } = {}) {
+    if (!hasAuthToken()) {
+      notifications = [];
+      updateUnreadCount();
+      if (!silent && !notifiedSessionMissing) {
+        notifiedSessionMissing = true;
+        console.warn('[Alerts] Skipped alert load because no auth token is available.');
+      }
+      return notifications;
+    }
     try {
       const res = await apiAlerts().getMine();
       const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.alerts) ? res.alerts : []);
@@ -133,6 +148,15 @@
       if (!silent && document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
       return notifications;
     } catch (error) {
+      if (error?.status === 401 || /not authorized|invalid token|jwt/i.test(error?.message || '')) {
+        notifications = [];
+        updateUnreadCount();
+        if (!notifiedSessionMissing) {
+          notifiedSessionMissing = true;
+          console.warn('[Alerts] Session is not ready/expired; alert polling paused until login refresh.');
+        }
+        return notifications;
+      }
       if (!silent) console.error('Failed to load alerts:', error);
       return notifications;
     }
@@ -308,11 +332,14 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => loadNotifications({ silent: true }), 1200);
+    setTimeout(() => { if (hasAuthToken()) loadNotifications({ silent: true }); }, 1200);
     setTimeout(initNotificationWebSocket, 1500);
-    setInterval(() => loadNotifications({ silent: true }).then(() => {
-      if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
-    }), 60000);
+    setInterval(() => {
+      if (!hasAuthToken()) return;
+      loadNotifications({ silent: true }).then(() => {
+        if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
+      });
+    }, 60000);
   });
 
   window.loadNotifications = loadNotifications;

@@ -27,9 +27,15 @@ async function loadStudentGrades() {
 // Load student attendance
 async function loadStudentAttendance() {
     try {
+        const role = (() => { try { return (JSON.parse(localStorage.getItem('user') || '{}').role || localStorage.getItem('role') || '').toLowerCase(); } catch (_) { return (localStorage.getItem('role') || '').toLowerCase(); } })();
+        if (role && role !== 'student') return [];
         const response = await api.student.getAttendance();
         return response.data || [];
     } catch (error) {
+        if (/forbidden|not authorized|invalid token/i.test(error.message || '')) {
+            console.warn('Student attendance not available for this session:', error.message);
+            return [];
+        }
         console.error('Failed to load attendance:', error);
         showToast('Failed to load attendance', 'error');
         return [];

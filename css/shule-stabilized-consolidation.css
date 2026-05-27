@@ -1,0 +1,16 @@
+
+/* Shule AI Stabilized Consolidation Build V89 */
+.shule-scroll-list{scrollbar-width:thin;}
+.shule-mobile-chat-safe{max-width:100%;overflow:hidden;}
+@media (max-width:768px){
+  .shule-mobile-chat-safe{display:flex;flex-direction:column;min-height:60vh;max-height:calc(100vh - 160px);}
+  .shule-mobile-chat-safe .messages,.shule-mobile-chat-safe .chat-list,.shule-mobile-chat-safe [data-messages]{flex:1;overflow-y:auto;}
+  .shule-mobile-chart-safe{min-width:100%;max-width:100%;overflow-x:auto;}
+  .shule-mobile-chart-safe canvas, canvas.shule-mobile-chart-safe{max-width:100%!important;min-height:260px!important;}
+  #admin-calendar-events{max-height:18rem;overflow-y:auto;}
+  .calendar-preview,.academic-calendar-preview{max-height:18rem;overflow-y:auto;}
+  .finance-v31-modal .finance-v31-dialog,.modal-content,.modal .modal-content{max-width:calc(100vw - 24px)!important;}
+}
+@media (min-width:769px){
+  body:not(.force-mobile) .mobile-bottom-nav{display:none!important;}
+}

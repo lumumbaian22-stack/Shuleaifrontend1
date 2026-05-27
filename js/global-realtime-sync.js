@@ -18,12 +18,18 @@
     return String(u.role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_');
   }
 
+  function hasAuthToken() {
+    return !!(localStorage.getItem('authToken') || localStorage.getItem('token'));
+  }
+
   function isAdminLike() {
     const role = currentRole();
     return role === 'admin' || role === 'super_admin' || role === 'superadmin';
   }
 
   function isParent() { return currentRole() === 'parent'; }
+  function isStudent() { return currentRole() === 'student'; }
+  function isTeacher() { return currentRole() === 'teacher'; }
 
   function currentSchoolCode() {
     const u = currentUser();
@@ -98,24 +104,20 @@
 
   function refreshAttendance(evt) {
     debounce('attendance', async () => {
-      await Promise.allSettled([
-        callIf('loadStudentAttendance'),
-        callIf('loadLiveAttendance'),
-        callIf('refreshMyStudents'),
-        callIf('refreshStudentsList')
-      ]);
+      const calls = [];
+      if (isStudent()) calls.push(callIf('loadStudentAttendance'));
+      if (isTeacher() || isAdminLike()) calls.push(callIf('loadLiveAttendance'), callIf('refreshMyStudents'), callIf('refreshStudentsList'));
+      await Promise.allSettled(calls);
       if (w.currentSection === 'attendance') refreshCurrentSection(evt.type);
     });
   }
 
   function refreshHomework(evt) {
     debounce('homework', async () => {
-      await Promise.allSettled([
-        callIf('v66LoadStudentHomework'),
-        callIf('loadStudentHomework'),
-        callIf('refreshTeacherHomework'),
-        callIf('v12RenderTeacherHomework')
-      ]);
+      const calls = [];
+      if (isStudent()) calls.push(callIf('v66LoadStudentHomework'), callIf('loadStudentHomework'));
+      if (isTeacher() || isAdminLike()) calls.push(callIf('refreshTeacherHomework'), callIf('v12RenderTeacherHomework'));
+      await Promise.allSettled(calls);
       if (w.currentSection === 'homework') refreshCurrentSection(evt.type);
     });
   }
@@ -147,6 +149,7 @@
   }
 
   function routeRealtimeEvent(evt) {
+    if (!hasAuthToken()) return;
     if (!evt || !evt.type || !belongsToThisSchool(evt)) return;
     const type = String(evt.type);
 
