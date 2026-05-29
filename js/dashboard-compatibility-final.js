@@ -16,8 +16,7 @@
   });
   w.v12RenderParentPayments = w.v12RenderParentPayments || w.renderParentPayments || (async function(){
     if (typeof renderParentPayments === 'function') return await renderParentPayments();
-    if (typeof renderFinanceFeesSection === 'function') return await renderFinanceFeesSection('payments');
-    return fallbackCard('Payments','Payment records are available under Finance & Fees.');
+    return fallbackCard('Payments','Payment records are available under the parent Payments section.');
   });
   w.v12RenderStudentHomework = w.v12RenderStudentHomework || w.renderStudentHomework || (async function(){
     if (typeof renderStudentHomework === 'function') return await renderStudentHomework();

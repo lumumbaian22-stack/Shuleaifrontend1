@@ -33,7 +33,9 @@ function updateSidebar(role) {
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
                 { icon: 'credit-card', label: 'Platform Payments', section: 'platform-payments' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
-                { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' }
+                { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' },
+                { icon: 'briefcase', label: 'Agent Toolkit', section: 'agent-toolkit' },
+                { icon: 'database', label: 'Demo School', section: 'demo-school' }
             ],
             settings: [
                 { icon: 'settings', label: 'Platform Settings', section: 'settings' },
@@ -59,6 +61,9 @@ function updateSidebar(role) {
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
                 { icon: 'credit-card', label: 'Subscription & Billing', section: 'subscription-billing' },
+                { icon: 'palette', label: 'School Branding', section: 'school-branding' },
+                { icon: 'briefcase', label: 'Agent Toolkit', section: 'agent-toolkit' },
+                { icon: 'activity', label: 'Health Center', section: 'admin-health' },
                 { icon: 'help-circle', label: 'Help', section: 'help' },
                 { icon: 'users', label: 'Classes', section: 'classes' }
             ]

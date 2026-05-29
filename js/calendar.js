@@ -112,7 +112,7 @@ function renderAdminCalendar() {
     for (let i = firstDay - 1; i >= 0; i--) {
         const day = daysInPrevMonth - i;
         const date = new Date(year, month - 1, day);
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         const dayEvents = events.filter(e => e.date === dateStr);
 
         calendarDays.push(renderEnhancedCalendarDay({
@@ -146,7 +146,8 @@ function renderAdminCalendar() {
     const totalCells = calendarDays.length;
     const remainingCells = 42 - totalCells;
     for (let day = 1; day <= remainingCells; day++) {
-        const dateStr = `${year}-${String(month + 2).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const date = new Date(year, month + 1, day);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         const dayEvents = events.filter(e => e.date === dateStr);
 
         calendarDays.push(renderEnhancedCalendarDay({
@@ -154,7 +155,7 @@ function renderAdminCalendar() {
             isCurrentMonth: false,
             isToday: false,
             events: dayEvents,
-            date: new Date(year, month + 1, day),
+            date,
             dateStr: dateStr
         }));
     }
@@ -724,6 +725,14 @@ function calendarGoToDate(year, month, day) {
         showDashboardSection('calendar');
     }
 }
+
+
+// V94 runtime-safe calendar utilities. These keep calendar state an array even if API/localStorage returns an envelope object.
+window.ShuleCalendarSafe = window.ShuleCalendarSafe || {
+  normalizeResponse: normalizeCalendarEventsResponse,
+  normalizeEvent: normalizeCalendarEvent,
+  getEvents: getCalendarEventsArray
+};
 
 // Expose globally
 window.renderAdminCalendar = renderAdminCalendar;

@@ -42,6 +42,30 @@
     return {accounts,records,expected,paid,outstanding,defaulters};
   }
 
+  function studentClassName(s){ return s?.className || s?.Class?.name || s?.grade || s?.class || s?.stream || 'Unassigned'; }
+  function studentDisplayName(s){ return s?.User?.name || s?.name || s?.fullName || `Student ${s?.id || ''}`.trim(); }
+  function accountForStudent(studentId){ return (state.accounts||[]).find(a => String(a.studentId) === String(studentId)); }
+  function classStudentBalanceRows(className){
+    const rows = [];
+    const seen = new Set();
+    (state.accounts||[]).forEach(a => {
+      if (className && accountClassName(a) !== className) return;
+      rows.push(a); seen.add(String(a.studentId));
+    });
+    (state.students||[]).forEach(st => {
+      if (className && studentClassName(st) !== className) return;
+      if (seen.has(String(st.id))) return;
+      rows.push({
+        studentId: st.id,
+        studentName: studentDisplayName(st),
+        className: studentClassName(st),
+        term: '—', year: '', totalAmount: 0, parentPaidAmount: 0, creditAmount: 0, balance: 0,
+        __missingFeeAccount: true
+      });
+    });
+    return rows;
+  }
+
 
   async function loadClasses(){
     const api = apiSafe();
@@ -166,7 +190,7 @@
       const more = classNames.length > 4 ? `<span class="finance-v31-chip muted">+${classNames.length-4} more</span>` : '';
       return `<div class="finance-v31-card grouped"><div class="finance-v31-card-head"><div><h3>${esc(s.name || `${getStructureClassName(s)} — ${s.term}`)}</h3><p>${esc(s.term || 'Term')} ${esc(String(s.year || ''))} • ${esc(s.curriculum || 'CBC')}</p></div><span class="finance-v31-badge ${normalizedStatus(s)}">${esc(s.status || 'draft')}</span></div><div class="finance-v31-class-list">${visible}${more || ''}</div><div class="finance-v31-items">${structureItems(s)}</div><div class="finance-v31-card-foot"><strong>${money(s.totalAmount || 0)}</strong><small>${Number(s.studentsAssigned||0).toLocaleString()} students assigned • ${classNames.length || 1} class${(classNames.length||1)===1?'':'es'}</small></div><div class="finance-v31-actions-row">${actionButtons(s)}</div></div>`;
     }).join('') : '<div class="finance-v31-empty">No fee structures yet. Create one grouped structure and assign it to one or more classes.</div>';
-    return `<div class="finance-v31-body"><div id="finance-v31-message" class="finance-v31-message"></div>
+    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>
       <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Fee Structures</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Create one grouped fee structure and attach one or multiple classes. Classes remain grouped inside the same structure card.</p></div><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div>
       <div class="finance-v31-filters">
         <select id="finance-v31-class-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option value="">All Classes</option>${state.classes.map(c=>`<option value="${esc(getClassName(c))}" ${state.filters.className===getClassName(c)?'selected':''}>${esc(getClassName(c))}</option>`).join('')}</select>
@@ -184,7 +208,7 @@
     const cashEnabled = s.cashEnabled !== false && s.metadata?.cashEnabled !== false;
     const cardEnabled = s.cardEnabled === true || s.metadata?.cardEnabled === true;
     const mpesaType = s.mpesaType || (s.till ? 'till' : 'paybill');
-    return `<div class="finance-v31-body"><div id="finance-v31-message" class="finance-v31-message"></div>
+    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>
       <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Settings</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Choose how this school collects fees. Parents only see safe public payment details; Daraja secrets remain private.</p></div><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
       <div class="finance-v31-settings-stack">
         <div class="finance-v31-form-card spacious"><h3>1. Collection Mode</h3>
@@ -231,24 +255,24 @@
       if(state.filters.year && String(r.year || r.feeYear || r.Fee?.year || r.metadata?.year || '') !== String(state.filters.year)) return false;
       return true;
     });
-    const accounts = summary.accounts;
+    const accounts = classStudentBalanceRows(selectedClass);
     const totalExpected = accounts.reduce((s,a)=>s+Number(a.feeTotalAmount ?? a.totalAmount ?? 0),0);
     const parentPaid = accounts.reduce((s,a)=>s+Number(a.feeParentPaidAmount ?? a.parentPaidAmount ?? a.feePaidAmount ?? a.paidAmount ?? 0),0);
     const credits = accounts.reduce((s,a)=>s+Number(a.feeCreditAmount ?? a.creditAmount ?? 0),0);
     const outstanding = accounts.reduce((s,a)=>s+Number(a.feeBalance ?? a.balance ?? Math.max(0,Number((a.feeTotalAmount ?? a.totalAmount) || 0)-Number((a.feeParentPaidAmount ?? a.parentPaidAmount ?? a.paidAmount) || 0)-Number((a.feeCreditAmount ?? a.creditAmount) || 0))),0);
     const defaulters = accounts.filter(a=>Number(a.feeBalance ?? a.balance ?? 0)>0);
-    return `<div class="finance-v31-body"><div id="finance-v31-message" class="finance-v31-message"></div>
+    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>
       <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Records</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Student-specific fee accounts, balances, bursaries and payment history.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh Records</button><button class="finance-v31-btn blue" onclick="financeV31OpenManualModal()">Record Payment</button><button class="finance-v31-btn" onclick="financeV31OpenBursaryModal()">Add Bursary/Credit</button></div></div>
       <div class="finance-v31-class-tabs"><button class="finance-v31-class-tab ${!selectedClass?'active':''}" onclick="financeV31SetRecordClass('')">All Classes</button>${classes.map(c=>`<button class="finance-v31-class-tab ${selectedClass===c?'active':''}" onclick="financeV31SetRecordClass('${esc(c)}')">${esc(c)}</button>`).join('')}</div>
       <div class="finance-v31-summary compact"><div class="finance-v31-metric"><div><strong>Total Expected</strong><h3>${money(totalExpected)}</h3></div></div><div class="finance-v31-metric"><div><strong>Parent Paid</strong><h3>${money(parentPaid)}</h3></div></div><div class="finance-v31-metric"><div><strong>Bursaries/Credits</strong><h3>${money(credits)}</h3></div></div><div class="finance-v31-metric"><div><strong>Outstanding</strong><h3>${money(outstanding)}</h3></div></div><div class="finance-v31-metric"><div><strong>Fee Defaulters</strong><h3>${defaulters.length}</h3></div></div></div>
-      <div class="finance-v31-card wide"><h3 style="margin-top:0">${selectedClass?esc(selectedClass):'All Classes'} Student Balances</h3><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Term</th><th>Total</th><th>Parent Paid</th><th>Bursary/Credit</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>${accounts.length?accounts.map(a=>{ const feeId=a.feeId||a.id; const studentId=a.studentId; const bal=Number(a.feeBalance ?? a.balance ?? 0); return `<tr><td>${esc(a.studentName || accountStudentName(a))}</td><td>${esc(a.className || accountClassName(a))}</td><td>${esc(a.term || a.feeTerm || '—')} ${esc(String(a.year || a.feeYear || ''))}</td><td>${money(a.feeTotalAmount ?? a.totalAmount)}</td><td>${money(a.feeParentPaidAmount ?? a.parentPaidAmount ?? a.paidAmount)}</td><td>${money(a.feeCreditAmount ?? a.creditAmount)}</td><td><strong>${money(bal)}</strong></td><td><span class="finance-v31-badge ${bal>0?'partial':'paid'}">${bal>0?'Balance':'Paid'}</span></td><td><button class="finance-v31-btn blue" onclick="financeV31OpenManualModal('${esc(studentId)}','${esc(feeId)}')">Record Payment</button><button class="finance-v31-btn" onclick="financeV31OpenBursaryModal('${esc(studentId)}','${esc(feeId)}')">Bursary</button><button class="finance-v31-btn" onclick="financeV31ViewStudentHistory('${esc(studentId)}')">History</button></td></tr>`}).join(''):'<tr><td colspan="9"><div class="finance-v31-empty">No fee accounts found. Activate/assign a grouped fee structure first.</div></td></tr>'}</tbody></table></div></div>
+      <div class="finance-v31-card wide"><h3 style="margin-top:0">${selectedClass?esc(selectedClass):'All Classes'} Student Balances</h3><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Term</th><th>Total</th><th>Parent Paid</th><th>Bursary/Credit</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>${accounts.length?accounts.map(a=>{ const feeId=a.feeId||a.id; const studentId=a.studentId; const bal=Number(a.feeBalance ?? a.balance ?? 0); return `<tr><td>${esc(a.studentName || accountStudentName(a))}</td><td>${esc(a.className || accountClassName(a))}</td><td>${esc(a.__missingFeeAccount ? 'No active fee account' : ((a.term || a.feeTerm || '—') + ' ' + String(a.year || a.feeYear || '')))}</td><td>${money(a.feeTotalAmount ?? a.totalAmount)}</td><td>${money(a.feeParentPaidAmount ?? a.parentPaidAmount ?? a.paidAmount)}</td><td>${money(a.feeCreditAmount ?? a.creditAmount)}</td><td><strong>${money(bal)}</strong></td><td><span class="finance-v31-badge ${a.__missingFeeAccount?'draft':(bal>0?'partial':'paid')}">${a.__missingFeeAccount?'Needs fee account':(bal>0?'Balance':'Paid')}</span></td><td>${a.__missingFeeAccount ? '<span class="text-xs text-muted-foreground">Activate/assign fee structure first</span>' : `<button class="finance-v31-btn blue" onclick="financeV31OpenManualModal('${esc(studentId)}','${esc(feeId)}')">Record Payment</button><button class="finance-v31-btn" onclick="financeV31OpenBursaryModal('${esc(studentId)}','${esc(feeId)}')">Bursary</button><button class="finance-v31-btn" onclick="financeV31ViewStudentHistory('${esc(studentId)}')">History</button>`}</td></tr>`}).join(''):'<tr><td colspan="9"><div class="finance-v31-empty">No fee accounts found. Activate/assign a grouped fee structure first.</div></td></tr>'}</tbody></table></div></div>
     </div>`;
   }
 
 
   function renderVerification(){
     const rows = state.manualQueue || [];
-    return `<div class="finance-v31-body"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Verification Queue</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Approve manual M-Pesa payments after checking the school statement/SMS.</p></div><button class="finance-v31-btn" onclick="financeV31RefreshQueue()">Refresh</button></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Date</th><th>Actions</th></tr></thead><tbody>${rows.length?rows.map(p=>`<tr><td>${esc(p.Student?.User?.name || p.studentId || 'Student')}</td><td>${esc(p.metadata?.studentElimuid || p.accountReference || '—')}</td><td>${money(p.amount)}</td><td><strong>${esc(p.reference || '—')}</strong></td><td>${esc(p.Parent?.User?.name || p.Parent?.User?.phone || 'Parent')}</td><td>${esc((p.createdAt||'').slice(0,10))}</td><td><button class="finance-v31-btn blue" onclick="financeV31ApproveManual('${esc(p.id)}')">Approve</button><button class="finance-v31-btn danger" onclick="financeV31RejectManual('${esc(p.id)}')">Reject</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="finance-v31-empty">No pending manual payments.</div></td></tr>'}</tbody></table></div></div>`;
+    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Verification Queue</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Approve manual M-Pesa payments after checking the school statement/SMS.</p></div><button class="finance-v31-btn" onclick="financeV31RefreshQueue()">Refresh</button></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Date</th><th>Actions</th></tr></thead><tbody>${rows.length?rows.map(p=>`<tr><td>${esc(p.Student?.User?.name || p.studentId || 'Student')}</td><td>${esc(p.metadata?.studentElimuid || p.accountReference || '—')}</td><td>${money(p.amount)}</td><td><strong>${esc(p.reference || '—')}</strong></td><td>${esc(p.Parent?.User?.name || p.Parent?.User?.phone || 'Parent')}</td><td>${esc((p.createdAt||'').slice(0,10))}</td><td><button class="finance-v31-btn blue" onclick="financeV31ApproveManual('${esc(p.id)}')">Approve</button><button class="finance-v31-btn danger" onclick="financeV31RejectManual('${esc(p.id)}')">Reject</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="finance-v31-empty">No pending manual payments.</div></td></tr>'}</tbody></table></div></div>`;
   }
 
   function body(){ if(state.tab==='settings') return renderSettings(); if(state.tab==='records') return renderRecords(); if(state.tab==='verification') return renderVerification(); return renderStructures(); }

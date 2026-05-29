@@ -367,7 +367,7 @@
   const role = () => String(currentUser().role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_');
   const isAdminLike = () => ['admin','super_admin','superadmin'].includes(role());
   const isParent = () => role() === 'parent';
-  const isFinanceSection = (s) => ['finance','finance-fees','payment-settings','fee-structures','records','verification'].includes(String(s || w.currentSection || w.activeDashboardSection || ''));
+  const isFinanceSection = (s) => ['finance','finance-fees','payment-settings','fee-structures','records','verification'].includes(String(s || w.currentSection || w.activeDashboardSection || '')) && !/subscription/i.test(String(s || w.currentSection || w.activeDashboardSection || ''));
   const show = (m,t='info') => typeof w.showToast === 'function' ? w.showToast(m,t) : console[t==='error'?'error':'log'](m);
 
   // Hard finance render guard: prevents Finance & Fees appearing in subscription/billing or non-admin dashboards.

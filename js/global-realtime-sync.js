@@ -72,7 +72,8 @@
   function refreshSubscription(evt){ debounce('subscription', async()=>{ if (typeof w.refreshSubscriptionBilling === 'function') return w.refreshSubscriptionBilling(); if (isAdminLike() && String(w.currentSection||'')==='subscription-billing' && typeof w.showDashboardSection==='function') return w.showDashboardSection('subscription-billing',{realtime:true,reason:evt?.type}); if (isParent() && typeof w.loadParentSubscriptions==='function') return w.loadParentSubscriptions(); }, MAX_DELAY); }
 
   function refreshFinance(evt) {
-    if (isPlatformSubscriptionEvent(evt)) { refreshSubscription(evt); return; }
+    // Subscription/Billing is never allowed to render or refresh Finance & Fees.
+    if (isPlatformSubscriptionEvent(evt) || /subscription/i.test(String(w.currentSection || w.activeDashboardSection || ''))) { refreshSubscription(evt); return; }
     debounce('finance', async () => {
       // HARD ROLE GATE: parent/student/teacher dashboards must never call admin finance endpoints.
       // This prevents /api/admin/classes, /api/fee-structures, /api/payments/admin/* 403 spam on parent dashboards.
@@ -111,7 +112,7 @@
   function refreshAttendance(evt) {
     debounce('attendance', async () => {
       const calls = [];
-      if (isStudent()) calls.push(callIf('loadStudentAttendance'));
+      if (isStudent() && ['attendance','dashboard'].includes(String(w.currentSection || w.activeDashboardSection || ''))) calls.push(callIf('loadStudentAttendance'));
       if (isTeacher() || isAdminLike()) calls.push(callIf('loadLiveAttendance'), callIf('refreshMyStudents'), callIf('refreshStudentsList'));
       await Promise.allSettled(calls);
       if (w.currentSection === 'attendance') refreshCurrentSection(evt.type);
