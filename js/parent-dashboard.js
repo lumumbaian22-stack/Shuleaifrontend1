@@ -661,8 +661,7 @@ async function renderParentChat() {
                           (dashboardData?.children && dashboardData.children[0]?.User);
     const childName = selectedChild?.name || 'your child';
     const classTeacher = dashboardData?.selectedChild?.classTeacher;
-    const conversations = await api.parent.getConversations();
-    const messages = [];
+    const conversations = await api.parent.getConversations().catch(() => ({data: []}));
     const parentConversations = conversations.data || [];
 
     return `
@@ -676,27 +675,17 @@ async function renderParentChat() {
                 </div>
                 
                 <div class="flex gap-4 mb-4">
-                    <select id="parent-recipient-type" class="px-3 py-2 border rounded-lg bg-background flex-1">
+                    <select id="parent-recipient-type" onchange="loadParentRecipientConversation()" class="px-3 py-2 border rounded-lg bg-background flex-1">
                         <option value="teacher">📚 Class Teacher ${classTeacher ? `(${escapeHtml(classTeacher.name)})` : ''}</option>
                         <option value="admin">🏫 School Administrator</option>
                     </select>
                 </div>
                 
                 <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="parent-chat-messages">
-                    ${messages.length > 0 ? messages.map(msg => `
-                        <div class="flex ${msg.sender === 'parent' ? 'justify-end' : 'justify-start'}">
-                            <div class="${msg.sender === 'parent' ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
-                                <p class="text-sm font-medium">${msg.sender === 'parent' ? 'You' : escapeHtml(msg.senderName)}</p>
-                                <p class="text-sm">${escapeHtml(msg.content)}</p>
-                                <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.timestamp)}</p>
-                            </div>
-                        </div>
-                    `).join('') : `
-                        <div class="text-center text-muted-foreground py-8">
-                            <i data-lucide="message-circle" class="h-12 w-12 mx-auto mb-3 opacity-50"></i>
-                            <p>Select a recipient and start messaging</p>
-                        </div>
-                    `}
+                    <div class="text-center text-muted-foreground py-8">
+                        <i data-lucide="message-circle" class="h-12 w-12 mx-auto mb-3 opacity-50"></i>
+                        <p>Select a recipient and start messaging</p>
+                    </div>
                 </div>
                 
                 <div class="flex gap-2">
@@ -729,6 +718,9 @@ async function selectChild(childId) {
 
     showLoading();
     try {
+        // Privacy guard: clear child-scoped UI caches before loading the next child so alerts/payments/analytics cannot visually leak.
+        if (window.ShuleAlerts?.resetForChild) await window.ShuleAlerts.resetForChild(childId).catch(() => null);
+        window.dispatchEvent(new CustomEvent('shule:child-switched', { detail: { studentId: childId } }));
         const summaryResponse = await api.parent.getChildSummary(childId);
         dashboardData.selectedChild = summaryResponse.data;
         await showDashboardSection(currentSection);
@@ -1045,7 +1037,7 @@ window.completeTask = async function(taskId, difficulty) {
   try {
     await apiRequest(`/api/home-tasks/${taskId}/complete`, {
       method: 'POST',
-      body: JSON.stringify({ parentFeedback: { difficulty } })
+      body: JSON.stringify({ parentFeedback: { difficulty }, studentId: dashboardData?.selectedChildId || null })
     });
     showToast('Task completed! Points awarded.', 'success');
     const container = document.getElementById('home-tasks-container');
@@ -1054,6 +1046,29 @@ window.completeTask = async function(taskId, difficulty) {
   } catch (e) {
     showToast(e.message, 'error');
   }
+};
+
+
+window.loadParentRecipientConversation = async function() {
+    const container = document.getElementById('parent-chat-messages');
+    if (!container) return;
+    const target = document.getElementById('parent-recipient-type')?.value || 'teacher';
+    container.innerHTML = `<div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-10 w-10 mx-auto mb-2 opacity-50"></i><p>${target === 'admin' ? 'School Admin' : 'Class Teacher'} chat is separate. Start or continue this conversation.</p></div>`;
+    try {
+        const conversations = await api.parent.getConversations();
+        const rows = Array.isArray(conversations?.data) ? conversations.data : [];
+        const match = rows.find(c => String(c.userRole || '').toLowerCase() === (target === 'admin' ? 'admin' : 'teacher')) || null;
+        const messages = match?.messages || [];
+        if (messages.length) {
+            container.innerHTML = messages.slice().reverse().map(msg => {
+                const mine = Number(msg.senderId) === Number((typeof getCurrentUser === 'function' ? getCurrentUser()?.id : JSON.parse(localStorage.getItem('user')||'{}').id));
+                const senderName = mine ? 'You' : (msg.Sender?.name || msg.senderName || match.userName || (target === 'admin' ? 'School Admin' : 'Class Teacher'));
+                return `<div class="flex ${mine ? 'justify-end' : 'justify-start'}"><div class="${mine ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm font-medium">${escapeHtml(senderName)}</p><p class="text-sm">${escapeHtml(msg.content || '')}</p><p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt || msg.timestamp)}</p></div></div>`;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+    } catch (e) { console.warn('Could not load selected recipient conversation:', e.message); }
+    if (window.lucide) lucide.createIcons();
 };
 
 async function sendParentMessage() {
@@ -1095,6 +1110,7 @@ async function sendParentMessage() {
             `;
             container.insertAdjacentHTML('beforeend', newMessageHtml);
             container.scrollTop = container.scrollHeight;
+            setTimeout(() => window.loadParentRecipientConversation && window.loadParentRecipientConversation(), 250);
 
             showToast(response.data?.recipientType === 'admin' ? '✅ Message sent to school admin' : '✅ Message sent to class teacher', 'success');
         } else {

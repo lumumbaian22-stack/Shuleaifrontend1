@@ -459,11 +459,12 @@ function showAddEventModal(prefillDate) {
     setValue('event-time', '');
     setValue('event-location', '');
     setValue('event-description', '');
-    setValue('event-type', 'other');
+    setValue('event-type', 'own_event');
     setValue('event-term', '');
     setValue('event-audience', 'whole_school');
 
     modal.classList.remove('hidden');
+    setTimeout(()=>window.toggleCalendarEventFields && window.toggleCalendarEventFields(),0);
 }
 
 function createAddEventModal() {
@@ -486,7 +487,7 @@ function createAddEventModal() {
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Event Type</label>
-                            <select id="event-type" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <select id="event-type" onchange="toggleCalendarEventFields()" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                 <option value="term_start">Term Opening</option>
                                 <option value="term_end">Term Closing</option>
                                 <option value="exam">Exams / Assessment</option>
@@ -494,10 +495,10 @@ function createAddEventModal() {
                                 <option value="meeting">Meeting</option>
                                 <option value="sports">Sports</option>
                                 <option value="activity">School Activity</option>
-                                <option value="other" selected>Other</option>
+                                <option value="own_event" selected>Own / Custom Event</option><option value="other">Other / Broadcast Event</option>
                             </select>
                         </div>
-                        <div>
+                        <div class="calendar-extra-event-field">
                             <label class="block text-sm font-medium mb-1">Term</label>
                             <select id="event-term" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                 <option value="">Not term-specific</option>
@@ -510,23 +511,23 @@ function createAddEventModal() {
                             <label class="block text-sm font-medium mb-1">Start Date *</label>
                             <input type="date" id="event-date" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
-                        <div>
+                        <div class="calendar-extra-event-field">
                             <label class="block text-sm font-medium mb-1">End Date</label>
                             <input type="date" id="event-end-date" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
-                        <div>
+                        <div class="calendar-extra-event-field">
                             <label class="block text-sm font-medium mb-1">Year</label>
                             <input type="number" id="event-year" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
-                        <div>
+                        <div class="calendar-extra-event-field">
                             <label class="block text-sm font-medium mb-1">Time</label>
                             <input type="time" id="event-time" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
-                        <div>
+                        <div class="calendar-extra-event-field">
                             <label class="block text-sm font-medium mb-1">Location</label>
                             <input type="text" id="event-location" placeholder="e.g. Main Hall" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
-                        <div>
+                        <div class="calendar-extra-event-field">
                             <label class="block text-sm font-medium mb-1">Broadcast To</label>
                             <select id="event-audience" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                 <option value="whole_school" selected>Whole School</option>
@@ -553,6 +554,8 @@ function createAddEventModal() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+window.toggleCalendarEventFields = function(){ const type=document.getElementById('event-type')?.value || 'own_event'; const isOwn=type==='own_event'; document.querySelectorAll('.calendar-extra-event-field').forEach(el=>{ el.style.display=isOwn?'none':''; }); const btn=document.querySelector('#add-event-modal button[onclick="saveCalendarEvent()"]'); if(btn) btn.textContent=isOwn?'Save Event':'Save & Broadcast'; };
+
 function closeAddEventModal() {
     const modal = document.getElementById('add-event-modal');
     if (modal) modal.classList.add('hidden');
@@ -568,7 +571,10 @@ async function saveCalendarEvent() {
     const eventType = document.getElementById('event-type')?.value || 'other';
     const term = document.getElementById('event-term')?.value || null;
     const year = Number(document.getElementById('event-year')?.value || new Date(date).getFullYear());
-    const audience = document.getElementById('event-audience')?.value || 'whole_school';
+    let audience = document.getElementById('event-audience')?.value || 'whole_school';
+    const ownEvent = eventType === 'own_event';
+    const finalEndDate = ownEvent ? date : endDate;
+    const finalAudience = ownEvent ? 'admin' : audience;
 
     if (!title || !date) {
         showToast('Event name and start date are required', 'error');
@@ -581,15 +587,15 @@ async function saveCalendarEvent() {
             eventName: title,
             date,
             startDate: date,
-            endDate,
-            time,
-            location,
+            endDate: finalEndDate,
+            time: ownEvent ? '' : time,
+            location: ownEvent ? '' : location,
             description,
             eventType,
-            term,
+            term: ownEvent ? null : term,
             year,
-            audience,
-            isPublic: true
+            audience: finalAudience,
+            isPublic: !ownEvent
         });
         const created = normalizeCalendarEventsResponse(res).map(normalizeCalendarEvent)[0] || normalizeCalendarEvent(res.data || res.event || {});
         const events = getCalendarEventsArray().filter(e => String(e.id) !== String(created.id));

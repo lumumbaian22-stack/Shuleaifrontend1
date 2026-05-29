@@ -62,8 +62,6 @@ function updateSidebar(role) {
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
                 { icon: 'credit-card', label: 'Subscription & Billing', section: 'subscription-billing' },
                 { icon: 'palette', label: 'School Branding', section: 'school-branding' },
-                { icon: 'briefcase', label: 'Agent Toolkit', section: 'agent-toolkit' },
-                { icon: 'activity', label: 'Health Center', section: 'admin-health' },
                 { icon: 'help-circle', label: 'Help', section: 'help' },
                 { icon: 'users', label: 'Classes', section: 'classes' }
             ]

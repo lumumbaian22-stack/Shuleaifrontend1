@@ -14,10 +14,20 @@
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+  function activeChildIdForAlerts() {
+    const role = getCurrentRoleSafe();
+    if (role !== 'parent') return '';
+    return String(window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim();
+  }
+
+  function scopedAlertsUrl() {
+    const childId = activeChildIdForAlerts();
+    return childId ? `/api/alerts?studentId=${encodeURIComponent(childId)}` : '/api/alerts';
+  }
+
   function apiAlerts() {
-    if (window.api?.alerts) return window.api.alerts;
     return {
-      getMine: () => apiRequest('/api/alerts'),
+      getMine: () => apiRequest(scopedAlertsUrl()),
       markRead: (id) => apiRequest(`/api/alerts/${id}/read`, { method: 'PUT' }),
       markAllRead: () => apiRequest('/api/alerts/read-all', { method: 'PUT' })
     };
@@ -68,6 +78,7 @@
       sourceLabel: alert.sourceLabel || alert.data?.aiLabel || sourceLabel(sourceType, category),
       actionUrl: alert.actionUrl || alert.data?.actionUrl || '',
       actionLabel: alert.actionLabel || alert.data?.actionLabel || defaultActionLabel(category),
+      studentId: Number(alert.studentId || alert.data?.studentId || alert.data?.student_id || 0) || null,
       studentName: alert.studentName || alert.data?.studentName || alert.data?.student || '',
       priority: alert.priority || alert.severity || alert.data?.priority || 'info'
     };
@@ -143,7 +154,13 @@
     try {
       const res = await apiAlerts().getMine();
       const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.alerts) ? res.alerts : []);
-      notifications = data.map(normalizeAlert);
+      const activeChild = activeChildIdForAlerts();
+      notifications = data.map(normalizeAlert).filter(alert => {
+        if (!activeChild) return true;
+        // When a parent is viewing a child, all student-scoped alerts must match that child.
+        // General parent/school alerts with no studentId may still show.
+        return !alert.studentId || String(alert.studentId) === String(activeChild);
+      });
       updateUnreadCount();
       if (!silent && document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
       return notifications;
@@ -320,7 +337,10 @@
     if (window.socket && !window.socket.__alertsV82Attached) {
       window.socket.__alertsV82Attached = true;
       window.socket.on('alert', (alert) => {
-        notifications.unshift(normalizeAlert(alert));
+        const normalized = normalizeAlert(alert);
+        const activeChild = activeChildIdForAlerts();
+        if (activeChild && normalized.studentId && String(normalized.studentId) !== String(activeChild)) return;
+        notifications.unshift(normalized);
         updateUnreadCount();
         if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
         if (typeof showToast === 'function') showToast(alert.title || 'New alert', 'info');
@@ -342,6 +362,17 @@
     }, 60000);
   });
 
+
+  function resetAlertsForChildSwitch(childId) {
+    notifications = [];
+    updateUnreadCount();
+    if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
+    return loadNotifications({ silent: true }).then(() => {
+      if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
+      return notifications;
+    });
+  }
+
   window.loadNotifications = loadNotifications;
   window.loadAlerts = loadNotifications;
   window.v94LoadAlerts = loadNotifications;
@@ -359,5 +390,6 @@
   window.renderAlertsCenterIntoDom = renderAlertsCenterIntoDom;
   window.toggleAlertDateGroup = toggleAlertDateGroup;
   window.openAlertAction = openAlertAction;
-  window.ShuleAlerts = { load: loadNotifications, open: openAlertsFromBell, render: renderAlertsCenter };
+  window.resetAlertsForChildSwitch = resetAlertsForChildSwitch;
+  window.ShuleAlerts = { load: loadNotifications, open: openAlertsFromBell, render: renderAlertsCenter, resetForChild: resetAlertsForChildSwitch };
 })();

@@ -74,21 +74,29 @@
     const ov = data.overview || {};
     const charts = data.charts || {};
     const chartIds = [];
-    const chartList = [
-      ['enrollmentTrend','Enrollment Trend','Smooth growth chart from real student records'],
-      ['gradeDistribution','Grade / Class Distribution','Doughnut style from the approved visual HTML'],
-      ['monthlyAttendanceTrend','Monthly Attendance Trends','Stacked present vs absent trend'],
-      ['performanceRadar','Grade Performance Distribution','Radar view of subject strength'],
-      ['subjectPerformance','Subject-wise Performance','Multi-color subject performance bars'],
-      ['feeStatus','Fee Status Distribution','Paid, partial and unpaid fee accounts'],
-      ['homeworkSubmission','Homework Submission Pattern','On-time vs late or pending submissions'],
-      ['aiTutorUsage','AI Tutor Usage','Student AI tutor activity'],
-      ['careerDistribution','Career Interest Distribution','Career selections and guidance interests']
-    ].filter(([key]) => charts[key]);
+    const chartSets = {
+      super_admin: [
+        ['enrollmentTrend','School/Enrollment Growth','All-school growth trend'], ['gradeDistribution','School / Grade Distribution','Distribution across the platform'], ['feeStatus','Subscription/Fee Status','Platform payment coverage'], ['aiTutorUsage','AI Usage by School','AI activity overview'], ['careerDistribution','Career Interest Distribution','Student career demand signals']
+      ],
+      admin: [
+        ['enrollmentTrend','Enrollment Trend','Students in this school over time'], ['gradeDistribution','Grade / Class Distribution','This school only'], ['monthlyAttendanceTrend','Monthly Attendance Trends','Present vs absent'], ['subjectPerformance','Subject-wise Performance','School academic performance'], ['performanceRadar','Performance Distribution','Academic strength shape'], ['feeStatus','Fee Status Distribution','Paid, partial and unpaid accounts'], ['homeworkSubmission','Homework Submission Pattern','On-time vs late/pending'], ['careerDistribution','Career Interest Distribution','Career choices in this school']
+      ],
+      teacher: [
+        ['monthlyAttendanceTrend','My Class Attendance Trends','Assigned classes only'], ['subjectPerformance','Subject Averages','Subjects/classes assigned to this teacher'], ['performanceRadar','Class Performance Distribution','Academic shape for assigned learners'], ['homeworkSubmission','Homework Submission Pattern','Assigned class submissions'], ['careerDistribution','Career Interests in My Classes','Only learners this teacher supports']
+      ],
+      parent: [
+        ['performanceRadar','Child Subject Strengths','Selected child only'], ['subjectPerformance','Child Subject Performance','Selected child only'], ['monthlyAttendanceTrend','Child Attendance Trend','Selected child attendance'], ['feeStatus','Child Fee Status','Selected child fee account'], ['homeworkSubmission','Child Homework Pattern','Selected child only'], ['aiTutorUsage','Child AI Tutor Usage','Selected child subscription usage'], ['careerDistribution','Child Career Interests','Selected child only']
+      ],
+      student: [
+        ['performanceRadar','My Subject Strengths','My learning profile'], ['subjectPerformance','My Subject Performance','My scores only'], ['monthlyAttendanceTrend','My Attendance Trend','My attendance only'], ['homeworkSubmission','My Homework Pattern','My submissions'], ['aiTutorUsage','My AI Tutor Usage','My subscription usage'], ['careerDistribution','My Career Interests','My selected careers']
+      ]
+    };
+    const effectiveRole = role === 'superadmin' ? 'super_admin' : role;
+    const chartList = (chartSets[effectiveRole] || chartSets.student).filter(([key]) => charts[key]);
     const cards = chartList.map(([key,title,subtitle], idx) => { const id = `owner-chart-${key}`; chartIds.push([id, charts[key]]); return chartCard(id,title,subtitle); }).join('');
     setTimeout(()=>chartIds.forEach(([id,ch])=>renderChart(id,ch)), 120);
     return `<div class="owner-analytics space-y-6 animate-fade-in">
-      <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-2xl font-bold">Shule AI Intelligence Analytics</h2><p class="text-muted-foreground">Real backend data • ${escape(role)} view • ${escape(new Date(data.generatedAt || Date.now()).toLocaleString())}</p></div><span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs">Tenant scoped</span></div>
+      <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-2xl font-bold">${escape((role||'student').replace('_',' ').toUpperCase())} Analytics</h2><p class="text-muted-foreground">Real backend data • ${escape(JSON.stringify(data.scope || {}))} • ${escape(new Date(data.generatedAt || Date.now()).toLocaleString())}</p></div><span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs">Role scoped</span></div>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">${statCard('Students', ov.totalStudents)}${statCard('Teachers', ov.totalTeachers)}${statCard('Classes', ov.totalClasses)}${statCard('Attendance', `${ov.attendanceRate || 0}%`)}${statCard('Fee Collection', `${ov.feeCollectionRate || 0}%`)}</div>
       <div class="grid gap-4 lg:grid-cols-2">${cards}</div>
       <div class="grid gap-4 lg:grid-cols-2">${tableCard('AI + Parent Comfort Signals', ['Parents see reassuring updates like child attendance, payment receipt and progress improvements.', 'AI tutor usage and career insights are tracked without mixing siblings or schools.', 'Failed AI calls should not deduct student usage.'])}${tableCard('School Intelligence Signals', ['Fees, attendance, homework, subjects, alerts and career interests are combined into one analytics layer.', 'Super Admin may see all-school aggregation; other roles stay restricted by school, class, parent-child or student ownership.', 'Charts use real backend data and the visual style from the approved HTML.'])}</div>
@@ -140,9 +148,10 @@
     const original = w.renderDashboardSection || originalRenderDashboardSection;
     if (typeof original === 'function' && !original.__ownerWrapped) {
       const wrapped = async function(role, section){
-        if (section === 'agent-toolkit') return renderAgentToolkit();
+        const __role = currentRole();
+        if (section === 'agent-toolkit') return __role === 'super_admin' || __role === 'superadmin' ? renderAgentToolkit() : original.apply(this, arguments);
         if (section === 'school-branding') return renderSchoolBranding();
-        if (section === 'admin-health') return renderHealth();
+        if (section === 'admin-health') return __role === 'super_admin' || __role === 'superadmin' ? renderHealth() : original.apply(this, arguments);
         if (section === 'demo-school') return renderDemoSchool();
         return original.apply(this, arguments);
       };
@@ -154,6 +163,6 @@
   w.addEventListener('resize', () => { Object.values(chartStore).forEach(ch => { try { ch.resize(); } catch(_){} }); });
   const oldToggleTheme = w.toggleTheme;
   if (typeof oldToggleTheme === 'function') {
-    w.toggleTheme = function(){ const out = oldToggleTheme.apply(this, arguments); setTimeout(()=>Object.values(chartStore).forEach(ch=>{ try { ch.destroy(); } catch(_){} }), 50); setTimeout(()=>{ if (w.currentSection === 'analytics' && typeof w.showDashboardSection === 'function') w.showDashboardSection('analytics'); }, 80); return out; };
+    w.toggleTheme = function(){ const out = oldToggleTheme.apply(this, arguments); setTimeout(()=>{ if (w.currentSection === 'analytics' && typeof w.showDashboardSection === 'function') w.showDashboardSection('analytics'); }, 80); return out; };
   }
 })();

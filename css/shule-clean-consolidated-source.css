@@ -9,3 +9,16 @@
 @media(max-width:768px){.v91-payment-settings-organized .finance-v31-form-row,.finance-v31-payment-modal .finance-v31-form-row{grid-template-columns:1fr!important}.v91-payment-settings-organized .v91-settings-card,.finance-v31-payment-modal .finance-v31-form-card{padding:16px!important}.finance-v31-payment-modal{width:calc(100vw - 16px)!important}.finance-v31-modal-actions{position:sticky!important;bottom:0!important;background:var(--ff-card)!important;padding:12px 0!important}}
 html.dark .v91-payment-settings-organized .v91-settings-card,html.dark .finance-v31-payment-modal .finance-v31-form-card{background:#101827!important;color:#e5eefc!important;border-color:#243247!important}
 html.dark .v91-payment-settings-organized input,html.dark .v91-payment-settings-organized select,html.dark .v91-payment-settings-organized textarea,html.dark .finance-v31-payment-modal input,html.dark .finance-v31-payment-modal select,html.dark .finance-v31-payment-modal textarea{background:#0b1220!important;color:#f8fafc!important;border-color:#334155!important}
+
+
+/* V95 persistence/layout fixes */
+.v95-payment-settings-organized{gap:24px!important;max-width:1180px!important;margin:0 auto!important}
+.finance-v31-settings-toolbar{position:sticky;top:72px;z-index:5;background:var(--ff-bg, hsl(var(--background)));padding:12px;border-radius:16px;border:1px solid var(--ff-border, hsl(var(--border)))}
+.finance-v31-sticky-save{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;margin-top:12px;border:1px solid var(--ff-border, hsl(var(--border)));background:var(--ff-card, hsl(var(--card)));border-radius:16px;box-shadow:0 -8px 24px rgba(15,23,42,.08);z-index:4}
+.finance-v31-settings-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.owner-analytics .owner-chart-card,.owner-analytics .owner-stat-card{background:hsl(var(--card))!important;color:hsl(var(--card-foreground))!important;border-color:hsl(var(--border))!important}
+.owner-analytics canvas{max-width:100%!important}
+html.dark .owner-analytics .owner-chart-card,html.dark .owner-analytics .owner-stat-card{background:#0f172a!important;color:#f8fafc!important;border-color:#334155!important}
+html.dark .owner-analytics .text-muted-foreground{color:#cbd5e1!important}
+.calendar-extra-event-field{transition:opacity .15s ease}
+@media(max-width:768px){.finance-v31-settings-toolbar{top:60px}.finance-v31-sticky-save{bottom:calc(env(safe-area-inset-bottom) + 64px);flex-direction:column;align-items:stretch}.owner-chart-container{min-height:320px!important}.owner-chart-card{overflow-x:auto!important}}
