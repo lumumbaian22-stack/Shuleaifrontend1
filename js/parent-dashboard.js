@@ -283,16 +283,7 @@ async function renderParentDashboard() {
                     </div>
                 </div>
 
-                <!-- Alerts Panel -->
-                <div class="rounded-xl border bg-card p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-semibold">Recent Alerts</h3>
-                        <button onclick="loadParentAlerts()" class="text-sm text-primary hover:underline">Refresh</button>
-                    </div>
-                    <div id="parent-alerts-container" class="space-y-2 max-h-64 overflow-y-auto">
-                        <div class="text-center text-muted-foreground py-4">Loading alerts...</div>
-                    </div>
-                </div>
+                <!-- Recent Alerts removed from parent dashboard by V97. Alerts live only in the Alerts Center. -->
 
                 <!-- Live Attendance -->
                 <div class="rounded-xl border bg-card p-6">
@@ -390,10 +381,9 @@ async function renderParentDashboard() {
 
         html += `</div>`;
 
-        // Load alerts and live attendance after DOM is updated
+        // Load live attendance after DOM is updated. Recent Alerts were removed from dashboard to avoid child-alert leakage; use Alerts Center only.
         setTimeout(() => {
             if (selectedChildId) {
-                loadParentAlerts();
                 loadLiveAttendance();
             }
         }, 200);

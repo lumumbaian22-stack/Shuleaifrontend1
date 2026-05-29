@@ -24,3 +24,16 @@
   .owner-stat-card { padding: 1rem !important; }
   form .grid { grid-template-columns: 1fr !important; }
 }
+
+/* V97 analytics visibility hardening */
+.owner-analytics, .owner-analytics * { box-sizing: border-box; }
+.owner-analytics .rounded-xl,
+.owner-analytics .owner-chart-card,
+.owner-analytics .owner-stat-card {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-color: hsl(var(--border));
+}
+.dark .owner-analytics .text-muted-foreground { color: hsl(var(--muted-foreground)) !important; }
+.dark .owner-analytics .text-foreground { color: hsl(var(--foreground)) !important; }
+.owner-analytics canvas { max-width: 100%; }

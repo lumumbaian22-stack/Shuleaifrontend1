@@ -68,8 +68,11 @@
     return `<div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-3">${escape(title)}</h3><div class="space-y-2">${rows.map(r=>`<div class="flex items-start gap-3 rounded-lg bg-muted/40 p-3"><span class="mt-1 h-2 w-2 rounded-full bg-primary"></span><p class="text-sm">${escape(r)}</p></div>`).join('')}</div></div>`;
   }
   async function ownerAnalyticsHTML(role){
-    const selectedChild = localStorage.getItem('shule_selected_child_id') || window.dashboardData?.selectedChildId || '';
-    const res = await apiRequest(`/api/owner/analytics/overview${selectedChild ? `?studentId=${encodeURIComponent(selectedChild)}` : ''}`);
+    const selectedChild = window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '';
+    const params = new URLSearchParams();
+    if (selectedChild && String(role).toLowerCase() === 'parent') params.set('studentId', selectedChild);
+    params.set('_ts', Date.now());
+    const res = await apiRequest(`/api/owner/analytics/overview?${params.toString()}`);
     const data = res || {};
     const ov = data.overview || {};
     const charts = data.charts || {};
@@ -99,7 +102,9 @@
       <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-2xl font-bold">${escape((role||'student').replace('_',' ').toUpperCase())} Analytics</h2><p class="text-muted-foreground">Real backend data • ${escape(JSON.stringify(data.scope || {}))} • ${escape(new Date(data.generatedAt || Date.now()).toLocaleString())}</p></div><span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs">Role scoped</span></div>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">${statCard('Students', ov.totalStudents)}${statCard('Teachers', ov.totalTeachers)}${statCard('Classes', ov.totalClasses)}${statCard('Attendance', `${ov.attendanceRate || 0}%`)}${statCard('Fee Collection', `${ov.feeCollectionRate || 0}%`)}</div>
       <div class="grid gap-4 lg:grid-cols-2">${cards}</div>
-      <div class="grid gap-4 lg:grid-cols-2">${tableCard('AI + Parent Comfort Signals', ['Parents see reassuring updates like child attendance, payment receipt and progress improvements.', 'AI tutor usage and career insights are tracked without mixing siblings or schools.', 'Failed AI calls should not deduct student usage.'])}${tableCard('School Intelligence Signals', ['Fees, attendance, homework, subjects, alerts and career interests are combined into one analytics layer.', 'Super Admin may see all-school aggregation; other roles stay restricted by school, class, parent-child or student ownership.', 'Charts use real backend data and the visual style from the approved HTML.'])}</div>
+      <div class="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+        <strong class="text-foreground">Data scope:</strong> ${escape(JSON.stringify(data.scope || {}))}. These charts are fetched from the backend for the current role/session and refresh when the Analytics section is opened or refreshed.
+      </div>
     </div>`;
   }
 
@@ -159,6 +164,19 @@
       w.renderDashboardSection = wrapped;
     }
   }, 0);
+
+
+  w.refreshAnalytics = async function(){
+    try {
+      const section = w.currentSection || localStorage.getItem('currentSection') || '';
+      if (section === 'analytics' && typeof w.showDashboardSection === 'function') {
+        await w.showDashboardSection('analytics');
+      }
+    } catch (e) { console.warn('[Owner Analytics] refresh failed:', e.message); }
+  };
+  ['shule:data-updated','finance:updated','attendance:updated','marks:updated','career:updated','alerts:updated'].forEach(evt => {
+    w.addEventListener(evt, () => { if ((w.currentSection || localStorage.getItem('currentSection')) === 'analytics') w.refreshAnalytics(); });
+  });
 
   w.addEventListener('resize', () => { Object.values(chartStore).forEach(ch => { try { ch.resize(); } catch(_){} }); });
   const oldToggleTheme = w.toggleTheme;

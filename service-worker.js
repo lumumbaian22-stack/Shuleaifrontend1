@@ -1,5 +1,5 @@
 /* Shule AI V86 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai-v96-data-isolation-fix';
+const CACHE_NAME = 'shule-ai-v97-career-analytics-branding-fix';
 const APP_SHELL = [
   '/',
   '/index.html',
