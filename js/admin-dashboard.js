@@ -588,7 +588,6 @@ function renderAdminDashboard() {
                         </div>
                         <div class="flex items-center gap-4">
                             <p class="text-sm"><span class="font-mono bg-muted px-2 py-1 rounded">Short Code: ${school?.shortCode || 'SHL-XXXXX'}</span></p>
-                            <button onclick="showNameChangeModal()" class="text-sm text-primary hover:underline">Change School Name ($50)</button>
                         </div>
                     </div>
                     <div class="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">

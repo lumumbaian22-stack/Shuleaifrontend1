@@ -10,6 +10,16 @@
   const PLATFORM_SHORT_NAME = 'ShuleAI';
   const LOGO_LIGHT = 'assets/logo-light.png';
   const LOGO_DARK = 'assets/logo-dark.png';
+  const BRAND_COLOR_PRESETS = {
+    'Shule Blue': { primaryColor: '#083A85', accentColor: '#11B5B1' },
+    'Royal Blue': { primaryColor: '#0B2F6B', accentColor: '#3B82F6' },
+    'Emerald Green': { primaryColor: '#047857', accentColor: '#10B981' },
+    'Purple': { primaryColor: '#6D28D9', accentColor: '#A78BFA' },
+    'Orange': { primaryColor: '#C2410C', accentColor: '#FB923C' },
+    'Red': { primaryColor: '#B91C1C', accentColor: '#F87171' },
+    'Gold': { primaryColor: '#92400E', accentColor: '#FBBF24' },
+    'Slate': { primaryColor: '#334155', accentColor: '#64748B' }
+  };
 
   function safeParse(value, fallback = null) {
     try {
@@ -43,6 +53,25 @@
     );
   }
 
+  function getStoredBranding() {
+    const direct = window.schoolBranding || safeParse(localStorage.getItem('schoolBranding'), null) || {};
+    const school = getStoredSchool();
+    const settings = getStoredSettings();
+    return { ...(school?.settings?.branding || {}), ...(settings?.branding || {}), ...direct };
+  }
+
+  function getLogoSource() {
+    const branding = getStoredBranding();
+    return branding.logoDataUrl || branding.logoUrl || branding.logo || '';
+  }
+
+  function getColorPreset() {
+    const branding = getStoredBranding();
+    const name = branding.colorName && BRAND_COLOR_PRESETS[branding.colorName] ? branding.colorName : 'Shule Blue';
+    const preset = BRAND_COLOR_PRESETS[name];
+    return { colorName: name, primaryColor: branding.primaryColor || preset.primaryColor, accentColor: branding.accentColor || preset.accentColor };
+  }
+
   function cleanName(value) {
     return typeof value === 'string' ? value.trim() : '';
   }
@@ -54,6 +83,9 @@
     const dashboardData = window.dashboardData || window.studentDashboardData || {};
 
     return (
+      cleanName(getStoredBranding()?.schoolName) ||
+      cleanName(getStoredBranding()?.displayName) ||
+      cleanName(getStoredBranding()?.name) ||
       cleanName(dashboardData?.school?.name) ||
       cleanName(dashboardData?.schoolName) ||
       cleanName(dashboardData?.student?.school?.name) ||
@@ -148,16 +180,33 @@
   }
 
   function applyLogos() {
-    document.querySelectorAll('img[alt="Logo"], img[alt="Shule AI Logo"], img[data-brand-logo-light], img[data-brand-logo-dark]').forEach((img) => {
-      const isDarkLogo = img.classList.contains('dark:block') || img.dataset.brandLogoDark !== undefined || /dark/i.test(img.src);
-      img.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT;
-      img.alt = `${PLATFORM_NAME} Logo`;
+    const schoolLogo = getLogoSource();
+    const lightLogo = schoolLogo || LOGO_LIGHT;
+    const darkLogo = schoolLogo || LOGO_DARK;
+    document.querySelectorAll('img[alt="Logo"], img[alt="Shule AI Logo"], img[data-brand-logo-light], img[data-brand-logo-dark], img[data-school-logo]').forEach((img) => {
+      const isDarkLogo = img.classList.contains('dark:block') || img.dataset.brandLogoDark !== undefined || /dark/i.test(img.src || '');
+      img.src = isDarkLogo ? darkLogo : lightLogo;
+      img.alt = `${getDisplayName()} Logo`;
       img.loading = 'eager';
       img.decoding = 'async';
+      img.onerror = function(){ this.onerror = null; this.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT; };
     });
 
     const sidebarName = document.getElementById('sidebar-school-name');
     if (sidebarName?.parentElement) ensureLogoPair(sidebarName.parentElement);
+  }
+
+  function applyColors() {
+    const colors = getColorPreset();
+    document.documentElement.style.setProperty('--school-primary-color', colors.primaryColor);
+    document.documentElement.style.setProperty('--school-accent-color', colors.accentColor);
+    document.documentElement.setAttribute('data-school-color-name', colors.colorName);
+  }
+
+  function applyReportBrandingHelpers() {
+    const branding = getStoredBranding();
+    document.documentElement.setAttribute('data-report-footer', branding.reportFooter || '');
+    document.documentElement.setAttribute('data-payment-instructions', branding.paymentInstructions || '');
   }
 
   function applyThemeToggleVisibility() {
@@ -177,6 +226,8 @@
     const displayName = newName ? cleanName(newName) : getDisplayName();
 
     applyLogos();
+    applyColors();
+    applyReportBrandingHelpers();
     applyThemeToggleVisibility();
 
     setText('#sidebar-school-name', displayName);
@@ -224,6 +275,7 @@
   }
 
   function boot() {
+    if (typeof window.apiRequest === 'function' && (localStorage.getItem('token') || localStorage.getItem('authToken'))) { loadSchoolBranding().finally(function(){ apply(); }); }
     apply();
     observeDashboardContent();
     setTimeout(apply, 0);
@@ -231,10 +283,24 @@
     setTimeout(apply, 1000);
   }
 
+  async function loadSchoolBranding() {
+    if (typeof window.apiRequest !== 'function') return getStoredBranding();
+    try {
+      const res = await window.apiRequest('/api/owner/branding');
+      const branding = res?.data || {};
+      window.schoolBranding = branding;
+      localStorage.setItem('schoolBranding', JSON.stringify(branding));
+      apply(branding.schoolName || branding.displayName || branding.name);
+      return branding;
+    } catch (_) { return getStoredBranding(); }
+  }
+
   window.BrandingManager = {
     platformName: PLATFORM_NAME,
     platformShortName: PLATFORM_SHORT_NAME,
     getDisplayName,
+    getStoredBranding,
+    loadSchoolBranding,
     getSchoolName: getSchoolNameFromAnySource,
     isSchoolBranded,
     apply,
@@ -249,6 +315,12 @@
 
   window.addEventListener('DOMContentLoaded', boot);
   window.addEventListener('load', boot);
+  window.addEventListener('school-branding-updated', function (event) {
+    const branding = event?.detail || {};
+    window.schoolBranding = { ...(window.schoolBranding || {}), ...branding };
+    try { localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); } catch (_) {}
+    apply(branding.schoolName || branding.displayName || branding.name);
+  });
   window.addEventListener('school-name-changed', function (event) {
     const nextName = event?.detail?.newName || event?.detail?.schoolName || event?.detail?.name;
     apply(nextName);
