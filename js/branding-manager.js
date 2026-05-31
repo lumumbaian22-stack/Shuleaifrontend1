@@ -151,21 +151,49 @@
     });
   }
 
+  function hexToHslParts(hex) {
+    const raw = String(hex || '').replace('#', '').trim();
+    if (!/^[0-9a-f]{6}$/i.test(raw)) return null;
+    let r = parseInt(raw.slice(0, 2), 16) / 255;
+    let g = parseInt(raw.slice(2, 4), 16) / 255;
+    let b = parseInt(raw.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+    return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  }
+
   function ensureLogoPair(container) {
     if (!container) return;
+    const schoolLogo = getLogoSource();
+    const lightLogo = schoolLogo || LOGO_LIGHT;
+    const darkLogo = schoolLogo || LOGO_DARK;
 
     // Do NOT inject a new logo if the approved sidebar already has one.
-    // The previous v66 attempt prepended a second logo pair here, which caused double logos.
+    // Important: keep the school logo here; the previous version reset the
+    // existing sidebar images back to Shule AI after applyLogos(), which is why
+    // uploaded logos did not appear in the sidebar.
     const existingImgs = Array.from(container.querySelectorAll('img'));
     if (existingImgs.length) {
       existingImgs.forEach((img, index) => {
-        const isDarkLogo = img.classList.contains('dark:block') || index === 1 || /dark/i.test(img.src || '');
-        img.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT;
-        img.alt = `${PLATFORM_NAME} Logo`;
+        const isDarkLogo = img.classList.contains('dark:block') || img.dataset.brandLogoDark !== undefined || index === 1 || /dark/i.test(img.src || '');
+        img.src = isDarkLogo ? darkLogo : lightLogo;
+        img.alt = `${getDisplayName()} Logo`;
         img.loading = 'eager';
         img.decoding = 'async';
+        img.setAttribute('data-school-logo', 'true');
         if (isDarkLogo) img.setAttribute('data-brand-logo-dark', 'true');
         else img.setAttribute('data-brand-logo-light', 'true');
+        img.onerror = function(){ this.onerror = null; this.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT; };
       });
       return;
     }
@@ -173,8 +201,8 @@
     const wrapper = document.createElement('span');
     wrapper.className = 'brand-logo-pair inline-flex items-center shrink-0';
     wrapper.innerHTML = `
-      <img src="${LOGO_LIGHT}" alt="${PLATFORM_NAME} Logo" data-brand-logo-light class="h-10 w-10 object-contain block dark:hidden" onerror="this.style.display='none'">
-      <img src="${LOGO_DARK}" alt="${PLATFORM_NAME} Logo" data-brand-logo-dark class="h-10 w-10 object-contain hidden dark:block" onerror="this.style.display='none'">
+      <img src="${lightLogo}" alt="${getDisplayName()} Logo" data-school-logo data-brand-logo-light class="h-10 w-10 object-contain block dark:hidden" onerror="this.onerror=null;this.src='${LOGO_LIGHT}'">
+      <img src="${darkLogo}" alt="${getDisplayName()} Logo" data-school-logo data-brand-logo-dark class="h-10 w-10 object-contain hidden dark:block" onerror="this.onerror=null;this.src='${LOGO_DARK}'">
     `;
     container.prepend(wrapper);
   }
@@ -183,12 +211,13 @@
     const schoolLogo = getLogoSource();
     const lightLogo = schoolLogo || LOGO_LIGHT;
     const darkLogo = schoolLogo || LOGO_DARK;
-    document.querySelectorAll('img[alt="Logo"], img[alt="Shule AI Logo"], img[data-brand-logo-light], img[data-brand-logo-dark], img[data-school-logo]').forEach((img) => {
+    document.querySelectorAll('img[alt="Logo"], img[alt="Shule AI Logo"], img[data-brand-logo-light], img[data-brand-logo-dark], img[data-school-logo], .brand-logo-pair img').forEach((img) => {
       const isDarkLogo = img.classList.contains('dark:block') || img.dataset.brandLogoDark !== undefined || /dark/i.test(img.src || '');
       img.src = isDarkLogo ? darkLogo : lightLogo;
       img.alt = `${getDisplayName()} Logo`;
       img.loading = 'eager';
       img.decoding = 'async';
+      img.setAttribute('data-school-logo', 'true');
       img.onerror = function(){ this.onerror = null; this.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT; };
     });
 
@@ -198,9 +227,24 @@
 
   function applyColors() {
     const colors = getColorPreset();
+    const primaryHsl = hexToHslParts(colors.primaryColor);
+    const accentHsl = hexToHslParts(colors.accentColor);
     document.documentElement.style.setProperty('--school-primary-color', colors.primaryColor);
     document.documentElement.style.setProperty('--school-accent-color', colors.accentColor);
+    // Also update the app's actual CSS variables used by Tailwind classes like
+    // bg-primary/text-primary/ring-primary. V98 only set custom school vars, so
+    // many visible buttons/cards never changed color.
+    if (primaryHsl) {
+      document.documentElement.style.setProperty('--primary', primaryHsl);
+      document.documentElement.style.setProperty('--ring', primaryHsl);
+      document.documentElement.style.setProperty('--sidebar-primary', primaryHsl);
+    }
+    if (accentHsl) {
+      document.documentElement.style.setProperty('--accent-brand', accentHsl);
+      document.documentElement.style.setProperty('--sidebar-ring', accentHsl);
+    }
     document.documentElement.setAttribute('data-school-color-name', colors.colorName);
+    document.body?.setAttribute('data-school-color-name', colors.colorName);
   }
 
   function applyReportBrandingHelpers() {

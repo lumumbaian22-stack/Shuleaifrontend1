@@ -133,7 +133,7 @@
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"><div><h2 class="text-2xl font-bold">School Branding</h2><p class="text-muted-foreground">Set school name, logo, colors, report footer and parent payment instructions from one place.</p></div><span class="text-xs px-3 py-1 rounded-full bg-primary/10 text-primary">Changes apply to this school only</span></div>
       <form onsubmit="return window.saveOwnerBranding(event)" class="rounded-xl border bg-card p-6 space-y-6">
         <section class="branding-block rounded-xl border bg-muted/20 p-4 space-y-4"><h3 class="font-semibold">1. School identity</h3><label class="block"><span class="text-sm font-medium">School display name</span><input name="schoolName" value="${escape(b.schoolName || b.name || '')}" placeholder="e.g. Green Valley Academy" class="mt-1 w-full rounded-lg border bg-background p-3"></label><p class="text-xs text-muted-foreground">This replaces the old dashboard school-name request area. It updates the sidebar, reports and school identity areas after saving.</p></section>
-        <section class="branding-block rounded-xl border bg-muted/20 p-4 space-y-4"><h3 class="font-semibold">2. School logo</h3><div class="flex flex-col sm:flex-row gap-4 items-start"><div class="branding-logo-preview h-24 w-24 rounded-xl border bg-background flex items-center justify-center overflow-hidden">${currentLogo ? `<img src="${escape(currentLogo)}" class="h-full w-full object-contain" onerror="this.replaceWith(document.createTextNode('Shule AI'))">` : `<span class="text-xs text-muted-foreground text-center px-2">Shule AI default logo</span>`}</div><div class="flex-1 space-y-3"><label class="block"><span class="text-sm font-medium">Upload logo file</span><input type="file" name="logoFile" accept="image/*" class="mt-1 w-full rounded-lg border bg-background p-3"></label><label class="block"><span class="text-sm font-medium">Or enter logo URL</span><input name="logoUrl" value="${escape(b.logoUrl || '')}" placeholder="https://example.com/logo.png" class="mt-1 w-full rounded-lg border bg-background p-3"></label><p class="text-xs text-muted-foreground">Uploaded logos are stored inside the school branding data so they do not disappear after Render restarts. If no logo is provided, Shule AI logo is used.</p></div></div></section>
+        <section class="branding-block rounded-xl border bg-muted/20 p-4 space-y-4"><h3 class="font-semibold">2. School logo</h3><div class="flex flex-col sm:flex-row gap-4 items-start"><div class="branding-logo-preview h-24 w-24 rounded-xl border bg-background flex items-center justify-center overflow-hidden" data-branding-logo-preview>${currentLogo ? `<img src="${escape(currentLogo)}" class="h-full w-full object-contain" onerror="this.replaceWith(document.createTextNode('Shule AI'))">` : `<span class="text-xs text-muted-foreground text-center px-2">Shule AI default logo</span>`}</div><div class="flex-1 space-y-3"><label class="block"><span class="text-sm font-medium">Upload logo file</span><input type="file" name="logoFile" accept="image/*" onchange="window.previewOwnerLogoFile && window.previewOwnerLogoFile(this)" class="mt-1 w-full rounded-lg border bg-background p-3"></label><label class="block"><span class="text-sm font-medium">Or enter logo URL</span><input name="logoUrl" value="${escape(b.logoUrl || '')}" placeholder="https://example.com/logo.png" class="mt-1 w-full rounded-lg border bg-background p-3"></label><p class="text-xs text-muted-foreground">Uploaded logos are stored inside the school branding data so they do not disappear after Render restarts. If no logo is provided, Shule AI logo is used.</p></div></div></section>
         <section class="branding-block rounded-xl border bg-muted/20 p-4 space-y-4"><h3 class="font-semibold">3. School colors</h3><label class="block"><span class="text-sm font-medium">Color theme name</span><select name="colorName" class="mt-1 w-full rounded-lg border bg-background p-3">${colors.map(c=>`<option value="${c}" ${String(b.colorName||'Shule Blue')===c?'selected':''}>${c}</option>`).join('')}</select></label><p class="text-xs text-muted-foreground">No colour codes needed. The selected color theme controls school accents like active sidebar highlights, buttons, report card header line and small dashboard highlights while keeping text readable in dark/light mode.</p></section>
         <section class="branding-block rounded-xl border bg-muted/20 p-4 space-y-4"><h3 class="font-semibold">4. Report card footer</h3><textarea name="reportFooter" class="mt-1 w-full rounded-lg border bg-background p-3 min-h-[90px]" placeholder="e.g. Discipline, Excellence and Service. Principal signature: ________">${escape(b.reportFooter || '')}</textarea><p class="text-xs text-muted-foreground">Appears at the bottom of report cards and printable report forms only.</p></section>
         <section class="branding-block rounded-xl border bg-muted/20 p-4 space-y-4"><h3 class="font-semibold">5. Parent payment instructions</h3><textarea name="paymentInstructions" class="mt-1 w-full rounded-lg border bg-background p-3 min-h-[110px]" placeholder="Tell parents how to pay fees, account reference format, bank notes, office/cash instructions...">${escape(b.paymentInstructions || '')}</textarea><p class="text-xs text-muted-foreground">Shown to parents in Pay School Fees. It should include only public information, never Daraja secrets.</p></section>
@@ -171,7 +171,10 @@
         response = await logoRes.json().catch(() => ({}));
         if (!logoRes.ok) throw new Error(response.message || 'Logo upload failed');
       }
-      const branding = response.data || {};
+      let branding = response.data || {};
+      if (window.BrandingManager?.loadSchoolBranding) {
+        branding = await window.BrandingManager.loadSchoolBranding().catch(() => branding);
+      }
       localStorage.setItem('schoolBranding', JSON.stringify(branding));
       window.schoolBranding = branding;
       if (branding.schoolName || branding.name) {
@@ -184,15 +187,45 @@
     catch(e){ showToast?.(e.message || 'Branding update failed', 'error'); }
     return false;
   };
+  w.previewOwnerLogoFile = function(input){
+    const file = input?.files?.[0];
+    const form = input?.form;
+    const preview = form?.querySelector('[data-branding-logo-preview]') || document.querySelector('[data-branding-logo-preview]');
+    if (!file || !preview) return;
+    if (!/^image\//.test(file.type || '')) {
+      showToast?.('Please choose an image logo file.', 'error');
+      input.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast?.('Logo is too large. Please use an image under 2MB.', 'error');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(){
+      const src = String(reader.result || '');
+      preview.innerHTML = `<img src="${src}" class="h-full w-full object-contain" data-local-logo-preview>`;
+      window.schoolBranding = { ...(window.schoolBranding || {}), logoDataUrl: src, logoUrl: '' };
+      localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding));
+      window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding }));
+      if (window.BrandingManager?.apply) window.BrandingManager.apply();
+    };
+    reader.readAsDataURL(file);
+  };
+
   w.previewOwnerBranding = function(form){
     const fd = new FormData(form);
+    const localLogo = form.querySelector('[data-local-logo-preview]')?.getAttribute('src') || '';
     const branding = {
       schoolName: String(fd.get('schoolName') || '').trim(),
       colorName: String(fd.get('colorName') || 'Shule Blue').trim(),
       logoUrl: String(fd.get('logoUrl') || '').trim(),
+      logoDataUrl: localLogo || (window.schoolBranding && window.schoolBranding.logoDataUrl) || '',
       reportFooter: String(fd.get('reportFooter') || '').trim(),
       paymentInstructions: String(fd.get('paymentInstructions') || '').trim()
     };
+    if (branding.logoUrl) branding.logoDataUrl = '';
     window.schoolBranding = { ...(window.schoolBranding || {}), ...branding };
     localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding));
     window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding }));

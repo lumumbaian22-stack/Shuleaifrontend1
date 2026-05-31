@@ -18,3 +18,37 @@
   .branding-v98 form { padding: 1rem; }
   .branding-v98 .sticky { margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem; }
 }
+
+/* V99 real branding application fixes */
+body[data-school-color-name] #sidebar .nav-item.active,
+body[data-school-color-name] #sidebar [data-section].active,
+body[data-school-color-name] .nav-item.active,
+body[data-school-color-name] .mobile-nav-item.active {
+  color: var(--school-primary-color) !important;
+  border-left-color: var(--school-accent-color) !important;
+}
+body[data-school-color-name] .bg-primary,
+body[data-school-color-name] button.bg-primary,
+body[data-school-color-name] .school-brand-primary-bg {
+  background-color: var(--school-primary-color) !important;
+}
+body[data-school-color-name] .text-primary,
+body[data-school-color-name] .school-brand-primary-text {
+  color: var(--school-primary-color) !important;
+}
+body[data-school-color-name] .ring-primary,
+body[data-school-color-name] .focus\:ring-ring:focus,
+body[data-school-color-name] input:focus,
+body[data-school-color-name] select:focus,
+body[data-school-color-name] textarea:focus {
+  --tw-ring-color: var(--school-accent-color) !important;
+  border-color: var(--school-accent-color) !important;
+}
+body[data-school-color-name] #sidebar-school-name {
+  background-image: linear-gradient(90deg, var(--school-primary-color), var(--school-accent-color)) !important;
+}
+.branding-logo-preview img,
+.brand-logo-pair img,
+img[data-school-logo] {
+  object-fit: contain;
+}
