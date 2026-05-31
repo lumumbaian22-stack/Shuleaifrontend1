@@ -52,3 +52,119 @@ body[data-school-color-name] #sidebar-school-name {
 img[data-school-logo] {
   object-fit: contain;
 }
+
+/* V100 school branding runtime fix: sidebar-only logo + broad visible accent application */
+#sidebar-logo-light,
+#sidebar-logo-dark,
+#sidebar [data-school-logo],
+[data-report-school-logo],
+[data-school-logo-watermark] {
+  object-fit: contain !important;
+  max-width: 100%;
+  max-height: 100%;
+}
+/* Do not style/replace landing/platform logo targets here; school branding is dashboard/report scoped. */
+body[data-school-color-name] .bg-primary,
+body[data-school-color-name] button.bg-primary,
+body[data-school-color-name] .btn-primary,
+body[data-school-color-name] .school-brand-primary-bg,
+body[data-school-color-name] [data-brand-button="primary"] {
+  background-color: var(--school-primary-color) !important;
+  border-color: var(--school-primary-color) !important;
+  color: #fff !important;
+}
+body[data-school-color-name] .text-primary,
+body[data-school-color-name] .school-brand-primary-text,
+body[data-school-color-name] [data-brand-text="primary"] {
+  color: var(--school-primary-color) !important;
+}
+body[data-school-color-name] .border-primary,
+body[data-school-color-name] .school-brand-primary-border {
+  border-color: var(--school-primary-color) !important;
+}
+body[data-school-color-name] #sidebar-school-name {
+  background-image: linear-gradient(90deg, var(--school-primary-color), var(--school-accent-color)) !important;
+}
+body[data-school-color-name] #sidebar .nav-item.active,
+body[data-school-color-name] #sidebar [data-section].active,
+body[data-school-color-name] .mobile-nav-item.active {
+  color: var(--school-primary-color) !important;
+  border-left-color: var(--school-accent-color) !important;
+}
+body[data-school-color-name] input:focus,
+body[data-school-color-name] select:focus,
+body[data-school-color-name] textarea:focus,
+body[data-school-color-name] .focus\:ring-ring:focus {
+  --tw-ring-color: var(--school-accent-color) !important;
+  border-color: var(--school-accent-color) !important;
+}
+
+/* V101 branding stability: stop flicker, make dark-mode school logo visible, apply named colors broadly */
+#sidebar-logo-light,
+#sidebar-logo-dark,
+.school-sidebar-logo,
+#sidebar [data-school-logo] {
+  transition: none !important;
+  animation: none !important;
+  opacity: 1 !important;
+  object-fit: contain !important;
+  background: transparent !important;
+}
+html:not(.dark) #sidebar-logo-light { display: block !important; }
+html:not(.dark) #sidebar-logo-dark { display: none !important; }
+html.dark #sidebar-logo-light,
+.dark #sidebar-logo-light { display: none !important; }
+html.dark #sidebar-logo-dark,
+.dark #sidebar-logo-dark { display: block !important; }
+
+body[data-school-color-name] #sidebar .nav-item.active,
+body[data-school-color-name] #sidebar [data-section].active,
+body[data-school-color-name] .mobile-nav-item.active,
+body[data-school-color-name] .sidebar-item.active {
+  color: var(--school-primary-color) !important;
+  background: color-mix(in srgb, var(--school-primary-color) 10%, transparent) !important;
+  border-left: 3px solid var(--school-accent-color) !important;
+}
+body[data-school-color-name] button.bg-primary,
+body[data-school-color-name] .bg-primary,
+body[data-school-color-name] .btn-primary,
+body[data-school-color-name] [data-brand-button="primary"],
+body[data-school-color-name] .school-brand-primary-bg {
+  background-color: var(--school-primary-color) !important;
+  border-color: var(--school-primary-color) !important;
+  color: #fff !important;
+}
+body[data-school-color-name] button.bg-blue-600,
+body[data-school-color-name] .bg-blue-600,
+body[data-school-color-name] .bg-blue-700,
+body[data-school-color-name] .hover\:bg-blue-700:hover,
+body[data-school-color-name] .hover\:bg-primary\/90:hover {
+  background-color: var(--school-primary-color) !important;
+  border-color: var(--school-primary-color) !important;
+  color: #fff !important;
+}
+body[data-school-color-name] .text-primary,
+body[data-school-color-name] .text-blue-600,
+body[data-school-color-name] .school-brand-primary-text,
+body[data-school-color-name] [data-brand-text="primary"] {
+  color: var(--school-primary-color) !important;
+}
+body[data-school-color-name] .border-primary,
+body[data-school-color-name] .border-blue-600,
+body[data-school-color-name] .school-brand-primary-border {
+  border-color: var(--school-primary-color) !important;
+}
+body[data-school-color-name] .from-blue-500.to-violet-600,
+body[data-school-color-name] .from-blue-600.to-teal-500,
+body[data-school-color-name] .bg-gradient-to-r.school-brand-gradient,
+body[data-school-color-name] .bg-gradient-to-br.school-brand-gradient {
+  background-image: linear-gradient(135deg, var(--school-primary-color), var(--school-accent-color)) !important;
+}
+body[data-school-color-name] input:focus,
+body[data-school-color-name] select:focus,
+body[data-school-color-name] textarea:focus,
+body[data-school-color-name] .focus\:ring-ring:focus {
+  --tw-ring-color: var(--school-accent-color) !important;
+  border-color: var(--school-accent-color) !important;
+  outline-color: var(--school-accent-color) !important;
+}

@@ -1,15 +1,14 @@
 /*
- * Shule AI Branding Manager
- * Single source of truth for platform/school identity across all dashboards.
- * This is a production module, not a patch: all old school-name helpers delegate here.
+ * Shule AI Branding Manager V101
+ * Stable branding runtime: no flicker, no logo fighting, dark-mode safe logo, visible school colors.
+ * One source of truth: window.schoolBranding/localStorage + backend /api/owner/branding.
  */
 (function () {
   'use strict';
 
-  const PLATFORM_NAME = 'Shule AI';
   const PLATFORM_SHORT_NAME = 'ShuleAI';
-  const LOGO_LIGHT = 'assets/logo-light.png';
-  const LOGO_DARK = 'assets/logo-dark.png';
+  const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png';
+  const PLATFORM_LOGO_DARK = 'assets/logo-dark.png';
   const BRAND_COLOR_PRESETS = {
     'Shule Blue': { primaryColor: '#083A85', accentColor: '#11B5B1' },
     'Royal Blue': { primaryColor: '#0B2F6B', accentColor: '#3B82F6' },
@@ -21,134 +20,89 @@
     'Slate': { primaryColor: '#334155', accentColor: '#64748B' }
   };
 
+  let applying = false;
+  let applyTimer = null;
+  let lastAppliedHash = '';
+  let loadedOnce = false;
+
   function safeParse(value, fallback = null) {
-    try {
-      return value ? JSON.parse(value) : fallback;
-    } catch (_) {
-      return fallback;
-    }
+    try { return value ? JSON.parse(value) : fallback; } catch (_) { return fallback; }
   }
+
+  function clean(value) { return typeof value === 'string' ? value.trim() : ''; }
 
   function getStoredUser() {
     if (typeof window.getCurrentUser === 'function') {
-      const user = window.getCurrentUser();
-      if (user && Object.keys(user).length) return user;
+      const u = window.getCurrentUser();
+      if (u && Object.keys(u).length) return u;
     }
-    return safeParse(localStorage.getItem('user'), null) || {};
+    return safeParse(localStorage.getItem('user'), {}) || {};
   }
 
   function getStoredSchool() {
     if (typeof window.getCurrentSchool === 'function') {
-      const school = window.getCurrentSchool();
-      if (school && Object.keys(school).length) return school;
+      const s = window.getCurrentSchool();
+      if (s && Object.keys(s).length) return s;
     }
-    return safeParse(localStorage.getItem('school'), null) || null;
+    return safeParse(localStorage.getItem('school'), null) || window.currentSchool || null;
   }
 
   function getStoredSettings() {
-    return (
-      window.schoolSettings ||
-      safeParse(localStorage.getItem('schoolSettings'), null) ||
-      {}
-    );
+    return window.schoolSettings || safeParse(localStorage.getItem('schoolSettings'), {}) || {};
   }
 
   function getStoredBranding() {
-    const direct = window.schoolBranding || safeParse(localStorage.getItem('schoolBranding'), null) || {};
     const school = getStoredSchool();
     const settings = getStoredSettings();
+    const direct = window.schoolBranding || safeParse(localStorage.getItem('schoolBranding'), {}) || {};
     return { ...(school?.settings?.branding || {}), ...(settings?.branding || {}), ...direct };
   }
 
-  function getLogoSource() {
-    const branding = getStoredBranding();
-    return branding.logoDataUrl || branding.logoUrl || branding.logo || '';
-  }
-
-  function getColorPreset() {
-    const branding = getStoredBranding();
-    const name = branding.colorName && BRAND_COLOR_PRESETS[branding.colorName] ? branding.colorName : 'Shule Blue';
-    const preset = BRAND_COLOR_PRESETS[name];
-    return { colorName: name, primaryColor: branding.primaryColor || preset.primaryColor, accentColor: branding.accentColor || preset.accentColor };
-  }
-
-  function cleanName(value) {
-    return typeof value === 'string' ? value.trim() : '';
+  function isSuperAdmin() {
+    const u = getStoredUser();
+    const role = String(u?.role || localStorage.getItem('userRole') || '').toLowerCase();
+    return role === 'superadmin' || role === 'super_admin';
   }
 
   function getSchoolNameFromAnySource() {
-    const school = getStoredSchool();
-    const settings = getStoredSettings();
-    const user = getStoredUser();
-    const dashboardData = window.dashboardData || window.studentDashboardData || {};
-
-    return (
-      cleanName(getStoredBranding()?.schoolName) ||
-      cleanName(getStoredBranding()?.displayName) ||
-      cleanName(getStoredBranding()?.name) ||
-      cleanName(dashboardData?.school?.name) ||
-      cleanName(dashboardData?.schoolName) ||
-      cleanName(dashboardData?.student?.school?.name) ||
-      cleanName(school?.name) ||
-      cleanName(school?.schoolName) ||
-      cleanName(school?.settings?.schoolName) ||
-      cleanName(settings.schoolName) ||
-      cleanName(settings.name) ||
-      cleanName(user?.school?.name) ||
-      cleanName(user?.schoolName) ||
-      cleanName(user?.student?.school?.name) ||
-      cleanName(user?.teacher?.school?.name) ||
-      cleanName(user?.parent?.school?.name) ||
-      ''
-    );
+    const b = getStoredBranding();
+    const s = getStoredSchool();
+    const st = getStoredSettings();
+    const u = getStoredUser();
+    const d = window.dashboardData || window.studentDashboardData || {};
+    return clean(b.schoolName) || clean(b.displayName) || clean(b.name) ||
+      clean(d?.school?.name) || clean(d?.schoolName) || clean(d?.student?.school?.name) ||
+      clean(s?.name) || clean(s?.schoolName) || clean(s?.settings?.schoolName) ||
+      clean(st.schoolName) || clean(st.name) || clean(u?.school?.name) || clean(u?.schoolName) ||
+      clean(u?.student?.school?.name) || clean(u?.teacher?.school?.name) || clean(u?.parent?.school?.name) || '';
   }
 
-  function isSchoolBranded() {
-    const school = getStoredSchool();
-    const settings = getStoredSettings();
-    const user = getStoredUser();
-    const role = user?.role || localStorage.getItem('userRole');
-    const hasSchoolName = !!getSchoolNameFromAnySource();
+  function isSchoolBranded() { return !isSuperAdmin() && !!getSchoolNameFromAnySource(); }
+  function getDisplayName() { return isSchoolBranded() ? getSchoolNameFromAnySource() : PLATFORM_SHORT_NAME; }
 
-    if (role === 'superadmin') return false;
-    if (school?.status === 'active' && hasSchoolName) return true;
-    const dashboardData = window.dashboardData || window.studentDashboardData || {};
-    if (dashboardData?.schoolName || dashboardData?.school?.name || dashboardData?.student?.school?.name) return true;
-    if (settings.schoolName || settings.name) return true;
-    if (user?.schoolName || user?.school?.name) return true;
-    if (user?.student?.school?.name || user?.teacher?.school?.name || user?.parent?.school?.name) return true;
-    return false;
+  function getLogoSource() {
+    const b = getStoredBranding();
+    return clean(b.logoDataUrl) || clean(b.logoUrl) || clean(b.logo) || '';
   }
 
-  function getDisplayName() {
-    return isSchoolBranded() ? getSchoolNameFromAnySource() : PLATFORM_SHORT_NAME;
+  function currentMode() { return document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
+
+  function getLogoForMode(mode) {
+    const schoolLogo = getLogoSource();
+    if (schoolLogo && !isSuperAdmin()) return schoolLogo;
+    // Use light logo if dark logo is not visually suitable. Keep dark asset only if no school logo.
+    return mode === 'dark' ? PLATFORM_LOGO_DARK : PLATFORM_LOGO_LIGHT;
   }
 
-  function syncStoredSchoolName(newName) {
-    const name = cleanName(newName);
-    if (!name) return;
-
-    const school = safeParse(localStorage.getItem('school'), null);
-    if (school && typeof school === 'object') {
-      school.name = name;
-      school.schoolName = name;
-      school.settings = { ...(school.settings || {}), schoolName: name };
-      localStorage.setItem('school', JSON.stringify(school));
-      window.currentSchool = school;
-    }
-
-    const settings = safeParse(localStorage.getItem('schoolSettings'), {}) || {};
-    settings.schoolName = name;
-    settings.name = settings.name || name;
-    localStorage.setItem('schoolSettings', JSON.stringify(settings));
-    window.schoolSettings = { ...(window.schoolSettings || {}), ...settings };
-  }
-
-  function setText(selector, value) {
-    document.querySelectorAll(selector).forEach((el) => {
-      el.textContent = value;
-      el.setAttribute('title', value);
-    });
+  function normalizeColorPreset() {
+    const b = getStoredBranding();
+    const name = b.colorName && BRAND_COLOR_PRESETS[b.colorName] ? b.colorName : 'Shule Blue';
+    const preset = BRAND_COLOR_PRESETS[name];
+    return {
+      colorName: name,
+      primaryColor: /^#[0-9a-f]{6}$/i.test(String(b.primaryColor || '')) ? b.primaryColor : preset.primaryColor,
+      accentColor: /^#[0-9a-f]{6}$/i.test(String(b.accentColor || '')) ? b.accentColor : preset.accentColor
+    };
   }
 
   function hexToHslParts(hex) {
@@ -172,79 +126,125 @@
     return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
   }
 
-  function ensureLogoPair(container) {
-    if (!container) return;
-    const schoolLogo = getLogoSource();
-    const lightLogo = schoolLogo || LOGO_LIGHT;
-    const darkLogo = schoolLogo || LOGO_DARK;
-
-    // Do NOT inject a new logo if the approved sidebar already has one.
-    // Important: keep the school logo here; the previous version reset the
-    // existing sidebar images back to Shule AI after applyLogos(), which is why
-    // uploaded logos did not appear in the sidebar.
-    const existingImgs = Array.from(container.querySelectorAll('img'));
-    if (existingImgs.length) {
-      existingImgs.forEach((img, index) => {
-        const isDarkLogo = img.classList.contains('dark:block') || img.dataset.brandLogoDark !== undefined || index === 1 || /dark/i.test(img.src || '');
-        img.src = isDarkLogo ? darkLogo : lightLogo;
-        img.alt = `${getDisplayName()} Logo`;
-        img.loading = 'eager';
-        img.decoding = 'async';
-        img.setAttribute('data-school-logo', 'true');
-        if (isDarkLogo) img.setAttribute('data-brand-logo-dark', 'true');
-        else img.setAttribute('data-brand-logo-light', 'true');
-        img.onerror = function(){ this.onerror = null; this.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT; };
-      });
-      return;
+  function syncStoredSchoolName(newName) {
+    const name = clean(newName);
+    if (!name) return;
+    const school = safeParse(localStorage.getItem('school'), null);
+    if (school && typeof school === 'object') {
+      school.name = name;
+      school.schoolName = name;
+      school.settings = { ...(school.settings || {}), schoolName: name };
+      localStorage.setItem('school', JSON.stringify(school));
+      window.currentSchool = school;
     }
+    const settings = safeParse(localStorage.getItem('schoolSettings'), {}) || {};
+    settings.schoolName = name;
+    settings.name = settings.name || name;
+    localStorage.setItem('schoolSettings', JSON.stringify(settings));
+    window.schoolSettings = { ...(window.schoolSettings || {}), ...settings };
+  }
 
-    const wrapper = document.createElement('span');
-    wrapper.className = 'brand-logo-pair inline-flex items-center shrink-0';
-    wrapper.innerHTML = `
-      <img src="${lightLogo}" alt="${getDisplayName()} Logo" data-school-logo data-brand-logo-light class="h-10 w-10 object-contain block dark:hidden" onerror="this.onerror=null;this.src='${LOGO_LIGHT}'">
-      <img src="${darkLogo}" alt="${getDisplayName()} Logo" data-school-logo data-brand-logo-dark class="h-10 w-10 object-contain hidden dark:block" onerror="this.onerror=null;this.src='${LOGO_DARK}'">
-    `;
-    container.prepend(wrapper);
+  function setText(selector, value) {
+    document.querySelectorAll(selector).forEach((el) => {
+      if (el.textContent !== value) el.textContent = value;
+      if (el.getAttribute('title') !== value) el.setAttribute('title', value);
+    });
+  }
+
+  function ensureSidebarLogoElements() {
+    const sidebarName = document.getElementById('sidebar-school-name');
+    const container = sidebarName?.parentElement;
+    if (!container) return [];
+    let light = document.getElementById('sidebar-logo-light') || container.querySelector('[data-brand-logo-light]');
+    let dark = document.getElementById('sidebar-logo-dark') || container.querySelector('[data-brand-logo-dark]');
+    if (!light) {
+      light = document.createElement('img');
+      light.id = 'sidebar-logo-light';
+      light.className = 'h-10 w-10 object-contain block dark:hidden school-sidebar-logo';
+      light.setAttribute('data-school-logo', 'true');
+      light.setAttribute('data-brand-logo-light', 'true');
+      container.insertBefore(light, container.firstChild);
+    }
+    if (!dark) {
+      dark = document.createElement('img');
+      dark.id = 'sidebar-logo-dark';
+      dark.className = 'h-10 w-10 object-contain hidden dark:block school-sidebar-logo';
+      dark.setAttribute('data-school-logo', 'true');
+      dark.setAttribute('data-brand-logo-dark', 'true');
+      container.insertBefore(dark, light.nextSibling);
+    }
+    return [light, dark];
+  }
+
+  function setImageStable(img, src, fallback, alt) {
+    if (!img || !src) return;
+    if (img.dataset.appliedBrandSrc === src && img.getAttribute('src') === src) return;
+    img.dataset.appliedBrandSrc = src;
+    img.setAttribute('alt', alt);
+    img.loading = 'eager';
+    img.decoding = 'async';
+    img.onerror = function () {
+      this.onerror = null;
+      if (this.getAttribute('src') !== fallback) {
+        this.dataset.appliedBrandSrc = fallback;
+        this.setAttribute('src', fallback);
+      }
+    };
+    img.setAttribute('src', src);
   }
 
   function applyLogos() {
+    const [light, dark] = ensureSidebarLogoElements();
+    const name = `${getDisplayName()} Logo`;
     const schoolLogo = getLogoSource();
-    const lightLogo = schoolLogo || LOGO_LIGHT;
-    const darkLogo = schoolLogo || LOGO_DARK;
-    document.querySelectorAll('img[alt="Logo"], img[alt="Shule AI Logo"], img[data-brand-logo-light], img[data-brand-logo-dark], img[data-school-logo], .brand-logo-pair img').forEach((img) => {
-      const isDarkLogo = img.classList.contains('dark:block') || img.dataset.brandLogoDark !== undefined || /dark/i.test(img.src || '');
-      img.src = isDarkLogo ? darkLogo : lightLogo;
-      img.alt = `${getDisplayName()} Logo`;
-      img.loading = 'eager';
-      img.decoding = 'async';
+    const lightSrc = schoolLogo && !isSuperAdmin() ? schoolLogo : PLATFORM_LOGO_LIGHT;
+    const darkSrc = schoolLogo && !isSuperAdmin() ? schoolLogo : PLATFORM_LOGO_DARK;
+
+    setImageStable(light, lightSrc, PLATFORM_LOGO_LIGHT, name);
+    setImageStable(dark, darkSrc, PLATFORM_LOGO_LIGHT, name); // dark fallback uses visible light asset to avoid disappearing
+
+    document.querySelectorAll('[data-report-school-logo], [data-school-logo-watermark]').forEach((img) => {
+      const src = schoolLogo && !isSuperAdmin() ? schoolLogo : PLATFORM_LOGO_LIGHT;
+      setImageStable(img, src, PLATFORM_LOGO_LIGHT, name);
       img.setAttribute('data-school-logo', 'true');
-      img.onerror = function(){ this.onerror = null; this.src = isDarkLogo ? LOGO_DARK : LOGO_LIGHT; };
     });
 
-    const sidebarName = document.getElementById('sidebar-school-name');
-    if (sidebarName?.parentElement) ensureLogoPair(sidebarName.parentElement);
+    document.querySelectorAll('[data-branding-logo-preview]').forEach((box) => {
+      if (box.dataset.localPreview === 'true') return;
+      const logo = getLogoSource();
+      const existing = box.querySelector('img');
+      if (logo) {
+        if (!existing || existing.getAttribute('src') !== logo) {
+          box.innerHTML = `<img src="${String(logo).replace(/"/g, '&quot;')}" class="h-full w-full object-contain" alt="School logo preview" onerror="this.replaceWith(document.createTextNode('Logo unavailable'))">`;
+        }
+      } else if (!box.textContent.includes('Shule AI default logo')) {
+        box.innerHTML = `<span class="text-xs text-muted-foreground text-center px-2">Shule AI default logo</span>`;
+      }
+    });
   }
 
   function applyColors() {
-    const colors = getColorPreset();
+    const colors = normalizeColorPreset();
     const primaryHsl = hexToHslParts(colors.primaryColor);
     const accentHsl = hexToHslParts(colors.accentColor);
-    document.documentElement.style.setProperty('--school-primary-color', colors.primaryColor);
-    document.documentElement.style.setProperty('--school-accent-color', colors.accentColor);
-    // Also update the app's actual CSS variables used by Tailwind classes like
-    // bg-primary/text-primary/ring-primary. V98 only set custom school vars, so
-    // many visible buttons/cards never changed color.
+    const root = document.documentElement;
+    root.style.setProperty('--school-primary-color', colors.primaryColor);
+    root.style.setProperty('--school-accent-color', colors.accentColor);
+    root.style.setProperty('--school-primary-hsl', primaryHsl || '217 91% 60%');
+    root.style.setProperty('--school-accent-hsl', accentHsl || '174 82% 39%');
     if (primaryHsl) {
-      document.documentElement.style.setProperty('--primary', primaryHsl);
-      document.documentElement.style.setProperty('--ring', primaryHsl);
-      document.documentElement.style.setProperty('--sidebar-primary', primaryHsl);
+      root.style.setProperty('--primary', primaryHsl);
+      root.style.setProperty('--ring', primaryHsl);
+      root.style.setProperty('--sidebar-primary', primaryHsl);
     }
     if (accentHsl) {
-      document.documentElement.style.setProperty('--accent-brand', accentHsl);
-      document.documentElement.style.setProperty('--sidebar-ring', accentHsl);
+      root.style.setProperty('--sidebar-ring', accentHsl);
+      root.style.setProperty('--brand-accent-hsl', accentHsl);
     }
-    document.documentElement.setAttribute('data-school-color-name', colors.colorName);
     document.body?.setAttribute('data-school-color-name', colors.colorName);
+    document.body?.style.setProperty('--school-primary-color', colors.primaryColor);
+    document.body?.style.setProperty('--school-accent-color', colors.accentColor);
+    root.setAttribute('data-school-color-name', colors.colorName);
   }
 
   function applyReportBrandingHelpers() {
@@ -253,130 +253,131 @@
     document.documentElement.setAttribute('data-payment-instructions', branding.paymentInstructions || '');
   }
 
-  function applyThemeToggleVisibility() {
-    const themeButtons = document.querySelectorAll('button[onclick="toggleTheme()"], #global-theme-toggle, .theme-toggle-btn');
-    themeButtons.forEach((button) => {
-      button.id = button.id || 'global-theme-toggle';
-      button.classList.add('theme-toggle-btn');
-      button.setAttribute('aria-label', 'Toggle dark/light mode');
-      button.style.color = 'hsl(var(--foreground))';
-      button.style.border = button.style.border || '1px solid hsl(var(--border))';
-      button.style.backgroundColor = 'hsl(var(--background))';
+  function buildHash(displayName) {
+    const b = getStoredBranding();
+    const colors = normalizeColorPreset();
+    return JSON.stringify({
+      name: displayName || getDisplayName(),
+      logo: getLogoSource(),
+      colorName: colors.colorName,
+      primaryColor: colors.primaryColor,
+      accentColor: colors.accentColor,
+      dark: currentMode(),
+      footer: b.reportFooter || '',
+      pay: b.paymentInstructions || ''
     });
   }
 
-  function apply(newName) {
+  function apply(newName, opts = {}) {
+    if (applying) return getDisplayName();
     if (newName) syncStoredSchoolName(newName);
-    const displayName = newName ? cleanName(newName) : getDisplayName();
-
-    applyLogos();
-    applyColors();
-    applyReportBrandingHelpers();
-    applyThemeToggleVisibility();
-
-    setText('#sidebar-school-name', displayName);
-    setText('#school-name', displayName);
-    setText('#dashboard-school-name', displayName);
-    setText('#teacher-school-name', displayName);
-    setText('#parent-school-name', displayName);
-    setText('#parent-school-name-progress', displayName);
-    setText('#parent-school-name-payments', displayName);
-    setText('#student-school-name', displayName);
-    setText('.school-name, .school-name-display, [data-school-name], .profile-school-name', displayName);
-
-    document.documentElement.setAttribute('data-brand-name', displayName);
-    document.body?.setAttribute('data-brand-name', displayName);
-    return displayName;
+    const displayName = newName ? clean(newName) : getDisplayName();
+    const hash = buildHash(displayName);
+    if (!opts.force && hash === lastAppliedHash) return displayName;
+    applying = true;
+    try {
+      applyColors();
+      applyLogos();
+      applyReportBrandingHelpers();
+      setText('#sidebar-school-name', displayName);
+      setText('#school-name', displayName);
+      setText('#dashboard-school-name', displayName);
+      setText('#teacher-school-name', displayName);
+      setText('#parent-school-name', displayName);
+      setText('#parent-school-name-progress', displayName);
+      setText('#parent-school-name-payments', displayName);
+      setText('#student-school-name', displayName);
+      setText('.school-name, .school-name-display, [data-school-name], .profile-school-name', displayName);
+      document.documentElement.setAttribute('data-brand-name', displayName);
+      document.body?.setAttribute('data-brand-name', displayName);
+      lastAppliedHash = hash;
+      return displayName;
+    } finally {
+      applying = false;
+    }
   }
 
-  function updateAllSchoolNameElements(newName) {
-    return apply(newName);
-  }
-
-  function updateSidebarSchoolName(newName) {
-    return apply(newName);
-  }
-
-  let applyTimer = null;
-
-  function scheduleApply(newName) {
+  function scheduleApply(newName, delay = 80) {
     if (applyTimer) clearTimeout(applyTimer);
-    applyTimer = setTimeout(function () {
-      applyTimer = null;
-      apply(newName);
-    }, 30);
+    applyTimer = setTimeout(() => { applyTimer = null; apply(newName); }, delay);
   }
 
-  function observeDashboardContent() {
-    const targets = [document.getElementById('dashboard-content'), document.getElementById('dashboard-container')].filter(Boolean);
-    targets.forEach((target) => {
-      if (target.dataset.brandingObserved === 'true') return;
-      target.dataset.brandingObserved = 'true';
-      new MutationObserver(function () {
-        scheduleApply();
-      }).observe(target, { childList: true, subtree: true });
-    });
-  }
-
-  function boot() {
-    if (typeof window.apiRequest === 'function' && (localStorage.getItem('token') || localStorage.getItem('authToken'))) { loadSchoolBranding().finally(function(){ apply(); }); }
-    apply();
-    observeDashboardContent();
-    setTimeout(apply, 0);
-    setTimeout(apply, 250);
-    setTimeout(apply, 1000);
-  }
-
-  async function loadSchoolBranding() {
-    if (typeof window.apiRequest !== 'function') return getStoredBranding();
+  async function loadSchoolBranding(force = false) {
+    if (!force && loadedOnce) return getStoredBranding();
+    if (typeof window.apiRequest !== 'function') { apply(null, { force: true }); return getStoredBranding(); }
+    if (!(localStorage.getItem('token') || localStorage.getItem('authToken'))) { apply(null, { force: true }); return getStoredBranding(); }
     try {
       const res = await window.apiRequest('/api/owner/branding');
       const branding = res?.data || {};
+      loadedOnce = true;
       window.schoolBranding = branding;
       localStorage.setItem('schoolBranding', JSON.stringify(branding));
-      apply(branding.schoolName || branding.displayName || branding.name);
+      apply(branding.schoolName || branding.displayName || branding.name, { force: true });
       return branding;
-    } catch (_) { return getStoredBranding(); }
+    } catch (_) {
+      loadedOnce = true;
+      apply(null, { force: true });
+      return getStoredBranding();
+    }
+  }
+
+  function boot() {
+    if (boot.__ran) { scheduleApply(); return; }
+    boot.__ran = true;
+    loadSchoolBranding(false).finally(() => apply(null, { force: true }));
   }
 
   window.BrandingManager = {
-    platformName: PLATFORM_NAME,
     platformShortName: PLATFORM_SHORT_NAME,
+    colorPresets: BRAND_COLOR_PRESETS,
     getDisplayName,
     getStoredBranding,
-    loadSchoolBranding,
+    getLogoSource,
     getSchoolName: getSchoolNameFromAnySource,
     isSchoolBranded,
+    loadSchoolBranding,
     apply,
+    forceApply: (name) => apply(name, { force: true }),
+    updateAllSchoolNameElements: (name) => apply(name, { force: true }),
+    updateSidebarSchoolName: (name) => apply(name, { force: true }),
     syncStoredSchoolName,
-    updateAllSchoolNameElements,
-    updateSidebarSchoolName,
+    debug: () => ({ branding: getStoredBranding(), logo: getLogoSource(), colors: normalizeColorPreset(), name: getDisplayName(), hash: lastAppliedHash })
   };
 
-  window.updateAllSchoolNameElements = updateAllSchoolNameElements;
-  window.updateSidebarSchoolName = updateSidebarSchoolName;
+  window.updateAllSchoolNameElements = window.BrandingManager.updateAllSchoolNameElements;
+  window.updateSidebarSchoolName = window.BrandingManager.updateSidebarSchoolName;
   window.getCurrentBrandName = getDisplayName;
 
   window.addEventListener('DOMContentLoaded', boot);
-  window.addEventListener('load', boot);
-  window.addEventListener('school-branding-updated', function (event) {
+  window.addEventListener('load', () => scheduleApply(null, 150));
+  window.addEventListener('school-branding-updated', (event) => {
     const branding = event?.detail || {};
     window.schoolBranding = { ...(window.schoolBranding || {}), ...branding };
     try { localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); } catch (_) {}
-    apply(branding.schoolName || branding.displayName || branding.name);
+    apply(branding.schoolName || branding.displayName || branding.name, { force: true });
   });
-  window.addEventListener('school-name-changed', function (event) {
+  window.addEventListener('school-name-changed', (event) => {
     const nextName = event?.detail?.newName || event?.detail?.schoolName || event?.detail?.name;
-    apply(nextName);
+    apply(nextName, { force: true });
   });
-  window.addEventListener('storage', function (event) {
-    if (['school', 'schoolSettings', 'user', 'pendingSchoolNameChange'].includes(event.key)) {
-      if (event.key === 'pendingSchoolNameChange' && event.newValue) {
-        const payload = safeParse(event.newValue, {});
-        apply(payload.newName || payload.schoolName || payload.name);
-      } else {
-        apply();
-      }
+  window.addEventListener('themechange', () => apply(null, { force: true }));
+  const originalToggleTheme = window.toggleTheme;
+  setTimeout(() => {
+    if (typeof window.toggleTheme === 'function' && !window.toggleTheme.__brandingWrapped) {
+      const t = window.toggleTheme;
+      window.toggleTheme = function () {
+        const result = t.apply(this, arguments);
+        setTimeout(() => apply(null, { force: true }), 60);
+        return result;
+      };
+      window.toggleTheme.__brandingWrapped = true;
+    } else if (typeof originalToggleTheme === 'function' && !originalToggleTheme.__brandingWrapped) {
+      window.toggleTheme = function () {
+        const result = originalToggleTheme.apply(this, arguments);
+        setTimeout(() => apply(null, { force: true }), 60);
+        return result;
+      };
+      window.toggleTheme.__brandingWrapped = true;
     }
-  });
+  }, 0);
 })();

@@ -44,7 +44,7 @@
     <link rel="stylesheet" href="css/mobile-complete-v86.css">
     <link rel="stylesheet" href="css/shule-clean-consolidated-source.css">
     <link rel="stylesheet" href="css/owner-level-hardening.css">
-    <link rel="stylesheet" href="css/branding-v98.css">
+    <link rel="stylesheet" href="css/branding-v98.css?v=101">
     
     <script>
         tailwind.config = {
@@ -782,8 +782,8 @@
                 <!-- Sidebar Header -->
                 <div class="flex h-16 items-center border-b border-sidebar-border px-6">
                     <div class="flex items-center gap-3">
-                        <img src="assets/logo-light.png" alt="Logo" class="h-10 w-10 object-contain block dark:hidden">
-                        <img src="assets/logo-dark.png" alt="Logo" class="h-10 w-10 object-contain hidden dark:block">
+                        <img id="sidebar-logo-light" data-school-logo="true" data-brand-logo-light="true" src="assets/logo-light.png" alt="Shule AI Logo" class="h-10 w-10 object-contain block dark:hidden">
+                        <img id="sidebar-logo-dark" data-school-logo="true" data-brand-logo-dark="true" src="assets/logo-dark.png" alt="Shule AI Logo" class="h-10 w-10 object-contain hidden dark:block">
                         <span id="sidebar-school-name" class="text-lg font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent truncate max-w-[160px]" data-school-name>ShuleAI</span>
                     </div>
                 </div>
@@ -885,7 +885,7 @@
     <script src="js/global-realtime-sync.js" defer></script>
     <script src="js/helpers.js" defer></script>
     <script src="js/ui-helpers.js" defer></script>
-    <script src="js/branding-manager.js" defer></script>
+    <script src="js/branding-manager.js?v=101" defer></script>
     <script src="js/curriculum.js" defer></script>
     <script src="js/duty.js" defer></script>
     <script src="js/super-admin-approvals.js" defer></script>
