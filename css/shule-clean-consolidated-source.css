@@ -22,3 +22,14 @@ html.dark .owner-analytics .owner-chart-card,html.dark .owner-analytics .owner-s
 html.dark .owner-analytics .text-muted-foreground{color:#cbd5e1!important}
 .calendar-extra-event-field{transition:opacity .15s ease}
 @media(max-width:768px){.finance-v31-settings-toolbar{top:60px}.finance-v31-sticky-save{bottom:calc(env(safe-area-inset-bottom) + 64px);flex-direction:column;align-items:stretch}.owner-chart-container{min-height:320px!important}.owner-chart-card{overflow-x:auto!important}}
+
+/* V101 AI Career Compass polish: copy/visual-only, no route or schema changes. */
+#v87-career-path-root .v87-career-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+#v87-career-path-root .v87-career-card{display:grid;gap:8px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--card-foreground));border-radius:18px;padding:16px;min-height:132px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+#v87-career-path-root .v87-career-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(15,23,42,.10);border-color:hsl(var(--primary) / .45)}
+#v87-career-path-root .v87-career-card.selected{outline:2px solid hsl(var(--primary));background:hsl(var(--primary) / .08)}
+#v87-career-path-root .v87-career-card strong{display:block;font-size:1rem;line-height:1.2}
+#v87-career-path-root .v87-career-card small{font-weight:800;color:hsl(var(--primary));margin-top:auto}
+#v87-career-path-root .v101-career-chip{width:max-content;display:inline-flex;border-radius:999px;padding:4px 9px;background:hsl(var(--primary) / .10);color:hsl(var(--primary));font-size:11px;font-weight:900}
+html.dark #v87-career-path-root .v87-career-card{box-shadow:none}
+@media(max-width:768px){#v87-career-path-root .v87-career-grid{grid-template-columns:1fr}#v87-career-path-root .v87-career-card{min-height:auto}}

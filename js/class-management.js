@@ -26,9 +26,24 @@ async function loadAvailableTeachers() {
 async function loadSubjectAssignmentsForClass(classId) {
     try {
         const response = await api.admin.getClassSubjectAssignments(classId);
-        return response.data || [];
+        window.__v102LastClassSubjectMeta = response.meta || response.data?.meta || {};
+        if (Array.isArray(response.data)) return response.data;
+        return response.data?.assignments || [];
     } catch (error) {
         console.error('Failed to load subject assignments:', error);
+        return [];
+    }
+}
+
+async function loadEligibleSubjectsForClass(classId) {
+    try {
+        if (!api.admin.getEligibleSubjectsForClass) return [];
+        const response = await api.admin.getEligibleSubjectsForClass(classId);
+        const rows = Array.isArray(response.data) ? response.data : [];
+        return rows.map(s => s.name || s.subjectName || s.subject || s).filter(Boolean);
+    } catch (error) {
+        console.error('Failed to load curriculum-valid subjects for class:', error);
+        showToast(error.message || 'Class subjects are not configured. Save the school structure and Add Subjects first.', 'error');
         return [];
     }
 }
@@ -561,11 +576,16 @@ async function listAllTeachersAndClasses() {
 async function openSubjectAssignmentModal(classId, className) {
     showLoading();
     try {
-        const [teachers, existingAssignments, allSubjects] = await Promise.all([
+        const [teachers, existingAssignments] = await Promise.all([
             loadAvailableTeachers(),
-            loadSubjectAssignmentsForClass(classId),
-            getSchoolSubjects()  // returns all subjects (core + custom)
+            loadSubjectAssignmentsForClass(classId)
         ]);
+        let allSubjects = await loadEligibleSubjectsForClass(classId);
+        if (!allSubjects.length) {
+            hideLoading();
+            showToast('No valid subjects found for this class. Save the curriculum structure and Add Subjects checklist first.', 'error');
+            return;
+        }
 
         const existingMap = {};
         existingAssignments.forEach(a => {
@@ -586,7 +606,7 @@ async function openSubjectAssignmentModal(classId, className) {
                         <div>
                             <h3 class="text-lg font-semibold">Assign Subject Teachers</h3>
                             <p class="text-sm text-muted-foreground">Class: ${escapeHtml(className)}</p>
-                            <p class="text-xs text-muted-foreground mt-1">All school subjects are listed below. Assign teachers to subjects your class offers.</p>
+                            <p class="text-xs text-muted-foreground mt-1">Only subjects valid for this class, curriculum, enabled school structure, and school-offered subject list are shown.</p>
                         </div>
                         <button onclick="closeSubjectAssignmentModal()" class="p-2 hover:bg-accent rounded-lg">
                             <i data-lucide="x" class="h-5 w-5"></i>

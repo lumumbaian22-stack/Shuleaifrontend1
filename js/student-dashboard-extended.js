@@ -59,17 +59,20 @@ async function renderStudentSection(section) {
 
 async function renderStudentDashboard() {
     try {
-        if (!dashboardData || Object.keys(dashboardData).length === 0) {
+        if (!dashboardData || Object.keys(dashboardData).length === 0 || !dashboardData.student || !dashboardData.school) {
             try {
                 const res = await api.student.getDashboard();
-                dashboardData = res.data || {};
+                dashboardData = { ...(dashboardData || {}), ...(res.data || {}) };
                 window.dashboardData = dashboardData;
                 window.studentDashboardData = dashboardData;
             } catch(e) { dashboardData = window.dashboardData || {}; }
         }
         const data = dashboardData || {};
         const user = getCurrentUser();
-        const school = getCurrentSchool();
+        const school = data.school || getCurrentSchool() || {};
+        const branding = (window.BrandingManager && window.BrandingManager.getStoredBranding ? window.BrandingManager.getStoredBranding() : {}) || {};
+        const displaySchoolName = (window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : (school.schoolName || school.name || 'ShuleAI'));
+        const schoolLogo = (window.BrandingManager && window.BrandingManager.getLogoSource ? window.BrandingManager.getLogoSource() : '') || school.logo || branding.logoDataUrl || branding.logoUrl || branding.logo || '';
         const average = data.stats?.averageScore || data.averageScore || 0;
         const attendanceRate = data.stats?.attendanceRate || (data.recentAttendance?.length ? Math.round((data.recentAttendance.filter(a => a.status === 'present').length / data.recentAttendance.length) * 100) : 0);
         const studentPoints = data.student?.points || user?.points || 0;
@@ -85,8 +88,13 @@ async function renderStudentDashboard() {
                 
                 <!-- School Name Header -->
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-                    <h2 id="student-school-name" class="text-xl font-semibold">${escapeHtml((window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : ((school && school.status === 'active') ? school.name : 'ShuleAI')))}</h2>
-                    <p class="text-sm text-muted-foreground">Welcome back, ${user?.name || 'Student'}</p>
+                    <div class="flex items-center gap-3">
+                        <img data-report-school-logo data-student-school-logo src="${escapeHtml(schoolLogo || 'assets/logo-light.png')}" alt="${escapeHtml(displaySchoolName)} logo" class="h-12 w-12 rounded-xl object-contain bg-white/80 border p-1" onerror="this.onerror=null;this.src='assets/logo-light.png';">
+                        <div>
+                            <h2 id="student-school-name" data-school-name class="text-xl font-semibold">${escapeHtml(displaySchoolName)}</h2>
+                            <p class="text-sm text-muted-foreground">Welcome back, ${escapeHtml(user?.name || 'Student')}</p>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Stats Grid -->

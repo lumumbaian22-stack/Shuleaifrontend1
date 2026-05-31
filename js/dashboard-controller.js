@@ -512,11 +512,24 @@ async function showDashboard(role) {
                 selectedChildId: selectedId 
             };
         } else if (role === 'student') {
-            const [grades, attendance] = await Promise.all([
+            const [studentDash, grades, attendance] = await Promise.all([
+                api.student.getDashboard().catch(err => ({ data: {} })),
                 api.student.getGrades().catch(err => ({ data: [] })),
                 api.student.getAttendance().catch(err => ({ data: [] }))
             ]);
-            dashboardData = { grades: grades.data, attendance: attendance.data };
+            dashboardData = { ...(studentDash.data || {}), grades: grades.data, attendance: attendance.data };
+            window.studentDashboardData = dashboardData;
+            if (dashboardData.school) {
+                const schoolName = dashboardData.school.schoolName || dashboardData.school.name;
+                const branding = dashboardData.school.branding || {};
+                const logo = dashboardData.school.logo || branding.logoDataUrl || branding.logoUrl || branding.logo;
+                try {
+                    const storedSchool = JSON.parse(localStorage.getItem('school') || '{}') || {};
+                    localStorage.setItem('school', JSON.stringify({ ...storedSchool, name: schoolName || storedSchool.name, schoolName: schoolName || storedSchool.schoolName, schoolId: dashboardData.school.schoolCode || storedSchool.schoolId, schoolCode: dashboardData.school.schoolCode || storedSchool.schoolCode, settings: { ...(storedSchool.settings || {}), branding: { ...(storedSchool.settings?.branding || {}), ...branding } } }));
+                    localStorage.setItem('schoolBranding', JSON.stringify({ ...(JSON.parse(localStorage.getItem('schoolBranding') || '{}') || {}), ...branding, schoolName, displayName: schoolName, logo: logo || branding.logo || null, logoDataUrl: branding.logoDataUrl || (String(logo || '').startsWith('data:') ? logo : null), logoUrl: branding.logoUrl || (!String(logo || '').startsWith('data:') ? logo : null) }));
+                    if (window.BrandingManager && typeof window.BrandingManager.forceApply === 'function') window.BrandingManager.forceApply(schoolName);
+                } catch (_) {}
+            }
         } else {
             console.error('Unknown role:', role);
             showToast('Invalid user role', 'error');
@@ -630,6 +643,18 @@ async function showDashboardSection(section) {
         }
 
         setupSectionListeners(currentRole, section);
+
+        // Dynamic dashboard sections are inserted after the branding manager may have booted.
+        // Re-apply once after each render so student/parent headers and sidebar logos stay correct.
+        setTimeout(() => {
+            try {
+                if (window.BrandingManager && typeof window.BrandingManager.forceApply === 'function') {
+                    window.BrandingManager.forceApply();
+                } else if (typeof window.updateAllSchoolNameElements === 'function') {
+                    window.updateAllSchoolNameElements();
+                }
+            } catch (_) {}
+        }, 30);
 
         lucide.createIcons();
     } catch (error) {

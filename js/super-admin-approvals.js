@@ -1229,3 +1229,137 @@ window.renderSchoolsTable = renderSchoolsTable;
 window.renderSuspendedSchoolsTable = renderSuspendedSchoolsTable;
 window.renderNameChangeRequestsTable = renderNameChangeRequestsTable;
 window.refreshNameChangeRequests = refreshNameChangeRequests;
+
+// ============ V102 PILOT/TRIAL/PAID ACCESS UI ============
+function v102AccessBadge(access) {
+    const mode = access?.accessMode || 'default';
+    const styles = {
+        pilot_full_access: 'bg-blue-100 text-blue-700',
+        manual_paid: 'bg-emerald-100 text-emerald-700',
+        paid_subscription: 'bg-green-100 text-green-700',
+        trial: 'bg-purple-100 text-purple-700',
+        suspended: 'bg-red-100 text-red-700',
+        default: 'bg-gray-100 text-gray-700'
+    };
+    return `<span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${styles[mode] || styles.default}">${String(mode).replace(/_/g, ' ')}</span>`;
+}
+
+const v102OldViewSchoolDetails = window.viewSchoolDetails || viewSchoolDetails;
+window.viewSchoolDetails = async function(schoolId) {
+    showLoading();
+    try {
+        const response = await api.superAdmin.getSchoolDetail(schoolId);
+        const detail = response.data;
+        let modal = document.getElementById('school-details-modal');
+        if (!modal) { createSchoolDetailsModal(); modal = document.getElementById('school-details-modal'); }
+        const content = modal.querySelector('.modal-content');
+        const school = detail.school || {};
+        const stats = detail.privateStats || {};
+        const access = school.access || {};
+        const cfg = detail.curriculum?.config || {};
+        content.innerHTML = `
+            <div class="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="text-xl font-bold school-name-display">${school.name || 'School'}</h3>
+                        <p class="text-xs text-muted-foreground">${school.schoolId || ''} • ${school.shortCode || ''}</p>
+                    </div>
+                    ${v102AccessBadge(access)}
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="p-3 rounded-lg bg-muted/30"><p class="text-xs text-muted-foreground">Students</p><p class="text-xl font-bold">${stats.students || 0}</p></div>
+                    <div class="p-3 rounded-lg bg-muted/30"><p class="text-xs text-muted-foreground">Teachers</p><p class="text-xl font-bold">${stats.teachers || 0}</p></div>
+                    <div class="p-3 rounded-lg bg-muted/30"><p class="text-xs text-muted-foreground">Parents</p><p class="text-xl font-bold">${stats.parents || 0}</p></div>
+                    <div class="p-3 rounded-lg bg-muted/30"><p class="text-xs text-muted-foreground">Setup</p><p class="text-xl font-bold">${stats.setupProgress || 0}%</p></div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="rounded-xl border p-4">
+                        <h4 class="font-semibold mb-3">Access Controls</h4>
+                        ${v102AccessToggle('pilotFullAccessEnabled','Pilot Full Access', school.pilotFullAccessEnabled)}
+                        ${v102AccessToggle('trialAccessEnabled','Trial Access', school.trialAccessEnabled)}
+                        ${v102AccessToggle('manualPaymentConfirmed','Manual Payment Confirmed', school.manualPaymentConfirmed)}
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <input id="v102-plan" value="${school.subscriptionPlan || 'free'}" class="rounded-lg border px-3 py-2 text-sm" placeholder="Plan">
+                            <select id="v102-subscription-status" class="rounded-lg border px-3 py-2 text-sm">
+                                ${['inactive','pending','active','paid','expired'].map(v => `<option value="${v}" ${String(school.subscriptionStatus||'inactive')===v?'selected':''}>${v}</option>`).join('')}
+                            </select>
+                            <input id="v102-trial-ends" type="date" value="${school.trialEndsAt ? String(school.trialEndsAt).slice(0,10) : ''}" class="rounded-lg border px-3 py-2 text-sm" title="Trial ends">
+                            <input id="v102-manual-ref" value="${school.manualPaymentReference || ''}" class="rounded-lg border px-3 py-2 text-sm" placeholder="Manual ref">
+                        </div>
+                        <button onclick="v102SaveSchoolAccess('${school.id}')" class="mt-3 w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Save Access Controls</button>
+                        <p class="text-xs text-muted-foreground mt-2">Priority: suspended → pilot → manual paid → verified paid → trial → default.</p>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <h4 class="font-semibold mb-3">Private School Setup</h4>
+                        <div class="space-y-2 text-sm">
+                            <p><span class="text-muted-foreground">Curriculum:</span> <b>${school.system || cfg.curriculum || 'N/A'}</b></p>
+                            <p><span class="text-muted-foreground">Structure:</span> <b>${school.schoolStructure || cfg.structureType || 'N/A'}</b></p>
+                            <p><span class="text-muted-foreground">Enabled levels:</span> ${(detail.curriculum?.levels || []).map(l => l.label).join(', ') || 'Not configured'}</p>
+                            <p><span class="text-muted-foreground">School subjects:</span> ${(detail.curriculum?.schoolSubjects || []).length}</p>
+                            <p><span class="text-muted-foreground">Access reason:</span> ${access.reason || 'N/A'}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-xl border p-4">
+                    <h4 class="font-semibold mb-3">Recent Payment Confirmation Requests</h4>
+                    ${(detail.paymentRequests || []).length ? `<div class="divide-y">${detail.paymentRequests.map(r => `<div class="py-2 flex justify-between gap-3"><div><p class="font-medium">KES ${r.amount || 0} • ${r.method || ''}</p><p class="text-xs text-muted-foreground">${r.reference || 'No reference'} • ${r.status}</p></div>${r.status === 'pending' ? `<div class="flex gap-2"><button onclick="v102ReviewPaymentRequest('${r.id}','approve')" class="px-3 py-1 rounded bg-green-100 text-green-700 text-xs">Approve</button><button onclick="v102ReviewPaymentRequest('${r.id}','reject')" class="px-3 py-1 rounded bg-red-100 text-red-700 text-xs">Reject</button></div>` : ''}</div>`).join('')}</div>` : '<p class="text-sm text-muted-foreground">No payment confirmation requests yet.</p>'}
+                </div>
+            </div>`;
+        modal.classList.remove('hidden');
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    } catch (error) {
+        console.error(error);
+        showToast(error.message || 'Failed to load private school detail', 'error');
+        if (v102OldViewSchoolDetails) return v102OldViewSchoolDetails(schoolId);
+    } finally { hideLoading(); }
+};
+
+function v102AccessToggle(id, label, checked) {
+    return `<label class="flex items-center justify-between p-2 rounded-lg bg-muted/30 mb-2"><span class="text-sm font-medium">${label}</span><input id="v102-${id}" type="checkbox" ${checked ? 'checked' : ''} class="h-4 w-4"></label>`;
+}
+
+window.v102SaveSchoolAccess = async function(schoolId) {
+    showLoading();
+    try {
+        const payload = {
+            pilotFullAccessEnabled: document.getElementById('v102-pilotFullAccessEnabled')?.checked,
+            trialAccessEnabled: document.getElementById('v102-trialAccessEnabled')?.checked,
+            manualPaymentConfirmed: document.getElementById('v102-manualPaymentConfirmed')?.checked,
+            trialEndsAt: document.getElementById('v102-trial-ends')?.value || null,
+            manualPaymentReference: document.getElementById('v102-manual-ref')?.value || null,
+            subscriptionPlan: document.getElementById('v102-plan')?.value || 'free',
+            subscriptionStatus: document.getElementById('v102-subscription-status')?.value || 'inactive'
+        };
+        await api.superAdmin.updateSchoolAccessControls(schoolId, payload);
+        showToast('✅ School access recalculated successfully', 'success');
+        await window.viewSchoolDetails(schoolId);
+        await refreshSchoolsList?.();
+    } catch (error) { showToast(error.message || 'Failed to update access controls', 'error'); }
+    finally { hideLoading(); }
+};
+
+window.v102ReviewPaymentRequest = async function(requestId, action) {
+    const reviewNotes = action === 'reject' ? prompt('Reason for rejection?') : 'Confirmed by super admin';
+    showLoading();
+    try {
+        await api.superAdmin.reviewPaymentRequest(requestId, { action, reviewNotes });
+        showToast(`✅ Payment request ${action}d`, 'success');
+        await refreshSchoolsList?.();
+        document.getElementById('school-details-modal')?.classList.add('hidden');
+    } catch (error) { showToast(error.message || 'Failed to review request', 'error'); }
+    finally { hideLoading(); }
+};
+
+const v102OldRenderSchoolsTable = window.renderSchoolsTable || renderSchoolsTable;
+window.renderSchoolsTable = function(schools) {
+    if (!schools || schools.length === 0) return '<div class="text-center py-8 text-muted-foreground">No schools found</div>';
+    return `
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left font-medium">School</th><th class="px-4 py-3 text-left font-medium">Curriculum</th><th class="px-4 py-3 text-left font-medium">Access</th><th class="px-4 py-3 text-left font-medium">Status</th><th class="px-4 py-3 text-right font-medium">Actions</th></tr></thead>
+                <tbody class="divide-y">
+                    ${schools.map(school => `<tr class="hover:bg-accent/50 transition-colors"><td class="px-4 py-3"><p class="font-medium school-name-display">${school.name || 'N/A'}</p><p class="text-xs text-muted-foreground">${school.shortCode || ''}</p></td><td class="px-4 py-3">${school.system || school.curriculum || 'N/A'}<br><span class="text-xs text-muted-foreground">${school.schoolStructure || school.settings?.curriculumEngine?.structureType || school.settings?.schoolLevel || 'mixed'}</span></td><td class="px-4 py-3">${v102AccessBadge(school.access)}${school.pilotFullAccessEnabled ? '<p class="text-xs text-blue-600 mt-1">pilot on</p>' : ''}</td><td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${school.status === 'active' ? 'bg-green-100 text-green-700' : school.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : school.status === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">${school.status}</span></td><td class="px-4 py-3 text-right"><button onclick="viewSchoolDetails('${school.id}')" class="px-3 py-1 rounded-lg border hover:bg-accent text-xs">View / Access</button></td></tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
+};

@@ -58,26 +58,70 @@
 
   // Career Path UI
   let v87CareerOptions=[]; let v87SelectedCareers=[];
+  function v101CareerList(items, fallback='career subjects'){
+    const clean=[...new Set((items||[]).map(x=>String(x||'').trim()).filter(Boolean))];
+    if(!clean.length) return fallback;
+    if(clean.length===1) return clean[0];
+    if(clean.length===2) return `${clean[0]} and ${clean[1]}`;
+    return `${clean.slice(0,-1).join(', ')} and ${clean[clean.length-1]}`;
+  }
   w.renderStudentCareerPathSection = async function(){
     setTimeout(()=>{ w.v87LoadCareerPath && w.v87LoadCareerPath(); },50);
     return `<div class="space-y-6 animate-fade-in" id="v87-career-path-root">
-      <div class="rounded-xl border bg-card p-5 bg-gradient-to-r from-indigo-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800">
-        <h2 class="text-2xl font-bold">Career Path</h2><p class="text-sm text-muted-foreground">Search or scroll through careers, select one or more, and Shule AI will align insights and alerts to your choices.</p>
+      <div class="rounded-2xl border bg-card p-5 overflow-hidden bg-gradient-to-r from-indigo-50 via-cyan-50 to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <p class="text-xs font-black tracking-[0.18em] uppercase text-primary">Shule AI Career Compass</p>
+            <h2 class="text-2xl md:text-3xl font-black mt-1">Turn career dreams into simple next steps</h2>
+            <p class="text-sm text-muted-foreground mt-2 max-w-3xl">Pick the careers you are curious about. Shule AI will translate them into friendly guidance, subject nudges, parent support alerts, and teacher encouragement — not boring analytics charts.</p>
+          </div>
+          <div class="rounded-2xl bg-white/70 dark:bg-slate-900/70 border p-4 max-w-sm">
+            <p class="text-sm font-bold">How it works</p>
+            <p class="text-xs text-muted-foreground mt-1">Choose careers → Shule AI maps useful subjects → alerts become practical coaching moments.</p>
+          </div>
+        </div>
       </div>
-      <div class="rounded-xl border bg-card p-4"><label class="text-sm font-semibold">Search careers</label><input id="v87-career-search" class="mt-2 w-full rounded-lg border bg-background p-3" placeholder="Doctor, Software Engineer, Pilot, Chef..." oninput="v87FilterCareers(this.value)"><div id="v87-selected-careers" class="mt-3 flex flex-wrap gap-2"></div></div>
-      <div class="rounded-xl border bg-card p-4"><div class="flex items-center justify-between gap-3 flex-wrap"><h3 class="font-bold">Available Careers</h3><button onclick="v87SaveCareers()" class="px-4 py-2 rounded-lg bg-primary text-white">Save Career Choices</button></div><div id="v87-career-options" class="v87-career-grid mt-4"><p class="text-muted-foreground">Loading careers...</p></div></div>
-      <div class="rounded-xl border bg-card p-4"><div class="flex items-center justify-between gap-3 flex-wrap"><h3 class="font-bold">Career Guidance Insights</h3><button onclick="v87GenerateCareerInsights()" class="px-4 py-2 rounded-lg border">Generate Insights</button></div><div id="v87-career-insights" class="mt-3 text-sm text-muted-foreground">Your career alerts will appear in the Alerts Center after saving your choices.</div></div>
+
+      <div class="grid gap-4 lg:grid-cols-[1fr_0.85fr]">
+        <div class="rounded-2xl border bg-card p-4">
+          <label class="text-sm font-bold">Search your dream path</label>
+          <input id="v87-career-search" class="mt-2 w-full rounded-xl border bg-background p-3" placeholder="Try Doctor, Software Engineer, Pilot, Chef..." oninput="v87FilterCareers(this.value)">
+          <div id="v87-selected-careers" class="mt-3 flex flex-wrap gap-2"></div>
+          <p class="text-xs text-muted-foreground mt-3">You can select more than one. This is career exploration, not a final lock.</p>
+        </div>
+        <div class="rounded-2xl border bg-card p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="font-black">AI Guidance Alerts</h3>
+              <p class="text-xs text-muted-foreground mt-1">Creates warmer alerts for the student, linked parent, and relevant subject teachers only.</p>
+            </div>
+            <button onclick="v87GenerateCareerInsights()" class="px-4 py-2 rounded-xl border font-bold hover:bg-muted">Generate Guidance</button>
+          </div>
+          <div id="v87-career-insights" class="mt-3 text-sm text-muted-foreground rounded-xl border bg-background p-3">Save a career choice, then Shule AI will create useful coaching alerts in the Alerts Center.</div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border bg-card p-4">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 class="font-black">Career ideas</h3>
+            <p class="text-xs text-muted-foreground mt-1">Tap a card to add or remove it from your compass.</p>
+          </div>
+          <button onclick="v87SaveCareers()" class="px-4 py-2 rounded-xl bg-primary text-white font-bold">Save Career Compass</button>
+        </div>
+        <div id="v87-career-options" class="v87-career-grid mt-4"><p class="text-muted-foreground">Loading career ideas...</p></div>
+      </div>
     </div>`;
   };
   w.v87LoadCareerPath=async function(){
     try{ const [opts,selected]=await Promise.all([api.student.careerOptions(), api.student.getCareerInterests()]); v87CareerOptions=opts.data||[]; v87SelectedCareers=(selected.data?.careers||[]).map(c=>({id:c.careerId,name:c.careerName})); renderCareerSelected(); renderCareerOptions(v87CareerOptions); }catch(e){ const el=d.getElementById('v87-career-options'); if(el) el.innerHTML=`<p class="text-red-600">${esc(e.message)}</p>`; }
   };
-  function renderCareerSelected(){ const el=d.getElementById('v87-selected-careers'); if(!el) return; el.innerHTML=v87SelectedCareers.length?v87SelectedCareers.map(c=>`<button class="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm" onclick="v87ToggleCareer('${esc(c.id)}','${esc(c.name)}')">${esc(c.name)} ×</button>`).join(''):'<span class="text-sm text-muted-foreground">No careers selected yet.</span>'; }
-  function renderCareerOptions(rows){ const el=d.getElementById('v87-career-options'); if(!el) return; el.innerHTML=rows.map(c=>{const selected=v87SelectedCareers.some(x=>x.id===c.id); return `<button class="v87-career-card text-left ${selected?'selected':''}" onclick="v87ToggleCareer('${esc(c.id)}','${esc(c.name)}')"><strong>${esc(c.name)}</strong><p class="text-xs text-muted-foreground mt-1">${esc((c.recommendedSubjects||[]).slice(0,4).join(', '))}</p></button>`}).join(''); }
+  function renderCareerSelected(){ const el=d.getElementById('v87-selected-careers'); if(!el) return; el.innerHTML=v87SelectedCareers.length?v87SelectedCareers.map(c=>`<button class="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-bold" onclick="v87ToggleCareer('${esc(c.id)}','${esc(c.name)}')">${esc(c.name)} ×</button>`).join(''):'<span class="text-sm text-muted-foreground">No careers selected yet. Pick one that feels exciting.</span>'; }
+  function renderCareerOptions(rows){ const el=d.getElementById('v87-career-options'); if(!el) return; el.innerHTML=rows.length?rows.map(c=>{const selected=v87SelectedCareers.some(x=>x.id===c.id); const subjects=(c.recommendedSubjects||[]).slice(0,4); const category=(c.categories||[])[0]||'Career Path'; return `<button class="v87-career-card text-left ${selected?'selected':''}" onclick="v87ToggleCareer('${esc(c.id)}','${esc(c.name)}')"><span class="v101-career-chip">${esc(category)}</span><strong>${esc(c.name)}</strong><p class="text-xs text-muted-foreground mt-2">Good areas to grow: ${esc(v101CareerList(subjects,'your strongest subjects'))}</p><small>${selected?'Selected for AI guidance':'Tap to add to your compass'}</small></button>`}).join(''):'<div class="rounded-xl border bg-background p-4 text-sm text-muted-foreground">No career ideas match that search yet.</div>'; }
   w.v87FilterCareers=function(q){ q=String(q||'').toLowerCase(); renderCareerOptions(v87CareerOptions.filter(c=>!q||c.name.toLowerCase().includes(q))); };
   w.v87ToggleCareer=function(id,name){ const idx=v87SelectedCareers.findIndex(c=>c.id===id); if(idx>=0) v87SelectedCareers.splice(idx,1); else v87SelectedCareers.push({id,name}); renderCareerSelected(); w.v87FilterCareers(d.getElementById('v87-career-search')?.value||''); };
-  w.v87SaveCareers=async function(){ try{ await api.student.saveCareerInterests({careers:v87SelectedCareers}); showToast('Career choices saved. Shule AI will align insights to your choices.','success'); await w.v87GenerateCareerInsights(); }catch(e){ showToast(e.message,'error'); } };
-  w.v87GenerateCareerInsights=async function(){ const el=d.getElementById('v87-career-insights'); if(el) el.textContent='Generating career insights...'; try{ const res=await api.student.generateCareerInsights(); if(el) el.innerHTML=(res.data||[]).length?`Generated ${(res.data||[]).length} career insight alert(s). Open Alerts to view them.`:'Select careers first to generate insights.'; }catch(e){ if(el) el.innerHTML=`<span class="text-red-600">${esc(e.message)}</span>`; } };
+  w.v87SaveCareers=async function(){ try{ await api.student.saveCareerInterests({careers:v87SelectedCareers}); showToast('Career compass saved. Shule AI will turn it into guidance, not pressure.','success'); await w.v87GenerateCareerInsights(); }catch(e){ showToast(e.message,'error'); } };
+  w.v87GenerateCareerInsights=async function(){ const el=d.getElementById('v87-career-insights'); if(el) el.textContent='Shule AI is turning career choices into friendly guidance alerts...'; try{ const res=await api.student.generateCareerInsights(); const count=(res.data||[]).length; if(el) el.innerHTML=count?`Shule AI created ${count} career guidance alert${count===1?'':'s'}. Open Alerts to see the coaching nudges.`:'Pick and save at least one career first, then generate guidance.'; }catch(e){ if(el) el.innerHTML=`<span class="text-red-600">${esc(e.message)}</span>`; } };
 
   // Wrap showDashboardSection post-render enhancements.
   function patchNavigation(){ if(w.__v87NavPatched || typeof w.showDashboardSection!=='function') return; const original=w.showDashboardSection; w.showDashboardSection=async function(section){ const out=await original.apply(this,arguments); setTimeout(()=>{ d.body.classList.toggle('v87-mobile-ready', isMobile()); enhanceTeacherStudentsMobile(); if(section==='payments') w.refreshParentSchoolPaymentInfo && w.refreshParentSchoolPaymentInfo(); enhanceMobileTables(); },120); return out; }; w.__v87NavPatched=true; }

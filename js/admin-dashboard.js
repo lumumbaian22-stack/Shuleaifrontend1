@@ -1934,3 +1934,118 @@ window.submitSchoolSubscriptionSTK = async function() {
   }
   window.loadAdminCalendarPreviewEvents = loadAdminCalendarPreviewEvents;
 })();
+
+// ============ V102 CURRICULUM + CUSTOM STRUCTURE + SUBJECT CHECKBOX UI ============
+const v102OriginalRenderAdminCustomSubjects = window.renderAdminCustomSubjects || renderAdminCustomSubjects;
+window.renderAdminCustomSubjects = async function() {
+    try {
+        const setup = await api.admin.getCurriculumSetup();
+        const data = setup.data || {};
+        const cfg = data.config || {};
+        const subjects = data.subjectBank || [];
+        const saved = new Set((cfg.schoolSubjects || []).filter(s => s.isOffered !== false).map(s => s.subjectId || s.id || s.name));
+        const grouped = subjects.reduce((acc, s) => {
+            const group = (s.levelLabels && s.levelLabels[0]) || (s.levelCodes && s.levelCodes[0]) || 'Subjects';
+            acc[group] = acc[group] || [];
+            acc[group].push(s);
+            return acc;
+        }, {});
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center"><div><h2 class="text-2xl font-bold">Add Subjects</h2><p class="text-sm text-muted-foreground">Choose subjects the school offers from the selected curriculum. This updates class subjects, teacher assignment, grading, reports and Career Compass.</p></div><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Save Subjects</button></div>
+                <div class="rounded-xl border bg-card p-6">
+                    <h3 class="font-semibold mb-3">Curriculum Source</h3>
+                    <div class="grid md:grid-cols-3 gap-3 text-sm">
+                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Curriculum</p><p class="font-bold">${cfg.curriculum || 'cbc'}</p></div>
+                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Structure</p><p class="font-bold">${cfg.structureType || 'mixed'}</p></div>
+                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Enabled Levels</p><p class="font-bold">${(data.levels || []).length}</p></div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    ${Object.entries(grouped).map(([group, items]) => `<div class="rounded-xl border bg-card p-5"><div class="flex items-center justify-between mb-3"><h3 class="font-semibold">${group}</h3><button type="button" onclick="v102ToggleSubjectGroup('${group.replace(/'/g,"\\'")}', true)" class="text-xs px-2 py-1 rounded bg-primary/10 text-primary">Check all</button></div><div class="grid md:grid-cols-3 gap-3">${items.map(s => `<label data-v102-group="${group}" class="flex items-start gap-2 p-3 rounded-lg border bg-muted/20"><input type="checkbox" class="v102-school-subject mt-1" data-subject='${JSON.stringify(s).replace(/'/g, '&#39;')}' ${saved.has(s.id) || saved.has(s.name) ? 'checked' : ''}><span><span class="font-medium text-sm">${s.name}</span><span class="block text-xs text-muted-foreground">${s.category || 'subject'}${s.pathway ? ` • ${s.pathway}` : ''}${s.track ? ` • ${s.track}` : ''}</span></span></label>`).join('')}</div></div>`).join('')}
+                </div>
+                <div class="flex justify-end"><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg">Save Curriculum Subjects</button></div>
+            </div>`;
+    } catch (error) {
+        console.error('V102 subject UI error:', error);
+        return `<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700"><h3 class="font-semibold mb-2">Curriculum subject setup failed</h3><p>${error.message}</p><p class="text-sm mt-2">Fix the curriculum/structure setup first; the system will not fall back to old manual subjects because the new engine is the source of truth.</p></div>`;
+    }
+};
+
+const v102OriginalRenderAdminSettings = window.renderAdminSettings || renderAdminSettings;
+window.renderAdminSettings = function() {
+    const curriculum = schoolSettings.curriculum || schoolSettings.system || schoolSettings.settings?.curriculumEngine?.curriculum || 'cbc';
+    const engine = schoolSettings.settings?.curriculumEngine || {};
+    const structureType = engine.structureType || schoolSettings.schoolStructure || schoolSettings.settings?.schoolStructure || 'mixed';
+    const enabled = new Set(engine.enabledLevels || schoolSettings.enabledLevels || []);
+    const levelList = (schoolSettings.curriculumSetup?.enabledLevels || []).map(l => l.label).join(', ');
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <h2 class="text-2xl font-bold">School Settings</h2>
+            <p class="text-sm text-muted-foreground">Curriculum and structure are the master source for classes, subjects, grading, report cards and Career Compass.</p>
+            <div class="grid gap-6">
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">School Information</h3><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">School Name</label><input type="text" id="settings-school-name" value="${schoolSettings.name || schoolSettings.schoolName || ''}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></div></div></div>
+                <div class="rounded-xl border bg-card p-6">
+                    <h3 class="font-semibold mb-4">Curriculum + School Structure</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div><label class="block text-sm font-medium mb-1">Select Curriculum</label><select id="settings-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="cbc" ${curriculum === 'cbc' ? 'selected' : ''}>CBC / CBE</option><option value="844" ${curriculum === '844' ? 'selected' : ''}>8-4-4</option><option value="british" ${curriculum === 'british' ? 'selected' : ''}>British / Cambridge</option><option value="american" ${curriculum === 'american' ? 'selected' : ''}>American</option><option value="custom" ${curriculum === 'custom' ? 'selected' : ''}>Custom</option></select></div>
+                        <div><label class="block text-sm font-medium mb-1">School Structure</label><select id="settings-school-structure" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="primary_only" ${structureType === 'primary_only' ? 'selected' : ''}>Primary only</option><option value="junior_only" ${structureType === 'junior_only' ? 'selected' : ''}>Junior only</option><option value="senior_only" ${structureType === 'senior_only' ? 'selected' : ''}>Senior only</option><option value="secondary_only" ${structureType === 'secondary_only' ? 'selected' : ''}>Secondary only</option><option value="mixed" ${structureType === 'mixed' ? 'selected' : ''}>Mixed / Full</option><option value="custom" ${structureType === 'custom' ? 'selected' : ''}>Custom enabled levels</option></select></div>
+                    </div>
+                    <div class="mt-4 p-4 bg-muted/30 rounded-lg"><p class="text-sm"><span class="font-medium">Currently enabled:</span> ${levelList || 'Use the structure builder below after saving curriculum.'}</p><button onclick="v102LoadStructureBuilder()" class="mt-3 px-3 py-2 rounded-lg border hover:bg-accent text-sm">Load / Edit Enabled Levels</button><div id="v102-structure-builder" class="mt-4"></div></div>
+                </div>
+                <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save Settings</button></div>
+            </div>
+        </div>`;
+};
+
+window.v102ToggleSubjectGroup = function(group, checked) {
+    document.querySelectorAll(`[data-v102-group="${group}"] input[type="checkbox"]`).forEach(cb => { cb.checked = checked; });
+};
+
+window.v102SaveSchoolSubjectCheckboxes = async function() {
+    showLoading();
+    try {
+        const subjects = Array.from(document.querySelectorAll('.v102-school-subject:checked')).map(cb => JSON.parse(cb.dataset.subject.replace(/&#39;/g, "'")));
+        await api.admin.saveSchoolSubjects(subjects);
+        showToast(`✅ ${subjects.length} subjects saved and synced to classes/grading`, 'success');
+        await showDashboardSection('custom-subjects');
+    } catch(error) { showToast(error.message || 'Failed to save subjects', 'error'); }
+    finally { hideLoading(); }
+};
+
+window.v102LoadStructureBuilder = async function() {
+    showLoading();
+    try {
+        const res = await api.admin.getCurriculumLevels();
+        const data = res.data || {};
+        const enabled = new Set(data.enabledLevels || []);
+        const box = document.getElementById('v102-structure-builder');
+        box.innerHTML = `<div class="grid md:grid-cols-3 gap-2">${(data.levels || []).map(l => `<label class="flex items-center gap-2 p-2 rounded border bg-background"><input type="checkbox" class="v102-enabled-level" value="${l.code}" ${enabled.has(l.code) ? 'checked' : ''}><span class="text-sm">${l.label}<span class="block text-xs text-muted-foreground">${l.group || ''}</span></span></label>`).join('')}</div>`;
+    } catch(error) { showToast(error.message || 'Failed to load levels', 'error'); }
+    finally { hideLoading(); }
+};
+
+window.saveAllSettings = async function() {
+    const curriculum = document.getElementById('settings-curriculum')?.value;
+    const schoolName = document.getElementById('settings-school-name')?.value;
+    const structureType = document.getElementById('settings-school-structure')?.value || document.getElementById('settings-school-level')?.value;
+    const enabledLevels = Array.from(document.querySelectorAll('.v102-enabled-level:checked')).map(x => x.value);
+    if (!schoolName) { showToast('School name is required', 'error'); return; }
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, customSubjects: customSubjects || [] });
+        if (response && response.success) {
+            window.schoolSettings = response.data;
+            window.customSubjects = response.data.settings?.customSubjects || [];
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            const school = JSON.parse(localStorage.getItem('school') || '{}');
+            school.name = schoolName; school.system = curriculum; school.settings = response.data.settings;
+            localStorage.setItem('school', JSON.stringify(school));
+            updateAllSchoolNameElements(schoolName);
+            showToast('✅ Curriculum and structure saved safely', 'success');
+            await updateAdminStats();
+        } else throw new Error(response?.message || 'Save failed');
+    } catch(error) { console.error('V102 save settings error:', error); showToast(error.message || 'Failed to save settings', 'error'); }
+    finally { hideLoading(); }
+};
+try { renderAdminCustomSubjects = window.renderAdminCustomSubjects; renderAdminSettings = window.renderAdminSettings; } catch (e) { console.warn('V102 admin renderer binding skipped', e); }

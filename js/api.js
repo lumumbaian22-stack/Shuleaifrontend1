@@ -223,7 +223,11 @@ const superAdminAPI = {
     clearCache: function() { return this.clearPlatformCache(); },
     runBackup: function() { return this.runSystemBackup(); },
     resetSettings: function() { return this.resetPlatformSettings(); },
-    getAnalytics: () => apiRequest(`/api/super-admin/analytics?_=${Date.now()}`)
+    getAnalytics: () => apiRequest(`/api/super-admin/analytics?_=${Date.now()}`),
+    getSchoolDetail: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/detail`),
+    updateSchoolAccessControls: (schoolId, data) => apiRequest(`/api/super-admin/schools/${schoolId}/access-controls`, { method: 'PUT', body: JSON.stringify(data) }),
+    getPaymentRequests: (params = {}) => apiRequest(`/api/super-admin/payment-requests${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
+    reviewPaymentRequest: (requestId, data) => apiRequest(`/api/super-admin/payment-requests/${requestId}/review`, { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ ADMIN ENDPOINTS ============
@@ -353,7 +357,17 @@ const adminAPI = {
             method: 'POST',
             body: JSON.stringify(payload)
         });
-    }
+    },
+    getCurriculumSetup: () => apiRequest('/api/admin/curriculum/setup'),
+    updateCurriculumSetup: (data) => apiRequest('/api/admin/curriculum/setup', { method: 'PUT', body: JSON.stringify(data) }),
+    getCurriculumLevels: () => apiRequest('/api/admin/curriculum/levels'),
+    getCurriculumSubjectBank: () => apiRequest('/api/admin/curriculum/subject-bank'),
+    getSchoolSubjects: () => apiRequest('/api/admin/curriculum/school-subjects'),
+    saveSchoolSubjects: (subjects) => apiRequest('/api/admin/curriculum/school-subjects', { method: 'PUT', body: JSON.stringify({ subjects }) }),
+    getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
+    getStudentSubjectSelection: (studentId) => apiRequest(`/api/admin/students/${studentId}/subject-selection`),
+    saveStudentSubjectSelection: (studentId, data) => apiRequest(`/api/admin/students/${studentId}/subject-selection`, { method: 'PUT', body: JSON.stringify(data) }),
+    submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ TEACHER ENDPOINTS ============
