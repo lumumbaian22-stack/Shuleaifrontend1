@@ -49,6 +49,7 @@ function updateSidebar(role) {
                 { icon: 'building-2', label: 'Departments', section: 'departments' },
                 { icon: 'user-plus', label: 'Teacher Approvals', section: 'teacher-approvals' },
                 { icon: 'graduation-cap', label: 'Students', section: 'students' },
+                { icon: 'list-checks', label: 'Student Subjects', section: 'student-subject-selection' },
                 { icon: 'calendar', label: 'Calendar', section: 'calendar' },
                 { icon: 'clock', label: 'Duty', section: 'duty' },
                 { icon: 'bar-chart-2', label: 'Fairness Report', section: 'fairness-report' },
@@ -565,6 +566,7 @@ async function showDashboardSection(section) {
         const sectionNames = {
             dashboard: 'Dashboard',
             students: 'Students',
+            'student-subject-selection': 'Student Subject Selection',
             teachers: 'Teachers',
             classes: 'Classes',
             attendance: 'Attendance',

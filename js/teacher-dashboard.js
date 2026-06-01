@@ -639,7 +639,14 @@ async function openMarksEntry(subject, classId, className, role = '', subjectsPi
       }
     } catch (metaErr) { console.warn('Curriculum metadata could not be loaded:', metaErr.message); }
 
-    const res = await api.teacher.getClassStudents(classId);
+    const effectiveSubject = currentMarksSubject === 'All Subjects' ? (currentMarksAvailableSubjects[0] || '') : currentMarksSubject;
+    if (!effectiveSubject) {
+      throw new Error('No eligible subject is assigned for this class. Ask admin to complete Add Subjects and subject teacher assignment.');
+    }
+    currentMarksSubject = effectiveSubject;
+    const res = (api.teacher.getClassStudentsForSubject)
+      ? await api.teacher.getClassStudentsForSubject({ classId, subject: effectiveSubject })
+      : await apiRequest(`/api/teacher/class-students?${new URLSearchParams({ classId, subject: effectiveSubject }).toString()}`);
     const payload = res.data;
     currentMarksStudents = Array.isArray(payload) ? payload : (payload?.students || payload?.data || []);
     if (res.meta) window.currentMarksClassMeta = res.meta;
@@ -648,6 +655,29 @@ async function openMarksEntry(subject, classId, className, role = '', subjectsPi
     showMarksEntryModal(className);
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
+
+
+// V106: class teachers can switch eligible subjects without leaving the marks modal.
+window.v106ChangeMarksSubject = async function(subject) {
+  currentMarksSubject = subject;
+  if (!currentMarksClassId || !subject) return;
+  showLoading();
+  try {
+    const res = (api.teacher.getClassStudentsForSubject)
+      ? await api.teacher.getClassStudentsForSubject({ classId: currentMarksClassId, subject })
+      : await apiRequest(`/api/teacher/class-students?${new URLSearchParams({ classId: currentMarksClassId, subject }).toString()}`);
+    const payload = res.data;
+    currentMarksStudents = Array.isArray(payload) ? payload : (payload?.students || payload?.data || []);
+    if (!currentMarksStudents.length) {
+      showToast('No students are taking this subject yet. Check Grade 10–12 subject selection or Add Subjects setup.', 'warning');
+    }
+    showMarksEntryModal(currentMarksClassName);
+  } catch (error) {
+    showToast(error.message || 'Failed to load subject students', 'error');
+  } finally {
+    hideLoading();
+  }
+};
 
 function showMarksEntryModal(className) {
   let modal = document.getElementById('marks-entry-modal');
@@ -697,7 +727,7 @@ function showMarksEntryModal(className) {
     ${scaleHtml}
 
     <div class="v95-marks-top mt-5">
-      ${currentMarksCanPublish ? `<div class="v95-field"><label>Subject</label><select id="marks-subject-select" onchange="currentMarksSubject=this.value">${(currentMarksAvailableSubjects.length ? currentMarksAvailableSubjects : ['Mathematics','English','Kiswahili','Science','Social Studies']).map(sub => `<option value="${escapeHtml(sub)}">${escapeHtml(sub)}</option>`).join('')}</select></div>` : `<div class="v95-field"><label>Subject</label><input id="marks-subject-select" value="${escapeHtml(currentMarksSubject || '')}" disabled></div>`}
+      ${currentMarksCanPublish ? `<div class="v95-field"><label>Subject</label><select id="marks-subject-select" onchange="v106ChangeMarksSubject(this.value)">${currentMarksAvailableSubjects.map(sub => `<option value="${escapeHtml(sub)}" ${sub === currentMarksSubject ? 'selected' : ''}>${escapeHtml(sub)}</option>`).join('')}</select></div>` : `<div class="v95-field"><label>Subject</label><input id="marks-subject-select" value="${escapeHtml(currentMarksSubject || '')}" disabled></div>`}
       <div class="v95-field">
         <label>Assessment Type</label>
         <select id="assessment-type">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select>

@@ -418,6 +418,7 @@ const teacherAPI = {
     updateMark: (recordId, data) => apiRequest(`/api/teacher/marks/${recordId}`, { method: 'PUT', body: JSON.stringify(data) }),
     getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
     getGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    getClassStudentsForSubject: (params = {}) => apiRequest('/api/teacher/class-students' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassReportSnapshots: (params = {}) => apiRequest('/api/teacher/reports/snapshots' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''))
 };
 
