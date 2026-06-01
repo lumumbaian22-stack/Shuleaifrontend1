@@ -212,10 +212,7 @@ function renderAdminDashboard(data) {
                             <p class="text-sm"><span class="font-mono bg-muted px-2 py-1 rounded">SCH-ID: ${data.school.id}</span></p>
                         </div>
                     </div>
-                    <div class="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
-                        <p class="text-xs text-muted-foreground">Share this ID with teachers</p>
-                        <p class="text-lg font-mono font-bold">${data.school.id}</p>
-                    </div>
+                    ${typeof renderSchoolLogoOrCodeCard === 'function' ? renderSchoolLogoOrCodeCard(data.school, { code: data.school.id, name: data.school.name }) : `<div class="admin-school-code-card bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-slate-50 px-4 py-3 rounded-2xl shadow-sm border border-white/70 dark:border-slate-700 min-w-[144px] text-center"><p class="text-xs text-slate-500 dark:text-slate-300">School ID</p><p class="text-sm font-mono font-bold text-slate-900 dark:text-slate-50">${data.school.id}</p></div>`}
                 </div>
             </div>
             
