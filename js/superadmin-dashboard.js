@@ -1,14 +1,5 @@
 // superadmin-dashboard.js - Super Admin dashboard rendering
 
-
-// V107: hard guard so Super Admin sections never crash because an older cached function name is missing.
-async function v107SafePlatformPaymentsRenderer() {
-    if (typeof renderSuperAdminPlatformPayments === 'function') return await renderSuperAdminPlatformPayments();
-    if (window.renderSuperAdminPlatformPayments && typeof window.renderSuperAdminPlatformPayments === 'function') return await window.renderSuperAdminPlatformPayments();
-    return `<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground mt-2">Payment requests module is loading. Refresh once after deployment if this remains visible.</p></div>`;
-}
-window.v12RenderPlatformPayments = window.v12RenderPlatformPayments || v107SafePlatformPaymentsRenderer;
-
 // ============ RENDER SUPER ADMIN SECTION ============
 async function renderSuperAdminSection(section) {
     try {
@@ -26,15 +17,15 @@ async function renderSuperAdminSection(section) {
              case 'help':
                 return renderHelpSection();   
             case 'platform-health':
-                return await (window.renderSuperAdminHealth ? window.renderSuperAdminHealth() : renderSuperAdminHealth());
+                return renderSuperAdminHealth();
             case 'platform-payments':
-                return await v107SafePlatformPaymentsRenderer();
-            case 'analytics':
-                return await (window.renderSuperAdminAnalyticsStandalone ? window.renderSuperAdminAnalyticsStandalone() : renderSuperAdminDashboard());
+                return await window.v12RenderPlatformPayments();
             case 'settings':
                 return renderSuperAdminSettings();
+            case 'analytics':
+                return renderSuperAdminAnalytics();
             case 'alerts':
-                return await (window.renderSuperAdminAlerts ? window.renderSuperAdminAlerts() : ((window.v12RenderAlertsCenter || window.renderAlertsCenter) ? (window.v12RenderAlertsCenter || window.renderAlertsCenter)('superadmin') : '<div class="p-6 text-muted-foreground">No super admin alerts renderer available.</div>'));
+                return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('superadmin');
             default:
                 return renderSuperAdminDashboard();
         }
@@ -42,6 +33,28 @@ async function renderSuperAdminSection(section) {
         console.error('Error rendering super admin section:', error);
         return `<div class="text-center py-12 text-red-500">Error loading section: ${error.message}</div>`;
     }
+}
+
+function renderSuperAdminAnalytics() {
+    const data = dashboardData || {};
+    const rows = [
+        ['Total Schools', data.schools?.length ?? data.schools ?? 0],
+        ['Active Schools', data.activeSchools ?? (Array.isArray(data.schools) ? data.schools.filter(s => s.status === 'active').length : 0)],
+        ['Pending Schools', data.pendingSchools?.length ?? data.pendingSchools ?? 0],
+        ['Suspended Schools', data.suspendedSchools ?? 0],
+        ['Pilot Schools', data.pilotSchools ?? 0],
+        ['Trial Schools', data.trialSchools ?? 0],
+        ['Paid Schools', data.paidSchools ?? 0],
+        ['Students', data.students ?? 0],
+        ['Teachers', data.teachers ?? 0],
+        ['Parents', data.parents ?? 0],
+        ['Users', data.users ?? 0]
+    ];
+    return `<div class="space-y-6 animate-fade-in">
+        <div><h2 class="text-2xl font-bold">Platform Analytics</h2><p class="text-sm text-muted-foreground">Real platform totals only. No school dashboard analytics are reused here.</p></div>
+        <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-4">${rows.map(([label,value]) => `<div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">${escapeHtml(label)}</p><h3 class="text-2xl font-bold mt-1">${Number(value || 0).toLocaleString()}</h3></div>`).join('')}</div>
+        <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-3">Platform Events</h3>${(data.platformEvents || data.recentEvents || []).length ? `<div class="divide-y">${(data.platformEvents || data.recentEvents).map(e => `<div class="py-3 text-sm"><p class="font-medium">${escapeHtml(e.action || e.title || 'Platform Event')}</p><p class="text-xs text-muted-foreground">${escapeHtml(e.module || e.message || '')} ${e.createdAt ? '• ' + new Date(e.createdAt).toLocaleString() : ''}</p></div>`).join('')}</div>` : '<p class="text-sm text-muted-foreground">No records yet.</p>'}</div>
+    </div>`;
 }
 
 // ============ MAIN DASHBOARD ============
@@ -98,12 +111,9 @@ function renderSuperAdminDashboard() {
                 <div class="rounded-xl border bg-card p-6 card-hover">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-muted-foreground">Revenue (MTD)</p>
-                            <h3 class="text-2xl font-bold mt-1" id="revenue">$0</h3>
-                            <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                <i data-lucide="trending-up" class="h-3 w-3"></i>
-                                +<span id="revenue-growth">0</span>% from last month
-                            </p>
+                            <p class="text-sm font-medium text-muted-foreground">Platform Users</p>
+                            <h3 class="text-2xl font-bold mt-1" id="platform-users">${Number(data.users || 0).toLocaleString()}</h3>
+                            <p class="text-xs text-muted-foreground mt-1">Real registered users</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center">
                             <i data-lucide="dollar-sign" class="h-6 w-6 text-emerald-600"></i>
@@ -141,10 +151,13 @@ function renderSuperAdminDashboard() {
                 <div class="p-4 border-b">
                     <h3 class="font-semibold">Recent Activity</h3>
                 </div>
-                <div class="p-8 text-center text-muted-foreground">
-                    <i data-lucide="activity" class="h-10 w-10 mx-auto mb-3 opacity-50"></i>
-                    <p class="text-sm font-medium">No fake activity is shown here.</p>
-                    <p class="text-xs mt-1">Open Super Admin Alerts or Platform Events to view real backend events.</p>
+                <div class="divide-y">
+                    ${(data.platformEvents || data.recentEvents || []).length ? (data.platformEvents || data.recentEvents).map(event => `
+                        <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
+                            <div class="h-10 w-10 rounded-full bg-muted flex items-center justify-center"><i data-lucide="activity" class="h-5 w-5 text-muted-foreground"></i></div>
+                            <div class="flex-1"><p class="text-sm font-medium">${escapeHtml(event.action || event.title || 'Platform Event')}</p><p class="text-xs text-muted-foreground">${escapeHtml(event.message || event.module || '')}</p></div>
+                            <span class="text-xs text-muted-foreground">${event.createdAt ? new Date(event.createdAt).toLocaleString() : ''}</span>
+                        </div>`).join('') : '<div class="p-6 text-sm text-muted-foreground text-center">No platform events yet.</div>'}
                 </div>
             </div>
         </div>
@@ -333,10 +346,17 @@ function renderSuperAdminHealth() {
                 <div class="p-4 border-b">
                     <h3 class="font-semibold">Recent Platform Events</h3>
                 </div>
-                <div class="p-8 text-center text-muted-foreground">
-                    <i data-lucide="list" class="h-10 w-10 mx-auto mb-3 opacity-50"></i>
-                    <p class="text-sm font-medium">No platform events loaded in this legacy panel.</p>
-                    <p class="text-xs mt-1">The V108 Platform Events endpoint is the only source for real platform events.</p>
+                <div class="divide-y">
+                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
+                        <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <i data-lucide="building-2" class="h-5 w-5 text-blue-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">New School Registered</p>
+                            <p class="text-xs text-muted-foreground">Mombasa Academy signed up</p>
+                        </div>
+                        <span class="text-xs text-muted-foreground">2 hours ago</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -526,50 +546,3 @@ window.loadSuperAdminSettings = async function() {
         // populate form if needed
     } catch (error) { console.error('Error loading settings:', error); }
 };
-
-
-async function renderSuperAdminPlatformPayments() {
-    try {
-        const res = await api.superAdmin.getPaymentRequests ? await api.superAdmin.getPaymentRequests() : { data: [] };
-        const rows = Array.isArray(res.data) ? res.data : [];
-        const totalPending = rows.filter(r => String(r.status).toLowerCase() === 'pending').length;
-        const totalApproved = rows.filter(r => String(r.status).toLowerCase() === 'approved').length;
-        const totalAmount = rows.filter(r => String(r.status).toLowerCase() === 'approved').reduce((s,r)=>s+Number(r.amount||0),0);
-        return `
-        <div class="space-y-6 animate-fade-in">
-          <div class="flex items-center justify-between gap-3 flex-wrap">
-            <div><h2 class="text-2xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground">Manual school payment confirmations submitted by school admins.</p></div>
-          </div>
-          <div class="grid gap-4 md:grid-cols-3">
-            <div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Pending Review</p><h3 class="text-2xl font-bold">${totalPending}</h3></div>
-            <div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Approved Requests</p><h3 class="text-2xl font-bold">${totalApproved}</h3></div>
-            <div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Approved Amount</p><h3 class="text-2xl font-bold">KES ${totalAmount.toLocaleString()}</h3></div>
-          </div>
-          <div class="rounded-xl border bg-card overflow-hidden">
-            <div class="p-4 border-b"><h3 class="font-semibold">Payment Requests</h3></div>
-            <div class="overflow-x-auto"><table class="w-full text-sm">
-              <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">School</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Method</th><th class="px-4 py-3 text-left">Reference</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Action</th></tr></thead>
-              <tbody>${rows.length ? rows.map(r => `<tr class="border-t"><td class="px-4 py-3">${escapeHtml(r.schoolName || r.schoolCode || 'School')}</td><td class="px-4 py-3">KES ${Number(r.amount||0).toLocaleString()}</td><td class="px-4 py-3">${escapeHtml(r.method || '-')}</td><td class="px-4 py-3">${escapeHtml(r.reference || '-')}</td><td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs bg-muted">${escapeHtml(r.status || 'pending')}</span></td><td class="px-4 py-3">${String(r.status).toLowerCase()==='pending' ? `<button onclick="reviewSchoolPaymentRequest(${r.id}, 'approve')" class="px-3 py-1 rounded bg-green-600 text-white text-xs">Approve</button> <button onclick="reviewSchoolPaymentRequest(${r.id}, 'reject')" class="px-3 py-1 rounded bg-red-600 text-white text-xs">Reject</button>` : '-'}</td></tr>`).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No payment requests yet.</td></tr>`}</tbody>
-            </table></div>
-          </div>
-        </div>`;
-    } catch (error) {
-        console.error('Platform payments load failed:', error);
-        return `<div class="text-center py-12 text-red-500">Error loading platform payments: ${escapeHtml(error.message)}</div>`;
-    }
-}
-
-async function reviewSchoolPaymentRequest(id, action) {
-    try {
-        const reviewNotes = prompt(action === 'approve' ? 'Approve this payment? Optional note:' : 'Reject this payment. Add reason:') || '';
-        await api.superAdmin.reviewPaymentRequest(id, { action, reviewNotes });
-        showToast(`Payment request ${action}d`, 'success');
-        await showDashboardSection('platform-payments');
-    } catch (error) {
-        console.error('Review payment failed:', error);
-        showToast(error.message || 'Could not review payment', 'error');
-    }
-}
-window.renderSuperAdminPlatformPayments = renderSuperAdminPlatformPayments;
-window.v12RenderPlatformPayments = renderSuperAdminPlatformPayments || v107SafePlatformPaymentsRenderer;
-window.reviewSchoolPaymentRequest = reviewSchoolPaymentRequest;

@@ -80,21 +80,10 @@
   function isSchoolBranded() { return !isSuperAdmin() && !!getSchoolNameFromAnySource(); }
   function getDisplayName() { return isSchoolBranded() ? getSchoolNameFromAnySource() : PLATFORM_SHORT_NAME; }
 
-  function resolveBrandImage(value) {
-    const raw = clean(value);
-    if (!raw || raw === 'undefined' || raw === 'null') return '';
-    if (/^data:image\//i.test(raw)) return raw;
-    if (/^https?:\/\//i.test(raw)) return raw;
-    if (/^(blob:|file:)/i.test(raw)) return raw;
-    if (raw.includes('data:image/')) return '';
-    if (typeof window.resolveMediaUrl === 'function') return window.resolveMediaUrl(raw);
-    return raw;
-  }
-
   function getLogoSource() {
-    if (isSuperAdmin()) return '';
     const b = getStoredBranding();
-    return resolveBrandImage(b.logoDataUrl) || resolveBrandImage(b.logoUrl) || resolveBrandImage(b.logo) || '';
+    const raw = clean(b.logoUrl) || clean(b.logo) || clean(b.logoDataUrl) || '';
+    return raw && typeof window.resolveMediaUrl === 'function' ? window.resolveMediaUrl(raw) : raw;
   }
 
   function currentMode() { return document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
@@ -236,35 +225,12 @@
   }
 
   function applyColors() {
-    const root = document.documentElement;
+    // Final locked stabilization: do not mutate global dashboard theme variables.
+    // School branding colors are stored and previewed, but approved dashboard colours remain unchanged.
     if (isSuperAdmin()) {
-      document.body?.classList.remove('school-theme-scope');
-      document.body?.classList.add('platform-theme-scope');
-      root.setAttribute('data-dashboard-scope', 'platform');
-      root.style.setProperty('--school-primary-color', '#083A85');
-      root.style.setProperty('--school-accent-color', '#11B5B1');
-      root.style.setProperty('--school-primary-hsl', '214 89% 28%');
-      root.style.setProperty('--school-accent-hsl', '179 83% 39%');
       document.body?.removeAttribute('data-school-color-name');
-      return;
+      document.documentElement.removeAttribute('data-school-color-name');
     }
-    const colors = normalizeColorPreset();
-    const primaryHsl = hexToHslParts(colors.primaryColor);
-    const accentHsl = hexToHslParts(colors.accentColor);
-    document.body?.classList.remove('platform-theme-scope');
-    document.body?.classList.add('school-theme-scope');
-    root.setAttribute('data-dashboard-scope', 'school');
-    // Scoped branding tokens only. Do not overwrite core --primary/--background/card tokens,
-    // because that breaks dashboards and leaks one school's theme into platform screens.
-    root.style.setProperty('--school-primary-color', colors.primaryColor);
-    root.style.setProperty('--school-accent-color', colors.accentColor);
-    root.style.setProperty('--school-primary-hsl', primaryHsl || '217 91% 60%');
-    root.style.setProperty('--school-accent-hsl', accentHsl || '174 82% 39%');
-    if (accentHsl) root.style.setProperty('--brand-accent-hsl', accentHsl);
-    document.body?.setAttribute('data-school-color-name', colors.colorName);
-    document.body?.style.setProperty('--school-primary-color', colors.primaryColor);
-    document.body?.style.setProperty('--school-accent-color', colors.accentColor);
-    root.setAttribute('data-school-color-name', colors.colorName);
   }
 
   function applyReportBrandingHelpers() {
@@ -322,36 +288,9 @@
     applyTimer = setTimeout(() => { applyTimer = null; apply(newName); }, delay);
   }
 
-  function roleLooksLikeSchoolUser() {
-    const u = getStoredUser();
-    const role = String(u?.role || localStorage.getItem('userRole') || '').toLowerCase();
-    return ['admin','teacher','parent','student'].includes(role);
-  }
-
-  function hasSchoolContext() {
-    const s = getStoredSchool();
-    const u = getStoredUser();
-    return !!(s?.schoolId || s?.schoolCode || u?.schoolCode);
-  }
-
   async function loadSchoolBranding(force = false) {
     if (!force && loadedOnce) return getStoredBranding();
-
-    // Super admin/platform screens must never call /api/owner/branding.
-    // If the role is unknown or there is no school context yet, stay on platform/default branding
-    // until dashboard data provides a school. This prevents 404 "School not found" and theme leakage.
-    if (isSuperAdmin() || !roleLooksLikeSchoolUser() || !hasSchoolContext()) {
-      loadedOnce = true;
-      if (isSuperAdmin()) {
-        try { localStorage.removeItem('schoolBranding'); localStorage.removeItem('school'); } catch (_) {}
-        window.schoolBranding = {};
-        apply(PLATFORM_SHORT_NAME, { force: true });
-      } else {
-        apply(null, { force: true });
-      }
-      return {};
-    }
-
+    if (isSuperAdmin()) { loadedOnce = true; apply(PLATFORM_SHORT_NAME, { force: true }); return {}; }
     if (typeof window.apiRequest !== 'function') { apply(null, { force: true }); return getStoredBranding(); }
     if (!(localStorage.getItem('token') || localStorage.getItem('authToken'))) { apply(null, { force: true }); return getStoredBranding(); }
     try {

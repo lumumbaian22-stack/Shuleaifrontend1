@@ -14,10 +14,10 @@ function initSuperAdminCharts(data) {
         window.charts.superEnrollment = new Chart(ctx1, {
             type: 'line',
             data: {
-                labels: data?.growthLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                labels: Array.isArray(data?.growthLabels) ? data.growthLabels : [],
                 datasets: [{
                     label: 'New Schools',
-                    data: data?.growthData || [2, 3, 4, 3, 5, 7],
+                    data: Array.isArray(data?.growthData) ? data.growthData : [],
                     borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     tension: 0.4,
@@ -39,9 +39,9 @@ function initSuperAdminCharts(data) {
         window.charts.superGrade = new Chart(ctx2, {
             type: 'doughnut',
             data: {
-                labels: data?.distributionLabels || ['Primary', 'Secondary', 'Mixed'],
+                labels: Array.isArray(data?.distributionLabels) ? data.distributionLabels : [],
                 datasets: [{
-                    data: data?.distributionData || [12, 18, 4],
+                    data: Array.isArray(data?.distributionData) ? data.distributionData : [],
                     backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981'],
                     borderWidth: 0
                 }]

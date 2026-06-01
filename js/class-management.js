@@ -39,10 +39,7 @@ async function loadEligibleSubjectsForClass(classId) {
     try {
         if (!api.admin.getEligibleSubjectsForClass) return [];
         const response = await api.admin.getEligibleSubjectsForClass(classId);
-        // Backend returns { data: { subjects:[...] } }. Older code only accepted data as an array,
-        // which made valid subjects look empty and blocked subject-teacher assignment.
-        const payload = response?.data || {};
-        let rows = Array.isArray(payload) ? payload : (Array.isArray(payload.subjects) ? payload.subjects : []);
+        const rows = Array.isArray(response.data) ? response.data : [];
         return rows.map(s => s.name || s.subjectName || s.subject || s).filter(Boolean);
     } catch (error) {
         console.error('Failed to load curriculum-valid subjects for class:', error);
@@ -586,7 +583,7 @@ async function openSubjectAssignmentModal(classId, className) {
         let allSubjects = await loadEligibleSubjectsForClass(classId);
         if (!allSubjects.length) {
             hideLoading();
-            showToast('No subjects are enabled for this class yet. Go to Add Subjects and enable curriculum subjects or add a custom subject for this class.', 'error');
+            showToast('No valid subjects found for this class. Save the curriculum structure and Add Subjects checklist first.', 'error');
             return;
         }
 

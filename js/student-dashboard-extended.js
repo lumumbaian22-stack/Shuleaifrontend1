@@ -9,6 +9,13 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+
+function getStudentDashboardSchoolName() {
+    const data = window.dashboardData || window.studentDashboardData || {};
+    const school = data.school || (typeof getCurrentSchool === 'function' ? getCurrentSchool() : {}) || {};
+    return school.schoolName || school.name || (window.BrandingManager && typeof window.BrandingManager.getDisplayName === 'function' ? window.BrandingManager.getDisplayName() : 'ShuleAI');
+}
+
 function timeAgo(timestamp) {
     if (!timestamp) return 'N/A';
     const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
@@ -59,10 +66,10 @@ async function renderStudentSection(section) {
 
 async function renderStudentDashboard() {
     try {
-        if (!dashboardData || Object.keys(dashboardData).length === 0 || !dashboardData.student || !dashboardData.school) {
+        if (!dashboardData || Object.keys(dashboardData).length === 0) {
             try {
                 const res = await api.student.getDashboard();
-                dashboardData = { ...(dashboardData || {}), ...(res.data || {}) };
+                dashboardData = res.data || {};
                 window.dashboardData = dashboardData;
                 window.studentDashboardData = dashboardData;
             } catch(e) { dashboardData = window.dashboardData || {}; }
@@ -70,9 +77,10 @@ async function renderStudentDashboard() {
         const data = dashboardData || {};
         const user = getCurrentUser();
         const school = data.school || getCurrentSchool() || {};
-        const branding = (window.BrandingManager && window.BrandingManager.getStoredBranding ? window.BrandingManager.getStoredBranding() : {}) || {};
-        const displaySchoolName = (window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : (school.schoolName || school.name || 'ShuleAI'));
-        const schoolLogo = (window.BrandingManager && window.BrandingManager.getLogoSource ? window.BrandingManager.getLogoSource() : '') || school.logo || branding.logoDataUrl || branding.logoUrl || branding.logo || '';
+        const schoolName = school.schoolName || school.name || (window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : 'ShuleAI');
+        const rawLogo = school.logoUrl || school.logo || school.branding?.logoUrl || school.branding?.logo || '';
+        const schoolLogo = rawLogo && typeof resolveMediaUrl === 'function' ? resolveMediaUrl(rawLogo) : rawLogo;
+        if (schoolName && window.BrandingManager && typeof window.BrandingManager.forceApply === 'function') { window.BrandingManager.forceApply(schoolName); }
         const average = data.stats?.averageScore || data.averageScore || 0;
         const attendanceRate = data.stats?.attendanceRate || (data.recentAttendance?.length ? Math.round((data.recentAttendance.filter(a => a.status === 'present').length / data.recentAttendance.length) * 100) : 0);
         const studentPoints = data.student?.points || user?.points || 0;
@@ -87,14 +95,10 @@ async function renderStudentDashboard() {
                 </div>
                 
                 <!-- School Name Header -->
-                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-                    <div class="flex items-center gap-3">
-                        <img data-report-school-logo data-student-school-logo src="${escapeHtml(schoolLogo || 'assets/logo-light.png')}" alt="${escapeHtml(displaySchoolName)} logo" class="h-12 w-12 rounded-xl object-contain bg-white/80 border p-1" onerror="this.onerror=null;this.src='assets/logo-light.png';">
-                        <div>
-                            <h2 id="student-school-name" data-school-name class="text-xl font-semibold">${escapeHtml(displaySchoolName)}</h2>
-                            <p class="text-sm text-muted-foreground">Welcome back, ${escapeHtml(user?.name || 'Student')}</p>
-                        </div>
-                    </div>
+                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 flex items-center gap-3">
+                    ${schoolLogo ? `<img src="${escapeHtml(schoolLogo)}" class="h-12 w-12 object-contain rounded bg-white/80 p-1" alt="${escapeHtml(schoolName)} logo" onerror="this.style.display='none'">` : ''}
+                    <div><h2 id="student-school-name" class="text-xl font-semibold">${escapeHtml(schoolName)}</h2>
+                    <p class="text-sm text-muted-foreground">Welcome back, ${user?.name || 'Student'}</p></div>
                 </div>
                 
                 <!-- Stats Grid -->
@@ -651,7 +655,7 @@ async function renderStudentAttendance() {
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">My Attendance</h2>
-                    <div class="text-sm text-muted-foreground">${escapeHtml((window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : ((school && school.status === 'active') ? school.name : 'ShuleAI')))}</div>
+                    <div class="text-sm text-muted-foreground">${escapeHtml(getStudentDashboardSchoolName())}</div>
                 </div>
                 <div class="rounded-xl border bg-card p-6">
                     <div class="grid gap-4 md:grid-cols-3">
@@ -969,7 +973,7 @@ function renderStudentSchedule() {
         <div class="space-y-6 animate-fade-in">
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold">My Schedule</h2>
-                <div class="text-sm text-muted-foreground">${escapeHtml((window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : ((school && school.status === 'active') ? school.name : 'ShuleAI')))}</div>
+                <div class="text-sm text-muted-foreground">${escapeHtml(getStudentDashboardSchoolName())}</div>
             </div>
             <div class="rounded-xl border bg-card p-6">
                 <h3 class="font-semibold mb-4">Today's Classes</h3>

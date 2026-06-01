@@ -203,10 +203,10 @@ const superAdminAPI = {
             body: JSON.stringify(data)
         }),
     getAllUsers: () => apiRequest('/api/super-admin/users'),
-    getSystemMetrics: () => apiRequest('/api/super-admin/system/metrics'),
-    getSystemLogs: () => apiRequest('/api/super-admin/system/events'),
+    getSystemMetrics: () => apiRequest('/api/super-admin/metrics'),
+    getSystemLogs: () => apiRequest('/api/super-admin/logs'),
     getRequestHistory: () => apiRequest('/api/super-admin/requests/history'),
-    getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/detail`),
+    getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats`),
     getGrowthData: () => apiRequest('/api/super-admin/growth-data'),
     getSchoolDistribution: () => apiRequest('/api/super-admin/school-distribution'),
     getPlatformSettings: () => apiRequest('/api/super-admin/platform-settings'),
@@ -227,14 +227,7 @@ const superAdminAPI = {
     getSchoolDetail: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/detail`),
     updateSchoolAccessControls: (schoolId, data) => apiRequest(`/api/super-admin/schools/${schoolId}/access-controls`, { method: 'PUT', body: JSON.stringify(data) }),
     getPaymentRequests: (params = {}) => apiRequest(`/api/super-admin/payment-requests${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
-    reviewPaymentRequest: (requestId, data) => apiRequest(`/api/super-admin/payment-requests/${requestId}/review`, { method: 'POST', body: JSON.stringify(data) }),
-    getPlatformBranding: () => apiRequest('/api/super-admin/platform-branding'),
-    getPlatformAnalytics: () => apiRequest(`/api/super-admin/platform-analytics?_=${Date.now()}`),
-    getPlatformHealth: () => apiRequest(`/api/super-admin/platform-health?_=${Date.now()}`),
-    getPlatformEvents: () => apiRequest(`/api/super-admin/platform-events?_=${Date.now()}`),
-    getPlatformAlerts: () => apiRequest(`/api/super-admin/platform-alerts?_=${Date.now()}`),
-    getPlatformPlans: () => apiRequest('/api/super-admin/platform-plans'),
-    savePlatformPlans: (plans) => apiRequest('/api/super-admin/platform-plans', { method: 'PUT', body: JSON.stringify({ plans }) })
+    reviewPaymentRequest: (requestId, data) => apiRequest(`/api/super-admin/payment-requests/${requestId}/review`, { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ ADMIN ENDPOINTS ============
@@ -857,25 +850,22 @@ console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
 
 
 function resolveMediaUrl(url) {
-    const value = String(url || '').trim();
-    if (!value || value === 'undefined' || value === 'null') return '';
-    if (/^data:image\//i.test(value)) return value;
-    if (/^https?:\/\//i.test(value)) return value;
-    if (/^(blob:|file:)/i.test(value)) return value;
-    if (value.includes('data:image/')) return '';
-    if (/^assets\//i.test(value) || /^\/assets\//i.test(value)) return value.replace(/^\//, '');
+    const raw = String(url || '').trim();
+    if (!raw || raw === 'undefined' || raw === 'null') return '';
+    if (/^data:image\//i.test(raw)) return raw;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^blob:/i.test(raw)) return raw;
     const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
-    const uploadish = /^(\/)?(uploads|homework-files)\//i.test(value);
-    if (uploadish) {
-        const path = value.startsWith('/') ? value : '/' + value;
-        return base ? base + path : path;
+    if (raw.startsWith('/uploads/') || raw.startsWith('/homework-files/')) {
+        return base ? base + raw : raw;
     }
-    // Unknown relative image paths must stay relative. Do not prefix backend URL, because
-    // values like data:image... or undefined previously became backend/data:image... 404 loops.
-    return value;
+    if (raw.startsWith('uploads/')) {
+        return base ? `${base}/${raw}` : `/${raw}`;
+    }
+    if (raw.startsWith('/')) return raw;
+    return raw;
 }
 window.resolveMediaUrl = resolveMediaUrl;
-window.resolveImageUrl = resolveMediaUrl;
 
 
 // ============ V9 CHAT / THREADS / ACHIEVEMENTS ============

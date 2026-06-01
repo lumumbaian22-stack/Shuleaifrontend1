@@ -36,8 +36,7 @@ function normalizeCalendarEvent(event) {
         location: raw.location || '',
         type: raw.type || raw.eventType || 'other',
         eventType: raw.eventType || raw.type || 'other',
-        audience: raw.visibility || raw.audience || raw.broadcastTo || 'personal',
-        visibility: raw.visibility || raw.audience || raw.broadcastTo || 'personal'
+        audience: raw.audience || raw.broadcastTo || 'whole_school'
     };
 }
 
@@ -462,7 +461,7 @@ function showAddEventModal(prefillDate) {
     setValue('event-description', '');
     setValue('event-type', 'own_event');
     setValue('event-term', '');
-    setValue('event-audience', 'personal');
+    setValue('event-audience', 'whole_school');
 
     modal.classList.remove('hidden');
     setTimeout(()=>window.toggleCalendarEventFields && window.toggleCalendarEventFields(),0);
@@ -477,7 +476,7 @@ function createAddEventModal() {
                     <div class="flex items-center justify-between mb-6">
                         <div>
                             <h3 class="text-xl font-semibold">Add School Academic Calendar Event</h3>
-                            <p class="text-sm text-muted-foreground">Saved to the backend with strict visibility. Own events stay private unless you broadcast them.</p>
+                            <p class="text-sm text-muted-foreground">Saved to the backend and visible to the whole school.</p>
                         </div>
                         <button onclick="closeAddEventModal()" class="rounded-lg p-2 hover:bg-muted"><i data-lucide="x" class="h-5 w-5"></i></button>
                     </div>
@@ -531,9 +530,7 @@ function createAddEventModal() {
                         <div class="calendar-extra-event-field">
                             <label class="block text-sm font-medium mb-1">Broadcast To</label>
                             <select id="event-audience" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                <option value="personal" selected>Personal / Only me</option>
-                                <option value="admin_only">Admins only</option>
-                                <option value="whole_school">Whole School</option>
+                                <option value="whole_school" selected>Whole School</option>
                                 <option value="students">Students</option>
                                 <option value="parents">Parents</option>
                                 <option value="teachers">Teachers</option>
@@ -574,10 +571,10 @@ async function saveCalendarEvent() {
     const eventType = document.getElementById('event-type')?.value || 'other';
     const term = document.getElementById('event-term')?.value || null;
     const year = Number(document.getElementById('event-year')?.value || new Date(date).getFullYear());
-    let audience = document.getElementById('event-audience')?.value || 'personal';
+    let audience = document.getElementById('event-audience')?.value || 'whole_school';
     const ownEvent = eventType === 'own_event';
     const finalEndDate = ownEvent ? date : endDate;
-    const finalAudience = ownEvent ? 'personal' : audience;
+    const finalAudience = ownEvent ? 'admin' : audience;
 
     if (!title || !date) {
         showToast('Event name and start date are required', 'error');
@@ -598,15 +595,14 @@ async function saveCalendarEvent() {
             term: ownEvent ? null : term,
             year,
             audience: finalAudience,
-            visibility: finalAudience,
-            isPublic: finalAudience === 'whole_school'
+            isPublic: !ownEvent
         });
         const created = normalizeCalendarEventsResponse(res).map(normalizeCalendarEvent)[0] || normalizeCalendarEvent(res.data || res.event || {});
         const events = getCalendarEventsArray().filter(e => String(e.id) !== String(created.id));
         events.push(created);
         await saveCalendarEvents(events);
         await refreshCalendarEvents();
-        showToast(res.message || 'Event saved successfully', 'success');
+        showToast(res.message || 'Event added successfully and broadcasted to the school', 'success');
     } catch (error) {
         showToast(error.message || 'Could not save event', 'error');
         return;

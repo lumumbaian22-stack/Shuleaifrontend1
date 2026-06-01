@@ -301,14 +301,9 @@ async function renderParentDashboard() {
                 </div>
 
                 <div class="rounded-xl border bg-card p-4">
-                    <div class="grid gap-2 sm:grid-cols-2">
-                        <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
-                            <i data-lucide="file-text" class="h-4 w-4"></i> View Report Card
-                        </button>
-                        <button onclick="downloadReportCard(${selectedChildId})" class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent">
-                            <i data-lucide="download" class="h-4 w-4"></i> Download Report Card
-                        </button>
-                    </div>
+                    <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="file-text" class="h-4 w-4"></i> View / Download Report Card
+                    </button>
                 </div>
                 
                 <div class="rounded-xl border bg-card overflow-hidden">
@@ -1052,15 +1047,8 @@ window.loadParentRecipientConversation = async function() {
     try {
         const conversations = await api.parent.getConversations();
         const rows = Array.isArray(conversations?.data) ? conversations.data : [];
-        const targetRole = target === 'admin' ? 'admin' : 'teacher';
-        const mappedId = window.__parentChatRecipientIds?.[targetRole];
-        const match = rows.find(c => mappedId && String(c.userId) === String(mappedId))
-            || rows.find(c => String(c.requestedRecipientType || '').toLowerCase() === targetRole)
-            || rows.find(c => String(c.actualRecipientType || '').toLowerCase() === targetRole)
-            || rows.find(c => String(c.userRole || '').toLowerCase() === targetRole)
-            || null;
+        const match = rows.find(c => String(c.userRole || '').toLowerCase() === (target === 'admin' ? 'admin' : 'teacher')) || null;
         const messages = match?.messages || [];
-        if (match?.userId) { window.__parentChatRecipientIds = { ...(window.__parentChatRecipientIds || {}), [targetRole]: match.userId }; }
         if (messages.length) {
             container.innerHTML = messages.slice().reverse().map(msg => {
                 const mine = Number(msg.senderId) === Number((typeof getCurrentUser === 'function' ? getCurrentUser()?.id : JSON.parse(localStorage.getItem('user')||'{}').id));
@@ -1112,14 +1100,7 @@ async function sendParentMessage() {
             `;
             container.insertAdjacentHTML('beforeend', newMessageHtml);
             container.scrollTop = container.scrollHeight;
-            const sentRole = response.data?.recipientType === 'admin' ? 'admin' : 'teacher';
-            if (response.data?.recipientId) {
-                window.__parentChatRecipientIds = { ...(window.__parentChatRecipientIds || {}), [sentRole]: response.data.recipientId };
-            }
-            setTimeout(() => {
-                if (response.data?.recipientId && typeof loadParentConversation === 'function') loadParentConversation(response.data.recipientId);
-                else if (window.loadParentRecipientConversation) window.loadParentRecipientConversation();
-            }, 250);
+            setTimeout(() => window.loadParentRecipientConversation && window.loadParentRecipientConversation(), 250);
 
             showToast(response.data?.recipientType === 'admin' ? '✅ Message sent to school admin' : '✅ Message sent to class teacher', 'success');
         } else {
