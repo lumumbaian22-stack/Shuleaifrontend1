@@ -82,8 +82,7 @@
 
   function getLogoSource() {
     const b = getStoredBranding();
-    const raw = clean(b.logoUrl) || clean(b.logo) || clean(b.logoDataUrl) || '';
-    return raw && typeof window.resolveMediaUrl === 'function' ? window.resolveMediaUrl(raw) : raw;
+    return clean(b.logoDataUrl) || clean(b.logoUrl) || clean(b.logo) || '';
   }
 
   function currentMode() { return document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
@@ -225,12 +224,27 @@
   }
 
   function applyColors() {
-    // Final locked stabilization: do not mutate global dashboard theme variables.
-    // School branding colors are stored and previewed, but approved dashboard colours remain unchanged.
-    if (isSuperAdmin()) {
-      document.body?.removeAttribute('data-school-color-name');
-      document.documentElement.removeAttribute('data-school-color-name');
+    const colors = normalizeColorPreset();
+    const primaryHsl = hexToHslParts(colors.primaryColor);
+    const accentHsl = hexToHslParts(colors.accentColor);
+    const root = document.documentElement;
+    root.style.setProperty('--school-primary-color', colors.primaryColor);
+    root.style.setProperty('--school-accent-color', colors.accentColor);
+    root.style.setProperty('--school-primary-hsl', primaryHsl || '217 91% 60%');
+    root.style.setProperty('--school-accent-hsl', accentHsl || '174 82% 39%');
+    if (primaryHsl) {
+      root.style.setProperty('--primary', primaryHsl);
+      root.style.setProperty('--ring', primaryHsl);
+      root.style.setProperty('--sidebar-primary', primaryHsl);
     }
+    if (accentHsl) {
+      root.style.setProperty('--sidebar-ring', accentHsl);
+      root.style.setProperty('--brand-accent-hsl', accentHsl);
+    }
+    document.body?.setAttribute('data-school-color-name', colors.colorName);
+    document.body?.style.setProperty('--school-primary-color', colors.primaryColor);
+    document.body?.style.setProperty('--school-accent-color', colors.accentColor);
+    root.setAttribute('data-school-color-name', colors.colorName);
   }
 
   function applyReportBrandingHelpers() {
@@ -290,7 +304,6 @@
 
   async function loadSchoolBranding(force = false) {
     if (!force && loadedOnce) return getStoredBranding();
-    if (isSuperAdmin()) { loadedOnce = true; apply(PLATFORM_SHORT_NAME, { force: true }); return {}; }
     if (typeof window.apiRequest !== 'function') { apply(null, { force: true }); return getStoredBranding(); }
     if (!(localStorage.getItem('token') || localStorage.getItem('authToken'))) { apply(null, { force: true }); return getStoredBranding(); }
     try {

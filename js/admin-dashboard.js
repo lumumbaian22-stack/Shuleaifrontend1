@@ -1883,58 +1883,42 @@ async function renderAdminSubscriptionBilling() {
 window.openSchoolBillingModal = async function(defaultPlanCode = 'school_growth') {
     const plansRes = await api.subscription.getPlans('school').catch(() => ({ data: [] }));
     const plans = plansRes.data || [];
-    const options = plans.length
-        ? plans.map(plan => `<option value="${escapeHtml(plan.code)}" ${plan.code === defaultPlanCode ? 'selected' : ''}>${escapeHtml(plan.displayName || plan.name)} — ${formatKes(plan.monthlyPriceKes || plan.price)}/month</option>`).join('')
-        : `<option value="${escapeHtml(defaultPlanCode)}">${escapeHtml(defaultPlanCode)}</option>`;
+    const options = plans.map(plan => `<option value="${escapeHtml(plan.code)}" ${plan.code === defaultPlanCode ? 'selected' : ''}>${escapeHtml(plan.displayName || plan.name)} — ${formatKes(plan.monthlyPriceKes || plan.price)}/month</option>`).join('');
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4';
     modal.id = 'school-billing-modal';
     modal.innerHTML = `
         <div class="w-full max-w-lg rounded-2xl border bg-card text-card-foreground shadow-xl">
             <div class="p-5 border-b flex items-center justify-between">
-                <h3 class="text-lg font-bold">Submit School Subscription Payment</h3>
+                <h3 class="text-lg font-bold">Renew / Upgrade School Subscription</h3>
                 <button onclick="document.getElementById('school-billing-modal')?.remove()" class="text-muted-foreground hover:text-foreground">×</button>
             </div>
             <div class="p-5 space-y-4">
                 <div><label class="text-sm font-medium">Select Plan</label><select id="school-sub-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${options}</select></div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly</option><option value="termly">Termly</option><option value="yearly">Yearly</option><option value="custom">Custom</option></select></div>
-                    <div><label class="text-sm font-medium">Amount Paid</label><input id="school-sub-amount" type="number" min="0" placeholder="KES" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="text-sm font-medium">Method</label><select id="school-sub-method" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="mpesa">M-Pesa</option><option value="cash">Cash</option><option value="bank">Bank</option></select></div>
-                    <div><label class="text-sm font-medium">Payment Date</label><input id="school-sub-paid-at" type="date" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
-                </div>
-                <div><label class="text-sm font-medium">M-Pesa Code / Bank / Cash Reference</label><input id="school-sub-reference" placeholder="e.g. QF123ABC" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
-                <div><label class="text-sm font-medium">Notes</label><textarea id="school-sub-notes" rows="3" placeholder="Any extra details for super admin verification" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></textarea></div>
-                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This request is sent to the Shule AI super admin for verification. Access activates after approval.</div>
+                <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+                <div><label class="text-sm font-medium">M-PESA Phone Number</label><input id="school-sub-phone" placeholder="2547XXXXXXXX" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
+                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This payment goes to the Shule AI platform account, not the school fee account.</div>
             </div>
-            <div class="p-5 border-t flex justify-end gap-3"><button onclick="document.getElementById('school-billing-modal')?.remove()" class="px-4 py-2 rounded-lg border">Cancel</button><button onclick="submitSchoolSubscriptionManualRequest()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Submit for Verification</button></div>
+            <div class="p-5 border-t flex justify-end gap-3"><button onclick="document.getElementById('school-billing-modal')?.remove()" class="px-4 py-2 rounded-lg border">Cancel</button><button onclick="submitSchoolSubscriptionSTK()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Pay via M-PESA</button></div>
         </div>`;
     document.body.appendChild(modal);
 };
 
-window.submitSchoolSubscriptionManualRequest = async function() {
-    const requestedPlan = document.getElementById('school-sub-plan')?.value;
+window.submitSchoolSubscriptionSTK = async function() {
+    const planCode = document.getElementById('school-sub-plan')?.value;
     const billingCycle = document.getElementById('school-sub-cycle')?.value || 'monthly';
-    const amount = Number(document.getElementById('school-sub-amount')?.value || 0);
-    const method = document.getElementById('school-sub-method')?.value || 'mpesa';
-    const paidAt = document.getElementById('school-sub-paid-at')?.value || new Date().toISOString();
-    const reference = document.getElementById('school-sub-reference')?.value?.trim();
-    const notes = document.getElementById('school-sub-notes')?.value?.trim();
-    if (!amount || amount <= 0) { alert('Enter the amount paid'); return; }
-    if (!reference) { alert('Enter the payment reference/code'); return; }
+    const phone = document.getElementById('school-sub-phone')?.value?.trim();
+    if (!phone) { alert('Enter M-PESA phone number'); return; }
     try {
-        const res = await api.admin.submitSchoolPaymentConfirmation({ requestedPlan, billingCycle, amount, method, paidAt, reference, notes });
-        alert(res.message || 'Payment confirmation submitted for verification.');
+        const res = await api.payments.schoolSubscriptionSTK({ planCode, billingCycle, phone });
+        alert(res.message || 'M-PESA prompt sent. Approve payment on your phone.');
         document.getElementById('school-billing-modal')?.remove();
-        setTimeout(() => showDashboardSection('subscription-billing'), 600);
+        setTimeout(() => showDashboardSection('subscription-billing'), 1200);
     } catch (error) {
-        alert(error.message || 'Could not submit payment confirmation.');
+        alert(error.message || 'Could not start M-PESA payment.');
     }
 };
 
-window.submitSchoolSubscriptionSTK = window.submitSchoolSubscriptionManualRequest;
 
 // V88: load admin dashboard academic calendar preview immediately without overriding main calendar functions.
 (function(){
@@ -1976,17 +1960,6 @@ window.renderAdminCustomSubjects = async function() {
                         <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Structure</p><p class="font-bold">${cfg.structureType || 'mixed'}</p></div>
                         <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Enabled Levels</p><p class="font-bold">${(data.levels || []).length}</p></div>
                     </div>
-                </div>
-                <div class="rounded-xl border bg-card p-5">
-                    <h3 class="font-semibold mb-3">Add Custom Subject</h3>
-                    <div class="grid md:grid-cols-4 gap-3">
-                        <input id="v102-custom-subject-name" placeholder="Subject name e.g. Robotics" class="rounded-lg border bg-background px-3 py-2 text-sm">
-                        <select id="v102-custom-subject-category" class="rounded-lg border bg-background px-3 py-2 text-sm"><option value="custom">Custom</option><option value="core">Core</option><option value="optional">Optional</option><option value="pathway">Pathway</option></select>
-                        <select id="v102-custom-subject-counts" class="rounded-lg border bg-background px-3 py-2 text-sm"><option value="true">Counts in final</option><option value="false">Does not count</option></select>
-                        <button onclick="v102AddCustomSubject()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Add Custom Subject</button>
-                    </div>
-                    <p class="text-xs text-muted-foreground mt-3">Custom subjects are saved as real school subjects. They still require level/class selection below before they can appear in assignments, grading and report cards.</p>
-                    <div class="grid md:grid-cols-4 gap-2 mt-3 max-h-44 overflow-auto">${(data.levels || []).map(l => `<label class="flex items-center gap-2 p-2 rounded border bg-muted/20"><input type="checkbox" class="v102-custom-subject-level" value="${l.code}"><span class="text-xs">${l.label}</span></label>`).join('')}</div>
                 </div>
                 <div class="space-y-4">
                     ${Object.entries(grouped).map(([group, items]) => `<div class="rounded-xl border bg-card p-5"><div class="flex items-center justify-between mb-3"><h3 class="font-semibold">${group}</h3><button type="button" onclick="v102ToggleSubjectGroup('${group.replace(/'/g,"\\'")}', true)" class="text-xs px-2 py-1 rounded bg-primary/10 text-primary">Check all</button></div><div class="grid md:grid-cols-3 gap-3">${items.map(s => `<label data-v102-group="${group}" class="flex items-start gap-2 p-3 rounded-lg border bg-muted/20"><input type="checkbox" class="v102-school-subject mt-1" data-subject='${JSON.stringify(s).replace(/'/g, '&#39;')}' ${saved.has(s.id) || saved.has(s.name) ? 'checked' : ''}><span><span class="font-medium text-sm">${s.name}</span><span class="block text-xs text-muted-foreground">${s.category || 'subject'}${s.pathway ? ` • ${s.pathway}` : ''}${s.track ? ` • ${s.track}` : ''}</span></span></label>`).join('')}</div></div>`).join('')}
@@ -2039,30 +2012,6 @@ window.v102SaveSchoolSubjectCheckboxes = async function() {
     } catch(error) { showToast(error.message || 'Failed to save subjects', 'error'); }
     finally { hideLoading(); }
 };
-window.v102AddCustomSubject = async function() {
-    const name = document.getElementById('v102-custom-subject-name')?.value?.trim();
-    const category = document.getElementById('v102-custom-subject-category')?.value || 'custom';
-    const countsInFinalByDefault = document.getElementById('v102-custom-subject-counts')?.value !== 'false';
-    const levelCodes = Array.from(document.querySelectorAll('.v102-custom-subject-level:checked')).map(x => x.value);
-    if (!name) { showToast('Enter the custom subject name', 'error'); return; }
-    if (!levelCodes.length) { showToast('Select at least one class/level for this subject', 'error'); return; }
-    showLoading();
-    try {
-        const setup = await api.admin.getCurriculumSetup();
-        const existing = (setup.data?.config?.schoolSubjects || []).filter(s => s.isOffered !== false);
-        const checked = Array.from(document.querySelectorAll('.v102-school-subject:checked')).map(cb => JSON.parse(cb.dataset.subject.replace(/&#39;/g, "'")));
-        const subjectId = `custom_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${Date.now()}`;
-        const custom = { subjectId, id: subjectId, name, category, levelCodes, isCore: category === 'core', isOptional: category !== 'core', countsInFinalByDefault, isOffered: true, source: 'custom' };
-        const merged = [...existing, ...checked, custom];
-        const unique = []; const seen = new Set();
-        merged.forEach(s => { const key = `${(s.subjectId || s.id || s.name || '').toLowerCase()}::${(s.levelCodes || []).join(',')}`; if (!seen.has(key)) { seen.add(key); unique.push(s); } });
-        await api.admin.saveSchoolSubjects(unique);
-        showToast(`✅ ${name} added as a real school subject`, 'success');
-        await showDashboardSection('custom-subjects');
-    } catch(error) { showToast(error.message || 'Failed to add custom subject', 'error'); }
-    finally { hideLoading(); }
-};
-
 
 window.v102LoadStructureBuilder = async function() {
     showLoading();

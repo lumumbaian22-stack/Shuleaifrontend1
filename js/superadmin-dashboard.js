@@ -22,8 +22,6 @@ async function renderSuperAdminSection(section) {
                 return await window.v12RenderPlatformPayments();
             case 'settings':
                 return renderSuperAdminSettings();
-            case 'analytics':
-                return renderSuperAdminAnalytics();
             case 'alerts':
                 return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('superadmin');
             default:
@@ -33,28 +31,6 @@ async function renderSuperAdminSection(section) {
         console.error('Error rendering super admin section:', error);
         return `<div class="text-center py-12 text-red-500">Error loading section: ${error.message}</div>`;
     }
-}
-
-function renderSuperAdminAnalytics() {
-    const data = dashboardData || {};
-    const rows = [
-        ['Total Schools', data.schools?.length ?? data.schools ?? 0],
-        ['Active Schools', data.activeSchools ?? (Array.isArray(data.schools) ? data.schools.filter(s => s.status === 'active').length : 0)],
-        ['Pending Schools', data.pendingSchools?.length ?? data.pendingSchools ?? 0],
-        ['Suspended Schools', data.suspendedSchools ?? 0],
-        ['Pilot Schools', data.pilotSchools ?? 0],
-        ['Trial Schools', data.trialSchools ?? 0],
-        ['Paid Schools', data.paidSchools ?? 0],
-        ['Students', data.students ?? 0],
-        ['Teachers', data.teachers ?? 0],
-        ['Parents', data.parents ?? 0],
-        ['Users', data.users ?? 0]
-    ];
-    return `<div class="space-y-6 animate-fade-in">
-        <div><h2 class="text-2xl font-bold">Platform Analytics</h2><p class="text-sm text-muted-foreground">Real platform totals only. No school dashboard analytics are reused here.</p></div>
-        <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-4">${rows.map(([label,value]) => `<div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">${escapeHtml(label)}</p><h3 class="text-2xl font-bold mt-1">${Number(value || 0).toLocaleString()}</h3></div>`).join('')}</div>
-        <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-3">Platform Events</h3>${(data.platformEvents || data.recentEvents || []).length ? `<div class="divide-y">${(data.platformEvents || data.recentEvents).map(e => `<div class="py-3 text-sm"><p class="font-medium">${escapeHtml(e.action || e.title || 'Platform Event')}</p><p class="text-xs text-muted-foreground">${escapeHtml(e.module || e.message || '')} ${e.createdAt ? '• ' + new Date(e.createdAt).toLocaleString() : ''}</p></div>`).join('')}</div>` : '<p class="text-sm text-muted-foreground">No records yet.</p>'}</div>
-    </div>`;
 }
 
 // ============ MAIN DASHBOARD ============
@@ -111,9 +87,12 @@ function renderSuperAdminDashboard() {
                 <div class="rounded-xl border bg-card p-6 card-hover">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-muted-foreground">Platform Users</p>
-                            <h3 class="text-2xl font-bold mt-1" id="platform-users">${Number(data.users || 0).toLocaleString()}</h3>
-                            <p class="text-xs text-muted-foreground mt-1">Real registered users</p>
+                            <p class="text-sm font-medium text-muted-foreground">Revenue (MTD)</p>
+                            <h3 class="text-2xl font-bold mt-1" id="revenue">$0</h3>
+                            <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                <i data-lucide="trending-up" class="h-3 w-3"></i>
+                                +<span id="revenue-growth">0</span>% from last month
+                            </p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center">
                             <i data-lucide="dollar-sign" class="h-6 w-6 text-emerald-600"></i>
@@ -152,12 +131,26 @@ function renderSuperAdminDashboard() {
                     <h3 class="font-semibold">Recent Activity</h3>
                 </div>
                 <div class="divide-y">
-                    ${(data.platformEvents || data.recentEvents || []).length ? (data.platformEvents || data.recentEvents).map(event => `
-                        <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
-                            <div class="h-10 w-10 rounded-full bg-muted flex items-center justify-center"><i data-lucide="activity" class="h-5 w-5 text-muted-foreground"></i></div>
-                            <div class="flex-1"><p class="text-sm font-medium">${escapeHtml(event.action || event.title || 'Platform Event')}</p><p class="text-xs text-muted-foreground">${escapeHtml(event.message || event.module || '')}</p></div>
-                            <span class="text-xs text-muted-foreground">${event.createdAt ? new Date(event.createdAt).toLocaleString() : ''}</span>
-                        </div>`).join('') : '<div class="p-6 text-sm text-muted-foreground text-center">No platform events yet.</div>'}
+                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
+                        <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <i data-lucide="check-circle" class="h-5 w-5 text-green-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">School Approved</p>
+                            <p class="text-xs text-muted-foreground">Nairobi Academy was approved by Super Admin</p>
+                        </div>
+                        <span class="text-xs text-muted-foreground">2 hours ago</span>
+                    </div>
+                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
+                        <div class="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                            <i data-lucide="clock" class="h-5 w-5 text-yellow-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium">New School Registration</p>
+                            <p class="text-xs text-muted-foreground">Mombasa Academy registered and pending approval</p>
+                        </div>
+                        <span class="text-xs text-muted-foreground">5 hours ago</span>
+                    </div>
                 </div>
             </div>
         </div>

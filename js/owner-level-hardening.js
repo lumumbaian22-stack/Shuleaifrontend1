@@ -110,15 +110,10 @@
 
   const previousRenderAnalyticsSection = w.renderAnalyticsSection;
   w.renderAnalyticsSection = async function(role){
-    const effective = role || currentRole();
-    if (String(effective).toLowerCase() === 'superadmin' || String(effective).toLowerCase() === 'super_admin') {
-      if (typeof w.renderSuperAdminAnalytics === 'function') return await w.renderSuperAdminAnalytics();
-      if (typeof previousRenderAnalyticsSection === 'function') return previousRenderAnalyticsSection(effective);
-    }
-    try { return await ownerAnalyticsHTML(effective); }
+    try { return await ownerAnalyticsHTML(role || currentRole()); }
     catch (error) {
       console.warn('[Owner Analytics] falling back to existing analytics:', error.message);
-      if (typeof previousRenderAnalyticsSection === 'function') return previousRenderAnalyticsSection(effective);
+      if (typeof previousRenderAnalyticsSection === 'function') return previousRenderAnalyticsSection(role || currentRole());
       return `<div class="p-6 text-red-600">Analytics unavailable: ${escape(error.message)}</div>`;
     }
   };

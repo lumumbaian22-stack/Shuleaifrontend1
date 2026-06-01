@@ -850,20 +850,11 @@ console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
 
 
 function resolveMediaUrl(url) {
-    const raw = String(url || '').trim();
-    if (!raw || raw === 'undefined' || raw === 'null') return '';
-    if (/^data:image\//i.test(raw)) return raw;
-    if (/^https?:\/\//i.test(raw)) return raw;
-    if (/^blob:/i.test(raw)) return raw;
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
     const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
-    if (raw.startsWith('/uploads/') || raw.startsWith('/homework-files/')) {
-        return base ? base + raw : raw;
-    }
-    if (raw.startsWith('uploads/')) {
-        return base ? `${base}/${raw}` : `/${raw}`;
-    }
-    if (raw.startsWith('/')) return raw;
-    return raw;
+    if (!base) return url;
+    return base + (url.startsWith('/') ? url : '/' + url);
 }
 window.resolveMediaUrl = resolveMediaUrl;
 

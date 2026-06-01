@@ -33,7 +33,7 @@ function updateSidebar(role) {
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
                 { icon: 'credit-card', label: 'Platform Payments', section: 'platform-payments' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
-                { icon: 'bell', label: 'Super Admin Alerts', section: 'alerts' },
+                { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' },
                 { icon: 'briefcase', label: 'Agent Toolkit', section: 'agent-toolkit' },
                 { icon: 'database', label: 'Demo School', section: 'demo-school' }
             ],
@@ -512,11 +512,24 @@ async function showDashboard(role) {
                 selectedChildId: selectedId 
             };
         } else if (role === 'student') {
-            const [grades, attendance] = await Promise.all([
+            const [studentDash, grades, attendance] = await Promise.all([
+                api.student.getDashboard().catch(err => ({ data: {} })),
                 api.student.getGrades().catch(err => ({ data: [] })),
                 api.student.getAttendance().catch(err => ({ data: [] }))
             ]);
-            dashboardData = { grades: grades.data, attendance: attendance.data };
+            dashboardData = { ...(studentDash.data || {}), grades: grades.data, attendance: attendance.data };
+            window.studentDashboardData = dashboardData;
+            if (dashboardData.school) {
+                const schoolName = dashboardData.school.schoolName || dashboardData.school.name;
+                const branding = dashboardData.school.branding || {};
+                const logo = dashboardData.school.logo || branding.logoDataUrl || branding.logoUrl || branding.logo;
+                try {
+                    const storedSchool = JSON.parse(localStorage.getItem('school') || '{}') || {};
+                    localStorage.setItem('school', JSON.stringify({ ...storedSchool, name: schoolName || storedSchool.name, schoolName: schoolName || storedSchool.schoolName, schoolId: dashboardData.school.schoolCode || storedSchool.schoolId, schoolCode: dashboardData.school.schoolCode || storedSchool.schoolCode, settings: { ...(storedSchool.settings || {}), branding: { ...(storedSchool.settings?.branding || {}), ...branding } } }));
+                    localStorage.setItem('schoolBranding', JSON.stringify({ ...(JSON.parse(localStorage.getItem('schoolBranding') || '{}') || {}), ...branding, schoolName, displayName: schoolName, logo: logo || branding.logo || null, logoDataUrl: branding.logoDataUrl || (String(logo || '').startsWith('data:') ? logo : null), logoUrl: branding.logoUrl || (!String(logo || '').startsWith('data:') ? logo : null) }));
+                    if (window.BrandingManager && typeof window.BrandingManager.forceApply === 'function') window.BrandingManager.forceApply(schoolName);
+                } catch (_) {}
+            }
         } else {
             console.error('Unknown role:', role);
             showToast('Invalid user role', 'error');
@@ -586,7 +599,7 @@ async function showDashboardSection(section) {
             'duty-preferences': 'Duty Preferences',
             'fairness-report': 'Fairness Report',
             'teacher-workload': 'Teacher Workload',
-            alerts: currentRole === 'superadmin' ? 'Super Admin Alerts' : 'Alerts Center',
+            alerts: 'Alerts Center',
             'career-path': 'Career Path'
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';
@@ -631,6 +644,18 @@ async function showDashboardSection(section) {
 
         setupSectionListeners(currentRole, section);
 
+        // Dynamic dashboard sections are inserted after the branding manager may have booted.
+        // Re-apply once after each render so student/parent headers and sidebar logos stay correct.
+        setTimeout(() => {
+            try {
+                if (window.BrandingManager && typeof window.BrandingManager.forceApply === 'function') {
+                    window.BrandingManager.forceApply();
+                } else if (typeof window.updateAllSchoolNameElements === 'function') {
+                    window.updateAllSchoolNameElements();
+                }
+            } catch (_) {}
+        }, 30);
+
         lucide.createIcons();
     } catch (error) {
         console.error('Error loading section:', error);
@@ -647,6 +672,9 @@ async function showDashboardSection(section) {
 async function renderDashboardSection(role, section) {
     switch(role) {
         case 'superadmin':
+            if (section === 'analytics') {
+                return await renderAnalyticsSection('superadmin');
+            }
             if (typeof renderSuperAdminSection !== 'function') {
                 console.error('renderSuperAdminSection missing');
                 return '<div class="text-center py-12 text-red-500">Error: Super Admin module not loaded</div>';

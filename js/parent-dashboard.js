@@ -301,9 +301,14 @@ async function renderParentDashboard() {
                 </div>
 
                 <div class="rounded-xl border bg-card p-4">
-                    <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
-                        <i data-lucide="file-text" class="h-4 w-4"></i> View / Download Report Card
-                    </button>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
+                            <i data-lucide="file-text" class="h-4 w-4"></i> View Report Card
+                        </button>
+                        <button onclick="downloadReportCard(${selectedChildId})" class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent">
+                            <i data-lucide="download" class="h-4 w-4"></i> Download Report Card
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="rounded-xl border bg-card overflow-hidden">
