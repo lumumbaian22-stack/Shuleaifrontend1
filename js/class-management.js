@@ -39,7 +39,16 @@ async function loadEligibleSubjectsForClass(classId) {
     try {
         if (!api.admin.getEligibleSubjectsForClass) return [];
         const response = await api.admin.getEligibleSubjectsForClass(classId);
-        const rows = Array.isArray(response.data) ? response.data : [];
+        // Backend returns { data: { subjects:[...] } }. Older code only accepted data as an array,
+        // which made valid subjects look empty and blocked subject-teacher assignment.
+        const payload = response?.data || {};
+        let rows = Array.isArray(payload) ? payload : (Array.isArray(payload.subjects) ? payload.subjects : []);
+        // Custom school subjects are first-class subjects. If the strict curriculum list is empty
+        // but the admin has saved custom subjects, keep those available instead of blocking the class.
+        if (!rows.length) {
+            const custom = window.schoolSettings?.settings?.customSubjects || window.customSubjects || [];
+            rows = custom.map(name => ({ name, category: 'custom' }));
+        }
         return rows.map(s => s.name || s.subjectName || s.subject || s).filter(Boolean);
     } catch (error) {
         console.error('Failed to load curriculum-valid subjects for class:', error);

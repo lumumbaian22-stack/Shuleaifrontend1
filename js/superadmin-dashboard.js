@@ -1,5 +1,14 @@
 // superadmin-dashboard.js - Super Admin dashboard rendering
 
+
+// V107: hard guard so Super Admin sections never crash because an older cached function name is missing.
+async function v107SafePlatformPaymentsRenderer() {
+    if (typeof renderSuperAdminPlatformPayments === 'function') return await renderSuperAdminPlatformPayments();
+    if (window.renderSuperAdminPlatformPayments && typeof window.renderSuperAdminPlatformPayments === 'function') return await window.renderSuperAdminPlatformPayments();
+    return `<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground mt-2">Payment requests module is loading. Refresh once after deployment if this remains visible.</p></div>`;
+}
+window.v12RenderPlatformPayments = window.v12RenderPlatformPayments || v107SafePlatformPaymentsRenderer;
+
 // ============ RENDER SUPER ADMIN SECTION ============
 async function renderSuperAdminSection(section) {
     try {
@@ -19,7 +28,9 @@ async function renderSuperAdminSection(section) {
             case 'platform-health':
                 return renderSuperAdminHealth();
             case 'platform-payments':
-                return await window.v12RenderPlatformPayments();
+                return await v107SafePlatformPaymentsRenderer();
+            case 'analytics':
+                return await (window.renderSuperAdminAnalyticsStandalone ? window.renderSuperAdminAnalyticsStandalone() : (window.renderAnalyticsSection ? window.renderAnalyticsSection('superadmin') : renderSuperAdminDashboard()));
             case 'settings':
                 return renderSuperAdminSettings();
             case 'alerts':
@@ -539,3 +550,50 @@ window.loadSuperAdminSettings = async function() {
         // populate form if needed
     } catch (error) { console.error('Error loading settings:', error); }
 };
+
+
+async function renderSuperAdminPlatformPayments() {
+    try {
+        const res = await api.superAdmin.getPaymentRequests ? await api.superAdmin.getPaymentRequests() : { data: [] };
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const totalPending = rows.filter(r => String(r.status).toLowerCase() === 'pending').length;
+        const totalApproved = rows.filter(r => String(r.status).toLowerCase() === 'approved').length;
+        const totalAmount = rows.filter(r => String(r.status).toLowerCase() === 'approved').reduce((s,r)=>s+Number(r.amount||0),0);
+        return `
+        <div class="space-y-6 animate-fade-in">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div><h2 class="text-2xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground">Manual school payment confirmations submitted by school admins.</p></div>
+          </div>
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Pending Review</p><h3 class="text-2xl font-bold">${totalPending}</h3></div>
+            <div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Approved Requests</p><h3 class="text-2xl font-bold">${totalApproved}</h3></div>
+            <div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Approved Amount</p><h3 class="text-2xl font-bold">KES ${totalAmount.toLocaleString()}</h3></div>
+          </div>
+          <div class="rounded-xl border bg-card overflow-hidden">
+            <div class="p-4 border-b"><h3 class="font-semibold">Payment Requests</h3></div>
+            <div class="overflow-x-auto"><table class="w-full text-sm">
+              <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">School</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Method</th><th class="px-4 py-3 text-left">Reference</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Action</th></tr></thead>
+              <tbody>${rows.length ? rows.map(r => `<tr class="border-t"><td class="px-4 py-3">${escapeHtml(r.schoolName || r.schoolCode || 'School')}</td><td class="px-4 py-3">KES ${Number(r.amount||0).toLocaleString()}</td><td class="px-4 py-3">${escapeHtml(r.method || '-')}</td><td class="px-4 py-3">${escapeHtml(r.reference || '-')}</td><td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs bg-muted">${escapeHtml(r.status || 'pending')}</span></td><td class="px-4 py-3">${String(r.status).toLowerCase()==='pending' ? `<button onclick="reviewSchoolPaymentRequest(${r.id}, 'approve')" class="px-3 py-1 rounded bg-green-600 text-white text-xs">Approve</button> <button onclick="reviewSchoolPaymentRequest(${r.id}, 'reject')" class="px-3 py-1 rounded bg-red-600 text-white text-xs">Reject</button>` : '-'}</td></tr>`).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No payment requests yet.</td></tr>`}</tbody>
+            </table></div>
+          </div>
+        </div>`;
+    } catch (error) {
+        console.error('Platform payments load failed:', error);
+        return `<div class="text-center py-12 text-red-500">Error loading platform payments: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+async function reviewSchoolPaymentRequest(id, action) {
+    try {
+        const reviewNotes = prompt(action === 'approve' ? 'Approve this payment? Optional note:' : 'Reject this payment. Add reason:') || '';
+        await api.superAdmin.reviewPaymentRequest(id, { action, reviewNotes });
+        showToast(`Payment request ${action}d`, 'success');
+        await showDashboardSection('platform-payments');
+    } catch (error) {
+        console.error('Review payment failed:', error);
+        showToast(error.message || 'Could not review payment', 'error');
+    }
+}
+window.renderSuperAdminPlatformPayments = renderSuperAdminPlatformPayments;
+window.v12RenderPlatformPayments = renderSuperAdminPlatformPayments || v107SafePlatformPaymentsRenderer;
+window.reviewSchoolPaymentRequest = reviewSchoolPaymentRequest;

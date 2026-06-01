@@ -41,7 +41,34 @@ function generateAnalyticsHTML(role, data) {
     }
 }
 
-// ... (Super Admin unchanged, but from previous correct version)
+function renderSuperAdminAnalytics(data) {
+    const ov = data.overview || {};
+    setTimeout(() => {
+        if (data.growth) initLineChart('superadmin-growth-chart', data.growth.labels || [], data.growth.values || [], 'New Schools');
+        if (data.revenueTrend) initBarChart('superadmin-revenue-chart', data.revenueTrend.labels || [], data.revenueTrend.values || [], 'Revenue');
+        if (data.distributionByCurriculum) initDoughnutChart('superadmin-curriculum-chart', Object.keys(data.distributionByCurriculum), Object.values(data.distributionByCurriculum));
+        if (data.distributionByLevel) initDoughnutChart('superadmin-level-chart', Object.keys(data.distributionByLevel), Object.values(data.distributionByLevel));
+    }, 100);
+    return `
+    <div class="space-y-6 animate-fade-in analytics-container">
+        <div class="flex items-center justify-between gap-3 flex-wrap"><h2 class="text-2xl font-bold">Platform Analytics</h2><span class="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700">Live platform data • ${formatDateTime(data.__loadedAt)}</span></div>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm">Total Schools</p><h3 class="text-xl font-bold">${ov.totalSchools||0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm">Active Schools</p><h3 class="text-xl font-bold">${ov.activeSchools||0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm">Pending Schools</p><h3 class="text-xl font-bold">${ov.pendingSchools||0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm">Students</p><h3 class="text-xl font-bold">${ov.totalStudents||0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm">Teachers</p><h3 class="text-xl font-bold">${ov.totalTeachers||0}</h3></div>
+        </div>
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl border bg-card p-6 analytics-card"><h3 class="font-semibold mb-4">School Growth</h3><div class="chart-container"><canvas id="superadmin-growth-chart"></canvas></div></div>
+            <div class="rounded-xl border bg-card p-6 analytics-card"><h3 class="font-semibold mb-4">Platform Revenue</h3><div class="chart-container"><canvas id="superadmin-revenue-chart"></canvas></div></div>
+        </div>
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl border bg-card p-6 analytics-card"><h3 class="font-semibold mb-4">Schools by Curriculum</h3><div class="chart-container"><canvas id="superadmin-curriculum-chart"></canvas></div></div>
+            <div class="rounded-xl border bg-card p-6 analytics-card"><h3 class="font-semibold mb-4">Schools by Level/Structure</h3><div class="chart-container"><canvas id="superadmin-level-chart"></canvas></div></div>
+        </div>
+    </div>`;
+}
 
 function renderAdminAnalytics(data) {
     const ov = data.overview || {};

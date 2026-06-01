@@ -1052,8 +1052,15 @@ window.loadParentRecipientConversation = async function() {
     try {
         const conversations = await api.parent.getConversations();
         const rows = Array.isArray(conversations?.data) ? conversations.data : [];
-        const match = rows.find(c => String(c.userRole || '').toLowerCase() === (target === 'admin' ? 'admin' : 'teacher')) || null;
+        const targetRole = target === 'admin' ? 'admin' : 'teacher';
+        const mappedId = window.__parentChatRecipientIds?.[targetRole];
+        const match = rows.find(c => mappedId && String(c.userId) === String(mappedId))
+            || rows.find(c => String(c.requestedRecipientType || '').toLowerCase() === targetRole)
+            || rows.find(c => String(c.actualRecipientType || '').toLowerCase() === targetRole)
+            || rows.find(c => String(c.userRole || '').toLowerCase() === targetRole)
+            || null;
         const messages = match?.messages || [];
+        if (match?.userId) { window.__parentChatRecipientIds = { ...(window.__parentChatRecipientIds || {}), [targetRole]: match.userId }; }
         if (messages.length) {
             container.innerHTML = messages.slice().reverse().map(msg => {
                 const mine = Number(msg.senderId) === Number((typeof getCurrentUser === 'function' ? getCurrentUser()?.id : JSON.parse(localStorage.getItem('user')||'{}').id));
@@ -1105,7 +1112,14 @@ async function sendParentMessage() {
             `;
             container.insertAdjacentHTML('beforeend', newMessageHtml);
             container.scrollTop = container.scrollHeight;
-            setTimeout(() => window.loadParentRecipientConversation && window.loadParentRecipientConversation(), 250);
+            const sentRole = response.data?.recipientType === 'admin' ? 'admin' : 'teacher';
+            if (response.data?.recipientId) {
+                window.__parentChatRecipientIds = { ...(window.__parentChatRecipientIds || {}), [sentRole]: response.data.recipientId };
+            }
+            setTimeout(() => {
+                if (response.data?.recipientId && typeof loadParentConversation === 'function') loadParentConversation(response.data.recipientId);
+                else if (window.loadParentRecipientConversation) window.loadParentRecipientConversation();
+            }, 250);
 
             showToast(response.data?.recipientType === 'admin' ? '✅ Message sent to school admin' : '✅ Message sent to class teacher', 'success');
         } else {

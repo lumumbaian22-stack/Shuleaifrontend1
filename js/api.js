@@ -203,10 +203,10 @@ const superAdminAPI = {
             body: JSON.stringify(data)
         }),
     getAllUsers: () => apiRequest('/api/super-admin/users'),
-    getSystemMetrics: () => apiRequest('/api/super-admin/metrics'),
-    getSystemLogs: () => apiRequest('/api/super-admin/logs'),
+    getSystemMetrics: () => apiRequest('/api/super-admin/system/metrics'),
+    getSystemLogs: () => apiRequest('/api/super-admin/system/events'),
     getRequestHistory: () => apiRequest('/api/super-admin/requests/history'),
-    getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/stats`),
+    getSchoolStats: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/detail`),
     getGrowthData: () => apiRequest('/api/super-admin/growth-data'),
     getSchoolDistribution: () => apiRequest('/api/super-admin/school-distribution'),
     getPlatformSettings: () => apiRequest('/api/super-admin/platform-settings'),
