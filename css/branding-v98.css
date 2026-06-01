@@ -168,38 +168,3 @@ body[data-school-color-name] .focus\:ring-ring:focus {
   border-color: var(--school-accent-color) !important;
   outline-color: var(--school-accent-color) !important;
 }
-
-/* V106: prevent branded hero cards from producing blank white code/logo pills. */
-.admin-school-code-card,
-.admin-school-logo-card {
-  color: #0f172a !important;
-  background: rgba(255,255,255,.96) !important;
-}
-.admin-school-code-card p,
-.admin-school-logo-card p {
-  color: #0f172a !important;
-  opacity: 1 !important;
-}
-.admin-school-code-card p:first-child,
-.admin-school-logo-card p:first-child {
-  color: #64748b !important;
-}
-.dark .admin-school-code-card,
-.dark .admin-school-logo-card {
-  color: #f8fafc !important;
-  background: rgba(15,23,42,.96) !important;
-  border-color: rgba(51,65,85,.9) !important;
-}
-.dark .admin-school-code-card p,
-.dark .admin-school-logo-card p {
-  color: #f8fafc !important;
-}
-.dark .admin-school-code-card p:first-child,
-.dark .admin-school-logo-card p:first-child {
-  color: #cbd5e1 !important;
-}
-.admin-school-logo-card:empty::after {
-  content: 'Short Code';
-  color: #64748b;
-  font-size: .75rem;
-}

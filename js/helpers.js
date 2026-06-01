@@ -75,46 +75,6 @@ function getCurrentSchool() {
     }
 }
 
-
-
-function getSchoolLogoSourceFromAnySource(schoolOverride) {
-    try {
-        if (window.BrandingManager && typeof window.BrandingManager.getLogoSource === 'function') {
-            const managedLogo = window.BrandingManager.getLogoSource();
-            if (managedLogo) return managedLogo;
-        }
-    } catch (_) {}
-    const school = schoolOverride || (typeof getCurrentSchool === 'function' ? getCurrentSchool() : null) || window.currentSchool || {};
-    const settings = window.schoolSettings || (() => { try { return JSON.parse(localStorage.getItem('schoolSettings') || '{}'); } catch (_) { return {}; } })();
-    const localBranding = window.schoolBranding || (() => { try { return JSON.parse(localStorage.getItem('schoolBranding') || '{}'); } catch (_) { return {}; } })();
-    const candidates = [
-        school?.settings?.branding?.logoDataUrl,
-        school?.settings?.branding?.logoUrl,
-        school?.settings?.branding?.logo,
-        school?.settings?.logo,
-        school?.logoDataUrl,
-        school?.logoUrl,
-        school?.logo,
-        settings?.branding?.logoDataUrl,
-        settings?.branding?.logoUrl,
-        settings?.branding?.logo,
-        localBranding?.logoDataUrl,
-        localBranding?.logoUrl,
-        localBranding?.logo
-    ];
-    return candidates.find(v => typeof v === 'string' && v.trim()) || '';
-}
-
-function renderSchoolLogoOrCodeCard(school, options = {}) {
-    const displayName = escapeHtml(options.name || school?.name || school?.schoolName || 'School');
-    const code = escapeHtml(options.code || school?.shortCode || school?.schoolId || school?.id || 'SHL-XXXXX');
-    const logo = getSchoolLogoSourceFromAnySource(school);
-    if (logo) {
-        return `<div class="admin-school-logo-card bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-slate-50 px-4 py-3 rounded-2xl shadow-sm border border-white/70 dark:border-slate-700 flex items-center justify-center min-w-[144px] min-h-[72px]" title="${displayName}"><img data-school-logo src="${escapeHtml(logo)}" alt="${displayName} logo" class="max-h-14 max-w-[132px] object-contain" onerror="this.closest('.admin-school-logo-card').innerHTML='<div class=&quot;text-center&quot;><p class=&quot;text-xs text-slate-500 dark:text-slate-300&quot;>Short Code</p><p class=&quot;text-sm font-mono font-bold text-slate-900 dark:text-slate-50&quot;>${code}</p></div>';"></div>`;
-    }
-    return `<div class="admin-school-code-card bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-slate-50 px-4 py-3 rounded-2xl shadow-sm border border-white/70 dark:border-slate-700 min-w-[144px] text-center"><p class="text-xs text-slate-500 dark:text-slate-300">Short Code</p><p class="text-sm font-mono font-bold text-slate-900 dark:text-slate-50">${code}</p></div>`;
-}
-
 function getCurrentRole() {
     const user = getCurrentUser();
     if (user && user.role) return user.role;

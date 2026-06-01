@@ -590,7 +590,10 @@ function renderAdminDashboard() {
                             <p class="text-sm"><span class="font-mono bg-muted px-2 py-1 rounded">Short Code: ${school?.shortCode || 'SHL-XXXXX'}</span></p>
                         </div>
                     </div>
-                    ${typeof renderSchoolLogoOrCodeCard === 'function' ? renderSchoolLogoOrCodeCard(school, { code: school?.shortCode || 'SHL-XXXXX' }) : `<div class="admin-school-code-card bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-slate-50 px-4 py-3 rounded-2xl shadow-sm border border-white/70 dark:border-slate-700 min-w-[144px] text-center"><p class="text-xs text-slate-500 dark:text-slate-300">Short Code</p><p class="text-sm font-mono font-bold text-slate-900 dark:text-slate-50">${school?.shortCode || 'SHL-XXXXX'}</p></div>`}
+                    <div class="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
+                        <p class="text-xs text-muted-foreground">Share this code with teachers</p>
+                        <p class="text-lg font-mono font-bold">${school?.shortCode || 'SHL-XXXXX'}</p>
+                    </div>
                 </div>
             </div>
 
