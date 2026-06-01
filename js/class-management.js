@@ -43,12 +43,6 @@ async function loadEligibleSubjectsForClass(classId) {
         // which made valid subjects look empty and blocked subject-teacher assignment.
         const payload = response?.data || {};
         let rows = Array.isArray(payload) ? payload : (Array.isArray(payload.subjects) ? payload.subjects : []);
-        // Custom school subjects are first-class subjects. If the strict curriculum list is empty
-        // but the admin has saved custom subjects, keep those available instead of blocking the class.
-        if (!rows.length) {
-            const custom = window.schoolSettings?.settings?.customSubjects || window.customSubjects || [];
-            rows = custom.map(name => ({ name, category: 'custom' }));
-        }
         return rows.map(s => s.name || s.subjectName || s.subject || s).filter(Boolean);
     } catch (error) {
         console.error('Failed to load curriculum-valid subjects for class:', error);
@@ -592,7 +586,7 @@ async function openSubjectAssignmentModal(classId, className) {
         let allSubjects = await loadEligibleSubjectsForClass(classId);
         if (!allSubjects.length) {
             hideLoading();
-            showToast('No valid subjects found for this class. Save the curriculum structure and Add Subjects checklist first.', 'error');
+            showToast('No subjects are enabled for this class yet. Go to Add Subjects and enable curriculum subjects or add a custom subject for this class.', 'error');
             return;
         }
 

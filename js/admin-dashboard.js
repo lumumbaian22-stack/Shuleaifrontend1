@@ -1888,37 +1888,54 @@ window.openSchoolBillingModal = async function(defaultPlanCode = 'school_growth'
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4';
     modal.id = 'school-billing-modal';
     modal.innerHTML = `
-        <div class="w-full max-w-lg rounded-2xl border bg-card text-card-foreground shadow-xl">
+        <div class="w-full max-w-2xl rounded-2xl border bg-card text-card-foreground shadow-xl">
             <div class="p-5 border-b flex items-center justify-between">
-                <h3 class="text-lg font-bold">Renew / Upgrade School Subscription</h3>
+                <h3 class="text-lg font-bold">Submit School Subscription Payment</h3>
                 <button onclick="document.getElementById('school-billing-modal')?.remove()" class="text-muted-foreground hover:text-foreground">×</button>
             </div>
             <div class="p-5 space-y-4">
-                <div><label class="text-sm font-medium">Select Plan</label><select id="school-sub-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${options}</select></div>
-                <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
-                <div><label class="text-sm font-medium">M-PESA Phone Number</label><input id="school-sub-phone" placeholder="2547XXXXXXXX" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
-                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This payment goes to the Shule AI platform account, not the school fee account.</div>
+                <div class="grid md:grid-cols-2 gap-3">
+                    <div><label class="text-sm font-medium">Select Plan</label><select id="school-sub-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${options}</select></div>
+                    <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly - 30 days</option><option value="termly">Per Term</option><option value="yearly">Yearly</option><option value="custom">Custom</option></select></div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-3">
+                    <div><label class="text-sm font-medium">Amount Paid</label><input id="school-sub-amount" type="number" min="0" placeholder="KES amount" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
+                    <div><label class="text-sm font-medium">Payment Method</label><select id="school-sub-method" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="mpesa">M-Pesa</option><option value="cash">Cash</option><option value="bank">Bank</option><option value="other">Other</option></select></div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-3">
+                    <div><label class="text-sm font-medium">M-Pesa Code / Receipt Reference</label><input id="school-sub-reference" placeholder="e.g. RK12ABC345" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
+                    <div><label class="text-sm font-medium">Payment Date</label><input id="school-sub-date" type="date" value="${new Date().toISOString().slice(0,10)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
+                </div>
+                <div><label class="text-sm font-medium">Notes</label><textarea id="school-sub-notes" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Optional payment note for super admin verification"></textarea></div>
+                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This sends a manual verification request to Shule AI super admin. Access activates only after approval.</div>
             </div>
-            <div class="p-5 border-t flex justify-end gap-3"><button onclick="document.getElementById('school-billing-modal')?.remove()" class="px-4 py-2 rounded-lg border">Cancel</button><button onclick="submitSchoolSubscriptionSTK()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Pay via M-PESA</button></div>
+            <div class="p-5 border-t flex justify-end gap-3"><button onclick="document.getElementById('school-billing-modal')?.remove()" class="px-4 py-2 rounded-lg border">Cancel</button><button onclick="submitSchoolSubscriptionManualRequest()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Submit for Verification</button></div>
         </div>`;
     document.body.appendChild(modal);
 };
 
-window.submitSchoolSubscriptionSTK = async function() {
+window.submitSchoolSubscriptionManualRequest = async function() {
     const planCode = document.getElementById('school-sub-plan')?.value;
     const billingCycle = document.getElementById('school-sub-cycle')?.value || 'monthly';
-    const phone = document.getElementById('school-sub-phone')?.value?.trim();
-    if (!phone) { alert('Enter M-PESA phone number'); return; }
+    const amount = Number(document.getElementById('school-sub-amount')?.value || 0);
+    const method = document.getElementById('school-sub-method')?.value || 'mpesa';
+    const reference = document.getElementById('school-sub-reference')?.value?.trim();
+    const paymentDate = document.getElementById('school-sub-date')?.value || new Date().toISOString().slice(0,10);
+    const notes = document.getElementById('school-sub-notes')?.value?.trim() || '';
+    if (!amount || amount < 0) return alert('Enter the amount paid.');
+    if (!reference) return alert('Enter the M-Pesa code, bank reference, or receipt number.');
     try {
-        const res = await api.payments.schoolSubscriptionSTK({ planCode, billingCycle, phone });
-        alert(res.message || 'M-PESA prompt sent. Approve payment on your phone.');
+        await api.admin.submitSchoolPaymentConfirmation({ planCode, requestedPlan: planCode, billingCycle, amount, method, reference, paymentDate, paidAt: paymentDate, notes });
+        alert('Payment confirmation submitted. Shule AI super admin will verify it.');
         document.getElementById('school-billing-modal')?.remove();
-        setTimeout(() => showDashboardSection('subscription-billing'), 1200);
+        setTimeout(() => showDashboardSection('subscription-billing'), 800);
     } catch (error) {
-        alert(error.message || 'Could not start M-PESA payment.');
+        alert(error.message || 'Could not submit payment confirmation.');
     }
 };
 
+// Legacy name kept so older buttons still submit manual requests, not Daraja STK.
+window.submitSchoolSubscriptionSTK = window.submitSchoolSubscriptionManualRequest;
 
 // V88: load admin dashboard academic calendar preview immediately without overriding main calendar functions.
 (function(){

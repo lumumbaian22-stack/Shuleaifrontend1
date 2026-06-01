@@ -569,7 +569,7 @@ async function showDashboardSection(section) {
             classes: 'Classes',
             attendance: 'Attendance',
             grades: 'Grades',
-            analytics: 'Analytics',
+            analytics: (currentRole === 'superadmin' ? 'Super Admin Analytics' : 'Analytics'),
             duty: 'Duty Management',
             calendar: 'School Calendar',
             tasks: 'My Tasks',
@@ -599,7 +599,7 @@ async function showDashboardSection(section) {
             'duty-preferences': 'Duty Preferences',
             'fairness-report': 'Fairness Report',
             'teacher-workload': 'Teacher Workload',
-            alerts: 'Alerts Center',
+            alerts: (currentRole === 'superadmin' ? 'Super Admin Alerts' : 'Alerts Center'),
             'career-path': 'Career Path'
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';
@@ -672,9 +672,6 @@ async function showDashboardSection(section) {
 async function renderDashboardSection(role, section) {
     switch(role) {
         case 'superadmin':
-            if (section === 'analytics') {
-                return await renderAnalyticsSection('superadmin');
-            }
             if (typeof renderSuperAdminSection !== 'function') {
                 console.error('renderSuperAdminSection missing');
                 return '<div class="text-center py-12 text-red-500">Error: Super Admin module not loaded</div>';

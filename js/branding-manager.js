@@ -322,15 +322,36 @@
     applyTimer = setTimeout(() => { applyTimer = null; apply(newName); }, delay);
   }
 
+  function roleLooksLikeSchoolUser() {
+    const u = getStoredUser();
+    const role = String(u?.role || localStorage.getItem('userRole') || '').toLowerCase();
+    return ['admin','teacher','parent','student'].includes(role);
+  }
+
+  function hasSchoolContext() {
+    const s = getStoredSchool();
+    const u = getStoredUser();
+    return !!(s?.schoolId || s?.schoolCode || u?.schoolCode);
+  }
+
   async function loadSchoolBranding(force = false) {
     if (!force && loadedOnce) return getStoredBranding();
-    if (isSuperAdmin()) {
+
+    // Super admin/platform screens must never call /api/owner/branding.
+    // If the role is unknown or there is no school context yet, stay on platform/default branding
+    // until dashboard data provides a school. This prevents 404 "School not found" and theme leakage.
+    if (isSuperAdmin() || !roleLooksLikeSchoolUser() || !hasSchoolContext()) {
       loadedOnce = true;
-      try { localStorage.removeItem('schoolBranding'); } catch (_) {}
-      window.schoolBranding = {};
-      apply(PLATFORM_SHORT_NAME, { force: true });
+      if (isSuperAdmin()) {
+        try { localStorage.removeItem('schoolBranding'); localStorage.removeItem('school'); } catch (_) {}
+        window.schoolBranding = {};
+        apply(PLATFORM_SHORT_NAME, { force: true });
+      } else {
+        apply(null, { force: true });
+      }
       return {};
     }
+
     if (typeof window.apiRequest !== 'function') { apply(null, { force: true }); return getStoredBranding(); }
     if (!(localStorage.getItem('token') || localStorage.getItem('authToken'))) { apply(null, { force: true }); return getStoredBranding(); }
     try {

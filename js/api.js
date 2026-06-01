@@ -227,7 +227,14 @@ const superAdminAPI = {
     getSchoolDetail: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/detail`),
     updateSchoolAccessControls: (schoolId, data) => apiRequest(`/api/super-admin/schools/${schoolId}/access-controls`, { method: 'PUT', body: JSON.stringify(data) }),
     getPaymentRequests: (params = {}) => apiRequest(`/api/super-admin/payment-requests${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
-    reviewPaymentRequest: (requestId, data) => apiRequest(`/api/super-admin/payment-requests/${requestId}/review`, { method: 'POST', body: JSON.stringify(data) })
+    reviewPaymentRequest: (requestId, data) => apiRequest(`/api/super-admin/payment-requests/${requestId}/review`, { method: 'POST', body: JSON.stringify(data) }),
+    getPlatformBranding: () => apiRequest('/api/super-admin/platform-branding'),
+    getPlatformAnalytics: () => apiRequest(`/api/super-admin/platform-analytics?_=${Date.now()}`),
+    getPlatformHealth: () => apiRequest(`/api/super-admin/platform-health?_=${Date.now()}`),
+    getPlatformEvents: () => apiRequest(`/api/super-admin/platform-events?_=${Date.now()}`),
+    getPlatformAlerts: () => apiRequest(`/api/super-admin/platform-alerts?_=${Date.now()}`),
+    getPlatformPlans: () => apiRequest('/api/super-admin/platform-plans'),
+    savePlatformPlans: (plans) => apiRequest('/api/super-admin/platform-plans', { method: 'PUT', body: JSON.stringify({ plans }) })
 };
 
 // ============ ADMIN ENDPOINTS ============
@@ -855,12 +862,17 @@ function resolveMediaUrl(url) {
     if (/^data:image\//i.test(value)) return value;
     if (/^https?:\/\//i.test(value)) return value;
     if (/^(blob:|file:)/i.test(value)) return value;
-    const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
-    if (!base) return value.startsWith('/') ? value : '/' + value;
-    if (value.startsWith('/uploads/') || value.startsWith('/homework-files/')) return base + value;
-    if (value.startsWith('uploads/')) return base + '/' + value;
     if (value.includes('data:image/')) return '';
-    return base + (value.startsWith('/') ? value : '/' + value);
+    if (/^assets\//i.test(value) || /^\/assets\//i.test(value)) return value.replace(/^\//, '');
+    const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
+    const uploadish = /^(\/)?(uploads|homework-files)\//i.test(value);
+    if (uploadish) {
+        const path = value.startsWith('/') ? value : '/' + value;
+        return base ? base + path : path;
+    }
+    // Unknown relative image paths must stay relative. Do not prefix backend URL, because
+    // values like data:image... or undefined previously became backend/data:image... 404 loops.
+    return value;
 }
 window.resolveMediaUrl = resolveMediaUrl;
 window.resolveImageUrl = resolveMediaUrl;

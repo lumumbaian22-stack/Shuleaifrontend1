@@ -128,7 +128,8 @@
   async function renderSchoolBranding(){
     let b = {}; try { b = (await apiRequest('/api/owner/branding')).data || {}; } catch(_) {}
     const colors = ['Shule Blue','Royal Blue','Emerald Green','Purple','Orange','Red','Gold','Slate'];
-    const currentLogo = b.logoDataUrl || b.logoUrl || b.logo || '';
+    const rawLogo = b.logoDataUrl || b.logoUrl || b.logo || '';
+    const currentLogo = rawLogo && typeof w.resolveMediaUrl === 'function' ? w.resolveMediaUrl(rawLogo) : rawLogo;
     return `<div class="branding-v98 space-y-6 animate-fade-in">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"><div><h2 class="text-2xl font-bold">School Branding</h2><p class="text-muted-foreground">Set school name, logo, colors, report footer and parent payment instructions from one place.</p></div><span class="text-xs px-3 py-1 rounded-full bg-primary/10 text-primary">Changes apply to this school only</span></div>
       <form onsubmit="return window.saveOwnerBranding(event)" class="rounded-xl border bg-card p-6 space-y-6">
@@ -280,7 +281,7 @@
       const wrapped = async function(role, section){
         const __role = currentRole();
         if (section === 'agent-toolkit') return __role === 'super_admin' || __role === 'superadmin' ? renderAgentToolkit() : original.apply(this, arguments);
-        if (section === 'school-branding') return renderSchoolBranding();
+        if (section === 'school-branding') return (__role === 'super_admin' || __role === 'superadmin') ? original.apply(this, arguments) : renderSchoolBranding();
         if (section === 'admin-health') return __role === 'super_admin' || __role === 'superadmin' ? renderHealth() : original.apply(this, arguments);
         if (section === 'demo-school') return renderDemoSchool();
         return original.apply(this, arguments);

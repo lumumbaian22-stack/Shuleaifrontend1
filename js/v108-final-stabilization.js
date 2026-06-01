@@ -10,9 +10,10 @@
     if (!raw || raw === 'undefined' || raw === 'null') return '';
     if (/^data:image\//i.test(raw) || /^https?:\/\//i.test(raw) || /^(blob:|file:)/i.test(raw)) return raw;
     if (raw.includes('data:image/')) return '';
+    if (/^assets\//i.test(raw) || /^\/assets\//i.test(raw)) return raw.replace(/^\//, '');
     const base = (window.API_BASE_URL || (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '') || '').replace(/\/$/, '');
-    if (!base) return raw.startsWith('/') ? raw : '/' + raw;
-    return base + (raw.startsWith('/') ? raw : '/' + raw);
+    if (/^(\/)?(uploads|homework-files)\//i.test(raw)) { const path = raw.startsWith('/') ? raw : '/' + raw; return base ? base + path : path; }
+    return raw;
   };
   window.v108ApplyDashboardScope = function(){
     const r = role();
