@@ -26,15 +26,15 @@ async function renderSuperAdminSection(section) {
              case 'help':
                 return renderHelpSection();   
             case 'platform-health':
-                return renderSuperAdminHealth();
+                return await (window.renderSuperAdminHealth ? window.renderSuperAdminHealth() : renderSuperAdminHealth());
             case 'platform-payments':
                 return await v107SafePlatformPaymentsRenderer();
             case 'analytics':
-                return await (window.renderSuperAdminAnalyticsStandalone ? window.renderSuperAdminAnalyticsStandalone() : (window.renderAnalyticsSection ? window.renderAnalyticsSection('superadmin') : renderSuperAdminDashboard()));
+                return await (window.renderSuperAdminAnalyticsStandalone ? window.renderSuperAdminAnalyticsStandalone() : renderSuperAdminDashboard());
             case 'settings':
                 return renderSuperAdminSettings();
             case 'alerts':
-                return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('superadmin');
+                return await (window.renderSuperAdminAlerts ? window.renderSuperAdminAlerts() : ((window.v12RenderAlertsCenter || window.renderAlertsCenter) ? (window.v12RenderAlertsCenter || window.renderAlertsCenter)('superadmin') : '<div class="p-6 text-muted-foreground">No super admin alerts renderer available.</div>'));
             default:
                 return renderSuperAdminDashboard();
         }
@@ -141,27 +141,10 @@ function renderSuperAdminDashboard() {
                 <div class="p-4 border-b">
                     <h3 class="font-semibold">Recent Activity</h3>
                 </div>
-                <div class="divide-y">
-                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
-                        <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                            <i data-lucide="check-circle" class="h-5 w-5 text-green-600"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">School Approved</p>
-                            <p class="text-xs text-muted-foreground">Nairobi Academy was approved by Super Admin</p>
-                        </div>
-                        <span class="text-xs text-muted-foreground">2 hours ago</span>
-                    </div>
-                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
-                        <div class="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                            <i data-lucide="clock" class="h-5 w-5 text-yellow-600"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">New School Registration</p>
-                            <p class="text-xs text-muted-foreground">Mombasa Academy registered and pending approval</p>
-                        </div>
-                        <span class="text-xs text-muted-foreground">5 hours ago</span>
-                    </div>
+                <div class="p-8 text-center text-muted-foreground">
+                    <i data-lucide="activity" class="h-10 w-10 mx-auto mb-3 opacity-50"></i>
+                    <p class="text-sm font-medium">No fake activity is shown here.</p>
+                    <p class="text-xs mt-1">Open Super Admin Alerts or Platform Events to view real backend events.</p>
                 </div>
             </div>
         </div>
@@ -350,17 +333,10 @@ function renderSuperAdminHealth() {
                 <div class="p-4 border-b">
                     <h3 class="font-semibold">Recent Platform Events</h3>
                 </div>
-                <div class="divide-y">
-                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
-                        <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <i data-lucide="building-2" class="h-5 w-5 text-blue-600"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">New School Registered</p>
-                            <p class="text-xs text-muted-foreground">Mombasa Academy signed up</p>
-                        </div>
-                        <span class="text-xs text-muted-foreground">2 hours ago</span>
-                    </div>
+                <div class="p-8 text-center text-muted-foreground">
+                    <i data-lucide="list" class="h-10 w-10 mx-auto mb-3 opacity-50"></i>
+                    <p class="text-sm font-medium">No platform events loaded in this legacy panel.</p>
+                    <p class="text-xs mt-1">The V108 Platform Events endpoint is the only source for real platform events.</p>
                 </div>
             </div>
         </div>

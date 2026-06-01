@@ -168,3 +168,23 @@ body[data-school-color-name] .focus\:ring-ring:focus {
   border-color: var(--school-accent-color) !important;
   outline-color: var(--school-accent-color) !important;
 }
+
+
+/* V108: prevent school theme/colors from leaking into platform/super-admin dashboard. */
+.platform-theme-scope {
+  --school-primary-color: #083A85;
+  --school-accent-color: #11B5B1;
+  --school-primary-hsl: 214 89% 28%;
+  --school-accent-hsl: 179 83% 39%;
+}
+.platform-theme-scope .dashboard-card,
+.platform-theme-scope .bg-card,
+.platform-theme-scope table,
+.platform-theme-scope input,
+.platform-theme-scope select,
+.platform-theme-scope textarea {
+  color: inherit;
+}
+.school-theme-scope [data-school-accent],
+.school-theme-scope .school-accent-border { border-color: var(--school-accent-color); }
+.school-theme-scope .school-accent-text { color: var(--school-primary-color); }

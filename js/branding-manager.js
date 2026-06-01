@@ -80,9 +80,21 @@
   function isSchoolBranded() { return !isSuperAdmin() && !!getSchoolNameFromAnySource(); }
   function getDisplayName() { return isSchoolBranded() ? getSchoolNameFromAnySource() : PLATFORM_SHORT_NAME; }
 
+  function resolveBrandImage(value) {
+    const raw = clean(value);
+    if (!raw || raw === 'undefined' || raw === 'null') return '';
+    if (/^data:image\//i.test(raw)) return raw;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^(blob:|file:)/i.test(raw)) return raw;
+    if (raw.includes('data:image/')) return '';
+    if (typeof window.resolveMediaUrl === 'function') return window.resolveMediaUrl(raw);
+    return raw;
+  }
+
   function getLogoSource() {
+    if (isSuperAdmin()) return '';
     const b = getStoredBranding();
-    return clean(b.logoDataUrl) || clean(b.logoUrl) || clean(b.logo) || '';
+    return resolveBrandImage(b.logoDataUrl) || resolveBrandImage(b.logoUrl) || resolveBrandImage(b.logo) || '';
   }
 
   function currentMode() { return document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
@@ -224,23 +236,31 @@
   }
 
   function applyColors() {
+    const root = document.documentElement;
+    if (isSuperAdmin()) {
+      document.body?.classList.remove('school-theme-scope');
+      document.body?.classList.add('platform-theme-scope');
+      root.setAttribute('data-dashboard-scope', 'platform');
+      root.style.setProperty('--school-primary-color', '#083A85');
+      root.style.setProperty('--school-accent-color', '#11B5B1');
+      root.style.setProperty('--school-primary-hsl', '214 89% 28%');
+      root.style.setProperty('--school-accent-hsl', '179 83% 39%');
+      document.body?.removeAttribute('data-school-color-name');
+      return;
+    }
     const colors = normalizeColorPreset();
     const primaryHsl = hexToHslParts(colors.primaryColor);
     const accentHsl = hexToHslParts(colors.accentColor);
-    const root = document.documentElement;
+    document.body?.classList.remove('platform-theme-scope');
+    document.body?.classList.add('school-theme-scope');
+    root.setAttribute('data-dashboard-scope', 'school');
+    // Scoped branding tokens only. Do not overwrite core --primary/--background/card tokens,
+    // because that breaks dashboards and leaks one school's theme into platform screens.
     root.style.setProperty('--school-primary-color', colors.primaryColor);
     root.style.setProperty('--school-accent-color', colors.accentColor);
     root.style.setProperty('--school-primary-hsl', primaryHsl || '217 91% 60%');
     root.style.setProperty('--school-accent-hsl', accentHsl || '174 82% 39%');
-    if (primaryHsl) {
-      root.style.setProperty('--primary', primaryHsl);
-      root.style.setProperty('--ring', primaryHsl);
-      root.style.setProperty('--sidebar-primary', primaryHsl);
-    }
-    if (accentHsl) {
-      root.style.setProperty('--sidebar-ring', accentHsl);
-      root.style.setProperty('--brand-accent-hsl', accentHsl);
-    }
+    if (accentHsl) root.style.setProperty('--brand-accent-hsl', accentHsl);
     document.body?.setAttribute('data-school-color-name', colors.colorName);
     document.body?.style.setProperty('--school-primary-color', colors.primaryColor);
     document.body?.style.setProperty('--school-accent-color', colors.accentColor);
@@ -304,6 +324,13 @@
 
   async function loadSchoolBranding(force = false) {
     if (!force && loadedOnce) return getStoredBranding();
+    if (isSuperAdmin()) {
+      loadedOnce = true;
+      try { localStorage.removeItem('schoolBranding'); } catch (_) {}
+      window.schoolBranding = {};
+      apply(PLATFORM_SHORT_NAME, { force: true });
+      return {};
+    }
     if (typeof window.apiRequest !== 'function') { apply(null, { force: true }); return getStoredBranding(); }
     if (!(localStorage.getItem('token') || localStorage.getItem('authToken'))) { apply(null, { force: true }); return getStoredBranding(); }
     try {

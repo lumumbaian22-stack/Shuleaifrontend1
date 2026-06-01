@@ -33,7 +33,7 @@ function updateSidebar(role) {
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
                 { icon: 'credit-card', label: 'Platform Payments', section: 'platform-payments' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
-                { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' },
+                { icon: 'bell', label: 'Super Admin Alerts', section: 'alerts' },
                 { icon: 'briefcase', label: 'Agent Toolkit', section: 'agent-toolkit' },
                 { icon: 'database', label: 'Demo School', section: 'demo-school' }
             ],

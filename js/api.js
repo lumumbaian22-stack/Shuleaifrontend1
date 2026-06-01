@@ -850,13 +850,20 @@ console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
 
 
 function resolveMediaUrl(url) {
-    if (!url) return '';
-    if (/^https?:\/\//i.test(url)) return url;
+    const value = String(url || '').trim();
+    if (!value || value === 'undefined' || value === 'null') return '';
+    if (/^data:image\//i.test(value)) return value;
+    if (/^https?:\/\//i.test(value)) return value;
+    if (/^(blob:|file:)/i.test(value)) return value;
     const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
-    if (!base) return url;
-    return base + (url.startsWith('/') ? url : '/' + url);
+    if (!base) return value.startsWith('/') ? value : '/' + value;
+    if (value.startsWith('/uploads/') || value.startsWith('/homework-files/')) return base + value;
+    if (value.startsWith('uploads/')) return base + '/' + value;
+    if (value.includes('data:image/')) return '';
+    return base + (value.startsWith('/') ? value : '/' + value);
 }
 window.resolveMediaUrl = resolveMediaUrl;
+window.resolveImageUrl = resolveMediaUrl;
 
 
 // ============ V9 CHAT / THREADS / ACHIEVEMENTS ============

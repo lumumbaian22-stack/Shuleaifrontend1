@@ -123,7 +123,7 @@ async function renderProfileSection() {
             <div class="mt-4">
                 <label class="block text-sm font-medium mb-1">Signature</label>
                 <div class="flex items-center gap-4">
-                    <img id="signature-preview" src="${user.signature || ''}" class="h-16 border rounded">
+                    ${user.signature || user.signatureUrl ? `<img id="signature-preview" src="${resolveMediaUrl(user.signature || user.signatureUrl)}" class="h-16 border rounded">` : `<div id="signature-preview" class="h-16 border rounded px-4 flex items-center text-xs text-muted-foreground">No signature uploaded</div>`}
                     <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer">
                         Upload Signature
                         <input type="file" id="signature-upload" accept="image/*" class="hidden" onchange="uploadSignature(this.files[0])">
@@ -394,9 +394,12 @@ async function uploadSignature(file) {
         const data = await response.json();
         if (response.ok && data.success) {
             const user = getCurrentUser();
-            user.signature = data.data.signature;
+            user.signature = data.data.signatureUrl || data.data.signature || '';
             localStorage.setItem('user', JSON.stringify(user));
-            document.getElementById('signature-preview').src = data.data.signature;
+            const sigEl = document.getElementById('signature-preview');
+            const sigUrl = resolveMediaUrl(user.signature);
+            if (sigEl && sigEl.tagName === 'IMG') sigEl.src = sigUrl;
+            else if (sigEl && sigUrl) sigEl.outerHTML = `<img id="signature-preview" src="${sigUrl}" class="h-16 border rounded">`;
             showToast('Signature uploaded successfully', 'success');
         } else {
             throw new Error(data.message || 'Upload failed');
