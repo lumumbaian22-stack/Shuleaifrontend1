@@ -1,5 +1,5 @@
-/* Shule AI V116 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai--v116';
+/* Shule AI V114 service worker - conservative PWA shell cache */
+const CACHE_NAME = 'shule-ai-v115-isolation-subjects-payments-verified';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -20,7 +20,8 @@ const APP_SHELL = [
   '/js/v111-media-url-hotfix.js',
   '/js/v112-stability-polish.js',
   '/js/v113-access-billing-hotfix.js',
-  '/js/v114-isolation-subjects-subscriptions.js',
+  '/js/v114-isolation-subjects-payments-hotfix.js',
+  '/js/v115-isolation-subjects-payments-hotfix.js',
   '/js/branding-manager.js',
   '/js/notifications.js',
   '/js/parent-dashboard.js',

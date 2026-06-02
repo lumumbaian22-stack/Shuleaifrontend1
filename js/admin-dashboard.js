@@ -551,7 +551,7 @@ async function renderAdminSection(section) {
             case 'fairness-report':
                 return await renderAdminFairnessReport();
             case 'custom-subjects':
-                return await renderAdminCustomSubjects();
+                return renderAdminCustomSubjects();
             case 'teacher-workload':
                 return await renderAdminTeacherWorkload();
             case 'settings':
@@ -1392,53 +1392,20 @@ async function uploadProfilePicture(file) {
   }
 }
 
-async function renderAdminCustomSubjects() {
+function renderAdminCustomSubjects() {
     const curriculum = window.schoolSettings?.curriculum || 'cbc';
     const schoolLevel = window.schoolSettings?.schoolLevel || 'secondary';
     const curriculumInfo = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) ? window.CURRICULUMS[curriculum] : { subjects: { secondary: [] } };
-    const subjectInfo = curriculumInfo?.subjects?.[schoolLevel] || curriculumInfo?.subjects?.secondary || [];
-    let classes = [];
-    try {
-        const classRes = await api.admin.getClasses();
-        classes = Array.isArray(classRes?.data) ? classRes.data : (Array.isArray(classRes?.classes) ? classRes.classes : []);
-    } catch (e) {
-        console.warn('Could not load classes for custom subject scope:', e.message);
-    }
-    const settings = window.schoolSettings?.settings || window.schoolSettings || {};
-    const classCustomSubjects = settings.classCustomSubjects || settings.customSubjectsByClass || {};
-    const schoolCustomSubjects = customSubjects || window.customSubjects || settings.customSubjects || [];
-    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const classOptions = classes.map(c => `<option value="${esc(c.id)}">${esc(c.name || c.grade || ('Class ' + c.id))}${c.grade ? ` • ${esc(c.grade)}` : ''}</option>`).join('');
-    const classSubjectRows = Object.entries(classCustomSubjects || {}).map(([classId, subjects]) => {
-        const cls = classes.find(c => String(c.id) === String(classId));
-        const list = Array.isArray(subjects) ? subjects : [];
-        if (!list.length) return '';
-        return `<div class="rounded-lg border p-3"><p class="text-sm font-semibold mb-2">${esc(cls?.name || cls?.grade || ('Class ' + classId))}</p><div class="flex flex-wrap gap-2">${list.map(subject => `<span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/40 border text-sm">${esc(subject)}<button onclick="removeClassCustomSubject('${esc(classId)}','${esc(subject)}')" class="text-red-500 hover:text-red-700">×</button></span>`).join('')}</div></div>`;
-    }).filter(Boolean).join('');
+    const subjectInfo = curriculumInfo?.subjects[schoolLevel] || [];
     return `
         <div class="space-y-6 animate-fade-in">
             <div class="flex justify-between items-center"><h2 class="text-2xl font-bold">Custom Subjects</h2></div>
-            <p class="text-sm text-muted-foreground">Add subjects that are not in the standard curriculum. This keeps the existing curriculum logic, then adds the subject either school-wide or to one class.</p>
+            <p class="text-sm text-muted-foreground">Add subjects that are not in the standard curriculum</p>
             <div class="rounded-xl border bg-card p-6">
                 <div class="space-y-4">
-                    <div class="grid gap-3 md:grid-cols-[1fr_220px_1fr_auto] items-end">
-                        <label class="text-sm font-medium">Subject name
-                            <input type="text" id="new-subject-name" placeholder="e.g., French, Computer Science, Art" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                        </label>
-                        <label class="text-sm font-medium">Add to
-                            <select id="custom-subject-scope" onchange="document.getElementById('custom-subject-class-wrap').style.display=this.value==='class'?'block':'none'" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                <option value="school">Whole school</option>
-                                <option value="class">Specific class only</option>
-                            </select>
-                        </label>
-                        <label class="text-sm font-medium" id="custom-subject-class-wrap" style="display:none">Class
-                            <select id="custom-subject-class-id" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">${classOptions || '<option value="">No classes found</option>'}</select>
-                        </label>
-                        <button onclick="addCustomSubject()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Add Subject</button>
-                    </div>
-                    <div><h4 class="text-sm font-medium mb-3">Curriculum Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">${subjectInfo.map(subject => `<div class="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"><span class="text-sm font-medium">${esc(subject)}</span><span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">core</span></div>`).join('')}</div></div>
-                    <div><h4 class="text-sm font-medium mb-3">School-wide Custom Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="custom-subjects-container">${schoolCustomSubjects && schoolCustomSubjects.length > 0 ? schoolCustomSubjects.map(subject => `<div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border group" data-subject="${esc(subject)}"><span class="text-sm font-medium">${esc(subject)}</span><button onclick="removeCustomSubject('${esc(subject)}')" class="text-red-500 hover:text-red-700"><i data-lucide="x" class="h-4 w-4"></i></button></div>`).join('') : '<p class="text-sm text-muted-foreground col-span-3 py-4 text-center bg-muted/30 rounded-lg" id="no-custom-subjects-message">No school-wide custom subjects added yet</p>'}</div></div>
-                    <div><h4 class="text-sm font-medium mb-3">Class-only Custom Subjects</h4>${classSubjectRows || '<p class="text-sm text-muted-foreground py-4 text-center bg-muted/30 rounded-lg">No class-only custom subjects added yet</p>'}</div>
+                    <div class="flex gap-2"><input type="text" id="new-subject-name" placeholder="e.g., French, Computer Science, Art" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"><button onclick="addCustomSubject()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Add Subject</button></div>
+                    <div><h4 class="text-sm font-medium mb-3">Curriculum Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">${subjectInfo.map(subject => `<div class="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"><span class="text-sm font-medium">${subject}</span><span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">core</span></div>`).join('')}</div></div>
+                    <div><h4 class="text-sm font-medium mb-3">Custom Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="custom-subjects-container">${customSubjects && customSubjects.length > 0 ? customSubjects.map(subject => `<div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border group" data-subject="${subject}"><span class="text-sm font-medium">${subject}</span><button onclick="removeCustomSubject('${subject}')" class="text-red-500 hover:text-red-700"><i data-lucide="x" class="h-4 w-4"></i></button></div>`).join('') : '<p class="text-sm text-muted-foreground col-span-3 py-4 text-center bg-muted/30 rounded-lg" id="no-custom-subjects-message">No custom subjects added yet</p>'}</div></div>
                 </div>
             </div>
             <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2"><i data-lucide="save" class="h-4 w-4"></i> Save Changes</button></div>
@@ -1450,41 +1417,17 @@ async function renderAdminCustomSubjects() {
 window.addCustomSubject = async function() {
     const newSubject = document.getElementById('new-subject-name')?.value.trim();
     if (!newSubject) { showToast('Please enter a subject name', 'error'); return; }
-    const scope = document.getElementById('custom-subject-scope')?.value || 'school';
-    const selectedClassId = document.getElementById('custom-subject-class-id')?.value || '';
-    const currentSettings = window.schoolSettings?.settings || window.schoolSettings || {};
-    const existingSchoolSubjects = Array.isArray(currentSettings.customSubjects) ? currentSettings.customSubjects : (customSubjects || []);
-    const existingClassSubjects = { ...(currentSettings.classCustomSubjects || currentSettings.customSubjectsByClass || {}) };
+    const updatedSubjects = [...(customSubjects || []), newSubject];
     showLoading();
     try {
-        let payload = {};
-        if (scope === 'class') {
-            if (!selectedClassId) throw new Error('Select the class this subject belongs to');
-            const list = Array.isArray(existingClassSubjects[selectedClassId]) ? existingClassSubjects[selectedClassId] : [];
-            existingClassSubjects[selectedClassId] = [...new Set([...list, newSubject])];
-            payload = { classCustomSubjects: existingClassSubjects, customSubjects: existingSchoolSubjects };
-            // Also save into the class settings where supported. This makes class-specific subjects visible to class assignment logic without changing school-wide subjects.
-            try {
-                const classRes = await api.admin.getClasses();
-                const classes = Array.isArray(classRes?.data) ? classRes.data : (Array.isArray(classRes?.classes) ? classRes.classes : []);
-                const cls = classes.find(c => String(c.id) === String(selectedClassId));
-                if (cls && api.admin.updateClass) {
-                    const classSettings = { ...(cls.settings || {}), customSubjects: existingClassSubjects[selectedClassId] };
-                    await api.admin.updateClass(selectedClassId, { name: cls.name, grade: cls.grade, stream: cls.stream, teacherId: cls.teacherId, settings: classSettings }).catch(() => null);
-                }
-            } catch (_) {}
-        } else {
-            const updatedSubjects = [...new Set([...existingSchoolSubjects, newSubject])];
-            payload = { customSubjects: updatedSubjects, classCustomSubjects: existingClassSubjects };
-        }
-        const response = await api.admin.updateSchoolSettings(payload);
+        const response = await api.admin.updateSchoolSettings({ customSubjects: updatedSubjects });
         if (response?.success) {
-            customSubjects = response.data?.settings?.customSubjects || response.data?.customSubjects || payload.customSubjects || existingSchoolSubjects;
-            window.customSubjects = customSubjects;
+            customSubjects = updatedSubjects;
+            window.customSubjects = updatedSubjects;
             window.schoolSettings = response.data;
             localStorage.setItem('schoolSettings', JSON.stringify(response.data));
             await showDashboardSection('custom-subjects');
-            showToast(scope === 'class' ? `Subject "${newSubject}" added to selected class only` : `Subject "${newSubject}" added to the whole school`, 'success');
+            showToast(`Subject "${newSubject}" added`, 'success');
             await refreshClassManagementIfVisible();
         } else {
             throw new Error(response?.message || 'Save failed');
@@ -1492,7 +1435,6 @@ window.addCustomSubject = async function() {
     } catch (error) { showToast(error.message, 'error'); }
     finally { hideLoading(); }
 };
-
 
 window.removeCustomSubject = async function(subject) {
     if (!confirm(`Remove "${subject}" from custom subjects?`)) return;
@@ -1511,26 +1453,6 @@ window.removeCustomSubject = async function(subject) {
         } else {
             throw new Error(response?.message || 'Save failed');
         }
-    } catch (error) { showToast(error.message, 'error'); }
-    finally { hideLoading(); }
-};
-
-
-window.removeClassCustomSubject = async function(classId, subject) {
-    if (!confirm(`Remove "${subject}" from this class?`)) return;
-    const currentSettings = window.schoolSettings?.settings || window.schoolSettings || {};
-    const map = { ...(currentSettings.classCustomSubjects || currentSettings.customSubjectsByClass || {}) };
-    map[classId] = (Array.isArray(map[classId]) ? map[classId] : []).filter(s => String(s) !== String(subject));
-    showLoading();
-    try {
-        const response = await api.admin.updateSchoolSettings({ customSubjects: currentSettings.customSubjects || customSubjects || [], classCustomSubjects: map });
-        if (response?.success) {
-            window.schoolSettings = response.data;
-            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
-            await showDashboardSection('custom-subjects');
-            showToast(`Subject "${subject}" removed from class`, 'info');
-            await refreshClassManagementIfVisible();
-        } else throw new Error(response?.message || 'Save failed');
     } catch (error) { showToast(error.message, 'error'); }
     finally { hideLoading(); }
 };

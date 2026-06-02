@@ -468,7 +468,7 @@ const parentAPI = {
         }),
     getConversations: (params = {}) => apiRequest('/api/parent/conversations' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getMessages: (otherUserId, params = {}) => 
-        apiRequest(`/api/parent/messages/${otherUserId}${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
+        apiRequest(`/api/parent/messages/${otherUserId}` + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     confirmPayment: (data) => 
         apiRequest('/api/parent/payment-confirm', {
             method: 'POST',
@@ -617,13 +617,13 @@ const userAPI = {
             method: 'POST',
             body: JSON.stringify({ reason })
         }),
-    getAlerts: (params = {}) => apiRequest('/api/user/alerts' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''))
+    getAlerts: () => apiRequest('/api/user/alerts')
 };
 
 
 // ============ ALERTS ENDPOINTS ============
 const alertsAPI = {
-    getMine: (params = {}) => apiRequest('/api/alerts' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    getMine: () => apiRequest('/api/alerts'),
     create: (data) => apiRequest('/api/alerts', { method: 'POST', body: JSON.stringify(data) }),
     markRead: (id) => apiRequest(`/api/alerts/${id}/read`, { method: 'PUT' }),
     markAllRead: () => apiRequest('/api/alerts/read-all', { method: 'PUT' }),

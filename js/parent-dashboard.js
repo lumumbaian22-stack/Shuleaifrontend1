@@ -80,41 +80,6 @@ function renderParentChildSwitcher(children, selectedChildId) {
         </div>`;
 }
 
-
-async function ensureParentChildContext() {
-    let children = Array.isArray(dashboardData?.children) ? dashboardData.children : [];
-    if (!children.length) {
-        try {
-            const childrenResponse = await api.parent.getChildren();
-            children = childrenResponse.data || [];
-        } catch (error) {
-            console.warn('Could not load parent children for scoped section:', error.message);
-            children = [];
-        }
-    }
-
-    let selectedChildId = dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || (children[0]?.id || null);
-    if (selectedChildId && children.length && !children.find(c => String(c.id) === String(selectedChildId))) {
-        selectedChildId = children[0].id;
-    }
-    if (selectedChildId) localStorage.setItem('shule_selected_child_id', selectedChildId);
-
-    let selectedChildSummary = dashboardData?.selectedChild || null;
-    if (selectedChildId && (!selectedChildSummary || String(selectedChildSummary?.student?.id || selectedChildSummary?.id || '') !== String(selectedChildId))) {
-        try {
-            const summaryResponse = await api.parent.getChildSummary(selectedChildId);
-            selectedChildSummary = summaryResponse.data;
-        } catch (error) {
-            console.warn('Could not load selected child summary:', error.message);
-        }
-    }
-
-    Object.assign(dashboardData, { children, selectedChildId, selectedChild: selectedChildSummary });
-    window.dashboardData = dashboardData;
-    return { children, selectedChildId, selectedChildSummary, selectedChildMeta: children.find(c => String(c.id) === String(selectedChildId)) || null };
-}
-
-
 async function renderParentSection(section) {
     switch(section) {
         case 'dashboard':
@@ -565,77 +530,11 @@ async function renderParentProgress() {
     }
 }
 
-
-function parentMoney(amount) {
-    return `KES ${Number(amount || 0).toLocaleString()}`;
-}
-
-function getParentPlanAmount(plan) {
-    return Number(plan?.monthlyPriceKes ?? plan?.price ?? plan?.amount ?? plan?.price_kes ?? 0) || 0;
-}
-
-async function renderParentPlatformSubscriptionCards(selectedChildId, selectedChild) {
-    let plans = [];
-    try {
-        const res = await api.parent.getSubscriptionPlans();
-        plans = Array.isArray(res?.data) ? res.data : [];
-    } catch (error) {
-        console.warn('Could not load parent subscription plans:', error.message);
-    }
-    if (!plans.length) {
-        plans = [
-            { code:'child_essential', name:'Essential', displayName:'Essential', monthlyPriceKes:100, currency:'KES', features:['Report cards','Attendance tracking','Homework tracking','Parent-school communication'] },
-            { code:'child_smart', name:'Smart', displayName:'Smart', monthlyPriceKes:300, currency:'KES', features:['Everything in Essential','Progress analytics','Study insights','Performance alerts'] },
-            { code:'child_genius', name:'Genius', displayName:'Genius', monthlyPriceKes:500, currency:'KES', features:['Everything in Smart','AI tutor access','Weak-subject support','Personalized learning insights'] }
-        ];
-    }
-    const childName = selectedChild?.User?.name || selectedChild?.name || selectedChild?.student?.name || 'selected child';
-    const userPhone = (typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : '');
-    return `
-        <section class="rounded-2xl border bg-card p-5" id="parent-platform-subscription-cards" data-student-id="${escapeHtml(String(selectedChildId || ''))}">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-                <div>
-                    <p class="text-xs uppercase tracking-wide text-muted-foreground">Shule AI platform subscription</p>
-                    <h3 class="text-xl font-bold">Learning Support Plans</h3>
-                    <p class="text-sm text-muted-foreground">These plans are separate from school fees and apply only to ${escapeHtml(childName)}.</p>
-                </div>
-                <label class="text-sm min-w-[240px]">M-Pesa phone for subscription
-                    <input id="subscription-phone" type="tel" value="${escapeHtml(userPhone)}" placeholder="2547XXXXXXXX" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                </label>
-            </div>
-            <div class="grid gap-4 md:grid-cols-3">
-                ${plans.map((plan, index) => {
-                    const code = plan.code || plan.id || plan.name || `plan_${index + 1}`;
-                    const amount = getParentPlanAmount(plan);
-                    const features = Array.isArray(plan.features) ? plan.features : [];
-                    return `
-                        <div class="rounded-xl border p-4 bg-gradient-to-br from-background to-muted/30 flex flex-col">
-                            <div class="flex items-start justify-between gap-2">
-                                <div>
-                                    <h4 class="font-bold text-lg">${escapeHtml(plan.displayName || plan.name || code)}</h4>
-                                    <p class="text-xs text-muted-foreground">Child learning plan</p>
-                                </div>
-                                <span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(plan.currency || 'KES')}</span>
-                            </div>
-                            <p class="text-2xl font-bold mt-3">${parentMoney(amount)}<span class="text-xs font-normal text-muted-foreground"> / month</span></p>
-                            <ul class="text-sm text-muted-foreground mt-3 space-y-1 flex-1">
-                                ${(features.length ? features.slice(0,5) : ['Report cards','Attendance & progress','Parent communication']).map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}
-                            </ul>
-                            <button onclick="upgradePlan('${escapeHtml(code)}', ${amount})" class="mt-4 w-full rounded-lg bg-primary text-primary-foreground py-2 font-semibold">Choose / Renew</button>
-                        </div>`;
-                }).join('')}
-            </div>
-        </section>`;
-}
-
-
 async function renderParentPayments() {
     try {
         const school = getCurrentSchool();
-        const ctx = await ensureParentChildContext();
-        const selectedChildId = ctx.selectedChildId;
-        const selectedChild = ctx.selectedChildMeta || dashboardData?.selectedChild?.student || dashboardData?.children?.[0];
-        const subscriptionCardsHtml = await renderParentPlatformSubscriptionCards(selectedChildId, selectedChild);
+        const selectedChildId = dashboardData?.selectedChildId || dashboardData?.children?.[0]?.id;
+        const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
         const historyFilter = localStorage.getItem('parent_payment_history_filter') || 'all';
 
         let finance = { accounts: [], totals: { totalExpected:0, parentPaidAmount:0, creditAmount:0, balance:0 } };
@@ -669,8 +568,6 @@ async function renderParentPayments() {
                     <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(selectedChild?.schoolName || school?.name || 'Your School')}</h2>
                     <p class="text-sm text-muted-foreground">School Fees & Student-Specific Payment Verification</p>
                 </div>
-
-                ${subscriptionCardsHtml}
 
                 <div class="grid gap-4 lg:grid-cols-3">
                     <div class="rounded-xl border bg-card p-6 lg:col-span-2">
@@ -755,17 +652,16 @@ async function renderParentPayments() {
 
 
 async function renderParentChat() {
-    const ctx = await ensureParentChildContext();
-    const selectedChild = ctx.selectedChildSummary?.student || ctx.selectedChildMeta?.User || ctx.selectedChildMeta || null;
+    const selectedChild = dashboardData?.selectedChild?.student || 
+                          (dashboardData?.children && dashboardData.children[0]?.User);
     const childName = selectedChild?.name || 'your child';
-    const classTeacher = ctx.selectedChildSummary?.classTeacher;
-    const selectedChildId = ctx.selectedChildId;
-    await api.parent.getConversations({ studentId: selectedChildId }).catch(() => ({data: []}));
+    const classTeacher = dashboardData?.selectedChild?.classTeacher;
+    const conversations = await api.parent.getConversations({ studentId: dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '' }).catch(() => ({data: []}));
+    const parentConversations = conversations.data || [];
     setTimeout(() => { if (window.loadParentRecipientConversation) window.loadParentRecipientConversation(); }, 120);
 
     return `
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
-            ${renderParentChildSwitcher(ctx.children, selectedChildId)}
             <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b">
                     <div>
@@ -900,8 +796,6 @@ async function reportAbsence() {
 
 
 function getParentPaymentPhone() {
-    const subExplicit = document.getElementById('subscription-phone')?.value?.trim();
-    if (subExplicit) return subExplicit;
     const explicit = document.getElementById('payment-phone')?.value?.trim();
     if (explicit) return explicit;
     try {
@@ -1155,17 +1049,15 @@ window.loadParentRecipientConversation = async function() {
     const container = document.getElementById('parent-chat-messages');
     if (!container) return;
     const target = document.getElementById('parent-recipient-type')?.value || 'teacher';
-    const selectedChildId = String(dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim();
-    if (!selectedChildId) {
-        container.innerHTML = '<div class="text-center text-muted-foreground py-8">Select a child first.</div>';
-        return;
-    }
-    container.innerHTML = `<div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-10 w-10 mx-auto mb-2 opacity-50"></i><p>Loading ${target === 'admin' ? 'School Admin' : 'Class Teacher'} conversation for the selected child only...</p></div>`;
+    container.innerHTML = `<div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-10 w-10 mx-auto mb-2 opacity-50"></i><p>${target === 'admin' ? 'School Admin' : 'Class Teacher'} chat is separate. Start or continue this conversation.</p></div>`;
     try {
-        const conversations = await api.parent.getConversations({ studentId: selectedChildId });
+        const conversations = await api.parent.getConversations();
         const rows = Array.isArray(conversations?.data) ? conversations.data : [];
+        const selectedChildId = String(dashboardData?.selectedChildId || '');
         const wantedType = target === 'admin' ? 'parent_admin' : 'parent_class_teacher';
-        const match = rows.find(c => String(c.conversationType || '').toLowerCase() === wantedType && String(c.studentId || '') === selectedChildId) || null;
+        const match = rows.find(c => String(c.conversationType || '').toLowerCase() === wantedType && (!selectedChildId || !c.studentId || String(c.studentId) === selectedChildId))
+            || rows.find(c => String(c.userRole || '').toLowerCase() === (target === 'admin' ? 'admin' : 'teacher') && (!selectedChildId || !c.studentId || String(c.studentId) === selectedChildId))
+            || null;
         const messages = match?.messages || [];
         if (messages.length) {
             container.innerHTML = messages.slice().reverse().map(msg => {
@@ -1174,13 +1066,8 @@ window.loadParentRecipientConversation = async function() {
                 return `<div class="flex ${mine ? 'justify-end' : 'justify-start'}"><div class="${mine ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm font-medium">${escapeHtml(senderName)}</p><p class="text-sm">${escapeHtml(msg.content || '')}</p><p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt || msg.timestamp)}</p></div></div>`;
             }).join('');
             container.scrollTop = container.scrollHeight;
-        } else {
-            container.innerHTML = `<div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-12 w-12 mx-auto mb-3 opacity-50"></i><p>No ${target === 'admin' ? 'admin' : 'class teacher'} messages for this selected child yet.</p><p class="text-xs mt-2">This chat is isolated to child #${escapeHtml(selectedChildId)}.</p></div>`;
         }
-    } catch (e) {
-        console.warn('Could not load selected recipient conversation:', e.message);
-        container.innerHTML = `<div class="text-center text-red-500 py-8">Could not load this child’s conversation: ${escapeHtml(e.message)}</div>`;
-    }
+    } catch (e) { console.warn('Could not load selected recipient conversation:', e.message); }
     if (window.lucide) lucide.createIcons();
 };
 
@@ -1254,30 +1141,23 @@ function escapeHtml(text) {
 async function loadParentAlerts() {
   const container = document.getElementById('parent-alerts-container');
   if (!container) return;
-  const childId = String(dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim();
-  if (!childId) {
-    container.innerHTML = '<div class="text-center text-muted-foreground py-4">Select a child first</div>';
-    return;
-  }
   try {
-    const res = await api.user.getAlerts({ studentId: childId, limit: 20 });
-    const alerts = (res.data || []).filter(alert => {
-      const sid = String(alert.studentId || alert.data?.studentId || '');
-      return !sid || sid === childId;
-    });
+    const activeChildId = String(dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim();
+    const res = await apiRequest('/api/alerts' + (activeChildId ? `?studentId=${encodeURIComponent(activeChildId)}` : ''));
+    const alerts = (res.data || []).filter(a => !activeChildId || !a.studentId || String(a.studentId) === activeChildId);
     if (alerts.length === 0) {
-      container.innerHTML = '<div class="text-center text-muted-foreground py-4">No alerts for this selected child</div>';
+      container.innerHTML = '<div class="text-center text-muted-foreground py-4">No alerts</div>';
       return;
     }
     container.innerHTML = alerts.slice(0, 5).map(alert => `
-      <div class="p-3 border rounded-lg ${!alert.isRead ? 'bg-primary/5' : ''}" data-student-id="${escapeHtml(String(alert.studentId || alert.data?.studentId || childId))}">
+      <div class="p-3 border rounded-lg ${!alert.isRead ? 'bg-primary/5' : ''}">
         <p class="font-medium text-sm">${escapeHtml(alert.title)}</p>
         <p class="text-xs text-muted-foreground">${escapeHtml(alert.message)}</p>
         <p class="text-xs text-muted-foreground mt-1">${timeAgo(alert.createdAt)}</p>
       </div>
     `).join('');
   } catch (e) {
-    container.innerHTML = `<div class="text-red-500">Failed to load alerts: ${escapeHtml(e.message)}</div>`;
+    container.innerHTML = '<div class="text-red-500">Failed to load alerts</div>';
   }
 }
 
@@ -1349,7 +1229,7 @@ async function loadParentConversation(otherUserId) {
     if (!container) return;
     container.innerHTML = '<div class="text-center text-muted-foreground py-8">Loading conversation...</div>';
     try {
-        const res = await api.parent.getMessages(otherUserId, { studentId: dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '' });
+        const res = await api.parent.getMessages(otherUserId);
         const messages = res.data || [];
         container.innerHTML = messages.length ? messages.map(msg => `
             <div class="flex ${msg.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}">
@@ -1411,12 +1291,3 @@ async function refreshParentPaymentPanelSoft() {
     if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 window.refreshParentPaymentPanelSoft = refreshParentPaymentPanelSoft;
-
-
-// v116-child-isolation-refresh: refresh child-scoped parent widgets immediately after child switch.
-window.addEventListener('shule:child-switched', () => {
-    setTimeout(() => {
-        if (typeof window.loadParentAlerts === 'function') window.loadParentAlerts();
-        if (typeof window.loadParentRecipientConversation === 'function') window.loadParentRecipientConversation();
-    }, 150);
-});

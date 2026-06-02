@@ -420,10 +420,11 @@ function renderEmptyState(message) {
 }
 
 function getUpcomingEvents(events, limit = 10) {
-    // v115: saved calendar events must remain visible until deleted, even when their date has passed.
-    // The panel still keeps the old function name for compatibility, but it now means "saved events".
-    return (events || [])
-        .sort((a, b) => new Date(a.date || a.startDate || 0) - new Date(b.date || b.startDate || 0))
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return events
+        .filter(e => new Date(e.date) >= today)
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(0, limit);
 }
 
@@ -600,9 +601,8 @@ async function saveCalendarEvent() {
         const events = getCalendarEventsArray().filter(e => String(e.id) !== String(created.id));
         events.push(created);
         await saveCalendarEvents(events);
-        // Do not immediately overwrite the just-created event with a stale/empty backend response.
-        // A full refresh will reload it from the backend; deletion is the only action that removes it.
-        showToast(res.message || 'Event saved successfully', 'success');
+        await refreshCalendarEvents();
+        showToast(res.message || 'Event added successfully and broadcasted to the school', 'success');
     } catch (error) {
         showToast(error.message || 'Could not save event', 'error');
         return;
