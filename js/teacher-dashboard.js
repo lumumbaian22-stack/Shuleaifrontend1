@@ -76,18 +76,6 @@ async function renderTeacherSection(section) {
   }
 }
 
-
-async function renderTeacherAssignmentLabelCard() {
-  try {
-    const res = await api.teacher.getMyAssignments();
-    const data = res.data || {};
-    const classTeacher = data.classTeacher || null;
-    const subjects = Array.isArray(data.subjects) ? data.subjects : [];
-    const subjectPreview = subjects.slice(0, 4).map(s => `${s.className || 'Class'} — ${s.subject}`).join(' · ');
-    return `<div class="rounded-xl border bg-card p-5"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">Teacher assignment</p><h3 class="text-xl font-bold">${classTeacher ? `Class Teacher: ${escapeHtml(classTeacher.name)}` : 'Class Teacher: Not assigned'}</h3><p class="text-sm text-muted-foreground mt-1">${classTeacher ? `Actual assigned class: ${escapeHtml(classTeacher.name)}${classTeacher.grade ? ` • ${escapeHtml(classTeacher.grade)}` : ''}` : (subjectPreview || 'No subject assignment has been configured yet.')}</p></div><div class="flex gap-2 flex-wrap">${classTeacher ? '<span class="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">Class Teacher</span>' : ''}${subjects.length ? `<span class="px-3 py-1 rounded-full border text-sm">${subjects.length} subject assignment(s)</span>` : ''}</div></div></div>`;
-  } catch (_) { return ''; }
-}
-
 // ============ DASHBOARD ============
 async function renderTeacherDashboard() {
   const user = getCurrentUser();
@@ -105,11 +93,8 @@ async function renderTeacherDashboard() {
     if (perfRes.success) performanceData = perfRes.data;
   } catch(e) { console.error(e); }
 
-  const assignmentCard = await renderTeacherAssignmentLabelCard();
-
   const html = `
     <div class="space-y-6 animate-fade-in">
-      ${assignmentCard}
       <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -654,14 +639,7 @@ async function openMarksEntry(subject, classId, className, role = '', subjectsPi
       }
     } catch (metaErr) { console.warn('Curriculum metadata could not be loaded:', metaErr.message); }
 
-    const effectiveSubject = currentMarksSubject === 'All Subjects' ? (currentMarksAvailableSubjects[0] || '') : currentMarksSubject;
-    if (!effectiveSubject) {
-      throw new Error('No eligible subject is assigned for this class. Ask admin to complete Add Subjects and subject teacher assignment.');
-    }
-    currentMarksSubject = effectiveSubject;
-    const res = (api.teacher.getClassStudentsForSubject)
-      ? await api.teacher.getClassStudentsForSubject({ classId, subject: effectiveSubject })
-      : await apiRequest(`/api/teacher/class-students?${new URLSearchParams({ classId, subject: effectiveSubject }).toString()}`);
+    const res = await api.teacher.getClassStudents(classId);
     const payload = res.data;
     currentMarksStudents = Array.isArray(payload) ? payload : (payload?.students || payload?.data || []);
     if (res.meta) window.currentMarksClassMeta = res.meta;
@@ -670,29 +648,6 @@ async function openMarksEntry(subject, classId, className, role = '', subjectsPi
     showMarksEntryModal(className);
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
-
-
-// V106: class teachers can switch eligible subjects without leaving the marks modal.
-window.v106ChangeMarksSubject = async function(subject) {
-  currentMarksSubject = subject;
-  if (!currentMarksClassId || !subject) return;
-  showLoading();
-  try {
-    const res = (api.teacher.getClassStudentsForSubject)
-      ? await api.teacher.getClassStudentsForSubject({ classId: currentMarksClassId, subject })
-      : await apiRequest(`/api/teacher/class-students?${new URLSearchParams({ classId: currentMarksClassId, subject }).toString()}`);
-    const payload = res.data;
-    currentMarksStudents = Array.isArray(payload) ? payload : (payload?.students || payload?.data || []);
-    if (!currentMarksStudents.length) {
-      showToast('No students are taking this subject yet. Check Grade 10–12 subject selection or Add Subjects setup.', 'warning');
-    }
-    showMarksEntryModal(currentMarksClassName);
-  } catch (error) {
-    showToast(error.message || 'Failed to load subject students', 'error');
-  } finally {
-    hideLoading();
-  }
-};
 
 function showMarksEntryModal(className) {
   let modal = document.getElementById('marks-entry-modal');
@@ -742,7 +697,7 @@ function showMarksEntryModal(className) {
     ${scaleHtml}
 
     <div class="v95-marks-top mt-5">
-      ${currentMarksCanPublish ? `<div class="v95-field"><label>Subject</label><select id="marks-subject-select" onchange="v106ChangeMarksSubject(this.value)">${currentMarksAvailableSubjects.map(sub => `<option value="${escapeHtml(sub)}" ${sub === currentMarksSubject ? 'selected' : ''}>${escapeHtml(sub)}</option>`).join('')}</select></div>` : `<div class="v95-field"><label>Subject</label><input id="marks-subject-select" value="${escapeHtml(currentMarksSubject || '')}" disabled></div>`}
+      ${currentMarksCanPublish ? `<div class="v95-field"><label>Subject</label><select id="marks-subject-select" onchange="currentMarksSubject=this.value">${(currentMarksAvailableSubjects.length ? currentMarksAvailableSubjects : ['Mathematics','English','Kiswahili','Science','Social Studies']).map(sub => `<option value="${escapeHtml(sub)}">${escapeHtml(sub)}</option>`).join('')}</select></div>` : `<div class="v95-field"><label>Subject</label><input id="marks-subject-select" value="${escapeHtml(currentMarksSubject || '')}" disabled></div>`}
       <div class="v95-field">
         <label>Assessment Type</label>
         <select id="assessment-type">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select>

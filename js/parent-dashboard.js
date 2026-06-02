@@ -301,14 +301,9 @@ async function renderParentDashboard() {
                 </div>
 
                 <div class="rounded-xl border bg-card p-4">
-                    <div class="grid gap-2 sm:grid-cols-2">
-                        <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
-                            <i data-lucide="file-text" class="h-4 w-4"></i> View Report Card
-                        </button>
-                        <button onclick="downloadReportCard(${selectedChildId})" class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent">
-                            <i data-lucide="download" class="h-4 w-4"></i> Download Report Card
-                        </button>
-                    </div>
+                    <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
+                        <i data-lucide="file-text" class="h-4 w-4"></i> View / Download Report Card
+                    </button>
                 </div>
                 
                 <div class="rounded-xl border bg-card overflow-hidden">
@@ -658,7 +653,6 @@ async function renderParentChat() {
     const classTeacher = dashboardData?.selectedChild?.classTeacher;
     const conversations = await api.parent.getConversations().catch(() => ({data: []}));
     const parentConversations = conversations.data || [];
-    setTimeout(() => { if (window.loadParentRecipientConversation) window.loadParentRecipientConversation(); }, 120);
 
     return `
         <div class="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -1053,11 +1047,7 @@ window.loadParentRecipientConversation = async function() {
     try {
         const conversations = await api.parent.getConversations();
         const rows = Array.isArray(conversations?.data) ? conversations.data : [];
-        const selectedChildId = String(dashboardData?.selectedChildId || '');
-        const wantedType = target === 'admin' ? 'parent_admin' : 'parent_class_teacher';
-        const match = rows.find(c => String(c.conversationType || '').toLowerCase() === wantedType && (!selectedChildId || !c.studentId || String(c.studentId) === selectedChildId))
-            || rows.find(c => String(c.userRole || '').toLowerCase() === (target === 'admin' ? 'admin' : 'teacher') && (!selectedChildId || !c.studentId || String(c.studentId) === selectedChildId))
-            || null;
+        const match = rows.find(c => String(c.userRole || '').toLowerCase() === (target === 'admin' ? 'admin' : 'teacher')) || null;
         const messages = match?.messages || [];
         if (messages.length) {
             container.innerHTML = messages.slice().reverse().map(msg => {

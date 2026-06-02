@@ -484,17 +484,6 @@
   // Parent task completion: use correct home-task endpoint and show assignment-safe errors cleanly.
   const oldCompleteTask = w.completeTask;
   w.completeTask = async function(taskId, difficulty){
-    if (role() === 'teacher') {
-      try {
-        await (w.api?.tasks?.completeTask ? w.api.tasks.completeTask(taskId) : apiRequest(`/api/tasks/${taskId}/complete`, { method:'POST' }));
-        show('Task marked complete.','success');
-        if (typeof w.showDashboardSection === 'function') await w.showDashboardSection('tasks');
-        return;
-      } catch(e) {
-        show(e.message || 'Could not complete your task.','error');
-        return;
-      }
-    }
     if (isParent()) {
       try {
         await (w.api?.homeTasks?.complete ? w.api.homeTasks.complete(taskId, { parentFeedback:{ difficulty: difficulty || 'ok' } }) : apiRequest(`/api/home-tasks/${taskId}/complete`, { method:'POST', body: JSON.stringify({ parentFeedback:{ difficulty: difficulty || 'ok' } }) }));
