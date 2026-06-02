@@ -367,7 +367,10 @@ const adminAPI = {
     getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
     getStudentSubjectSelection: (studentId) => apiRequest(`/api/admin/students/${studentId}/subject-selection`),
     saveStudentSubjectSelection: (studentId, data) => apiRequest(`/api/admin/students/${studentId}/subject-selection`, { method: 'PUT', body: JSON.stringify(data) }),
-    submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) })
+    submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) }),
+    getParentConversations: () => apiRequest('/api/admin/parent-conversations'),
+    getParentMessages: (parentId) => apiRequest(`/api/admin/messages/${parentId}`),
+    replyToParent: (data) => apiRequest('/api/admin/reply-parent', { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ TEACHER ENDPOINTS ============
@@ -418,6 +421,7 @@ const teacherAPI = {
     updateMark: (recordId, data) => apiRequest(`/api/teacher/marks/${recordId}`, { method: 'PUT', body: JSON.stringify(data) }),
     getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
     getGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    getClassStudentsForSubject: (params = {}) => apiRequest('/api/teacher/class-students' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassReportSnapshots: (params = {}) => apiRequest('/api/teacher/reports/snapshots' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''))
 };
 
@@ -850,20 +854,11 @@ console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
 
 
 function resolveMediaUrl(url) {
-    const raw = String(url || '').trim();
-    if (!raw || raw === 'undefined' || raw === 'null') return '';
-    if (/^data:image\//i.test(raw)) return raw;
-    if (/^https?:\/\//i.test(raw)) return raw;
-    if (/^blob:/i.test(raw)) return raw;
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
     const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
-    if (raw.startsWith('/uploads/') || raw.startsWith('/homework-files/')) {
-        return base ? base + raw : raw;
-    }
-    if (raw.startsWith('uploads/')) {
-        return base ? `${base}/${raw}` : `/${raw}`;
-    }
-    if (raw.startsWith('/')) return raw;
-    return raw;
+    if (!base) return url;
+    return base + (url.startsWith('/') ? url : '/' + url);
 }
 window.resolveMediaUrl = resolveMediaUrl;
 

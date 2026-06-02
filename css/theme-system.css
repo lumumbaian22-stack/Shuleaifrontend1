@@ -1577,3 +1577,127 @@ html.dark .finance-v31-total-box {
 .dark .alerts-v82-shell,html.dark .alerts-v82-shell,body.dark .alerts-v82-shell,[data-theme="dark"] .alerts-v82-shell{--background:#07111f;--foreground:#e5eefc;--card:#0f1b2d;--card-foreground:#e5eefc;--muted:#13243a;--muted-foreground:#9fb0c8;--border:rgba(148,163,184,.24);--accent:#13243a;--primary:#60a5fa}.dark .alert-v82-unread,html.dark .alert-v82-unread,[data-theme="dark"] .alert-v82-unread{background:rgba(239,68,68,.16);color:#fecaca;border-color:rgba(248,113,113,.35)}.dark .alerts-v82-error,html.dark .alerts-v82-error,[data-theme="dark"] .alerts-v82-error{background:rgba(127,29,29,.25);color:#fecaca;border-color:rgba(248,113,113,.28)}
 html.dark #dashboard-content .finance-v31,body.dark #dashboard-content .finance-v31,.dark #dashboard-content .finance-v31,[data-theme="dark"] #dashboard-content .finance-v31{--ff-bg:#07111f!important;--ff-panel:#0b1220!important;--ff-card:#0f1b2d!important;--ff-card-2:#13243a!important;--ff-text:#e5eefc!important;--ff-muted:#9fb0c8!important;--ff-border:rgba(148,163,184,.28)!important;background:var(--ff-bg)!important;color:var(--ff-text)!important}html.dark #dashboard-content .finance-v31 *,body.dark #dashboard-content .finance-v31 *,[data-theme="dark"] #dashboard-content .finance-v31 *{border-color:var(--ff-border)}html.dark #dashboard-content .finance-v31 input,html.dark #dashboard-content .finance-v31 select,html.dark #dashboard-content .finance-v31 textarea,html.dark #dashboard-content .finance-v31-modal input,html.dark #dashboard-content .finance-v31-modal select,html.dark #dashboard-content .finance-v31-modal textarea,body.dark #dashboard-content .finance-v31 input,body.dark #dashboard-content .finance-v31 select,body.dark #dashboard-content .finance-v31 textarea,[data-theme="dark"] #dashboard-content .finance-v31 input,[data-theme="dark"] #dashboard-content .finance-v31 select,[data-theme="dark"] #dashboard-content .finance-v31 textarea{background:#07111f!important;color:#e5eefc!important;border-color:rgba(148,163,184,.35)!important}html.dark #dashboard-content .finance-v31 .bg-white,html.dark #dashboard-content .finance-v31 .bg-card,body.dark #dashboard-content .finance-v31 .bg-white,body.dark #dashboard-content .finance-v31 .bg-card,[data-theme="dark"] #dashboard-content .finance-v31 .bg-white,[data-theme="dark"] #dashboard-content .finance-v31 .bg-card{background:#0f1b2d!important;color:#e5eefc!important}html.dark #dashboard-content .finance-v31 .text-gray-900,html.dark #dashboard-content .finance-v31 .text-slate-900,html.dark #dashboard-content .finance-v31 .text-black,body.dark #dashboard-content .finance-v31 .text-gray-900,body.dark #dashboard-content .finance-v31 .text-slate-900,body.dark #dashboard-content .finance-v31 .text-black,[data-theme="dark"] #dashboard-content .finance-v31 .text-gray-900,[data-theme="dark"] #dashboard-content .finance-v31 .text-slate-900,[data-theme="dark"] #dashboard-content .finance-v31 .text-black{color:#e5eefc!important}html.dark #dashboard-content .finance-v31 .text-gray-500,html.dark #dashboard-content .finance-v31 .text-gray-600,html.dark #dashboard-content .finance-v31 .text-slate-500,html.dark #dashboard-content .finance-v31 .text-slate-600,body.dark #dashboard-content .finance-v31 .text-gray-500,body.dark #dashboard-content .finance-v31 .text-gray-600,[data-theme="dark"] #dashboard-content .finance-v31 .text-gray-500,[data-theme="dark"] #dashboard-content .finance-v31 .text-gray-600{color:#9fb0c8!important}.finance-v31-modal,.finance-v31-modal-inner{color:var(--ff-text,#0f172a)}
 @media(max-width:720px){.alerts-v82-hero{display:grid}.alerts-v82-actions{justify-content:stretch}.alerts-v82-actions select,.alerts-v82-actions button{width:100%}.alert-v82-card-head{display:grid}.alert-v82-card time{white-space:normal}}
+/* V106 dark mode completion: final visibility hardening for newly wired dashboard sections. */
+:root {
+  --v107-dark-card: #0f172a;
+  --v107-dark-card-2: #111827;
+  --v107-dark-text: #e5e7eb;
+  --v107-dark-muted: #94a3b8;
+  --v107-dark-border: rgba(148, 163, 184, .28);
+  --v107-dark-input: #020617;
+}
+html.dark #dashboard-content,
+body.dark #dashboard-content,
+.dark #dashboard-content {
+  color: var(--v107-dark-text);
+}
+html.dark #dashboard-content .bg-card,
+body.dark #dashboard-content .bg-card,
+.dark #dashboard-content .bg-card,
+html.dark #dashboard-content .v107-card,
+.dark #dashboard-content .v107-card {
+  background-color: var(--v107-dark-card) !important;
+  color: var(--v107-dark-text) !important;
+  border-color: var(--v107-dark-border) !important;
+}
+html.dark #dashboard-content .bg-background,
+.dark #dashboard-content .bg-background,
+html.dark #dashboard-content input,
+html.dark #dashboard-content select,
+html.dark #dashboard-content textarea,
+.dark #dashboard-content input,
+.dark #dashboard-content select,
+.dark #dashboard-content textarea {
+  background-color: var(--v107-dark-input) !important;
+  color: var(--v107-dark-text) !important;
+  border-color: var(--v107-dark-border) !important;
+}
+html.dark #dashboard-content input::placeholder,
+html.dark #dashboard-content textarea::placeholder,
+.dark #dashboard-content input::placeholder,
+.dark #dashboard-content textarea::placeholder {
+  color: #64748b !important;
+}
+html.dark #dashboard-content .bg-muted\/30,
+html.dark #dashboard-content .bg-muted\/50,
+html.dark #dashboard-content .hover\:bg-accent:hover,
+.dark #dashboard-content .bg-muted\/30,
+.dark #dashboard-content .bg-muted\/50,
+.dark #dashboard-content .hover\:bg-accent:hover {
+  background-color: rgba(148, 163, 184, .10) !important;
+}
+html.dark #dashboard-content table,
+html.dark #dashboard-content thead,
+html.dark #dashboard-content tbody,
+html.dark #dashboard-content tr,
+html.dark #dashboard-content th,
+html.dark #dashboard-content td,
+.dark #dashboard-content table,
+.dark #dashboard-content thead,
+.dark #dashboard-content tbody,
+.dark #dashboard-content tr,
+.dark #dashboard-content th,
+.dark #dashboard-content td {
+  color: var(--v107-dark-text) !important;
+  border-color: var(--v107-dark-border) !important;
+}
+html.dark #dashboard-content thead,
+.dark #dashboard-content thead {
+  background-color: rgba(148, 163, 184, .12) !important;
+}
+html.dark #dashboard-content .text-muted-foreground,
+.dark #dashboard-content .text-muted-foreground {
+  color: var(--v107-dark-muted) !important;
+}
+html.dark #dashboard-content .text-gray-700,
+html.dark #dashboard-content .text-gray-800,
+html.dark #dashboard-content .text-gray-900,
+html.dark #dashboard-content .text-slate-700,
+html.dark #dashboard-content .text-slate-800,
+html.dark #dashboard-content .text-slate-900,
+.dark #dashboard-content .text-gray-700,
+.dark #dashboard-content .text-gray-800,
+.dark #dashboard-content .text-gray-900,
+.dark #dashboard-content .text-slate-700,
+.dark #dashboard-content .text-slate-800,
+.dark #dashboard-content .text-slate-900 {
+  color: var(--v107-dark-text) !important;
+}
+html.dark #dashboard-content .border,
+html.dark #dashboard-content .border-b,
+html.dark #dashboard-content .border-t,
+html.dark #dashboard-content .divide-y > :not([hidden]) ~ :not([hidden]),
+.dark #dashboard-content .border,
+.dark #dashboard-content .border-b,
+.dark #dashboard-content .border-t,
+.dark #dashboard-content .divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--v107-dark-border) !important;
+}
+html.dark #dashboard-content button:not(.bg-primary):not(.bg-green-600):not(.bg-red-600):not(.bg-blue-600),
+.dark #dashboard-content button:not(.bg-primary):not(.bg-green-600):not(.bg-red-600):not(.bg-blue-600) {
+  color: var(--v107-dark-text);
+}
+html.dark #dashboard-content .bg-primary,
+.dark #dashboard-content .bg-primary {
+  color: hsl(var(--primary-foreground)) !important;
+}
+html.dark #dashboard-content .bg-white,
+html.dark #dashboard-content .bg-gray-50,
+html.dark #dashboard-content .bg-slate-50,
+html.dark #dashboard-content .bg-blue-50,
+html.dark #dashboard-content .bg-indigo-50,
+html.dark #dashboard-content .bg-green-50,
+html.dark #dashboard-content .bg-yellow-50,
+html.dark #dashboard-content .bg-red-50,
+html.dark #dashboard-content .bg-purple-50,
+.dark #dashboard-content .bg-white,
+.dark #dashboard-content .bg-gray-50,
+.dark #dashboard-content .bg-slate-50,
+.dark #dashboard-content .bg-blue-50,
+.dark #dashboard-content .bg-indigo-50,
+.dark #dashboard-content .bg-green-50,
+.dark #dashboard-content .bg-yellow-50,
+.dark #dashboard-content .bg-red-50,
+.dark #dashboard-content .bg-purple-50 {
+  background-color: var(--v107-dark-card-2) !important;
+}
