@@ -855,12 +855,33 @@ console.log('📊 Available APIs:', Object.keys(window.api).join(', '));
 
 function resolveMediaUrl(url) {
     if (!url) return '';
-    if (/^https?:\/\//i.test(url)) return url;
+    let raw = String(url).trim();
+    if (!raw) return '';
+
+    // V111: Data/blob URLs are complete media URLs. Do NOT prefix them with the backend.
+    // This fixes broken requests like:
+    // https://shuleaibackend-32h1.onrender.com/data:image/png;base64,...
+    const embeddedDataUrlIndex = raw.search(/data:image\/[a-zA-Z0-9.+-]+;base64,/i);
+    if (embeddedDataUrlIndex >= 0) {
+        return raw.slice(embeddedDataUrlIndex);
+    }
+    if (/^(data|blob):/i.test(raw)) return raw;
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    // Some cached values may accidentally start with /data:image/ after earlier normalization.
+    if (/^\/?data:image\//i.test(raw)) return raw.replace(/^\/+/, '');
+
+    // If an image field contains raw base64 only, still render it instead of making an invalid API URL.
+    if (/^[A-Za-z0-9+/\r\n]+={0,2}$/.test(raw) && raw.length > 500) {
+        return 'data:image/png;base64,' + raw.replace(/\s+/g, '');
+    }
+
     const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
-    if (!base) return url;
-    return base + (url.startsWith('/') ? url : '/' + url);
+    if (!base) return raw;
+    return base + (raw.startsWith('/') ? raw : '/' + raw);
 }
 window.resolveMediaUrl = resolveMediaUrl;
+window.normalizeShuleMediaUrl = resolveMediaUrl;
 
 
 // ============ V9 CHAT / THREADS / ACHIEVEMENTS ============

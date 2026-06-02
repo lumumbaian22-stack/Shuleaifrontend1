@@ -33,9 +33,8 @@ function updateSidebar(role) {
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
                 { icon: 'credit-card', label: 'Platform Payments', section: 'platform-payments' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
-                { icon: 'calendar', label: 'School Calendar', section: 'calendar-management' },
-                { icon: 'briefcase', label: 'Agent Toolkit', section: 'agent-toolkit' },
-                { icon: 'database', label: 'Demo School', section: 'demo-school' }
+                { icon: 'bell', label: 'Super Admin Alerts', section: 'alerts' },
+                { icon: 'message-square', label: 'Bulk SMS', section: 'sms' }
             ],
             settings: [
                 { icon: 'settings', label: 'Platform Settings', section: 'settings' },
@@ -57,6 +56,7 @@ function updateSidebar(role) {
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
                 { icon: 'clock', label: 'Timetable', section: 'timetable' },
                 { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
+                { icon: 'message-square', label: 'Bulk SMS', section: 'sms' },
                 { icon: 'message-circle', label: 'Parent Messages', section: 'parent-messages' },
                 { icon: 'wallet', label: 'Finance & Fees', section: 'finance-fees' }
             ],
@@ -85,6 +85,8 @@ function updateSidebar(role) {
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
                 { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
                 { icon: 'message-circle', label: 'Messages', section: 'staff-chat' },
+                { icon: 'message-circle', label: 'Parent Messages', section: 'parent-chat' },
+                { icon: 'list-checks', label: 'Subject Requests', section: 'subject-requests' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'calendar', label: 'My Timetable', section: 'my-timetable' },
                 { icon: 'book-open', label: 'Homework', section: 'homework' },
@@ -102,6 +104,7 @@ function updateSidebar(role) {
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
                 { icon: 'calendar', label: 'Child Timetable', section: 'timetable' },
                 { icon: 'message-circle', label: 'Messages', section: 'chat' },
+                { icon: 'list-checks', label: 'Subject Choice', section: 'subject-choice' },
                 { icon: 'bell', label: 'Alerts', section: 'alerts' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' }
             ],
@@ -575,6 +578,10 @@ async function showDashboardSection(section) {
             analytics: 'Analytics',
             duty: 'Duty Management',
             calendar: 'School Calendar',
+            sms: 'Bulk SMS',
+            'subject-requests': 'Subject Requests',
+            'subject-choice': 'Subject Choice',
+            'subject-selection': 'Subject Choices',
             tasks: 'My Tasks',
             timetable: 'My Timetable',
             profile: 'Profile',

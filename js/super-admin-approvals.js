@@ -74,7 +74,7 @@ function renderPendingSchoolsTable(schools) {
         
         tableHtml += `
             <tr class="hover:bg-accent/50 transition-colors">
-                <td class="px-4 py-3 font-medium">${school.name || 'N/A'}</td>
+                <td class="px-4 py-3 font-medium">${school.displayName || school.originalSignupName || school.name || 'N/A'}</td>
                 <td class="px-4 py-3">${admin ? admin.email : 'No admin yet'}</td>
                 <td class="px-4 py-3">
                     <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${school.shortCode || 'N/A'}</span>
@@ -309,7 +309,7 @@ function getSchoolDetailsHTML(school) {
                 <div class="grid grid-cols-2 gap-3 text-sm">
                     <div>
                         <p class="text-muted-foreground">School Name</p>
-                        <p class="font-medium school-name-display">${school.name || 'N/A'}</p>
+                        <p class="font-medium school-name-display">${school.displayName || school.originalSignupName || school.name || 'N/A'}</p>
                     </div>
                     <div>
                         <p class="text-muted-foreground">Curriculum</p>
@@ -966,7 +966,7 @@ function renderSchoolsTable(schools) {
                 <tbody class="divide-y">
                     ${schools.map(school => `
                         <tr class="hover:bg-accent/50 transition-colors">
-                            <td class="px-4 py-3 font-medium school-name-display">${school.name}</td>
+                            <td class="px-4 py-3 font-medium school-name-display">${school.displayName || school.originalSignupName || school.name}</td>
                             <td class="px-4 py-3">
                                 <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${school.shortCode}</span>
                             </td>
@@ -1030,7 +1030,7 @@ function renderSuspendedSchoolsTable(schools) {
                 <tbody class="divide-y">
                     ${schools.map(school => `
                         <tr class="hover:bg-accent/50 transition-colors">
-                            <td class="px-4 py-3 font-medium">${school.name}</td>
+                            <td class="px-4 py-3 font-medium">${school.displayName || school.originalSignupName || school.name}</td>
                             <td class="px-4 py-3">
                                 <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${school.shortCode}</span>
                             </td>
@@ -1261,7 +1261,7 @@ window.viewSchoolDetails = async function(schoolId) {
             <div class="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <h3 class="text-xl font-bold school-name-display">${school.name || 'School'}</h3>
+                        <h3 class="text-xl font-bold school-name-display">${school.displayName || school.originalSignupName || school.name || 'School'}</h3>
                         <p class="text-xs text-muted-foreground">${school.schoolId || ''} • ${school.shortCode || ''}</p>
                     </div>
                     ${v102AccessBadge(access)}
@@ -1358,7 +1358,7 @@ window.renderSchoolsTable = function(schools) {
             <table class="w-full text-sm">
                 <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left font-medium">School</th><th class="px-4 py-3 text-left font-medium">Curriculum</th><th class="px-4 py-3 text-left font-medium">Access</th><th class="px-4 py-3 text-left font-medium">Status</th><th class="px-4 py-3 text-right font-medium">Actions</th></tr></thead>
                 <tbody class="divide-y">
-                    ${schools.map(school => `<tr class="hover:bg-accent/50 transition-colors"><td class="px-4 py-3"><p class="font-medium school-name-display">${school.name || 'N/A'}</p><p class="text-xs text-muted-foreground">${school.shortCode || ''}</p></td><td class="px-4 py-3">${school.system || school.curriculum || 'N/A'}<br><span class="text-xs text-muted-foreground">${school.schoolStructure || school.settings?.curriculumEngine?.structureType || school.settings?.schoolLevel || 'mixed'}</span></td><td class="px-4 py-3">${v102AccessBadge(school.access)}${school.pilotFullAccessEnabled ? '<p class="text-xs text-blue-600 mt-1">pilot on</p>' : ''}</td><td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${school.status === 'active' ? 'bg-green-100 text-green-700' : school.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : school.status === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">${school.status}</span></td><td class="px-4 py-3 text-right"><button onclick="viewSchoolDetails('${school.id}')" class="px-3 py-1 rounded-lg border hover:bg-accent text-xs">View / Access</button></td></tr>`).join('')}
+                    ${schools.map(school => `<tr class="hover:bg-accent/50 transition-colors"><td class="px-4 py-3"><p class="font-medium school-name-display">${school.displayName || school.originalSignupName || school.name || 'N/A'}</p><p class="text-xs text-muted-foreground">${school.shortCode || ''}</p></td><td class="px-4 py-3">${school.system || school.curriculum || 'N/A'}<br><span class="text-xs text-muted-foreground">${school.schoolStructure || school.settings?.curriculumEngine?.structureType || school.settings?.schoolLevel || 'mixed'}</span></td><td class="px-4 py-3">${v102AccessBadge(school.access)}${school.pilotFullAccessEnabled ? '<p class="text-xs text-blue-600 mt-1">pilot on</p>' : ''}</td><td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${school.status === 'active' ? 'bg-green-100 text-green-700' : school.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : school.status === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">${school.status}</span></td><td class="px-4 py-3 text-right"><button onclick="viewSchoolDetails('${school.id}')" class="px-3 py-1 rounded-lg border hover:bg-accent text-xs">View / Access</button></td></tr>`).join('')}
                 </tbody>
             </table>
         </div>`;

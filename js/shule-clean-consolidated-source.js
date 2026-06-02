@@ -373,7 +373,8 @@
   // Apply profile photos after late dashboard rendering.
   function reapplyProfilePhotos(){
     try {
-      const u = user(); const img = u.profileImage || u.profilePicture || u.avatar || '';
+      const u = user(); const rawImg = u.profileImage || u.profilePicture || u.avatar || '';
+      const img = (typeof w.resolveMediaUrl === 'function' ? w.resolveMediaUrl(rawImg) : rawImg);
       if (!img) return;
       d.querySelectorAll('[data-user-avatar], .user-avatar, .profile-avatar, .sidebar-avatar, .header-avatar').forEach(el => {
         if (el.tagName === 'IMG') { el.src = img; el.onerror = () => { el.style.display='none'; }; }

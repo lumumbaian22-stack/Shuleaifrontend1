@@ -27,6 +27,7 @@
 
   function setImageIntoElement(el, src, name) {
     if (!el || !src) return;
+    src = media(src);
 
     if (el.tagName === 'IMG') {
       el.src = src;
