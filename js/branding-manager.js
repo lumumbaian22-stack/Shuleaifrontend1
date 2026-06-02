@@ -310,6 +310,13 @@
     if (!force && loadedOnce) return getStoredBranding();
     if (typeof window.apiRequest !== 'function') { apply(null, { force: true }); return getStoredBranding(); }
     if (!(localStorage.getItem('token') || localStorage.getItem('authToken'))) { apply(null, { force: true }); return getStoredBranding(); }
+    if (isSuperAdmin()) {
+      loadedOnce = true;
+      window.schoolBranding = {};
+      try { localStorage.removeItem('schoolBranding'); } catch (_) {}
+      apply(PLATFORM_SHORT_NAME, { force: true });
+      return {};
+    }
     try {
       const res = await window.apiRequest('/api/owner/branding');
       const branding = res?.data || {};

@@ -432,6 +432,7 @@ const parentAPI = {
     getChildTodayAttendance: (studentId) => apiRequest(`/api/parent/child/${studentId}/attendance/today`),
     getChildSummary: (studentId) => 
         apiRequest(`/api/parent/child/${studentId}/summary`),
+    getChildReportCardDetails: (studentId) => apiRequest(`/api/parent/child/${studentId}/report-card-details`),
     reportAbsence: (data) => 
         apiRequest('/api/parent/report-absence', {
             method: 'POST',

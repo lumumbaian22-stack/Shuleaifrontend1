@@ -110,13 +110,28 @@ function updateAllSchoolNameElements(newName) {
     return displayName;
 }
 
+
+async function v113LoadReportCardDetails(studentId) {
+    const role = String((typeof getCurrentRole === 'function' ? getCurrentRole() : localStorage.getItem('userRole') || '') || '').toLowerCase().replace('-', '_');
+    if (role === 'parent') {
+        if (api?.parent?.getChildReportCardDetails) return await api.parent.getChildReportCardDetails(studentId);
+        if (typeof apiRequest === 'function') return await apiRequest(`/api/parent/child/${studentId}/report-card-details`);
+    }
+    try {
+        return await api.students.getFullDetails(studentId);
+    } catch (e) {
+        if (role === 'parent' && typeof apiRequest === 'function') return await apiRequest(`/api/parent/child/${studentId}/report-card-details`);
+        throw e;
+    }
+}
+
 async function buildReportCardHTML(studentId) {
     if (!studentId) {
         const dash = await api.student.getDashboard().catch(() => null);
         studentId = dash?.data?.student?.id || window.dashboardData?.student?.id;
     }
     if (!studentId) throw new Error('Student ID not available');
-    const res = await api.students.getFullDetails(studentId);
+    const res = await v113LoadReportCardDetails(studentId);
     if (!res.success) throw new Error(res.message || 'Failed to load report card data');
     const data = res.data;
     const student = data.student || {};
