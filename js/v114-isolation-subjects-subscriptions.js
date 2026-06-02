@@ -185,14 +185,8 @@
     await window.showDashboardSection?.('custom-subjects');
   };
 
-  // Route the admin custom-subjects section to the fixed UI.
-  const oldAdminSection = window.renderAdminSection;
-  if (typeof oldAdminSection === 'function') {
-    window.renderAdminSection = async function(section){
-      if (section === 'custom-subjects') return await window.v114RenderCustomSubjects();
-      return oldAdminSection.call(this, section);
-    };
-  }
+  // v115 note: do not replace the approved Custom Subjects section.
+  // The original admin-dashboard renderer is now patched additively, so this v114 override is intentionally disabled.
 
   // Remove the teacher dashboard parent-message widget. Parent access remains inside Messages & Study Rooms > Parents only.
   function stripTeacherDashboardParentWidget(html){

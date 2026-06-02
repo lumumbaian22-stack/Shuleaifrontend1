@@ -154,11 +154,6 @@ async function renderTeacherDashboard() {
           </div>
         </div>
       </div>
-<div class="rounded-xl border bg-card p-6">
-        <div class="flex justify-between items-center mb-4"><div class="flex items-center gap-2"><i data-lucide="message-circle" class="h-5 w-5 text-primary"></i><h3 class="font-semibold text-lg">Parent Messages</h3></div><span class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium" id="teacher-message-count-badge">0</span></div>
-        <div id="teacher-messages-list" class="space-y-2 max-h-96 overflow-y-auto"><div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-12 w-12 mx-auto mb-3 opacity-50"></i><p>Loading messages...</p></div></div>
-        <button onclick="loadTeacherMessages()" class="mt-4 w-full py-2 text-sm border rounded-lg hover:bg-accent flex items-center justify-center gap-2"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Refresh Messages</button>
-      </div>
 
       <div class="rounded-xl border bg-card p-6" id="duty-card"><div class="flex justify-between items-start"><div><h3 class="font-semibold">Today's Duty</h3><p class="text-sm text-muted-foreground" id="duty-location">Loading...</p></div><span class="duty-status px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-full" id="duty-status">Not Checked In</span></div><div class="mt-4 flex gap-3"><button onclick="handleCheckIn()" class="flex-1 bg-primary text-primary-foreground py-2 rounded-lg" id="check-in-btn">Check In</button><button onclick="handleCheckOut()" class="flex-1 border bg-background py-2 rounded-lg" id="check-out-btn" disabled>Check Out</button></div><div class="mt-3 text-xs text-muted-foreground">Last duty rating: <span id="last-rating">4.5</span>/5</div></div>
     </div>
@@ -166,7 +161,6 @@ async function renderTeacherDashboard() {
 
   setTimeout(() => {
     loadTodayDuty();
-    loadTeacherMessages();
   }, 100);
 
   return html;
