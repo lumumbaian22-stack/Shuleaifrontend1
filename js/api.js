@@ -367,7 +367,10 @@ const adminAPI = {
     getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
     getStudentSubjectSelection: (studentId) => apiRequest(`/api/admin/students/${studentId}/subject-selection`),
     saveStudentSubjectSelection: (studentId, data) => apiRequest(`/api/admin/students/${studentId}/subject-selection`, { method: 'PUT', body: JSON.stringify(data) }),
-    submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) })
+    submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) }),
+    getParentConversations: () => apiRequest('/api/admin/parent-conversations'),
+    getParentMessages: (parentId) => apiRequest(`/api/admin/messages/${parentId}`),
+    replyToParent: (data) => apiRequest('/api/admin/reply-parent', { method: 'POST', body: JSON.stringify(data) })
 };
 
 // ============ TEACHER ENDPOINTS ============

@@ -57,6 +57,7 @@ function updateSidebar(role) {
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
                 { icon: 'clock', label: 'Timetable', section: 'timetable' },
                 { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
+                { icon: 'message-circle', label: 'Parent Messages', section: 'parent-messages' },
                 { icon: 'wallet', label: 'Finance & Fees', section: 'finance-fees' }
             ],
             settings: [
@@ -602,6 +603,7 @@ async function showDashboardSection(section) {
             'fairness-report': 'Fairness Report',
             'teacher-workload': 'Teacher Workload',
             alerts: 'Alerts Center',
+            'parent-messages': 'Parent Messages',
             'career-path': 'Career Path'
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';

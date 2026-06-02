@@ -76,6 +76,18 @@ async function renderTeacherSection(section) {
   }
 }
 
+
+async function renderTeacherAssignmentLabelCard() {
+  try {
+    const res = await api.teacher.getMyAssignments();
+    const data = res.data || {};
+    const classTeacher = data.classTeacher || null;
+    const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+    const subjectPreview = subjects.slice(0, 4).map(s => `${s.className || 'Class'} — ${s.subject}`).join(' · ');
+    return `<div class="rounded-xl border bg-card p-5"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">Teacher assignment</p><h3 class="text-xl font-bold">${classTeacher ? `Class Teacher: ${escapeHtml(classTeacher.name)}` : 'Class Teacher: Not assigned'}</h3><p class="text-sm text-muted-foreground mt-1">${classTeacher ? `Actual assigned class: ${escapeHtml(classTeacher.name)}${classTeacher.grade ? ` • ${escapeHtml(classTeacher.grade)}` : ''}` : (subjectPreview || 'No subject assignment has been configured yet.')}</p></div><div class="flex gap-2 flex-wrap">${classTeacher ? '<span class="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">Class Teacher</span>' : ''}${subjects.length ? `<span class="px-3 py-1 rounded-full border text-sm">${subjects.length} subject assignment(s)</span>` : ''}</div></div></div>`;
+  } catch (_) { return ''; }
+}
+
 // ============ DASHBOARD ============
 async function renderTeacherDashboard() {
   const user = getCurrentUser();
@@ -93,8 +105,11 @@ async function renderTeacherDashboard() {
     if (perfRes.success) performanceData = perfRes.data;
   } catch(e) { console.error(e); }
 
+  const assignmentCard = await renderTeacherAssignmentLabelCard();
+
   const html = `
     <div class="space-y-6 animate-fade-in">
+      ${assignmentCard}
       <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

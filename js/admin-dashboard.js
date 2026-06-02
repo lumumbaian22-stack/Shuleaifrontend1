@@ -520,8 +520,12 @@ async function renderAdminSection(section) {
                 return renderAdminDashboard();
             case 'calendar-management':
                 return await window.v12RenderAcademicCalendar();
-            case 'students':
-                return await renderAdminStudents();
+            case 'students': {
+                const html = await renderAdminStudents();
+                return renderAdminStudentSubjectToolbar(html);
+            }
+            case 'student-subject-selection':
+                return await renderAdminStudentSubjectSelection();
             case 'timetable':
                  return await (window.v12RenderAdminTimetable || window.renderAdminTimetable)();
             case 'calendar':
@@ -553,9 +557,11 @@ async function renderAdminSection(section) {
             case 'settings':
                 return renderAdminSettings();
             case 'subscription-billing':
-                return await renderAdminSubscriptionBilling();
+                return `${await renderAdminSubscriptionBilling()}<div class="mt-6">${renderAdminPaymentConfirmationCard()}</div>`;
             case 'alerts':
                 return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('admin');
+            case 'parent-messages':
+                return await renderAdminParentMessages();
             case 'finance-fees':
             case 'fee-structures':
             case 'payment-settings':
@@ -2049,3 +2055,137 @@ window.saveAllSettings = async function() {
     finally { hideLoading(); }
 };
 try { renderAdminCustomSubjects = window.renderAdminCustomSubjects; renderAdminSettings = window.renderAdminSettings; } catch (e) { console.warn('V102 admin renderer binding skipped', e); }
+
+
+// ============ V107 INTEGRATED STUDENT SUBJECT SELECTION + MANUAL BILLING ============
+function adminEsc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function adminArray(value) { return Array.isArray(value) ? value : []; }
+function adminSubjectStatusBadge(status) {
+    const s = String(status || 'not_taken').toLowerCase();
+    const cls = s === 'taking' || s === 'taking_core' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : s === 'exempted' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+    return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${adminEsc(s.replace(/_/g, ' '))}</span>`;
+}
+async function loadAdminStudentSubjectPayload(selectedStudentId) {
+    const [studentsRes, classesRes] = await Promise.all([api.admin.getStudents(), api.admin.getClasses().catch(() => ({ data: [] }))]);
+    const students = adminArray(studentsRes.data);
+    let studentId = selectedStudentId || localStorage.getItem('selectedStudentForSubjects') || students[0]?.id || '';
+    if (!students.some(s => String(s.id) === String(studentId))) studentId = students[0]?.id || '';
+    let detail = null;
+    if (studentId) {
+        detail = await api.admin.getStudentSubjectSelection(studentId);
+        localStorage.setItem('selectedStudentForSubjects', String(studentId));
+    }
+    return { students, classes: adminArray(classesRes.data), studentId, detail: detail?.data || null };
+}
+function subjectLevelLabel(subject) {
+    const levels = subject.levelLabels || subject.levelCodes || [];
+    return Array.isArray(levels) && levels.length ? levels.join(', ') : (subject.levelLabel || subject.levelCode || 'Current class');
+}
+function renderSubjectSelectionRows(eligibleSubjects, selections) {
+    const selectedByName = new Map(adminArray(selections).map(row => [String(row.subjectName || row.name || '').toLowerCase(), row]));
+    if (!eligibleSubjects.length) {
+        return `<div class="rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-100 dark:border-yellow-700 p-5"><h3 class="font-semibold">No valid subjects found for this student class.</h3><p class="text-sm mt-1">Save the curriculum structure and Add Subjects checklist first. The new engine will not use old/manual subjects.</p></div>`;
+    }
+    const groups = new Map();
+    for (const subject of eligibleSubjects) {
+        const key = subject.category || 'subjects';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(subject);
+    }
+    return [...groups.entries()].map(([category, subjects]) => `<div class="rounded-xl border bg-card overflow-hidden"><div class="px-4 py-3 border-b bg-muted/30 flex items-center justify-between gap-3"><div><h3 class="font-semibold capitalize">${adminEsc(String(category).replace(/_/g, ' '))}</h3><p class="text-xs text-muted-foreground">Choose whether this learner is taking each subject.</p></div><span class="text-xs rounded-full border px-2 py-1">${subjects.length} subject(s)</span></div><div class="divide-y">${subjects.map(subject => {
+        const saved = selectedByName.get(String(subject.name || '').toLowerCase());
+        const defaultStatus = saved?.status || (subject.isCore || subject.category === 'compulsory' ? 'taking' : 'not_taken');
+        const data = { subjectId: subject.id, subjectName: subject.name, name: subject.name, category: subject.category || '', isCore: !!subject.isCore, isCompulsory: !!(subject.isCore || subject.category === 'compulsory'), isElective: !!subject.isOptional, pathway: subject.pathway || '', track: subject.track || '' };
+        const meta = `${subjectLevelLabel(subject)}${subject.pathway ? ' • ' + subject.pathway : ''}${subject.track ? ' • ' + subject.track : ''}`;
+        return `<div class="p-4 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-center"><div><p class="font-semibold">${adminEsc(subject.name)}</p><p class="text-xs text-muted-foreground">${adminEsc(meta)}</p></div><div>${adminSubjectStatusBadge(defaultStatus)}</div><select class="student-subject-status rounded-lg border bg-background px-3 py-2 text-sm" data-subject='${adminEsc(JSON.stringify(data))}'><option value="taking" ${defaultStatus === 'taking' || defaultStatus === 'taking_core' ? 'selected' : ''}>Taking / Counted if marked</option><option value="not_taken" ${defaultStatus === 'not_taken' ? 'selected' : ''}>Not Taken</option><option value="exempted" ${defaultStatus === 'exempted' ? 'selected' : ''}>Exempted</option><option value="pending_approval" ${defaultStatus === 'pending_approval' ? 'selected' : ''}>Pending Approval</option></select></div>`;
+    }).join('')}</div></div>`).join('');
+}
+async function renderAdminStudentSubjectSelection() {
+    try {
+        const selected = localStorage.getItem('selectedStudentForSubjects');
+        const { students, studentId, detail } = await loadAdminStudentSubjectPayload(selected);
+        const selectedStudent = students.find(s => String(s.id) === String(studentId));
+        const classItem = detail?.class || null;
+        const eligibleSubjects = adminArray(detail?.eligibleSubjects);
+        const selections = adminArray(detail?.selections);
+        const seniorLike = /grade\s*1[0-2]|year\s*1[0-3]|form\s*[3-4]|senior/i.test(`${classItem?.name || ''} ${classItem?.grade || ''} ${selectedStudent?.grade || ''}`);
+        const pathway = selections.find(s => s.pathway)?.pathway || '';
+        const track = selections.find(s => s.track)?.track || '';
+        return `<div class="space-y-6 animate-fade-in"><div class="rounded-2xl border bg-card p-6"><div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><h2 class="text-2xl font-bold">Student Subject Selection</h2><p class="text-sm text-muted-foreground mt-1">Controlled Grade 10–12 pathway/elective selection. Also works for any class where a learner has Not Taken or Exempted subjects.</p></div><button onclick="showDashboardSection('students')" class="px-4 py-2 rounded-lg border hover:bg-accent">Back to Students</button></div><div class="mt-5 grid gap-4 lg:grid-cols-3"><div class="lg:col-span-2"><label class="block text-sm font-medium mb-1">Select student</label><select id="student-subject-select" class="w-full rounded-lg border bg-background px-3 py-2" onchange="changeSubjectSelectionStudent(this.value)">${students.map(s => `<option value="${adminEsc(s.id)}" ${String(s.id) === String(studentId) ? 'selected' : ''}>${adminEsc(s.User?.name || s.name || 'Student')} — ${adminEsc(s.grade || 'No class')}</option>`).join('')}</select></div><div class="rounded-xl border bg-muted/30 p-4"><p class="text-xs text-muted-foreground">Current class</p><p class="font-bold">${adminEsc(classItem?.name || selectedStudent?.grade || 'No class detected')}</p><p class="text-xs text-muted-foreground mt-1">${eligibleSubjects.length} eligible subject(s)</p></div></div></div><div class="rounded-2xl border bg-card p-5"><div class="grid gap-4 lg:grid-cols-3"><div><label class="block text-sm font-medium mb-1">Pathway ${seniorLike ? '<span class="text-primary">(Senior)</span>' : '<span class="text-muted-foreground">(optional)</span>'}</label><select id="student-pathway" class="w-full rounded-lg border bg-background px-3 py-2">${['', 'STEM', 'Social Sciences', 'Arts & Sports Science', 'Custom'].map(p => `<option value="${adminEsc(p)}" ${pathway === p ? 'selected' : ''}>${p || 'Not selected'}</option>`).join('')}</select></div><div><label class="block text-sm font-medium mb-1">Track</label><input id="student-track" class="w-full rounded-lg border bg-background px-3 py-2" value="${adminEsc(track)}" placeholder="Pure Sciences, Applied Sciences, Humanities..."></div><div class="flex items-end"><button onclick="saveStudentSubjectSelection('${adminEsc(studentId)}')" class="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Save Subject Selection</button></div></div><p class="text-xs text-muted-foreground mt-3">Saving here controls teacher grading, report cards, Career Compass, and whether optional subjects count.</p></div><div class="space-y-4">${renderSubjectSelectionRows(eligibleSubjects, selections)}</div></div>`;
+    } catch (error) {
+        return `<div class="rounded-xl border bg-card p-8 text-red-500">Error loading subject selection: ${adminEsc(error.message)}</div>`;
+    }
+}
+function changeSubjectSelectionStudent(studentId) {
+    localStorage.setItem('selectedStudentForSubjects', String(studentId || ''));
+    showDashboardSection('student-subject-selection');
+}
+async function saveStudentSubjectSelection(studentId) {
+    if (!studentId) return showToast('Select a student first', 'error');
+    const pathway = document.getElementById('student-pathway')?.value || null;
+    const track = document.getElementById('student-track')?.value || null;
+    const subjects = [...document.querySelectorAll('.student-subject-status')].map(select => ({ ...JSON.parse(select.dataset.subject || '{}'), status: select.value, pathway: JSON.parse(select.dataset.subject || '{}').pathway || pathway, track: JSON.parse(select.dataset.subject || '{}').track || track }));
+    showLoading();
+    try {
+        const detail = await api.admin.getStudentSubjectSelection(studentId);
+        const classId = detail?.data?.class?.id || null;
+        await api.admin.saveStudentSubjectSelection(studentId, { classId, pathway, track, subjects });
+        showToast('Student subject selection saved.', 'success');
+        await showDashboardSection('student-subject-selection');
+    } catch (error) { showToast(error.message || 'Failed to save subject selection', 'error'); }
+    finally { hideLoading(); }
+}
+function renderAdminStudentSubjectToolbar(html) {
+    return `<div class="rounded-xl border bg-card p-4 mb-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"><div><h3 class="font-semibold">Senior / Elective Subject Selection</h3><p class="text-sm text-muted-foreground">Approve Grade 10–12 pathways, tracks, compulsory subjects, and electives.</p></div><button onclick="showDashboardSection('student-subject-selection')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Open Subject Selection</button></div></div>${html}`;
+}
+function renderAdminPaymentConfirmationCard() {
+    return `<div class="rounded-xl border bg-card p-5" id="payment-confirmation-card"><div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4"><div><h3 class="font-semibold text-lg">Submit Manual Payment Confirmation</h3><p class="text-sm text-muted-foreground mt-1">Use this when the school paid by M-Pesa reference, bank, or cash and it has not reflected automatically. Super admin will approve or reject it.</p></div><span class="text-xs rounded-full border px-3 py-1">Goes to Super Admin</span></div><div class="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3"><label class="block"><span class="text-sm font-medium">Amount Paid</span><input id="pay-amount" type="number" min="0" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="100000"></label><label class="block"><span class="text-sm font-medium">Method</span><select id="pay-method" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="mpesa">M-Pesa</option><option value="bank">Bank Transfer</option><option value="cash">Cash</option><option value="other">Other</option></select></label><label class="block"><span class="text-sm font-medium">Reference / Receipt</span><input id="pay-reference" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="M-Pesa code / bank ref"></label><label class="block"><span class="text-sm font-medium">Paid Date</span><input id="pay-date" type="date" value="${new Date().toISOString().slice(0,10)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="block"><span class="text-sm font-medium">Requested Plan</span><select id="pay-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school_starter">Starter</option><option value="school_growth" selected>Growth</option><option value="school_enterprise">Enterprise</option><option value="custom">Custom</option></select></label><label class="block"><span class="text-sm font-medium">Proof URL / Note</span><input id="pay-proof" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Optional screenshot URL"></label></div><label class="block mt-4"><span class="text-sm font-medium">Notes</span><textarea id="pay-notes" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Example: Paid from school Paybill at 10:32 AM but status did not update."></textarea></label><div class="mt-4 flex justify-end"><button onclick="submitPaymentConfirmation()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Submit for Confirmation</button></div></div>`;
+}
+async function submitPaymentConfirmation() {
+    const data = { amount: Number(document.getElementById('pay-amount')?.value || 0), method: document.getElementById('pay-method')?.value || 'mpesa', reference: document.getElementById('pay-reference')?.value || '', paidAt: document.getElementById('pay-date')?.value || new Date().toISOString(), requestedPlan: document.getElementById('pay-plan')?.value || 'school_growth', proofUrl: document.getElementById('pay-proof')?.value || '', notes: document.getElementById('pay-notes')?.value || '' };
+    if (!data.amount || data.amount <= 0) return showToast('Enter the amount paid', 'error');
+    if (!data.reference.trim()) return showToast('Enter the M-Pesa code, bank reference, or receipt number', 'error');
+    showLoading();
+    try { await api.admin.submitSchoolPaymentConfirmation(data); showToast('Payment confirmation submitted to super admin.', 'success'); ['pay-amount','pay-reference','pay-proof','pay-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); }
+    catch (error) { showToast(error.message || 'Failed to submit payment confirmation', 'error'); }
+    finally { hideLoading(); }
+}
+window.changeSubjectSelectionStudent = changeSubjectSelectionStudent;
+window.saveStudentSubjectSelection = saveStudentSubjectSelection;
+window.submitPaymentConfirmation = submitPaymentConfirmation;
+
+
+// ============ V107 INTEGRATED ADMIN PARENT MESSAGES ============
+async function renderAdminParentMessages() {
+    let conversations = [];
+    try { conversations = (await api.admin.getParentConversations()).data || []; } catch (e) { console.error(e); }
+    return `<div class="max-w-4xl mx-auto space-y-6 animate-fade-in"><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Parent Messages to Admin</h3><p class="text-sm text-muted-foreground">Only parent-admin conversations for this school appear here.</p></div><div class="divide-y">${conversations.length ? conversations.map(c => `<div class="p-4 hover:bg-accent cursor-pointer" onclick="openAdminParentConversation('${adminEsc(c.userId)}')"><div class="flex justify-between"><div><p class="font-medium">${adminEsc(c.userName)}</p><p class="text-xs text-muted-foreground">${c.studentName ? `about ${adminEsc(c.studentName)}` : 'Parent-admin conversation'}</p><p class="text-sm mt-1">${adminEsc((c.lastMessage || '').substring(0, 80))}</p></div><div class="text-right"><p class="text-xs">${typeof timeAgo === 'function' ? timeAgo(c.lastMessageTime) : ''}</p>${c.unreadCount ? `<span class="bg-red-500 text-white text-xs rounded-full px-2 py-1">${c.unreadCount}</span>` : ''}</div></div></div>`).join('') : '<div class="p-8 text-center text-muted-foreground">No parent-admin messages yet.</div>'}</div></div></div>`;
+}
+async function openAdminParentConversation(parentId) {
+    let messages = [];
+    try { messages = (await api.admin.getParentMessages(parentId)).data || []; } catch (e) { showToast(e.message || 'Failed to load messages', 'error'); }
+    let modal = document.getElementById('admin-parent-chat-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'admin-parent-chat-modal';
+        modal.className = 'fixed inset-0 z-50 hidden';
+        modal.innerHTML = `<div class="absolute inset-0 bg-black/50" onclick="closeAdminParentConversation()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl p-4"><div class="rounded-xl border bg-card p-6 shadow-xl"><div class="modal-content"></div></div></div>`;
+        document.body.appendChild(modal);
+    }
+    const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
+    modal.querySelector('.modal-content').innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeAdminParentConversation()" class="p-1">×</button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="admin-parent-chat-msgs">${messages.map(m => `<div class="flex ${Number(m.senderId) === Number(currentUser.id) ? 'justify-end' : 'justify-start'}"><div class="${Number(m.senderId) === Number(currentUser.id) ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${adminEsc(m.content)}</p><p class="text-xs mt-1">${typeof timeAgo === 'function' ? timeAgo(m.createdAt) : ''}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="admin-parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2 bg-background"><button onclick="sendAdminParentReply('${adminEsc(parentId)}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
+    modal.classList.remove('hidden');
+}
+function closeAdminParentConversation() { document.getElementById('admin-parent-chat-modal')?.classList.add('hidden'); }
+async function sendAdminParentReply(parentId) {
+    const input = document.getElementById('admin-parent-reply-input');
+    const message = input?.value?.trim();
+    if (!message) return;
+    try { await api.admin.replyToParent({ parentId, message }); input.value = ''; await openAdminParentConversation(parentId); }
+    catch (e) { showToast(e.message || 'Failed to send reply', 'error'); }
+}
+window.openAdminParentConversation = openAdminParentConversation;
+window.closeAdminParentConversation = closeAdminParentConversation;
+window.sendAdminParentReply = sendAdminParentReply;
