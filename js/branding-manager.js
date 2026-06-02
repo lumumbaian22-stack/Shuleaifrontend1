@@ -8,7 +8,7 @@
 
   const PLATFORM_SHORT_NAME = 'ShuleAI';
   const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png';
-  const PLATFORM_LOGO_DARK = 'assets/logo-dark.png';
+  const PLATFORM_LOGO_DARK = 'assets/logo-light.png';
   const BRAND_COLOR_PRESETS = {
     'Shule Blue': { primaryColor: '#083A85', accentColor: '#11B5B1' },
     'Royal Blue': { primaryColor: '#0B2F6B', accentColor: '#3B82F6' },
@@ -82,7 +82,11 @@
 
   function getLogoSource() {
     const b = getStoredBranding();
-    return clean(b.logoDataUrl) || clean(b.logoUrl) || clean(b.logo) || '';
+    const raw = clean(b.logoDataUrl) || clean(b.logoUrl) || clean(b.logo) || '';
+    if (raw && typeof window.resolveMediaUrl === 'function') return window.resolveMediaUrl(raw);
+    if (raw && /^data:image\//i.test(raw)) return raw;
+    if (raw && /\/data:image\//i.test(raw)) return raw.slice(raw.indexOf('data:image/'));
+    return raw;
   }
 
   function currentMode() { return document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
@@ -160,7 +164,7 @@
     if (!light) {
       light = document.createElement('img');
       light.id = 'sidebar-logo-light';
-      light.className = 'h-10 w-10 object-contain block dark:hidden school-sidebar-logo';
+      light.className = 'h-10 w-10 object-contain block dark:hidden school-sidebar-logo'; light.style.maxWidth = '40px'; light.style.maxHeight = '40px';
       light.setAttribute('data-school-logo', 'true');
       light.setAttribute('data-brand-logo-light', 'true');
       container.insertBefore(light, container.firstChild);
@@ -168,7 +172,7 @@
     if (!dark) {
       dark = document.createElement('img');
       dark.id = 'sidebar-logo-dark';
-      dark.className = 'h-10 w-10 object-contain hidden dark:block school-sidebar-logo';
+      dark.className = 'h-10 w-10 object-contain hidden dark:block school-sidebar-logo'; dark.style.maxWidth = '40px'; dark.style.maxHeight = '40px';
       dark.setAttribute('data-school-logo', 'true');
       dark.setAttribute('data-brand-logo-dark', 'true');
       container.insertBefore(dark, light.nextSibling);

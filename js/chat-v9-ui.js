@@ -5,9 +5,11 @@ let v9ChatState = {
   activeTab: 'study',
   mode: 'group',
   teachers: [],
+  parents: [],
   groups: [],
   threads: [],
   selectedTeacher: null,
+  selectedParent: null,
   selectedGroup: null,
   selectedThread: null,
   messages: [],
@@ -58,6 +60,28 @@ function v9IsStaffUser() {
   const role = v9CurrentUser()?.role;
   return ['teacher','admin','super_admin'].includes(role);
 }
+function v9CanShowParentsTab() {
+  try { return typeof isClassTeacher === 'function' ? !!isClassTeacher() : false; } catch { return false; }
+}
+function v9ParentDisplayName(parent) {
+  return parent?.userName || parent?.parentName || parent?.name || 'Parent';
+}
+function v9ConversationName(selected) {
+  if (!selected) return 'Conversation';
+  if (v9ChatState.activeTab === 'parents') return v9ParentDisplayName(selected);
+  return selected.name || selected.userName || 'Conversation';
+}
+function v9ConversationSubtitle(selected) {
+  if (!selected) return '';
+  if (v9ChatState.activeTab === 'parents') {
+    const parts = [];
+    if (selected.studentName) parts.push(`Parent of ${selected.studentName}`);
+    if (selected.className || selected.studentGrade) parts.push(selected.className || selected.studentGrade);
+    return parts.join(' • ') || 'Parent linked to your class';
+  }
+  if (v9ChatState.activeTab === 'groups') return `${v9ChatState.members.length} members • managed group`;
+  return 'Teacher-to-teacher private chat';
+}
 function v9RenderMessageListOnly() {
   const list = document.getElementById('v9-message-list');
   if (!list) return;
@@ -95,6 +119,7 @@ async function renderTeacherV9Messages() {
 
       <div class="tm6-tabs" role="tablist">
         <button class="${v9ChatState.activeTab === 'chats' ? 'active' : ''}" onclick="v9SetMainTab('chats')">Chats</button>
+        ${v9CanShowParentsTab() ? `<button class="${v9ChatState.activeTab === 'parents' ? 'active' : ''}" onclick="v9SetMainTab('parents')">Parents</button>` : ''}
         <button class="${v9ChatState.activeTab === 'groups' ? 'active' : ''}" onclick="v9SetMainTab('groups')">Groups</button>
         <button class="${v9ChatState.activeTab === 'study' ? 'active' : ''}" onclick="v9SetMainTab('study')">Study Rooms</button>
         <button class="${v9ChatState.activeTab === 'announcements' ? 'active' : ''}" onclick="v9SetMainTab('announcements')">Announcements</button>
@@ -110,18 +135,25 @@ async function v9RefreshTeacherChat() {
   const root = document.getElementById('v9-teacher-chat-root');
   if (root) root.innerHTML = '<div class="tm6-empty">Loading teacher workspace...</div>';
   try {
-    const [teachersRes, groupsRes, threadsRes] = await Promise.all([
+    const parentPromise = v9CanShowParentsTab() && window.api?.teacher?.getParentConversations
+      ? window.api.teacher.getParentConversations().catch(() => ({ data: [] }))
+      : Promise.resolve({ data: [] });
+    const [teachersRes, groupsRes, threadsRes, parentsRes] = await Promise.all([
       chatV9API.getTeachers(),
       chatV9API.getTeacherGroups(),
-      chatV9API.getClassroomThreads()
+      chatV9API.getClassroomThreads(),
+      parentPromise
     ]);
     const me = v9CurrentUser();
-    v9ChatState.teachers = (teachersRes.data || []).filter(t => Number(t.id) !== Number(me?.id) && t.role !== 'student');
+    v9ChatState.teachers = (teachersRes.data || []).filter(t => Number(t.id) !== Number(me?.id) && t.role === 'teacher');
+    v9ChatState.parents = v9CanShowParentsTab() ? (parentsRes.data || []) : [];
     v9ChatState.groups = groupsRes.data || [];
     v9ChatState.threads = threadsRes.data || [];
     if (!v9ChatState.selectedTeacher && v9ChatState.teachers[0]) v9ChatState.selectedTeacher = v9ChatState.teachers[0];
+    if (!v9ChatState.selectedParent && v9ChatState.parents[0]) v9ChatState.selectedParent = v9ChatState.parents[0];
     if (!v9ChatState.selectedGroup && v9ChatState.groups[0]) v9ChatState.selectedGroup = v9ChatState.groups[0];
     if (!v9ChatState.selectedThread && v9ChatState.threads[0]) v9ChatState.selectedThread = v9ChatState.threads[0];
+    if (v9ChatState.activeTab === 'parents' && !v9CanShowParentsTab()) { v9ChatState.activeTab = 'chats'; v9ChatState.mode = 'direct'; }
     await v9LoadCurrentMessages();
   } catch (err) {
     console.error('Teacher messages load failed:', err);
@@ -132,6 +164,7 @@ async function v9RefreshTeacherChat() {
 function v9SetMainTab(tab) {
   v9ChatState.activeTab = tab;
   if (tab === 'chats') v9ChatState.mode = 'direct';
+  if (tab === 'parents') v9ChatState.mode = 'parent';
   if (tab === 'groups') v9ChatState.mode = 'group';
   v9LoadCurrentMessages();
 }
@@ -144,6 +177,10 @@ async function v9LoadCurrentMessages() {
     let res = { data: [] };
     if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) {
       res = await chatV9API.getDirectMessages(v9ChatState.selectedTeacher.id);
+    } else if (v9ChatState.mode === 'parent' && v9ChatState.selectedParent && window.api?.teacher?.getParentMessages) {
+      res = await window.api.teacher.getParentMessages(v9ChatState.selectedParent.userId);
+      const selectedKey = v9ChatState.selectedParent.conversationKey;
+      if (selectedKey) res.data = (res.data || []).filter(m => !m.metadata?.conversationKey || m.metadata.conversationKey === selectedKey);
     } else if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) {
       res = await chatV9API.getGroupMessages(v9ChatState.selectedGroup.id);
       await v9LoadMembers(v9ChatState.selectedGroup.id);
@@ -169,13 +206,16 @@ function v9RenderTeacherShell() {
   if (v9ChatState.activeTab === 'study') return v9RenderStudyRooms(root);
   if (v9ChatState.activeTab === 'announcements') return v9RenderAnnouncements(root);
 
-  const list = v9ChatState.activeTab === 'chats' ? v9RenderDirectList() : v9RenderGroupList();
-  const selected = v9ChatState.activeTab === 'chats' ? v9ChatState.selectedTeacher : v9ChatState.selectedGroup;
+  const isParents = v9ChatState.activeTab === 'parents';
+  const list = v9ChatState.activeTab === 'chats' ? v9RenderDirectList() : isParents ? v9RenderParentList() : v9RenderGroupList();
+  const selected = v9ChatState.activeTab === 'chats' ? v9ChatState.selectedTeacher : isParents ? v9ChatState.selectedParent : v9ChatState.selectedGroup;
+  const panelTitle = v9ChatState.activeTab === 'chats' ? 'Teacher Chats' : isParents ? 'Parents' : 'Groups';
+  const panelSub = v9ChatState.activeTab === 'chats' ? 'Fellow teachers only' : isParents ? 'Parents of your class only' : 'Teacher and student groups';
   root.innerHTML = `
     <div class="tm6-chat-layout">
       <aside class="tm6-list-panel">
         <div class="tm6-panel-title">
-          <div><h3>${v9ChatState.activeTab === 'chats' ? 'Private Chats' : 'Groups'}</h3><p>${v9ChatState.activeTab === 'chats' ? 'Staff and parent contacts' : 'Teacher and student groups'}</p></div>
+          <div><h3>${panelTitle}</h3><p>${panelSub}</p></div>
           ${v9ChatState.activeTab === 'groups' ? '<button onclick="v9OpenCreateGroupModal()">+</button>' : ''}
         </div>
         <input class="tm6-search" placeholder="Search..." oninput="v9FilterConversations(this.value)">
@@ -197,6 +237,17 @@ function v9RenderDirectList() {
       <span><strong>${v9Safe(t.name)}</strong><small>${v9Safe(t.role === 'student' ? (t.Student?.grade || t.className || 'Student') : (t.email || 'Teacher'))}</small></span>
     </button>`).join('');
 }
+function v9RenderParentList() {
+  if (!v9CanShowParentsTab()) return '<div class="tm6-empty small">Parent chats are visible only to class teachers.</div>';
+  if (!v9ChatState.parents.length) return '<div class="tm6-empty small">No linked parents found for your class yet.</div>';
+  return v9ChatState.parents.map(p => {
+    const active = Number(v9ChatState.selectedParent?.userId) === Number(p.userId) && String(v9ChatState.selectedParent?.conversationKey || '') === String(p.conversationKey || '');
+    return `<button class="tm6-list-item ${active ? 'active' : ''}" onclick="v9SelectParent(${Number(p.userId)}, '${v9Safe(p.conversationKey || '')}')">
+      <span class="tm6-avatar parent">${v9Initials(v9ParentDisplayName(p))}</span>
+      <span><strong>${v9Safe(v9ParentDisplayName(p))}</strong><small>${v9Safe(p.studentName ? `Parent of ${p.studentName}` : 'Parent')} ${p.unreadCount ? `• ${p.unreadCount} unread` : ''}</small></span>
+    </button>`;
+  }).join('');
+}
 function v9RenderGroupList() {
   if (!v9ChatState.groups.length) return '<div class="tm6-empty small">No groups yet. Create one and add members.</div>';
   return v9ChatState.groups.map(g => `
@@ -207,12 +258,14 @@ function v9RenderGroupList() {
 }
 function v9RenderChatWindow(selected) {
   const isGroup = v9ChatState.activeTab === 'groups';
+  const isParent = v9ChatState.activeTab === 'parents';
+  const displayName = v9ConversationName(selected);
   return `
     <header class="tm6-chat-head">
-      <div class="tm6-title-row"><span class="tm6-avatar big">${isGroup ? '👥' : v9Initials(selected.name)}</span><div><h3>${v9Safe(selected.name || 'Conversation')}</h3><p>${isGroup ? `${v9ChatState.members.length} members • managed group` : 'Safe private chat contact'}</p></div></div>
+      <div class="tm6-title-row"><span class="tm6-avatar big">${isGroup ? '👥' : v9Initials(displayName)}</span><div><h3>${v9Safe(displayName)}</h3><p>${v9Safe(v9ConversationSubtitle(selected))}</p></div></div>
       <div class="tm6-chat-actions">
         ${isGroup && v9IsStaffUser() ? `<button class="tm6-btn light" onclick="v9OpenManageMembersModal(${Number(selected.id)})">Manage Members</button>` : ''}
-        <button class="tm6-btn light" onclick="v9PickAttachment()">Attach</button>
+        ${!isParent ? `<button class="tm6-btn light" onclick="v9PickAttachment()">Attach</button>` : ''}
         <input id="v9-file-input" type="file" class="hidden" onchange="v9UploadAttachment(this.files[0])">
       </div>
     </header>
@@ -357,6 +410,12 @@ function v9RenderAnnouncements(root) {
 }
 
 function v9SelectTeacher(id) { v9ChatState.selectedTeacher = v9ChatState.teachers.find(t => Number(t.id) === Number(id)); v9ChatState.mode = 'direct'; v9LoadCurrentMessages(); }
+function v9SelectParent(id, conversationKey = '') {
+  v9ChatState.selectedParent = v9ChatState.parents.find(p => Number(p.userId) === Number(id) && (!conversationKey || String(p.conversationKey || '') === String(conversationKey)))
+    || v9ChatState.parents.find(p => Number(p.userId) === Number(id)) || null;
+  v9ChatState.mode = 'parent';
+  v9LoadCurrentMessages();
+}
 function v9SelectGroup(id) { v9ChatState.selectedGroup = v9ChatState.groups.find(g => Number(g.id) === Number(id)); v9ChatState.mode = 'group'; v9LoadCurrentMessages(); }
 function v9SelectThread(id) { v9ChatState.selectedThread = v9ChatState.threads.find(t => Number(t.id) === Number(id)); v9ChatState.studyDetailTab = 'thread'; v9RenderTeacherShell(); }
 function v9FilterConversations(value) { const q=(value||'').toLowerCase(); document.querySelectorAll('#v9-conversation-list .tm6-list-item').forEach(el => { el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none'; }); }
@@ -398,6 +457,14 @@ async function v9SendMessage() {
     }
     let res = null;
     if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) res = await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, attachment, replyTo?.id || null);
+    if (v9ChatState.mode === 'parent' && v9ChatState.selectedParent && window.api?.teacher?.replyToParent) {
+      res = await window.api.teacher.replyToParent({
+        parentId: v9ChatState.selectedParent.userId,
+        message: content,
+        originalMessageId: replyTo?.id || v9ChatState.messages[v9ChatState.messages.length - 1]?.id || null,
+        conversationKey: v9ChatState.selectedParent.conversationKey || null
+      });
+    }
     if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) res = await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, attachment, replyTo?.id || null);
     if (res?.data) v9AppendMessageToState(res.data);
     else await v9LoadCurrentMessages();
@@ -852,6 +919,7 @@ window.v9RefreshTeacherChat = v9RefreshTeacherChat;
 window.v9SetMainTab = v9SetMainTab;
 window.v9SetChatMode = v9SetChatMode;
 window.v9SelectTeacher = v9SelectTeacher;
+window.v9SelectParent = v9SelectParent;
 window.v9SelectGroup = v9SelectGroup;
 window.v9SelectThread = v9SelectThread;
 window.v9SetThreadFilter = v9SetThreadFilter;

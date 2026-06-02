@@ -41,7 +41,40 @@ function generateAnalyticsHTML(role, data) {
     }
 }
 
-// ... (Super Admin unchanged, but from previous correct version)
+
+function renderSuperAdminAnalytics(data) {
+    const ov = data.overview || data || {};
+    const growth = data.growth || { labels: [], values: [] };
+    const revenue = data.revenueTrend || { labels: [], values: [] };
+    setTimeout(() => {
+        if (growth.labels && growth.labels.length) initLineChart('super-growth-chart', growth.labels, growth.values || [], 'New Schools');
+        if (revenue.labels && revenue.labels.length) initBarChart('super-revenue-chart', revenue.labels, revenue.values || [], 'Revenue');
+        if (data.distributionByCurriculum) initDoughnutChart('super-curriculum-chart', Object.keys(data.distributionByCurriculum), Object.values(data.distributionByCurriculum));
+    }, 100);
+    const money = Number(ov.revenueMTD || ov.totalRevenue || ov.revenue || 0).toLocaleString();
+    return `<div class="space-y-6 animate-fade-in analytics-container">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div><h2 class="text-2xl font-bold">Platform Analytics</h2><p class="text-sm text-muted-foreground">Super admin platform totals across all schools. This is not a school/admin dashboard.</p></div>
+            <span class="text-xs px-3 py-1 rounded-full bg-primary/10 text-primary">Platform scope • ${formatDateTime(data.__loadedAt)}</span>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Total Schools</p><h3 class="text-2xl font-bold">${ov.totalSchools || 0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Active Schools</p><h3 class="text-2xl font-bold">${ov.activeSchools || 0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Pending Schools</p><h3 class="text-2xl font-bold">${ov.pendingSchools || 0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Students</p><h3 class="text-2xl font-bold">${ov.totalStudents || 0}</h3></div>
+            <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Revenue MTD</p><h3 class="text-2xl font-bold">KES ${money}</h3></div>
+        </div>
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl border bg-card p-6 analytics-card"><h3 class="font-semibold mb-4">School Growth</h3><div class="chart-container"><canvas id="super-growth-chart"></canvas></div></div>
+            <div class="rounded-xl border bg-card p-6 analytics-card"><h3 class="font-semibold mb-4">Platform Revenue</h3><div class="chart-container"><canvas id="super-revenue-chart"></canvas></div></div>
+        </div>
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl border bg-card p-6 analytics-card"><h3 class="font-semibold mb-4">Curriculum Distribution</h3><div class="chart-container"><canvas id="super-curriculum-chart"></canvas></div></div>
+            <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-3">School Level Distribution</h3><div class="space-y-2">${Object.entries(data.distributionByLevel || {}).map(([k,v])=>`<div class="flex justify-between rounded-lg border p-3"><span class="capitalize">${escapeHtml(k)}</span><strong>${v}</strong></div>`).join('') || '<p class="text-sm text-muted-foreground">No level data yet.</p>'}</div></div>
+        </div>
+    </div>`;
+}
+
 
 function renderAdminAnalytics(data) {
     const ov = data.overview || {};

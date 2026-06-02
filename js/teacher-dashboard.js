@@ -63,7 +63,7 @@ async function renderTeacherSection(section) {
       case 'duty': return await (window.v12RenderTeacherDuty || window.renderTeacherDuty)();
       case 'duty-preferences': return renderTeacherDutyPreferences();
       case 'staff-chat': return await renderTeacherV9Messages();
-      case 'parent-chat': return await renderParentChat();
+      case 'parent-chat': return await renderTeacherParentChat();
       case 'settings': return await renderProfileSection()
       case 'help': return await renderHelpSection('teacher');
       case 'profile': return await renderProfileSection();
@@ -1311,7 +1311,7 @@ async function sendStaffMessage() {
 }
 
 // ============ PARENT CHAT ============
-async function renderParentChat() {
+async function renderTeacherParentChat() {
   if (!isClassTeacher()) return '<div class="text-center py-12">Only class teachers can view parent messages</div>';
   let conversations = [];
   try {
@@ -2234,7 +2234,7 @@ window.createTask = createTask;
 window.completeTask = completeTask;
 window.deleteTask = deleteTask;
 window.renderStaffChat = renderStaffChat;
-window.renderParentChat = renderParentChat;
+window.renderTeacherParentChat = renderTeacherParentChat;
 window.createHomeworkDiscussion = createHomeworkDiscussion;
 window.switchStaffChat = switchStaffChat;
 window.sendStaffMessage = sendStaffMessage;

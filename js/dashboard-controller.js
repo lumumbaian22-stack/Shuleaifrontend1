@@ -85,7 +85,6 @@ function updateSidebar(role) {
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
                 { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
                 { icon: 'message-circle', label: 'Messages', section: 'staff-chat' },
-                { icon: 'message-circle', label: 'Parent Messages', section: 'parent-chat' },
                 { icon: 'list-checks', label: 'Subject Requests', section: 'subject-requests' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'calendar', label: 'My Timetable', section: 'my-timetable' },
@@ -684,6 +683,8 @@ async function renderDashboardSection(role, section) {
     switch(role) {
         case 'superadmin':
             if (section === 'analytics') {
+                if (typeof window.v112RenderSuperAdminAnalytics === 'function') return await window.v112RenderSuperAdminAnalytics();
+                if (typeof window.v110RenderSuperAdminAnalytics === 'function') return await window.v110RenderSuperAdminAnalytics();
                 return await renderAnalyticsSection('superadmin');
             }
             if (typeof renderSuperAdminSection !== 'function') {

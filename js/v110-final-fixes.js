@@ -100,43 +100,113 @@
 
   window.v110AdminVerifySubjectSelection = async function(studentId){ await api.admin.verifySubjectSelection(studentId, { status:'verified_by_admin' }); toast('Student subject choices verified'); await window.showDashboardSection?.('student-subject-selection'); };
 
+  function v112PaymentMode(cfg){ return cfg.paymentMode || cfg.mode || (cfg.darajaEnabled && cfg.manualEnabled ? 'both' : cfg.darajaEnabled ? 'daraja' : 'manual'); }
+  function v112DarajaSettings(cfg){ return cfg.darajaCredentials || cfg.daraja || {}; }
+  function v112PaymentJson(value, fallback){ try { return JSON.parse(value || JSON.stringify(fallback || {})); } catch(e) { toast('JSON field is invalid', 'error'); throw e; } }
+
   window.v12RenderPlatformPayments = async function(){
-    const settings = await (api.payments?.getPlatformSettings ? api.payments.getPlatformSettings() : apiReq('/api/payments/platform-settings')).catch(() => ({data:{}}));
+    const settings = await (api.payments?.getPlatformSettings ? api.payments.getPlatformSettings() : apiReq('/api/payments/superadmin/platform-settings')).catch(() => ({data:{}}));
     const cfg = settings.data || {};
+    const d = v112DarajaSettings(cfg);
+    const mode = v112PaymentMode(cfg);
     const reqs = await (api.superAdmin?.getPaymentRequests ? api.superAdmin.getPaymentRequests({status:'pending'}) : apiReq('/api/super-admin/payment-requests?status=pending')).catch(() => ({data:[]}));
     const rows = arr(reqs);
-    return `<div class="space-y-6 animate-fade-in"><div class="rounded-xl border bg-card p-5"><h2 class="text-2xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground">Manual M-Pesa confirmation now; Daraja credentials can be added later for STK automation.</p></div>
-      <div class="grid lg:grid-cols-2 gap-5"><div class="rounded-xl border bg-card p-5 space-y-3"><h3 class="font-semibold">Payment Method & Credentials</h3>
-        <select id="pay-mode" class="w-full rounded-lg border px-3 py-2 bg-background"><option value="manual">Manual Verification</option><option value="daraja">Daraja STK</option><option value="mixed">Manual + Daraja</option></select>
-        <input id="pay-account" value="${esc(cfg.accountName || 'Shule AI')}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Account name">
-        <input id="pay-paybill" value="${esc(cfg.paybill || '')}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Paybill / shortcode">
-        <input id="pay-till" value="${esc(cfg.till || '')}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Till number">
-        <textarea id="pay-daraja" rows="6" class="w-full rounded-lg border px-3 py-2 bg-background font-mono text-xs" placeholder='Daraja JSON credentials'>${esc(JSON.stringify(cfg.daraja || {}, null, 2))}</textarea>
-        <button onclick="v110SavePlatformPaymentSettings()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Save Payment Settings</button>
-      </div><div class="rounded-xl border bg-card p-5"><h3 class="font-semibold mb-3">Pending Manual Payment Confirmations</h3>${rows.length ? `<div class="space-y-3">${rows.map(r => `<div class="border rounded-lg p-3"><div class="flex justify-between gap-2"><div><p class="font-semibold">${esc(r.schoolName || r.schoolCode)}</p><p class="text-xs text-muted-foreground">${esc(r.method)} • ${esc(r.reference)} • KES ${Number(r.amount || 0).toLocaleString()}</p></div><div class="flex gap-2"><button onclick="v110ReviewPayment('${r.id}','approve')" class="px-3 py-1 rounded bg-green-600 text-white">Approve 30 days</button><button onclick="v110ReviewPayment('${r.id}','reject')" class="px-3 py-1 rounded bg-red-600 text-white">Reject</button></div></div></div>`).join('')}</div>` : `<p class="text-sm text-muted-foreground">No pending requests.</p>`}</div></div></div>`;
+    const manualActive = mode === 'manual' || mode === 'both';
+    const darajaActive = mode === 'daraja' || mode === 'both';
+    return `<div class="space-y-6 animate-fade-in">
+      <div class="rounded-2xl border bg-card p-6 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div><p class="text-xs uppercase tracking-wide text-muted-foreground">Super Admin Billing</p><h2 class="text-3xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground mt-1">Choose how Shule AI collects platform money: manual verification, Daraja STK, or both during rollout.</p></div>
+        <div class="grid grid-cols-3 gap-2 text-center text-xs"><div class="rounded-xl border p-3"><b>${esc(mode.toUpperCase())}</b><span class="block text-muted-foreground">Mode</span></div><div class="rounded-xl border p-3"><b>${manualActive ? 'ON':'OFF'}</b><span class="block text-muted-foreground">Manual</span></div><div class="rounded-xl border p-3"><b>${darajaActive ? 'ON':'OFF'}</b><span class="block text-muted-foreground">Daraja</span></div></div>
+      </div>
+      <div class="grid xl:grid-cols-[1.2fr_.8fr] gap-5">
+        <div class="rounded-2xl border bg-card p-6 space-y-5">
+          <div class="grid md:grid-cols-3 gap-3">
+            ${['manual','daraja','both'].map(m => `<button type="button" onclick="v112SetPlatformPaymentMode('${m}')" class="platform-mode-card rounded-xl border p-4 text-left ${mode===m?'ring-2 ring-primary bg-primary/5':''}" data-mode-card="${m}"><b>${m==='manual'?'Manual Verification':m==='daraja'?'Daraja STK Only':'Manual + Daraja'}</b><small class="block text-muted-foreground mt-1">${m==='manual'?'Admin sends code, super admin confirms.':m==='daraja'?'Cards trigger STK and callback update.':'Use STK where ready, manual as backup.'}</small></button>`).join('')}
+          </div>
+          <input id="pay-mode" type="hidden" value="${esc(mode)}">
+          <div class="grid md:grid-cols-2 gap-4">
+            <label class="space-y-1"><span class="text-sm font-medium">Platform account name</span><input id="pay-account" value="${esc(cfg.accountName || 'Shule AI') }" class="w-full rounded-lg border px-3 py-2 bg-background"></label>
+            <label class="space-y-1"><span class="text-sm font-medium">Currency</span><input id="pay-currency" value="${esc(cfg.currency || 'KES')}" class="w-full rounded-lg border px-3 py-2 bg-background"></label>
+            <label class="space-y-1"><span class="text-sm font-medium">Manual Paybill / shortcode</span><input id="pay-paybill" value="${esc(cfg.paybill || cfg.shortcode || '')}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="e.g. 400200"></label>
+            <label class="space-y-1"><span class="text-sm font-medium">Manual Till number</span><input id="pay-till" value="${esc(cfg.till || '')}" class="w-full rounded-lg border px-3 py-2 bg-background"></label>
+          </div>
+          <div id="manual-payment-panel" class="rounded-xl border p-4 space-y-3 ${manualActive?'':'hidden'}">
+            <h3 class="font-semibold">Manual verification instructions</h3>
+            <textarea id="pay-manual-instructions" rows="4" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Tell school admins what code/reference to send.">${esc(cfg.manualInstructions || 'Send M-Pesa confirmation code, amount, school name, and billing plan. Super admin will approve and activate 30 days.')}</textarea>
+          </div>
+          <div id="daraja-payment-panel" class="rounded-xl border p-4 space-y-3 ${darajaActive?'':'hidden'}">
+            <div class="flex items-center justify-between gap-3"><h3 class="font-semibold">Daraja STK credentials</h3><span class="text-xs rounded-full border px-2 py-1">${darajaActive ? 'STK fields active' : 'Inactive until Daraja mode is selected'}</span></div>
+            <div class="grid md:grid-cols-2 gap-3">
+              <label class="space-y-1"><span class="text-sm font-medium">Environment</span><select id="pay-daraja-env" class="w-full rounded-lg border px-3 py-2 bg-background"><option value="sandbox" ${(d.environment || d.env)==='sandbox'?'selected':''}>Sandbox</option><option value="production" ${(d.environment || d.env)==='production'?'selected':''}>Production</option></select></label>
+              <label class="space-y-1"><span class="text-sm font-medium">Business shortcode</span><input id="pay-daraja-shortcode" value="${esc(d.shortcode || d.businessShortCode || cfg.shortcode || '')}" class="w-full rounded-lg border px-3 py-2 bg-background"></label>
+              <label class="space-y-1"><span class="text-sm font-medium">Consumer key</span><input id="pay-daraja-key" value="${esc(d.consumerKey || '')}" class="w-full rounded-lg border px-3 py-2 bg-background"></label>
+              <label class="space-y-1"><span class="text-sm font-medium">Consumer secret</span><input id="pay-daraja-secret" value="${esc(d.consumerSecret || '')}" class="w-full rounded-lg border px-3 py-2 bg-background" type="password"></label>
+              <label class="space-y-1 md:col-span-2"><span class="text-sm font-medium">Passkey</span><input id="pay-daraja-passkey" value="${esc(d.passkey || '')}" class="w-full rounded-lg border px-3 py-2 bg-background"></label>
+              <label class="space-y-1 md:col-span-2"><span class="text-sm font-medium">Callback URL</span><input id="pay-daraja-callback" value="${esc(d.callbackUrl || cfg.callbackUrl || '')}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="https://your-backend/api/payments/callback"></label>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <label class="space-y-1"><span class="text-sm font-medium">Parent subscription plans JSON</span><textarea id="pay-parent-plans" rows="5" class="w-full rounded-lg border px-3 py-2 bg-background font-mono text-xs">${esc(JSON.stringify(cfg.parentPlans || [{code:'basic',name:'Basic Parent',amount:100,days:30}], null, 2))}</textarea></label>
+            <label class="space-y-1"><span class="text-sm font-medium">School subscription plans JSON</span><textarea id="pay-school-plans" rows="5" class="w-full rounded-lg border px-3 py-2 bg-background font-mono text-xs">${esc(JSON.stringify(cfg.schoolPlans || [{code:'standard',name:'School Standard',amount:100000,days:365}], null, 2))}</textarea></label>
+          </div>
+          <div class="flex flex-wrap gap-3 items-center">
+            <label class="text-sm flex gap-2 items-center"><input id="pay-parent-enabled" type="checkbox" ${cfg.parentSubscriptionsEnabled !== false ? 'checked' : ''}> Parent subscriptions</label>
+            <label class="text-sm flex gap-2 items-center"><input id="pay-school-enabled" type="checkbox" ${cfg.schoolSubscriptionsEnabled !== false ? 'checked' : ''}> School subscriptions</label>
+            <label class="text-sm flex gap-2 items-center"><input id="pay-namechange-enabled" type="checkbox" ${cfg.nameChangePaymentsEnabled ? 'checked' : ''}> Paid name changes</label>
+          </div>
+          <div class="flex gap-3"><button onclick="v110SavePlatformPaymentSettings()" class="px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold">Save Platform Payment Settings</button><button onclick="v112PingPlatformPaymentMode()" class="px-5 py-3 rounded-xl border">Check Mode</button></div>
+        </div>
+        <div class="rounded-2xl border bg-card p-6"><div class="flex items-center justify-between gap-3 mb-4"><div><h3 class="font-semibold text-lg">Pending Manual Confirmations</h3><p class="text-sm text-muted-foreground">Approving activates/renews 30 days.</p></div><span class="rounded-full border px-3 py-1 text-sm">${rows.length}</span></div>${rows.length ? `<div class="space-y-3">${rows.map(r => `<div class="border rounded-xl p-4"><div class="flex justify-between gap-3"><div><p class="font-semibold">${esc(r.schoolName || r.schoolCode || 'School')}</p><p class="text-xs text-muted-foreground">${esc(r.method || 'manual')} • ${esc(r.reference || r.mpesaCode || '')}</p><p class="text-sm mt-1">KES ${Number(r.amount || 0).toLocaleString()} ${r.planCode ? '• '+esc(r.planCode) : ''}</p></div><div class="flex flex-col gap-2"><button onclick="v110ReviewPayment('${r.id}','approve')" class="px-3 py-2 rounded-lg bg-green-600 text-white">Approve</button><button onclick="v110ReviewPayment('${r.id}','reject')" class="px-3 py-2 rounded-lg bg-red-600 text-white">Reject</button></div></div></div>`).join('')}</div>` : `<div class="text-center text-muted-foreground py-12">No pending manual payment requests.</div>`}</div>
+      </div>
+    </div>`;
+  };
+  window.v112SetPlatformPaymentMode = function(mode){
+    const input = $('pay-mode'); if (input) input.value = mode;
+    document.querySelectorAll('[data-mode-card]').forEach(card => card.classList.toggle('ring-2', card.dataset.modeCard === mode));
+    const manual = mode === 'manual' || mode === 'both';
+    const daraja = mode === 'daraja' || mode === 'both';
+    $('manual-payment-panel')?.classList.toggle('hidden', !manual);
+    $('daraja-payment-panel')?.classList.toggle('hidden', !daraja);
+  };
+  window.v112PingPlatformPaymentMode = function(){
+    const mode = $('pay-mode')?.value || 'manual';
+    const msg = mode === 'manual' ? 'Manual mode: schools submit M-Pesa codes; super admin confirms.' : mode === 'daraja' ? 'Daraja mode: subscription cards should trigger STK and callbacks update status.' : 'Both mode: STK is preferred, manual verification remains as backup.';
+    toast(msg, 'info');
   };
   window.v110SavePlatformPaymentSettings = async function(){
-    let daraja = {}; try { daraja = JSON.parse($('pay-daraja')?.value || '{}'); } catch(e) { return toast('Daraja JSON is invalid', 'error'); }
-    const payload = { mode:$('pay-mode')?.value || 'manual', accountName:$('pay-account')?.value || 'Shule AI', paybill:$('pay-paybill')?.value || '', till:$('pay-till')?.value || '', daraja };
-    await (api.payments?.updatePlatformSettings ? api.payments.updatePlatformSettings(payload) : apiReq('/api/payments/platform-settings', {method:'PUT', body:JSON.stringify(payload)}));
+    const mode = $('pay-mode')?.value || 'manual';
+    const daraja = {
+      environment:$('pay-daraja-env')?.value || 'sandbox',
+      shortcode:$('pay-daraja-shortcode')?.value || '',
+      consumerKey:$('pay-daraja-key')?.value || '',
+      consumerSecret:$('pay-daraja-secret')?.value || '',
+      passkey:$('pay-daraja-passkey')?.value || '',
+      callbackUrl:$('pay-daraja-callback')?.value || ''
+    };
+    const payload = {
+      paymentMode: mode,
+      mode,
+      manualEnabled: mode === 'manual' || mode === 'both',
+      darajaEnabled: mode === 'daraja' || mode === 'both',
+      accountName:$('pay-account')?.value || 'Shule AI',
+      currency:$('pay-currency')?.value || 'KES',
+      paybill:$('pay-paybill')?.value || '',
+      till:$('pay-till')?.value || '',
+      manualInstructions:$('pay-manual-instructions')?.value || '',
+      darajaCredentials: daraja,
+      daraja,
+      parentSubscriptionsEnabled: !!$('pay-parent-enabled')?.checked,
+      schoolSubscriptionsEnabled: !!$('pay-school-enabled')?.checked,
+      nameChangePaymentsEnabled: !!$('pay-namechange-enabled')?.checked,
+      parentPlans: v112PaymentJson($('pay-parent-plans')?.value, []),
+      schoolPlans: v112PaymentJson($('pay-school-plans')?.value, [])
+    };
+    await (api.payments?.updatePlatformSettings ? api.payments.updatePlatformSettings(payload) : apiReq('/api/payments/superadmin/platform-settings', {method:'PUT', body:JSON.stringify(payload)}));
     toast('Platform payment settings saved');
+    await window.showDashboardSection?.('platform-payments');
   };
   window.v110ReviewPayment = async function(id, action){ await api.superAdmin.reviewPaymentRequest(id, { action, reviewNotes: action === 'approve' ? 'Confirmed manual M-Pesa payment; activate 30 days.' : 'Rejected by super admin' }); toast(`Payment ${action}d`); await window.showDashboardSection?.('platform-payments'); };
 
-  window.v110RenderSms = async function(){
-    const res = await api.sms.getConfig().catch(() => ({data:{}})); const cfg = res.data || {};
-    return `<div class="space-y-5 animate-fade-in"><div class="rounded-xl border bg-card p-5"><h2 class="text-2xl font-bold">Bulk SMS</h2><p class="text-sm text-muted-foreground">Provider-neutral SMS module. Add provider credentials later; schools can be token-limited by subscription.</p></div>
-      <div class="grid lg:grid-cols-2 gap-5"><div class="rounded-xl border bg-card p-5 space-y-3"><h3 class="font-semibold">SMS Settings</h3><input id="sms-sender" value="${esc(cfg.senderId || 'SHULEAI')}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Sender ID"><input id="sms-provider" value="${esc(cfg.activeProvider || 'noop')}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Provider key"><input id="sms-tokens" type="number" value="${Number(cfg.tokenBalance || 0)}" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Token balance"><textarea id="sms-providers" rows="6" class="w-full rounded-lg border px-3 py-2 bg-background font-mono text-xs" placeholder="Provider credentials JSON array">${esc(JSON.stringify(cfg.providers || [], null, 2))}</textarea><label class="flex gap-2 items-center text-sm"><input id="sms-ready" type="checkbox" ${cfg.apiReady ? 'checked' : ''}> API provider connected</label><button onclick="v110SaveSmsConfig()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Save SMS Config</button></div>
-      <div class="rounded-xl border bg-card p-5 space-y-3"><h3 class="font-semibold">Test / Draft SMS</h3><input id="sms-recipients" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Phone numbers, comma separated"><textarea id="sms-message" rows="5" class="w-full rounded-lg border px-3 py-2 bg-background" placeholder="Message"></textarea><button onclick="v110SendSmsDraft()" class="px-4 py-2 rounded-lg bg-secondary text-secondary-foreground">Validate / Queue SMS</button><p class="text-xs text-muted-foreground">Current usage: ${Number(cfg.usedThisMonth || 0)} used from ${Number(cfg.tokenBalance || 0)} tokens.</p></div></div></div>`;
-  };
-  window.v110SaveSmsConfig = async function(){
-    let providers = []; try { providers = JSON.parse($('sms-providers')?.value || '[]'); } catch(e) { return toast('Provider JSON is invalid', 'error'); }
-    await api.sms.saveConfig({ senderId:$('sms-sender')?.value || 'SHULEAI', activeProvider:$('sms-provider')?.value || 'noop', tokenBalance:Number($('sms-tokens')?.value || 0), providers, apiReady:!!$('sms-ready')?.checked }); toast('SMS settings saved');
-  };
-  window.v110SendSmsDraft = async function(){
-    const recipients = ($('sms-recipients')?.value || '').split(',').map(x=>x.trim()).filter(Boolean); const message = $('sms-message')?.value || '';
-    const res = await api.sms.send({ recipients, message }); toast(res.message || 'SMS request processed');
-  };
 
   function msgAttachment(m){ const a = m.metadata?.attachment || m.attachment; if(!a) return ''; const url = a.url || a.fileUrl || a.path; return `<div class="mt-2 text-xs"><a class="underline" target="_blank" href="${esc(url || '#')}">📎 ${esc(a.originalName || a.filename || 'Attachment')}</a></div>`; }
   window.loadParentRecipientConversation = async function(){
@@ -167,6 +237,13 @@
   };
 
 
+  window.v112RenderSuperAdminAnalytics = async function(){
+    const res = await (api.superAdmin?.getAnalytics ? api.superAdmin.getAnalytics() : apiReq('/api/super-admin/analytics')).catch(() => ({data:{}}));
+    const d = res.data || {};
+    if (typeof renderSuperAdminAnalytics === 'function') return renderSuperAdminAnalytics(d);
+    return window.v110RenderSuperAdminAnalytics ? window.v110RenderSuperAdminAnalytics() : '<div class="p-6">Platform analytics unavailable.</div>';
+  };
+
   window.v110RenderSuperAdminAnalytics = async function(){
     const res = await (api.superAdmin?.getAnalytics ? api.superAdmin.getAnalytics() : apiReq('/api/super-admin/analytics')).catch(() => ({data:{}}));
     const d = res.data || {}; const ov = d.overview || d || {};
@@ -191,7 +268,7 @@
   const oldAdmin = window.renderAdminSection;
   window.renderAdminSection = async function(section){ if(section === 'sms') return await window.v110RenderSms(); return oldAdmin ? oldAdmin(section) : ''; };
   const oldSuper = window.renderSuperAdminSection;
-  window.renderSuperAdminSection = async function(section){ if(section === 'platform-payments') return await window.v12RenderPlatformPayments(); if(section === 'sms') return await window.v110RenderSms(); if(section === 'analytics') return await window.v110RenderSuperAdminAnalytics(); if(section === 'platform-health') return await window.v110RenderSuperAdminHealth(); return oldSuper ? oldSuper(section) : ''; };
+  window.renderSuperAdminSection = async function(section){ if(section === 'platform-payments') return await window.v12RenderPlatformPayments(); if(section === 'sms') return await window.v110RenderSms(); if(section === 'analytics') return await window.v112RenderSuperAdminAnalytics(); if(section === 'platform-health') return await window.v110RenderSuperAdminHealth(); return oldSuper ? oldSuper(section) : ''; };
 
   const oldBrandApply = window.BrandingManager?.apply;
   if (window.BrandingManager && oldBrandApply) {
