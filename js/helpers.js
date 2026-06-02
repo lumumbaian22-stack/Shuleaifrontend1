@@ -111,18 +111,32 @@ function updateAllSchoolNameElements(newName) {
 }
 
 
+
+function v116ParentAllowedReportStudentId(studentId) {
+    const wanted = String(studentId || '').trim();
+    if (!wanted) return false;
+    const role = String((typeof getCurrentRole === 'function' ? getCurrentRole() : localStorage.getItem('userRole') || localStorage.getItem('role') || '') || '').toLowerCase().replace('-', '_');
+    if (role !== 'parent') return true;
+    const selected = String(window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim();
+    const children = Array.isArray(window.dashboardData?.children) ? window.dashboardData.children : [];
+    const ids = new Set([selected].filter(Boolean));
+    children.forEach(c => {
+        [c?.id, c?.studentId, c?.userId, c?.student?.id, c?.student?.studentId, c?.student?.userId, c?.User?.id].forEach(v => { if (v !== undefined && v !== null && String(v).trim()) ids.add(String(v)); });
+    });
+    return ids.has(wanted);
+}
+
 async function v113LoadReportCardDetails(studentId) {
-    const role = String((typeof getCurrentRole === 'function' ? getCurrentRole() : localStorage.getItem('userRole') || '') || '').toLowerCase().replace('-', '_');
+    const role = String((typeof getCurrentRole === 'function' ? getCurrentRole() : localStorage.getItem('userRole') || localStorage.getItem('role') || '') || '').toLowerCase().replace('-', '_');
     if (role === 'parent') {
+        if (!v116ParentAllowedReportStudentId(studentId)) {
+            throw new Error('This report card is not linked to the selected parent child. Select the linked child first.');
+        }
         if (api?.parent?.getChildReportCardDetails) return await api.parent.getChildReportCardDetails(studentId);
         if (typeof apiRequest === 'function') return await apiRequest(`/api/parent/child/${studentId}/report-card-details`);
+        throw new Error('Parent report card route is unavailable');
     }
-    try {
-        return await api.students.getFullDetails(studentId);
-    } catch (e) {
-        if (role === 'parent' && typeof apiRequest === 'function') return await apiRequest(`/api/parent/child/${studentId}/report-card-details`);
-        throw e;
-    }
+    return await api.students.getFullDetails(studentId);
 }
 
 async function buildReportCardHTML(studentId) {

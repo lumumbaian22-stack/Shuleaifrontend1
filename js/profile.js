@@ -123,7 +123,7 @@ async function renderProfileSection() {
             <div class="mt-4">
                 <label class="block text-sm font-medium mb-1">Signature</label>
                 <div class="flex items-center gap-4">
-                    <img id="signature-preview" src="${user.signature || ''}" class="h-16 border rounded">
+                    <img id="signature-preview" src="${v116ResolveUploadedMediaUrl(user.signature || user.signatureUrl || '')}" class="h-16 border rounded" onerror="this.removeAttribute('src')">
                     <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer">
                         Upload Signature
                         <input type="file" id="signature-upload" accept="image/*" class="hidden" onchange="uploadSignature(this.files[0])">
@@ -378,6 +378,17 @@ async function uploadProfilePicture(file) {
     }
 }
 
+
+function v116ResolveUploadedMediaUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw || raw === 'undefined' || raw === 'null') return '';
+    if (/^(data:|blob:|https?:\/\/)/i.test(raw)) return raw;
+    if (typeof resolveMediaUrl === 'function') return resolveMediaUrl(raw);
+    const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
+    if (raw.startsWith('/')) return `${base}${raw}`;
+    return `${base}/${raw.replace(/^\/+/, '')}`;
+}
+
 // Signature upload function
 async function uploadSignature(file) {
     if (!file) return;
@@ -394,9 +405,13 @@ async function uploadSignature(file) {
         const data = await response.json();
         if (response.ok && data.success) {
             const user = getCurrentUser();
-            user.signature = data.data.signature;
+            const signatureUrl = v116ResolveUploadedMediaUrl(data.data?.signatureUrl || data.data?.signature || data.signatureUrl || data.signature || '');
+            if (!signatureUrl) throw new Error('Upload succeeded but no signature URL was returned');
+            user.signature = signatureUrl;
+            user.signatureUrl = signatureUrl;
             localStorage.setItem('user', JSON.stringify(user));
-            document.getElementById('signature-preview').src = data.data.signature;
+            const preview = document.getElementById('signature-preview');
+            if (preview) preview.src = signatureUrl;
             showToast('Signature uploaded successfully', 'success');
         } else {
             throw new Error(data.message || 'Upload failed');

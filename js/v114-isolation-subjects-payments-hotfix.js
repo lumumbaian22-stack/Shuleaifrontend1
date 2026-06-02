@@ -7,7 +7,7 @@
   const arr = (v) => Array.isArray(v?.data) ? v.data : (Array.isArray(v) ? v : []);
   const toast = (m,t='info') => (typeof showToast === 'function' ? showToast(m,t) : console.log(`[${t}]`, m));
   const apiReq = (url, opts={}) => window.apiRequest ? window.apiRequest(url, opts) : fetch(url, opts).then(r=>r.json());
-  function currentUser(){ try { return typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } }
+  function currentUser(){ try { const u = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}'); return u && typeof u === 'object' ? u : {}; } catch { return {}; } }
   function selectedChildId(){ return String(window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim(); }
   function isParent(){ return String(currentUser()?.role || localStorage.getItem('role') || '').toLowerCase() === 'parent'; }
 
@@ -144,5 +144,5 @@
     wrapped.__v114NoParentCard = true; window.renderTeacherDashboard = wrapped;
   }
   const obs = new MutationObserver(hideTeacherDashboardParentMessages);
-  document.addEventListener('DOMContentLoaded', () => { hideTeacherDashboardParentMessages(); try{ obs.observe(document.body,{childList:true,subtree:true}); }catch(_){} });
+  document.addEventListener('DOMContentLoaded', () => { hideTeacherDashboardParentMessages(); try{ if(document.body) obs.observe(document.body,{childList:true,subtree:true}); }catch(_){} });
 })();
