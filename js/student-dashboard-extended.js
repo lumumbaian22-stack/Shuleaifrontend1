@@ -805,7 +805,7 @@ function renderStudentAITutor() {
             <div class="flex flex-wrap justify-between items-center gap-3">
                 <div>
                     <h2 class="text-2xl font-bold">Shule AI Tutor</h2>
-                    <p class="text-sm text-muted-foreground">Student-only AI tutoring. Access starts from an active Premium or Ultimate child subscription.</p>
+                    <p class="text-sm text-muted-foreground">Student-only AI tutoring. Access starts from an active Essential, Smart, or Genius child subscription.</p>
                 </div>
                 <div class="rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground" id="ai-student-level-badge">
                     ${escapeHtml(context.displayText)}
@@ -847,7 +847,7 @@ function renderStudentAITutor() {
 
                 <div class="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
                     <p><b class="text-foreground">Try:</b> “explain fractions”, “quiz me in science”, “summarize nouns”, “make revision plan”, “show my weak areas”.</p>
-                    <p><b class="text-foreground">Access:</b> Basic does not include AI Tutor. Your parent must activate Premium for 6 messages/day or Ultimate for extended AI access.</p>
+                    <p><b class="text-foreground">Access:</b> No free tier. Your parent must activate Essential, Smart, or Genius for your individual learner profile.</p>
                 </div>
                 <div id="ai-progress-panel" class="text-xs space-y-2"></div>
 

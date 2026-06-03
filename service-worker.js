@@ -1,5 +1,5 @@
 /* Shule AI V114 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai-v128-frontend-root-deploy-fix';
+const CACHE_NAME = 'shule-ai-v117-admin-billing-dedupe';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -17,6 +17,11 @@ const APP_SHELL = [
   '/js/mobile-complete.js',
   '/js/shule-clean-consolidated-source.js',
   '/js/owner-level-hardening.js',
+  '/js/v111-media-url-hotfix.js',
+  '/js/v112-stability-polish.js',
+  '/js/v113-access-billing-hotfix.js',
+  '/js/v114-isolation-subjects-payments-hotfix.js',
+  '/js/v116-isolation-subjects-payments-hotfix.js',
   '/js/branding-manager.js',
   '/js/notifications.js',
   '/js/parent-dashboard.js',
