@@ -1,5 +1,5 @@
 /* Shule AI V114 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai-v117-admin-billing-dedupe';
+const CACHE_NAME = 'shule-ai-v118-admin-billing-dedupe';
 const APP_SHELL = [
   '/',
   '/index.html',
