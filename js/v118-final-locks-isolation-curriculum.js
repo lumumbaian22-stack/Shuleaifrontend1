@@ -16,8 +16,9 @@
   function esc(v){ if(typeof escapeHtml==='function') return escapeHtml(v); const d=document.createElement('div'); d.textContent=String(v??''); return d.innerHTML; }
   function role(){ return String((typeof getCurrentRole==='function'?getCurrentRole():localStorage.getItem('userRole')||'')||'').toLowerCase().replace('-', '_'); }
   function schoolPlan(){ const s=window.ShulePlanState||{}; const raw=String(s.planCode||s.currentPlan||s.schoolTier||'starter').toLowerCase().replace(/^school_/, ''); if(raw.includes('enterprise')) return 'enterprise'; if(raw.includes('growth')) return 'growth'; return 'starter'; }
-  function features(){ const st=window.ShulePlanState||{}; if(Array.isArray(st.features)&&st.features.length) return new Set(st.features); return new Set(PLAN_FEATURES[schoolPlan()]||PLAN_FEATURES.starter); }
-  function hasFeature(f){ if(!f) return true; if(role()==='superadmin'||role()==='super_admin') return true; const set=features(); return set.has(f); }
+  function fullAccess(){ const st=window.ShulePlanState||{}; const text=[st.accessMode,st.status,st.planCode,st.currentPlan,st.schoolTier,st.subscription?.planCode].filter(Boolean).join(' ').toLowerCase(); return st.fullAccess===true || st.override===true || st.pilotFullAccessEnabled===true || /pilot[_\s-]*full|full[_\s-]*pilot|demo[_\s-]*full|free[_\s-]*full|full[_\s-]*access/.test(text); }
+  function features(){ const st=window.ShulePlanState||{}; if(fullAccess()) return new Set([...(PLAN_FEATURES.enterprise||[]),'*','homework','senior_subject_choice']); if(Array.isArray(st.features)&&st.features.length) return new Set(st.features); return new Set(PLAN_FEATURES[schoolPlan()]||PLAN_FEATURES.starter); }
+  function hasFeature(f){ if(!f) return true; if(role()==='superadmin'||role()==='super_admin') return true; const set=features(); return set.has('*')||set.has(f); }
   function selectedChild(){ return window.dashboardData?.selectedChild || window.dashboardData?.children?.find?.(c=>String(c.id||c.studentId)===String(window.dashboardData?.selectedChildId||localStorage.getItem('shule_selected_child_id'))) || null; }
   function isSeniorText(text){ return /(^|\D)(grade\s*)?(10|11|12)(\D|$)|senior|g10|g11|g12/i.test(String(text||'')); }
   function seniorEnabled(){ const school=JSON.parse(localStorage.getItem('school')||'{}')||{}; const settings=school.settings||window.schoolSettings?.settings||{}; const text=[settings.schoolStructure,settings.structureType,settings.schoolLevel,settings.enabledLevels,school.schoolLevel,school.type].filter(Boolean).join(' ').toLowerCase(); if(/primary_only|primary only|junior_only|junior only/.test(text)) return false; if(/senior|secondary|mixed|full|grade\s*1[0-2]/.test(text)) return true; return !!(settings.hasSeniorSchool||settings.seniorEnabled||settings.seniorSchoolEnabled); }
@@ -27,7 +28,8 @@
       if(!localStorage.getItem('token')) return;
       const res=await apiRequest('/api/subscriptions/my-status');
       const d=res?.data||{};
-      window.ShulePlanState={...(window.ShulePlanState||{}),...d, features:d.features||d.featureList||d.subscription?.features||null, planCode:d.planCode||d.currentPlan||d.schoolTier||d.subscription?.planCode||d.subscription?.planName||undefined};
+      window.ShulePlanState={...(window.ShulePlanState||{}),...d, fullAccess:!!(d.fullAccess||d.override||d.accessMode==='pilot_full_access'), override:!!d.override, accessMode:d.accessMode, features:d.features||d.featureList||d.subscription?.features||null, planCode:d.planCode||d.currentPlan||d.schoolTier||d.subscription?.planCode||d.subscription?.planName||undefined};
+      if(window.ShulePlanState.fullAccess){ window.ShulePlanState.features=[...(PLAN_FEATURES.enterprise||[]),'*','homework','senior_subject_choice']; window.ShulePlanState.planCode='enterprise'; }
       applyDefaultBrandingIfNeeded();
     }catch(e){ console.warn('[v118] plan state load skipped:', e.message); }
   }
