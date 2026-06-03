@@ -1,5 +1,5 @@
 /* Shule AI V114 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai-v122-pilot-full-access-final-fix';
+const CACHE_NAME = 'shule-ai-v123-pilot-visibility-hard-fix';
 const APP_SHELL = [
   '/',
   '/index.html',

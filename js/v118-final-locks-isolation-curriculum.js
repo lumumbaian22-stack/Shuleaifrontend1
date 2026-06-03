@@ -16,13 +16,13 @@
   function esc(v){ if(typeof escapeHtml==='function') return escapeHtml(v); const d=document.createElement('div'); d.textContent=String(v??''); return d.innerHTML; }
   function role(){ return String((typeof getCurrentRole==='function'?getCurrentRole():localStorage.getItem('userRole')||'')||'').toLowerCase().replace('-', '_'); }
   function schoolPlan(){ const s=window.ShulePlanState||{}; const raw=String(s.planCode||s.currentPlan||s.schoolTier||'starter').toLowerCase().replace(/^school_/, ''); if(raw.includes('enterprise')) return 'enterprise'; if(raw.includes('growth')) return 'growth'; return 'starter'; }
-  function fullAccess(){ const st=window.ShulePlanState||{}; const text=[st.accessMode,st.status,st.planCode,st.currentPlan,st.schoolTier,st.subscription?.planCode].filter(Boolean).join(' ').toLowerCase(); return st.fullAccess===true || st.override===true || st.pilotFullAccessEnabled===true || /pilot[_\s-]*full|full[_\s-]*pilot|demo[_\s-]*full|free[_\s-]*full|full[_\s-]*access/.test(text); }
+  function fullAccess(){ const st=window.ShulePlanState||{}; const text=[st.accessMode,st.status,st.planCode,st.currentPlan,st.schoolTier,st.subscription?.planCode,localStorage.getItem('shule_full_access_override')].filter(Boolean).join(' ').toLowerCase(); return st.fullAccess===true || st.override===true || st.pilotFullAccessEnabled===true || localStorage.getItem('shule_full_access_override')==='true' || /pilot[_\s-]*full|full[_\s-]*pilot|demo[_\s-]*full|free[_\s-]*full|full[_\s-]*access/.test(text); }
   function features(){ const st=window.ShulePlanState||{}; if(fullAccess()) return new Set([...(PLAN_FEATURES.enterprise||[]),'*','homework','senior_subject_choice']); if(Array.isArray(st.features)&&st.features.length) return new Set(st.features); return new Set(PLAN_FEATURES[schoolPlan()]||PLAN_FEATURES.starter); }
   function hasFeature(f){ if(!f) return true; if(role()==='superadmin'||role()==='super_admin') return true; const set=features(); return set.has('*')||set.has(f); }
   function selectedChild(){ return window.dashboardData?.selectedChild || window.dashboardData?.children?.find?.(c=>String(c.id||c.studentId)===String(window.dashboardData?.selectedChildId||localStorage.getItem('shule_selected_child_id'))) || null; }
   function isSeniorText(text){ return /(^|\D)(grade\s*)?(10|11|12)(\D|$)|senior|g10|g11|g12/i.test(String(text||'')); }
   function seniorEnabled(){ const school=JSON.parse(localStorage.getItem('school')||'{}')||{}; const settings=school.settings||window.schoolSettings?.settings||{}; const text=[settings.schoolStructure,settings.structureType,settings.schoolLevel,settings.enabledLevels,school.schoolLevel,school.type].filter(Boolean).join(' ').toLowerCase(); if(/primary_only|primary only|junior_only|junior only/.test(text)) return false; if(/senior|secondary|mixed|full|grade\s*1[0-2]/.test(text)) return true; return !!(settings.hasSeniorSchool||settings.seniorEnabled||settings.seniorSchoolEnabled); }
-  function sectionAllowed(section){ const f=SECTION_FEATURE[section]; if(!hasFeature(f)) return false; if(f==='senior_subject_choice') { const c=selectedChild(); const text=[c?.grade,c?.className,c?.Class?.name,c?.levelCode,window.dashboardData?.student?.grade].join(' '); return seniorEnabled() && (isSeniorText(text)||role()==='admin'||role()==='teacher'); } return true; }
+  function sectionAllowed(section){ if(fullAccess()) return true; const f=SECTION_FEATURE[section]; if(!hasFeature(f)) return false; if(f==='senior_subject_choice') { const c=selectedChild(); const text=[c?.grade,c?.className,c?.Class?.name,c?.levelCode,window.dashboardData?.student?.grade].join(' '); return seniorEnabled() && (isSeniorText(text)||role()==='admin'||role()==='teacher'); } return true; }
   async function loadPlanState(){
     try{
       if(!localStorage.getItem('token')) return;
@@ -42,11 +42,14 @@
     document.querySelectorAll('[data-school-logo],.school-logo,.sidebar-logo,img[data-branding-logo-preview]').forEach(img=>{ if(img.tagName==='IMG') { img.setAttribute('src','assets/logo.png'); img.onerror=()=>img.setAttribute('src','assets/logo.png'); } });
     if(window.BrandingManager?.apply) setTimeout(()=>window.BrandingManager.apply('Shule AI',{force:true}),10);
   }
+  function hideForPlan(el){ if(!el) return; el.hidden=true; el.style.display='none'; el.setAttribute('data-shule-pruned','true'); el.setAttribute('data-feature-hidden','true'); }
+  function planStateReady(){ const st=window.ShulePlanState||{}; if(fullAccess()) return true; if(!localStorage.getItem('token')) return true; return !!(st.planCode||st.currentPlan||st.schoolTier||st.status||Array.isArray(st.features)||Array.isArray(st.featureList)); }
   function pruneUnavailable(root=document){
+    if(fullAccess() || !planStateReady()) return;
     const links=root.querySelectorAll?.('[data-section], [onclick*="showDashboardSection"]')||[];
     links.forEach(el=>{
       const section=el.getAttribute('data-section') || ((el.getAttribute('onclick')||'').match(/showDashboardSection\(['"]([^'"]+)/)||[])[1];
-      if(section && !sectionAllowed(section)) el.remove();
+      if(section && !sectionAllowed(section)) hideForPlan(el);
     });
     const unavailableTexts=[];
     if(!hasFeature('calendar')) unavailableTexts.push('calendar');
@@ -59,15 +62,15 @@
     if(!hasFeature('senior_subject_choice')||!seniorEnabled()) unavailableTexts.push('subject choice','subject requests','student subject selection');
     root.querySelectorAll?.('.dashboard-card,.card,.quick-card,.analytics-card,button,a,section,article').forEach(el=>{
       const text=(el.textContent||'').trim().toLowerCase();
-      if(text && unavailableTexts.some(t=>text===t || (text.includes(t)&&text.length<80))) el.remove();
+      if(text && unavailableTexts.some(t=>text===t || (text.includes(t)&&text.length<80))) hideForPlan(el);
     });
   }
   const oldUpdateSidebar=window.updateSidebar;
   window.updateSidebar=function(r){ const out=oldUpdateSidebar?oldUpdateSidebar.apply(this,arguments):undefined; try{ pruneUnavailable(document); applyDefaultBrandingIfNeeded(); }catch(e){ console.warn('[v118] sidebar prune failed',e); } return out; };
   const oldShow=window.showDashboardSection;
-  window.showDashboardSection=async function(section){ if(section&&!sectionAllowed(section)){ if(typeof showToast==='function') showToast('This section is not available for this school setup.','info'); return oldShow?oldShow.call(this,'dashboard'):null; } return oldShow?oldShow.apply(this,arguments):null; };
+  window.showDashboardSection=async function(section){ if(!fullAccess() && section&&!sectionAllowed(section)){ if(typeof showToast==='function') showToast('This section is not available for this school setup.','info'); return oldShow?oldShow.call(this,'dashboard'):null; } return oldShow?oldShow.apply(this,arguments):null; };
   const oldRender=window.renderDashboardSection;
-  if(oldRender){ window.renderDashboardSection=async function(r,section){ if(section&&!sectionAllowed(section)) return '<div class="rounded-xl border bg-card p-6 text-muted-foreground">Section unavailable.</div>'; const html=await oldRender.apply(this,arguments); setTimeout(()=>pruneUnavailable(document),30); return html; }; }
+  if(oldRender){ window.renderDashboardSection=async function(r,section){ if(!fullAccess() && section&&!sectionAllowed(section)) return '<div class="rounded-xl border bg-card p-6 text-muted-foreground">Section unavailable.</div>'; const html=await oldRender.apply(this,arguments); setTimeout(()=>pruneUnavailable(document),30); return html; }; }
 
   // Alert source labels everywhere, including dashboard preview cards.
   function labelForAlert(alert){ const data=alert?.data||{}; return alert?.sourceLabel||data.sourceLabel||data.aiLabel||data.sourceType||alert?.type||'System'; }

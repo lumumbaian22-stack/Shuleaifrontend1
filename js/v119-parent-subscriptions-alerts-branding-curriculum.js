@@ -25,7 +25,7 @@
   function selectedChildId(){ return String(window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim(); }
   function children(){ return Array.isArray(window.dashboardData?.children) ? window.dashboardData.children : []; }
   function selectedChild(){ const id=selectedChildId(); return window.dashboardData?.selectedChild || children().find(c => String(c.id || c.studentId) === id) || null; }
-  function fullAccess(){ const st=window.ShulePlanState||{}; const text=[st.accessMode,st.status,st.planCode,st.currentPlan,st.schoolTier,st.subscription?.planCode].filter(Boolean).join(' ').toLowerCase(); return st.fullAccess===true || st.override===true || st.pilotFullAccessEnabled===true || /pilot[_\s-]*full|full[_\s-]*pilot|demo[_\s-]*full|free[_\s-]*full|full[_\s-]*access/.test(text); }
+  function fullAccess(){ const st=window.ShulePlanState||{}; const text=[st.accessMode,st.status,st.planCode,st.currentPlan,st.schoolTier,st.subscription?.planCode,localStorage.getItem('shule_full_access_override')].filter(Boolean).join(' ').toLowerCase(); return st.fullAccess===true || st.override===true || st.pilotFullAccessEnabled===true || localStorage.getItem('shule_full_access_override')==='true' || /pilot[_\s-]*full|full[_\s-]*pilot|demo[_\s-]*full|free[_\s-]*full|full[_\s-]*access/.test(text); }
   function planCode(){ const st=window.ShulePlanState || {}; if(fullAccess()) return 'enterprise'; const raw=String(st.planCode || st.currentPlan || st.schoolTier || localStorage.getItem('schoolPlan') || 'starter').toLowerCase(); if(raw.includes('enterprise')) return 'enterprise'; if(raw.includes('growth')) return 'growth'; return 'starter'; }
   function featureSet(){ const st=window.ShulePlanState || {}; if(fullAccess()) return new Set([...(SCHOOL_PLAN_FEATURES.enterprise||[]),'*','homework','senior_subject_choice']); if(Array.isArray(st.features) && st.features.length) return new Set(st.features); return new Set(SCHOOL_PLAN_FEATURES[planCode()] || SCHOOL_PLAN_FEATURES.starter); }
   function hasFeature(f){ if(!f) return true; const r=role(); if(r==='super_admin'||r==='superadmin') return true; const set=featureSet(); return set.has('*') || set.has(f); }
@@ -57,6 +57,7 @@
   }
 
   function featureAllowedForSection(section){
+    if (fullAccess()) return true;
     const f = SECTION_FEATURE[String(section || '')];
     if (!hasFeature(f)) return false;
     if (f === 'senior_subject_choice') {
@@ -65,10 +66,13 @@
     }
     return true;
   }
+  function hideForPlan(el){ if(!el) return; el.hidden=true; el.style.display='none'; el.setAttribute('data-shule-pruned','true'); el.setAttribute('data-feature-hidden','true'); }
+  function planStateReady(){ const st=window.ShulePlanState||{}; if(fullAccess()) return true; if(!localStorage.getItem('token')) return true; return !!(st.planCode||st.currentPlan||st.schoolTier||st.status||Array.isArray(st.features)||Array.isArray(st.featureList)); }
   function pruneUnavailable(root=document){
+    if (fullAccess() || !planStateReady()) return;
     root.querySelectorAll?.('[data-section], [onclick*="showDashboardSection"]').forEach(el => {
       const section = el.getAttribute('data-section') || ((el.getAttribute('onclick') || '').match(/showDashboardSection\(['"]([^'"]+)/) || [])[1];
-      if (section && !featureAllowedForSection(section)) el.remove();
+      if (section && !featureAllowedForSection(section)) hideForPlan(el);
     });
     const hiddenTerms=[];
     if(!hasFeature('homework')) hiddenTerms.push('homework','my homework');
@@ -83,7 +87,7 @@
     if(!['cbc','cbe'].includes(cur) || !isSeniorGrade(childClassText())) hiddenTerms.push('career pathway','subject choice','subject choices','student subject selection','pathway');
     root.querySelectorAll?.('.dashboard-card,.quick-card,.card,button,a,section,article').forEach(el => {
       const txt=(el.textContent||'').trim().toLowerCase();
-      if(txt && hiddenTerms.some(t => (txt === t || (txt.includes(t) && txt.length < 90)))) el.remove();
+      if(txt && hiddenTerms.some(t => (txt === t || (txt.includes(t) && txt.length < 90)))) hideForPlan(el);
     });
   }
 
@@ -170,7 +174,7 @@
 
   const oldShow = window.showDashboardSection;
   window.showDashboardSection = async function(section){
-    if (section && !featureAllowedForSection(section)) return oldShow ? oldShow.call(this, 'dashboard') : null;
+    if (!fullAccess() && section && !featureAllowedForSection(section)) return oldShow ? oldShow.call(this, 'dashboard') : null;
     const out = oldShow ? await oldShow.apply(this, arguments) : null;
     setTimeout(()=>{ pruneUnavailable(document); stabilizeBranding(); injectChildContext(); if(role()==='parent') window.loadParentAlerts?.(); }, 60);
     return out;
