@@ -1,0 +1,2191 @@
+// ============ CRITICAL FALLBACKS for admin-dashboard ============
+if (typeof window.loadAllTeachers !== 'function') {
+    console.warn('loadAllTeachers not defined – using fallback');
+    window.loadAllTeachers = async function() {
+        try {
+            const response = await api.admin.getTeachers();
+            return response.data || [];
+        } catch (error) {
+            console.error('Fallback loadAllTeachers error:', error);
+            return [];
+        }
+    };
+}
+
+if (typeof window.renderStudentsTable !== 'function') {
+    console.warn('renderStudentsTable not defined – using fallback');
+    window.renderStudentsTable = function(students) {
+        if (!students || students.length === 0) {
+            return '<div class="text-center py-8 text-muted-foreground">No students found</div>';
+        }
+        return `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Student</th>
+                            <th class="px-4 py-3 text-left">ELIMUID</th>
+                            <th class="px-4 py-3 text-left">Grade</th>
+                            <th class="px-4 py-3 text-left">Status</th>
+                            <th class="px-4 py-3 text-left">Parent Email</th>
+                            <th class="px-4 py-3 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${students.map(student => {
+                            const user = student.User || {};
+                            const name = user.name || 'Unknown';
+                            const email = user.email || 'N/A';
+                            const status = student.status || 'active';
+                            const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
+                                               status === 'inactive' ? 'bg-red-100 text-red-700' : 
+                                               'bg-gray-100 text-gray-700';
+                            const initials = getInitials(name);
+                            return `
+                                <tr class="hover:bg-accent/50">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                <span class="font-medium text-blue-700 text-sm">${initials}</span>
+                                            </div>
+                                            <span class="font-medium">${escapeHtml(name)}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3"><span class="font-mono text-xs bg-muted px-2 py-1 rounded">${student.elimuid || 'N/A'}</span></td>
+                                    <td class="px-4 py-3">${student.grade || 'N/A'}</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span></td>
+                                    <td class="px-4 py-3">${email}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button onclick="adminViewStudentDetails('${student.id}')" class="p-1 hover:bg-accent rounded" title="View"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                                        <button onclick="adminEditStudent('${student.id}')" class="p-1 hover:bg-accent rounded" title="Edit"><i data-lucide="edit" class="h-4 w-4"></i></button>
+                                        ${status === 'active' ? 
+                                            `<button onclick="adminSuspendStudent('${student.id}', '${escapeHtml(name)}')" class="p-1 hover:bg-yellow-100 rounded" title="Suspend"><i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i></button>` : 
+                                            `<button onclick="adminReactivateStudent('${student.id}', '${escapeHtml(name)}')" class="p-1 hover:bg-green-100 rounded" title="Reactivate"><i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i></button>`
+                                        }
+                                        <button onclick="adminDeleteStudent('${student.id}', '${escapeHtml(name)}')" class="p-1 hover:bg-red-100 rounded" title="Delete"><i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i></button>
+                                        ${student.isPrefect ? '<span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><i data-lucide="shield" class="h-3 w-3 mr-1"></i>Prefect</span>' : ''}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    };
+}
+
+if (typeof window.loadPendingTeachers !== 'function') {
+    console.warn('loadPendingTeachers not defined – using fallback');
+    window.loadPendingTeachers = async function() {
+        try {
+            const response = await api.admin.getPendingApprovals();
+            return response?.data?.teachers || [];
+        } catch (error) {
+            console.error('Fallback loadPendingTeachers error:', error);
+            return [];
+        }
+    };
+}
+
+if (typeof window.renderTeachersTable !== 'function') {
+    console.warn('renderTeachersTable not defined – using fallback');
+    window.renderTeachersTable = function(teachers) {
+        if (!teachers || teachers.length === 0) {
+            return '<div class="text-center py-8 text-muted-foreground">No teachers found</div>';
+        }
+        return `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">Teacher</th>
+                            <th class="px-4 py-3 text-left font-medium">Email</th>
+                            <th class="px-4 py-3 text-left font-medium">Subjects</th>
+                            <th class="px-4 py-3 text-left font-medium">Status</th>
+                            <th class="px-4 py-3 text-right font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${teachers.map(teacher => `
+                            <tr class="hover:bg-accent/50 transition-colors">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        ${avatarHTML(teacher.User?.name || 'Unknown', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || teacher.profilePicture, 'h-8 w-8')}
+                                        <span class="font-medium">${teacher.User?.name || 'Unknown'}</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">${teacher.User?.email || 'N/A'}</td>
+                                <td class="px-4 py-3">${(teacher.subjects || []).join(', ')}</td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${teacher.isActive === false ? 'bg-red-100 text-red-700' : (teacher.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700')}">
+                                        ${teacher.isActive === false ? 'Suspended' : (teacher.approvalStatus === 'approved' ? 'Active' : 'Pending')}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <button onclick="viewTeacherDetails('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg" title="View">
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
+                                    <button onclick="editTeacher('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
+                                        <i data-lucide="edit" class="h-4 w-4"></i>
+                                    </button>
+                                    <button onclick="suspendTeacher('${teacher.id}', '${escapeHtml(teacher.User?.name || 'Unknown')}')" class="p-2 hover:bg-yellow-100 rounded-lg text-yellow-600" title="Suspend">
+                                        <i data-lucide="pause-circle" class="h-4 w-4"></i>
+                                    </button>
+                                    <button onclick="deleteTeacher('${teacher.id}')" class="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Delete">
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                    </button>   
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    };
+}
+
+if (typeof window.renderPendingTeachersTable !== 'function') {
+    console.warn('renderPendingTeachersTable not defined – using fallback');
+    window.renderPendingTeachersTable = function(teachers) {
+        if (!teachers || teachers.length === 0) {
+            return '<div class="text-center py-8 text-muted-foreground">No pending teachers</div>';
+        }
+        return `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">Teacher</th>
+                            <th class="px-4 py-3 text-left font-medium">Email</th>
+                            <th class="px-4 py-3 text-left font-medium">Subjects</th>
+                            <th class="px-4 py-3 text-left font-medium">Applied</th>
+                            <th class="px-4 py-3 text-right font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${teachers.map(teacher => `
+                            <tr class="hover:bg-accent/50 transition-colors">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-8 w-8 rounded-full bg-violet-100 flex items-center justify-center">
+                                            <span class="font-medium text-violet-700 text-sm">${getInitials(teacher.User?.name || 'Unknown')}</span>
+                                        </div>
+                                        <span class="font-medium">${teacher.User?.name || 'Unknown'}</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">${teacher.User?.email || 'N/A'}</td>
+                                <td class="px-4 py-3">${(teacher.subjects || []).join(', ')}</td>
+                                <td class="px-4 py-3">${timeAgo(teacher.createdAt)}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <button onclick="approveTeacher('${teacher.id}')" class="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full hover:bg-green-200 mr-2">Approve</button>
+                                    <button onclick="rejectTeacher('${teacher.id}')" class="px-3 py-1 bg-red-100 text-red-700 text-xs rounded-full hover:bg-red-200">Reject</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    };
+}
+
+// Fallback for renderClassManagement
+if (typeof window.renderClassManagement !== 'function') {
+    window.renderClassManagement = async function() {
+        return '<div class="text-center py-12">Class management module loading...</div>';
+    };
+}
+
+if (typeof window.loadAllStudents !== 'function') {
+    console.warn('loadAllStudents not defined – using fallback');
+    window.loadAllStudents = async function() {
+        try {
+            const response = await api.admin.getStudents();
+            return response.data || [];
+        } catch (error) {
+            console.error('Fallback loadAllStudents error:', error);
+            return [];
+        }
+    };
+}
+
+// Helper to refresh class management if visible
+async function refreshClassManagementIfVisible() {
+    if (window.currentSection === 'classes' && typeof refreshClassesList === 'function') {
+        await refreshClassesList();
+        await showDashboardSection('classes');
+    }
+}
+
+// ============ DYNAMIC MODAL CREATION ============
+function ensureStudentModals() {
+    if (!document.getElementById('student-details-modal')) {
+        const modalHTML = `
+            <div id="student-details-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeStudentDetailsModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-green-600 to-teal-600 px-6 py-4 text-white flex justify-between items-center">
+                            <h3 class="text-xl font-semibold">Student Details</h3>
+                            <button onclick="closeStudentDetailsModal()" class="text-white hover:text-gray-200"><i data-lucide="x" class="h-5 w-5"></i></button>
+                        </div>
+                        <div id="student-details-content" class="p-6 space-y-4"></div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeStudentDetailsModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                            <button onclick="editStudentFromModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Edit Student</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="edit-student-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEditStudentModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-green-600 to-teal-600 px-6 py-4 text-white">
+                            <h3 class="text-xl font-semibold">Edit Student</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <input type="hidden" id="edit-student-id">
+                            <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="edit-student-name" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" id="edit-student-email" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Grade</label><input type="text" id="edit-student-grade" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Status</label>
+                                <select id="edit-student-status" class="w-full rounded-lg border p-2">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="graduated">Graduated</option>
+                                    <option value="transferred">Transferred</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" id="edit-student-prefect" class="rounded">
+                                    <span class="text-sm font-medium">School Prefect</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeEditStudentModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
+                            <button onclick="saveStudentEdit()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+}
+
+function ensureTeacherModals() {
+    if (!document.getElementById('teacher-details-modal')) {
+        const modalHTML = `
+            <div id="teacher-details-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeTeacherDetailsModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white flex justify-between items-center">
+                            <h3 class="text-xl font-semibold">Teacher Details</h3>
+                            <button onclick="closeTeacherDetailsModal()" class="text-white hover:text-gray-200"><i data-lucide="x" class="h-5 w-5"></i></button>
+                        </div>
+                        <div id="teacher-details-content" class="p-6 space-y-4"></div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeTeacherDetailsModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+                            <button onclick="editTeacherFromModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Edit Teacher</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="edit-teacher-modal" class="fixed inset-0 z-50 hidden">
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEditTeacherModal()"></div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+                    <div class="rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
+                            <h3 class="text-xl font-semibold">Edit Teacher</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <input type="hidden" id="edit-teacher-id">
+                            <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="edit-teacher-name" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" id="edit-teacher-email" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Subjects (comma)</label><input type="text" id="edit-teacher-subjects" class="w-full rounded-lg border p-2"></div>
+                            <div><label class="block text-sm font-medium mb-1">Department</label><input type="text" id="edit-teacher-department" class="w-full rounded-lg border p-2"></div>
+                        </div>
+                        <div class="px-6 py-4 bg-muted/30 flex justify-end gap-3">
+                            <button onclick="closeEditTeacherModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Cancel</button>
+                            <button onclick="saveTeacherEdit()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+}
+
+// ============ ADMIN STUDENT ACTIONS ============
+window.adminViewStudentDetails = async function(studentId) {
+    ensureStudentModals();
+    const students = await window.loadAllStudents();
+    const student = students.find(s => s.id == studentId);
+    if (!student) { showToast('Student not found', 'error'); return; }
+    const content = document.getElementById('student-details-content');
+    content.innerHTML = `
+        <div class="flex items-center gap-4 pb-4 border-b">
+            ${avatarHTML(student.User?.name || 'Student', student.User?.profileImage || student.User?.profilePicture || student.profileImage || student.profilePicture, 'h-16 w-16')}
+            <div><p class="text-lg font-semibold">${escapeHtml(student.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(student.User?.email || 'No email')}</p></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><span class="font-medium">ELIMUID:</span> ${student.elimuid || 'N/A'}</div>
+            <div><span class="font-medium">Grade:</span> ${student.grade || 'N/A'}</div>
+            <div><span class="font-medium">Status:</span> <span class="px-2 py-0.5 rounded-full text-xs ${student.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${student.status}</span></div>
+            <div><span class="font-medium">Enrolled:</span> ${new Date(student.createdAt).toLocaleDateString()}</div>
+        </div>
+    `;
+    document.getElementById('student-details-modal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+};
+
+window.adminEditStudent = async function(studentId) {
+    ensureStudentModals();
+    const students = await window.loadAllStudents();
+    const student = students.find(s => s.id == studentId);
+    if (!student) return;
+    document.getElementById('edit-student-id').value = student.id;
+    document.getElementById('edit-student-name').value = student.User?.name || '';
+    document.getElementById('edit-student-email').value = student.User?.email || '';
+    document.getElementById('edit-student-grade').value = student.grade || '';
+    document.getElementById('edit-student-status').value = student.status || 'active';
+    document.getElementById('edit-student-prefect').checked = student.isPrefect || false; // <-- new line
+    document.getElementById('edit-student-modal').classList.remove('hidden');
+};
+
+window.adminSuspendStudent = async function(studentId, studentName) {
+    if (!confirm(`Suspend ${studentName}?`)) return;
+    try {
+        await api.admin.updateStudent(studentId, { status: 'inactive' });
+        showToast(`${studentName} suspended`, 'success');
+        await renderAdminStudents();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+window.adminReactivateStudent = async function(studentId, studentName) {
+    if (!confirm(`Reactivate ${studentName}?`)) return;
+    try {
+        await api.admin.updateStudent(studentId, { status: 'active' });
+        showToast(`${studentName} reactivated`, 'success');
+        await renderAdminStudents();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+window.adminDeleteStudent = async function(studentId, studentName) {
+    if (!confirm(`Permanently delete ${studentName}? This cannot be undone.`)) return;
+    try {
+        await api.admin.deleteStudent(studentId);
+        showToast(`${studentName} deleted`, 'success');
+        await renderAdminStudents();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+// ============ TEACHER ACTIONS ============
+let currentTeacherId = null;
+
+window.viewTeacherDetails = async function(teacherId) {
+    ensureTeacherModals();
+    const teachers = await window.loadAllTeachers();
+    const teacher = teachers.find(t => t.id == teacherId);
+    if (!teacher) { showToast('Teacher not found', 'error'); return; }
+    currentTeacherId = teacher.id;
+    const content = document.getElementById('teacher-details-content');
+    content.innerHTML = `
+        <div class="flex items-center gap-4 pb-4 border-b">
+            ${avatarHTML(teacher.User?.name || 'Teacher', teacher.User?.profileImage || teacher.User?.profilePicture || teacher.profileImage || teacher.profilePicture, 'h-16 w-16')}
+            <div><p class="text-lg font-semibold">${escapeHtml(teacher.User?.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(teacher.User?.email)}</p></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><span class="font-medium">Employee ID:</span> ${teacher.employeeId || 'N/A'}</div>
+            <div><span class="font-medium">Department:</span> ${teacher.department || 'N/A'}</div>
+            <div><span class="font-medium">Subjects:</span> ${teacher.subjects?.join(', ') || 'None'}</div>
+            <div><span class="font-medium">Class Teacher:</span> ${teacher.classTeacher || 'No'}</div>
+            <div><span class="font-medium">Status:</span> <span class="px-2 py-0.5 rounded-full text-xs ${teacher.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${teacher.approvalStatus}</span></div>
+            <div><span class="font-medium">Joined:</span> ${new Date(teacher.dateJoined).toLocaleDateString()}</div>
+        </div>
+    `;
+    document.getElementById('teacher-details-modal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+};
+
+window.editTeacher = async function(teacherId) {
+    ensureTeacherModals();
+    const teachers = await window.loadAllTeachers();
+    const teacher = teachers.find(t => t.id == teacherId);
+    if (!teacher) return;
+    document.getElementById('edit-teacher-id').value = teacher.id;
+    document.getElementById('edit-teacher-name').value = teacher.User?.name || '';
+    document.getElementById('edit-teacher-email').value = teacher.User?.email || '';
+    document.getElementById('edit-teacher-subjects').value = (teacher.subjects || []).join(', ');
+    document.getElementById('edit-teacher-department').value = teacher.department || '';
+    document.getElementById('edit-teacher-modal').classList.remove('hidden');
+};
+
+window.suspendTeacher = async function(teacherId, teacherName) {
+    if (!confirm(`⚠️ Suspend ${teacherName}? This teacher will no longer be able to log in.`)) return;
+    showLoading();
+    try {
+        // Change approvalStatus to 'suspended' or 'rejected'
+        await api.admin.updateTeacher(teacherId, { approvalStatus: 'suspended', isActive: false });
+        showToast(`${teacherName} suspended`, 'success');
+        await renderAdminTeachers();
+    } catch (error) {
+        showToast(error.message || 'Failed to suspend teacher', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+window.deleteTeacher = async function(teacherId) {
+    if (!confirm('Delete this teacher? This action cannot be undone.')) return;
+    try {
+        await api.admin.deleteTeacher(teacherId);
+        showToast('Teacher deleted', 'success');
+        await renderAdminTeachers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+};
+
+// Modal helper functions
+window.closeStudentDetailsModal = function() { const m = document.getElementById('student-details-modal'); if(m) m.classList.add('hidden'); };
+window.closeEditStudentModal = function() { const m = document.getElementById('edit-student-modal'); if(m) m.classList.add('hidden'); };
+window.editStudentFromModal = function() { const id = document.getElementById('edit-student-id')?.value; if(id) { closeStudentDetailsModal(); adminEditStudent(id); } };
+window.saveStudentEdit = async function() {
+    const id = document.getElementById('edit-student-id')?.value;
+    if (!id) return;
+    showLoading();
+    try {
+        const name = document.getElementById('edit-student-name')?.value;
+        const email = document.getElementById('edit-student-email')?.value?.trim();
+        const grade = document.getElementById('edit-student-grade')?.value;
+        const status = document.getElementById('edit-student-status')?.value;
+        const isPrefect = document.getElementById('edit-student-prefect')?.checked || false;
+
+        const updateData = { name, grade, status, isPrefect };
+        // Only include email if it's a non‑empty valid email
+        if (email) updateData.email = email;
+
+        await api.admin.updateStudent(id, updateData);
+        showToast('Student updated', 'success');
+        closeEditStudentModal();
+        await renderAdminStudents();
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+window.closeTeacherDetailsModal = function() { const m = document.getElementById('teacher-details-modal'); if(m) m.classList.add('hidden'); };
+window.closeEditTeacherModal = function() { const m = document.getElementById('edit-teacher-modal'); if(m) m.classList.add('hidden'); };
+window.editTeacherFromModal = function() { const id = document.getElementById('edit-teacher-id')?.value; if(id) { closeTeacherDetailsModal(); editTeacher(id); } };
+window.saveTeacherEdit = async function() {
+    const id = document.getElementById('edit-teacher-id')?.value;
+    if(!id) return;
+    const subjects = document.getElementById('edit-teacher-subjects').value.split(',').map(s=>s.trim()).filter(s=>s);
+    showLoading();
+    try {
+        await api.admin.updateTeacher(id, {
+            name: document.getElementById('edit-teacher-name').value,
+            email: document.getElementById('edit-teacher-email').value,
+            subjects: subjects,
+            department: document.getElementById('edit-teacher-department').value
+        });
+        showToast('Teacher updated', 'success');
+        closeEditTeacherModal();
+        await renderAdminTeachers();
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+};
+
+// ============ RENDER ADMIN SECTION ============
+async function renderAdminSection(section) {
+    try {
+        switch(section) {
+            case 'help':
+                return renderHelpSection();
+            case 'dashboard':
+                return renderAdminDashboard();
+            case 'calendar-management':
+                return await window.v12RenderAcademicCalendar();
+            case 'students': {
+                const html = await renderAdminStudents();
+                return renderAdminStudentSubjectToolbar(html);
+            }
+            case 'student-subject-selection':
+                return await renderAdminStudentSubjectSelection();
+            case 'timetable':
+                 return await (window.v12RenderAdminTimetable || window.renderAdminTimetable)();
+            case 'calendar':
+                return renderAdminCalendar();
+            case 'teachers':
+                return await renderAdminTeachers();
+            case 'departments':
+                return await renderAdminDepartments();
+            case 'teacher-approvals':
+                return await renderAdminPendingTeachers();
+            case 'classes':
+                if (typeof window.renderClassManagement === 'function') {
+                    const html = await window.renderClassManagement();
+                    return html;
+                } else if (typeof renderClassManagement === 'function') {
+                    return await renderClassManagement();
+                } else {
+                    return '<div class="text-center py-12"><p class="text-red-500">Class management module not loaded. Please refresh the page.</p><button onclick="location.reload()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Refresh Page</button></div>';
+                }
+            case 'duty':
+                return await renderAdminSmartDuty();
+            case 'profile': return await renderProfileSection();    
+            case 'fairness-report':
+                return await renderAdminFairnessReport();
+            case 'custom-subjects':
+                return renderAdminCustomSubjects();
+            case 'teacher-workload':
+                return await renderAdminTeacherWorkload();
+            case 'settings':
+                return renderAdminSettings();
+            case 'subscription-billing':
+                return `${await renderAdminSubscriptionBilling()}<div class="mt-6">${renderAdminPaymentConfirmationCard()}</div>`;
+            case 'alerts':
+                return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('admin');
+            case 'parent-messages':
+                return await renderAdminParentMessages();
+            case 'finance-fees':
+            case 'fee-structures':
+            case 'payment-settings':
+                if (typeof window.v31RenderFinanceFees === 'function') {
+                    await window.v31RenderFinanceFees();
+                    return document.getElementById('dashboard-content')?.innerHTML || '<div class="text-center py-12">Finance & Fees loaded.</div>';
+                }
+                return '<div class="text-center py-12 text-red-500">Finance & Fees module not loaded. Please refresh the page.</div>';
+            default:
+                return '<div class="text-center py-12">Section not found</div>';
+        }
+    } catch (error) {
+        console.error('Error rendering admin section:', error);
+        return `<div class="text-center py-12 text-red-500">Error loading section: ${error.message}</div>`;
+    }
+}
+
+function renderAdminDashboard() {
+    const school = getCurrentSchool();
+    const data = dashboardData || {};
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <!-- School Profile Card -->
+            <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 card-hover">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h2 id="dashboard-school-name" class="text-2xl font-bold">${school?.name || 'Your School'}</h2>
+                            <span class="px-3 py-1 ${school?.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'} text-xs rounded-full">${school?.status || 'pending'}</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <p class="text-sm"><span class="font-mono bg-muted px-2 py-1 rounded">Short Code: ${school?.shortCode || 'SHL-XXXXX'}</span></p>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
+                        <p class="text-xs text-muted-foreground">Share this code with teachers</p>
+                        <p class="text-lg font-mono font-bold">${school?.shortCode || 'SHL-XXXXX'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Total Students</p><h3 class="text-2xl font-bold mt-1" id="total-students">${data.students?.length || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center"><i data-lucide="users" class="h-6 w-6 text-blue-600"></i></div></div></div>
+                <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Teachers</p><h3 class="text-2xl font-bold mt-1" id="total-teachers">${data.teachers?.length || 0}</h3><p class="text-xs text-green-600 mt-1 flex items-center gap-1"><i data-lucide="trending-up" class="h-3 w-3"></i> +${data.pendingTeachers?.length || 0} pending approval</p></div><div class="h-12 w-12 rounded-lg bg-violet-100 flex items-center justify-center"><i data-lucide="user-plus" class="h-6 w-6 text-violet-600"></i></div></div></div>
+                <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Classes</p><h3 class="text-2xl font-bold mt-1" id="total-classes">${data.classes?.length || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center"><i data-lucide="book-open" class="h-6 w-6 text-emerald-600"></i></div></div></div>
+                <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Attendance Rate</p><h3 class="text-2xl font-bold mt-1">94.2%</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i></div></div></div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="grid gap-4 md:grid-cols-3">
+                <button onclick="showDashboardSection('teacher-approvals')" class="p-6 border rounded-lg hover:bg-accent transition-colors text-left">
+                    <i data-lucide="user-plus" class="h-8 w-8 text-blue-600 mb-3"></i>
+                    <h4 class="font-semibold">Teacher Approvals</h4>
+                    <p class="text-sm text-muted-foreground">Approve pending teachers</p>
+                    <span class="mt-2 inline-flex items-center rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700" id="pending-count-badge">${data.pendingTeachers?.length || 0} pending</span>
+                </button>
+                <button onclick="showDashboardSection('students')" class="p-6 border rounded-lg hover:bg-accent transition-colors text-left">
+                    <i data-lucide="users" class="h-8 w-8 text-green-600 mb-3"></i>
+                    <h4 class="font-semibold">Student Management</h4>
+                    <p class="text-sm text-muted-foreground">View and manage all students</p>
+                </button>
+                <button onclick="showDashboardSection('settings')" class="p-6 border rounded-lg hover:bg-accent transition-colors text-left">
+                    <i data-lucide="settings" class="h-8 w-8 text-purple-600 mb-3"></i>
+                    <h4 class="font-semibold">School Settings</h4>
+                    <p class="text-sm text-muted-foreground">Configure curriculum and subjects</p>
+                </button>
+            </div>
+
+            <!-- Send Announcement Card with Shule AI suggestions -->
+            <div class="rounded-xl border bg-card p-6">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <i data-lucide="megaphone" class="h-5 w-5 text-primary"></i>
+                    📢 Send Announcement
+                    <span class="ml-auto text-[11px] rounded-full bg-primary/10 text-primary px-2 py-1">✨ Shule AI Announcement Assistant</span>
+                </h3>
+                <div class="space-y-3">
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Recipients</label>
+                            <select id="announcement-recipients" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="all_parents">All Parents</option>
+                                <option value="whole_school">Whole School</option>
+                                <option value="specific_class">Specific Class</option>
+                                <option value="individual_parent">Individual Parent</option>
+                                <option value="teachers">Teachers</option>
+                                <option value="students">Students</option>
+                                <option value="fee_defaulters">Fee Defaulters</option>
+                                <option value="pending_payments">Parents with Pending Payments</option>
+                                <option value="subscription_expiry">Parents with Subscription Expiry</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Topic</label>
+                            <select id="announcement-ai-topic" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="Fee reminder">Fee reminder</option>
+                                <option value="School event">School event</option>
+                                <option value="Exam reminder">Exam reminder</option>
+                                <option value="Attendance concern">Attendance concern</option>
+                                <option value="Homework reminder">Homework reminder</option>
+                                <option value="Discipline notice">Discipline notice</option>
+                                <option value="Subscription renewal">Subscription renewal</option>
+                                <option value="Emergency alert">Emergency alert</option>
+                                <option value="General announcement">General announcement</option>
+                                <option value="Wellness reminder">Wellness reminder</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="class-selector-container" class="hidden">
+                        <label class="block text-sm font-medium mb-1">Select Class</label>
+                        <select id="announcement-class" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="">Loading classes...</option>
+                        </select>
+                    </div>
+                    <div id="parent-selector-container" class="hidden">
+                        <label class="block text-sm font-medium mb-1">Select Parent</label>
+                        <select id="announcement-parent" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="">Loading parents...</option>
+                        </select>
+                    </div>
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Tone</label>
+                            <select id="announcement-ai-tone" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <option value="Professional">Professional</option>
+                                <option value="Friendly">Friendly</option>
+                                <option value="Urgent">Urgent</option>
+                                <option value="Polite">Polite</option>
+                                <option value="Formal">Formal</option>
+                                <option value="Encouraging">Encouraging</option>
+                                <option value="Short and direct">Short and direct</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Title</label>
+                            <input type="text" id="announcement-title" placeholder="Announcement Title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Brief description / message</label>
+                        <textarea id="announcement-message" rows="4" placeholder="Example: Tell Grade 4 parents that Term 2 balances should be cleared by Friday and thank them for support." class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></textarea>
+                    </div>
+                    <div id="announcement-ai-suggestion-panel" class="hidden rounded-xl border bg-muted/30 p-3 text-sm space-y-2"></div>
+                    <div class="grid gap-2 md:grid-cols-2">
+                        <button onclick="generateAnnouncementSuggestion()" class="w-full border border-primary/30 text-primary py-2 rounded-lg hover:bg-primary/10 flex items-center justify-center gap-2">
+                            <i data-lucide="sparkles" class="h-4 w-4"></i> Get Shule AI Suggestion
+                        </button>
+                        <button onclick="sendAnnouncement()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Send Announcement</button>
+                    </div>
+                    <p class="text-xs text-muted-foreground">AI suggestions are optional. You can type your own title/message and press Send Announcement without using AI. AI suggestions are limited by the school subscription and must be reviewed before sending.</p>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="rounded-xl border bg-card p-6">
+                 <h3 class="font-semibold mb-4 flex items-center gap-2">
+                     <i data-lucide="calendar" class="h-5 w-5"></i> Academic Calendar
+                 </h3>
+                 <div id="admin-calendar-events">
+                     <p class="text-sm text-muted-foreground">Loading...</p>
+                 </div>
+                 <button onclick="showAddCalendarEventModal()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm">
+                     + Add Event
+                  </button>
+             </div>
+        </div>
+    `;
+}
+
+// ============ REPLACE renderAdminStudents WITH THIS VERSION ============
+async function renderAdminStudents() {
+    try {
+        const [classesRes, studentsRes] = await Promise.all([
+            api.admin.getClasses(),
+            api.admin.getStudents()
+        ]);
+        const classes = classesRes.data || [];
+        const allStudents = studentsRes.data || [];
+
+        // Group students by grade (class name)
+        const studentsByGrade = {};
+        allStudents.forEach(s => {
+            const grade = s.grade || 'Unassigned';
+            if (!studentsByGrade[grade]) studentsByGrade[grade] = [];
+            studentsByGrade[grade].push(s);
+        });
+
+        // Determine selected class from localStorage or default
+        let selectedClassName = localStorage.getItem('adminSelectedClass');
+        if (!selectedClassName || !studentsByGrade[selectedClassName]) {
+            selectedClassName = classes.length > 0 ? classes[0].name : (Object.keys(studentsByGrade)[0] || '');
+        }
+        localStorage.setItem('adminSelectedClass', selectedClassName);
+
+        const selectedStudents = studentsByGrade[selectedClassName] || [];
+
+        // Stats for selected class
+        const totalInClass = selectedStudents.length;
+        const activeInClass = selectedStudents.filter(s => s.status === 'active').length;
+        const inactiveInClass = selectedStudents.filter(s => s.status === 'inactive').length;
+        const graduatedInClass = selectedStudents.filter(s => s.status === 'graduated').length;
+
+        // Overall stats
+        const totalAll = allStudents.length;
+        const activeAll = allStudents.filter(s => s.status === 'active').length;
+        const inactiveAll = allStudents.filter(s => s.status === 'inactive').length;
+        const graduatedAll = allStudents.filter(s => s.status === 'graduated').length;
+
+        // Build class list HTML
+        let classListHtml = classes.map(cls => {
+            const count = (studentsByGrade[cls.name] || []).length;
+            const isSelected = cls.name === selectedClassName;
+            return `
+                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
+                     data-class-name="${escapeHtml(cls.name)}"
+                     onclick="selectAdminClass('${escapeHtml(cls.name).replace(/'/g, "\\'")}')">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">${escapeHtml(cls.name)}</span>
+                        <span class="text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}">${count} students</span>
+                    </div>
+                    ${cls.stream ? `<p class="text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}">Stream: ${escapeHtml(cls.stream)}</p>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        // Also show grades that have students but no class record
+        const classNamesFromClasses = new Set(classes.map(c => c.name));
+        const orphanGrades = Object.keys(studentsByGrade).filter(g => !classNamesFromClasses.has(g) && g !== 'Unassigned');
+        orphanGrades.forEach(grade => {
+            const count = studentsByGrade[grade].length;
+            const isSelected = grade === selectedClassName;
+            classListHtml += `
+                <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
+                     data-class-name="${escapeHtml(grade)}"
+                     onclick="selectAdminClass('${escapeHtml(grade).replace(/'/g, "\\'")}')">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">${escapeHtml(grade)}</span>
+                        <span class="text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}">${count} students</span>
+                    </div>
+                    <p class="text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}">No class record</p>
+                </div>
+            `;
+        });
+
+        // Students table for selected class
+        const studentsTableHtml = selectedStudents.length === 0 ? `
+            <div class="text-center py-12 text-muted-foreground">
+                <i data-lucide="users" class="h-12 w-12 mx-auto mb-3 opacity-50"></i>
+                <p>No students in this class</p>
+            </div>
+        ` : `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">Student</th>
+                            <th class="px-4 py-3 text-left font-medium">ELIMUID</th>
+                            <th class="px-4 py-3 text-left font-medium">Status</th>
+                            <th class="px-4 py-3 text-left font-medium">Parent Email</th>
+                            <th class="px-4 py-3 text-center font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        ${selectedStudents.map(student => {
+                            const user = student.User || {};
+                            const name = user.name || 'Unknown';
+                            const email = user.email || 'N/A';
+                            const status = student.status || 'active';
+                            const statusClass = status === 'active' ? 'bg-green-100 text-green-700' : 
+                                               status === 'inactive' ? 'bg-red-100 text-red-700' : 
+                                               'bg-gray-100 text-gray-700';
+                            const initials = getInitials(name);
+                            const photoUrl = resolveMediaUrl(user.profileImage) || '';
+                            const isPrefect = student.isPrefect || false;
+
+                            return `
+                                <tr class="hover:bg-accent/50 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            ${photoUrl ? 
+                                                `<img src="${photoUrl}" class="h-8 w-8 rounded-full object-cover">` :
+                                                `<div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                    <span class="font-medium text-blue-700 text-sm">${initials}</span>
+                                                </div>`
+                                            }
+                                            <div>
+                                                <span class="font-medium">${escapeHtml(name)}</span>
+                                                ${isPrefect ? '<span class="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"><i data-lucide="shield" class="h-3 w-3 mr-1"></i>Prefect</span>' : ''}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${escapeHtml(student.elimuid || 'N/A')}</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 ${statusClass} text-xs rounded-full">${status}</span>
+                                    </td>
+                                    <td class="px-4 py-3">${escapeHtml(email)}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button onclick="showUnifiedStudentModal('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
+                                                <i data-lucide="eye" class="h-4 w-4 text-blue-600"></i>
+                                            </button>
+                                            <button onclick="adminEditStudent('${student.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit">
+                                                <i data-lucide="edit" class="h-4 w-4 text-green-600"></i>
+                                            </button>
+                                            ${status === 'active' ? 
+                                                `<button onclick="adminSuspendStudent('${student.id}', '${escapeHtml(name).replace(/'/g, "\\'")}')" class="p-2 hover:bg-yellow-100 rounded-lg" title="Suspend">
+                                                    <i data-lucide="pause-circle" class="h-4 w-4 text-yellow-600"></i>
+                                                </button>` : 
+                                                `<button onclick="adminReactivateStudent('${student.id}', '${escapeHtml(name).replace(/'/g, "\\'")}')" class="p-2 hover:bg-green-100 rounded-lg" title="Reactivate">
+                                                    <i data-lucide="play-circle" class="h-4 w-4 text-green-600"></i>
+                                                </button>`
+                                            }
+                                            <button onclick="adminDeleteStudent('${student.id}', '${escapeHtml(name).replace(/'/g, "\\'")}')" class="p-2 hover:bg-red-100 rounded-lg" title="Delete">
+                                                <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
+                                            </button>
+                                            <button onclick="copyToClipboard('${escapeHtml(student.elimuid).replace(/'/g, "\\'")}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Copy ELIMUID">
+                                                <i data-lucide="copy" class="h-4 w-4 text-purple-600"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Student Management</h2>
+                    <button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        Add Student
+                    </button>
+                </div>
+
+                <!-- Overall Stats -->
+                <div class="grid gap-4 md:grid-cols-4">
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">Total Students</p>
+                        <p class="text-2xl font-bold">${totalAll}</p>
+                    </div>
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">Active</p>
+                        <p class="text-2xl font-bold text-green-600">${activeAll}</p>
+                    </div>
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">Inactive</p>
+                        <p class="text-2xl font-bold text-red-600">${inactiveAll}</p>
+                    </div>
+                    <div class="rounded-xl border bg-card p-4">
+                        <p class="text-sm text-muted-foreground">Graduated</p>
+                        <p class="text-2xl font-bold text-blue-600">${graduatedAll}</p>
+                    </div>
+                </div>
+
+                <!-- Class Selector + Students Panel -->
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <!-- Left Sidebar: Classes -->
+                    <div class="lg:w-72 flex-shrink-0">
+                        <div class="rounded-xl border bg-card overflow-hidden">
+                            <div class="p-4 border-b bg-muted/30">
+                                <h3 class="font-semibold flex items-center gap-2">
+                                    <i data-lucide="book-open" class="h-5 w-5"></i>
+                                    Classes
+                                </h3>
+                                <p class="text-xs text-muted-foreground mt-1">Select a class to view students</p>
+                            </div>
+                            <div class="p-2 max-h-[500px] overflow-y-auto" id="class-list-container">
+                                ${classListHtml || '<p class="text-center py-4 text-muted-foreground">No classes found</p>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Students in Selected Class -->
+                    <div class="flex-1 min-w-0">
+                        <div class="rounded-xl border bg-card overflow-hidden">
+                            <div class="p-4 border-b bg-muted/30 flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h3 class="font-semibold flex items-center gap-2">
+                                        <i data-lucide="users" class="h-5 w-5"></i>
+                                        ${escapeHtml(selectedClassName)} Students
+                                    </h3>
+                                    <p class="text-xs text-muted-foreground mt-1">
+                                        ${totalInClass} total · ${activeInClass} active · ${inactiveInClass} inactive
+                                    </p>
+                                </div>
+                                <div class="relative">
+                                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"></i>
+                                    <input type="text" id="class-student-search" placeholder="Search in this class..." 
+                                           class="pl-9 pr-4 py-2 text-sm rounded-md border bg-background w-64"
+                                           oninput="filterStudentsInCurrentClass(this.value)">
+                                </div>
+                            </div>
+                            <div id="selected-class-students-container">
+                                ${studentsTableHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading students:', error);
+        return `<div class="text-center py-12 text-red-500">Error loading students: ${error.message}</div>`;
+    }
+}
+
+// ============ HELPER FUNCTIONS (ADD THESE TO GLOBAL SCOPE) ============
+
+// Called when a class is clicked in the sidebar
+window.selectAdminClass = function(className) {
+    localStorage.setItem('adminSelectedClass', className);
+    showDashboardSection('students'); // Re-render the section
+};
+
+// Filter students within the currently displayed class (client-side)
+window.filterStudentsInCurrentClass = function(searchTerm) {
+    const container = document.getElementById('selected-class-students-container');
+    if (!container) return;
+    
+    const rows = container.querySelectorAll('tbody tr');
+    const term = searchTerm.toLowerCase().trim();
+    
+    let visibleCount = 0;
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const match = term === '' || text.includes(term);
+        row.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+    
+    // Optionally show a "no results" message
+    const existingMsg = document.getElementById('no-search-results');
+    if (visibleCount === 0 && term !== '') {
+        if (!existingMsg) {
+            const msg = document.createElement('div');
+            msg.id = 'no-search-results';
+            msg.className = 'text-center py-8 text-muted-foreground';
+            msg.innerHTML = `<i data-lucide="search-x" class="h-12 w-12 mx-auto mb-3 opacity-50"></i><p>No students match "${escapeHtml(searchTerm)}"</p>`;
+            container.appendChild(msg);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    } else if (existingMsg) {
+        existingMsg.remove();
+    }
+};
+
+// Helper: escape HTML (ensure available globally)
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"]/g, function(c) {
+        if (c === '&') return '&amp;';
+        if (c === '<') return '&lt;';
+        if (c === '>') return '&gt;';
+        if (c === '"') return '&quot;';
+        return c;
+    });
+}
+
+async function loadAdminCalendarPreviewEvents() {
+    const res = await apiRequest('/api/calendar');
+    if (res.success) {
+        const container = document.getElementById('admin-calendar-events');
+        if (!container) return;
+        const events = Array.isArray(res.data) ? res.data : (Array.isArray(res.events) ? res.events : (Array.isArray(res.data?.events) ? res.data.events : []));
+        if (events.length === 0) {
+            container.innerHTML = '<p class="text-sm text-muted-foreground">No events yet.</p>';
+        } else {
+            container.classList.add('max-h-72','overflow-y-auto','pr-2');
+            container.innerHTML = events.map(e => `
+                <div class="flex justify-between items-start gap-3 py-2 border-b">
+                    <div class="min-w-0">
+                        <span class="font-medium block truncate">${escapeHtml(e.eventName || e.title || 'Untitled Event')}</span>
+                        <span class="text-xs text-muted-foreground">${formatDate(e.startDate || e.date)} ${e.endDate ? '→ '+formatDate(e.endDate) : ''}</span>
+                    </div>
+                    <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs shrink-0">Delete</button>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+function showAddCalendarEventModal() {
+    const name = prompt('Event name:');
+    if (!name) return;
+    const startDate = prompt('Start date (YYYY-MM-DD):');
+    if (!startDate) return;
+    const endDate = prompt('End date (YYYY-MM-DD, optional):');
+    const eventType = prompt('Type (term_start, term_end, holiday, exam, meeting):', 'other');
+    apiRequest('/api/calendar', {
+        method: 'POST',
+        body: JSON.stringify({ eventName: name, startDate, endDate: endDate || null, eventType: eventType || 'other' })
+    }).then(() => loadAdminCalendarPreviewEvents()).catch(e => showToast(e.message, 'error'));
+}
+
+async function deleteCalendarEvent(id) {
+    if (confirm('Delete this event?')) {
+        await apiRequest(`/api/calendar/${id}`, { method: 'DELETE' });
+        loadAdminCalendarPreviewEvents();
+    }
+}
+
+async function renderAdminTeachers() {
+    try {
+        const teachers = await window.loadAllTeachers();
+        const tableHtml = window.renderTeachersTable(teachers);
+        return `<div class="space-y-6 animate-fade-in"><h2 class="text-2xl font-bold">Teacher Management</h2><div class="rounded-xl border bg-card overflow-hidden">${tableHtml}</div></div>`;
+    } catch (error) {
+        return `<div class="text-center py-12 text-red-500">Error loading teachers: ${error.message}</div>`;
+    }
+}
+
+async function renderAdminPendingTeachers() {
+    try {
+        const teachers = await window.loadPendingTeachers();
+        return `<div class="space-y-6 animate-fade-in"><h2 class="text-2xl font-bold">Pending Teacher Approvals</h2><div class="rounded-xl border bg-card overflow-hidden">${window.renderPendingTeachersTable(teachers)}</div></div>`;
+    } catch (error) {
+        return `<div class="text-center py-12 text-red-500">Error loading pending teachers: ${error.message}</div>`;
+    }
+}
+
+async function renderAdminDuty() {
+    try {
+        const todayDuty = await loadTodayDuty();
+        const weeklyDuty = await loadWeeklyDuty();
+        const understaffed = await loadUnderstaffedAreas();
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center"><h2 class="text-2xl font-bold">Duty Management</h2><button onclick="handleGenerateDutyRoster()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Generate New Roster</button></div>
+                ${understaffed && understaffed.length > 0 ? `<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"><div class="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2"><i data-lucide="alert-triangle" class="h-5 w-5"></i><h3 class="font-semibold">Understaffed Areas Detected</h3></div><div class="space-y-2">${understaffed.map(area => `<div class="text-sm text-red-600 dark:text-red-400">${area.date}: ${area.areas.map(a => `${a.area} (need ${a.required}, have ${a.current})`).join(', ')}</div>`).join('')}</div></div>` : ''}
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Generate Duty Roster</h3><div class="space-y-3"><div><label class="block text-sm font-medium mb-1">Start Date</label><input type="date" id="duty-start-date" value="${new Date().toISOString().split('T')[0]}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></div><div><label class="block text-sm font-medium mb-1">End Date</label><input type="date" id="duty-end-date" value="${new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0]}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></div><button onclick="handleGenerateDutyRoster()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Generate Roster</button></div></div>
+                    <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Quick Actions</h3><div class="space-y-2"><button onclick="showDashboardSection('fairness-report')" class="w-full text-left p-3 hover:bg-accent rounded-lg flex items-center gap-3"><i data-lucide="bar-chart-2" class="h-5 w-5 text-blue-600"></i><div><p class="font-medium">Fairness Report</p><p class="text-xs text-muted-foreground">View duty distribution analytics</p></div></button><button onclick="showDashboardSection('teacher-workload')" class="w-full text-left p-3 hover:bg-accent rounded-lg flex items-center gap-3"><i data-lucide="users" class="h-5 w-5 text-green-600"></i><div><p class="font-medium">Teacher Workload</p><p class="text-xs text-muted-foreground">Monitor duty load per teacher</p></div></button></div></div>
+                </div>
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Today's Duty (${new Date().toLocaleDateString()})</h3><div class="space-y-3">${todayDuty?.duties?.length > 0 ? todayDuty.duties.map(duty => `<div class="flex items-center justify-between p-3 bg-muted/30 rounded-lg"><div><p class="font-medium">${duty.area}</p><p class="text-sm text-muted-foreground">${duty.timeSlot?.start} - ${duty.timeSlot?.end}</p></div><div class="text-right"><p class="font-medium">${duty.teacherName}</p><p class="text-xs ${duty.checkedIn ? 'text-green-600' : 'text-yellow-600'}">${duty.checkedIn ? '✓ Checked In' : '⏳ Pending'}</p></div></div>`).join('') : '<p class="text-center text-muted-foreground py-4">No duty today</p>'}</div></div>
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Weekly Schedule</h3><div class="space-y-3">${weeklyDuty?.map(day => `<div class="border rounded-lg overflow-hidden"><div class="bg-muted/30 px-4 py-2 font-medium ${day.isToday ? 'bg-primary/10' : ''}">${day.dayName} ${day.isToday ? '(Today)' : ''}</div><div class="p-3 space-y-2">${day.duties.length > 0 ? day.duties.map(duty => `<div class="flex justify-between text-sm"><span>${duty.area}</span><span>${duty.teacherName}</span></div>`).join('') : '<p class="text-sm text-muted-foreground">No duty</p>'}</div></div>`).join('')}</div></div>
+            </div>
+        `;
+    } catch (error) {
+        return `<div class="text-center py-12 text-red-500">Error loading duty: ${error.message}</div>`;
+    }
+}
+
+async function renderAdminFairnessReport() {
+    showLoading();
+    try {
+        const report = await api.admin.getFairnessReport();
+        const fairnessData = report.data || {};
+        const hasData = fairnessData.summary && fairnessData.summary.fairnessScore !== undefined;
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center"><h2 class="text-2xl font-bold">Duty Fairness Report</h2><button onclick="renderAdminFairnessReport()" class="px-4 py-2 border rounded-lg hover:bg-accent"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Refresh</button></div>
+                ${!hasData ? `<div class="rounded-xl border bg-card p-12 text-center"><i data-lucide="bar-chart-2" class="h-12 w-12 mx-auto text-muted-foreground mb-4"></i><p class="text-muted-foreground">No fairness data available yet.</p><p class="text-xs text-muted-foreground mt-1">Go to Duty Management and generate a roster to see metrics.</p><button onclick="showDashboardSection('duty')" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Go to Duty Management</button></div>` : `
+                    <div class="grid gap-4 md:grid-cols-3"><div class="rounded-xl border bg-card p-6"><p class="text-sm text-muted-foreground">Fairness Score</p><div class="flex items-end gap-2"><h3 class="text-3xl font-bold">${fairnessData.summary?.fairnessScore || 0}%</h3><span class="text-sm text-muted-foreground mb-1">/ 100</span></div></div><div class="rounded-xl border bg-card p-6"><p class="text-sm text-muted-foreground">Total Duties</p><h3 class="text-3xl font-bold">${fairnessData.summary?.totalDuties || 0}</h3></div><div class="rounded-xl border bg-card p-6"><p class="text-sm text-muted-foreground">Teachers</p><h3 class="text-3xl font-bold">${fairnessData.teacherStats?.length || 0}</h3></div></div>
+                    <div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Teacher Workload Distribution</h3></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Teacher</th><th class="px-4 py-3 text-left">Department</th><th class="px-4 py-3 text-center">Scheduled</th><th class="px-4 py-3 text-center">Completed</th><th class="px-4 py-3 text-center">Completion Rate</th></tr></thead><tbody class="divide-y">${(fairnessData.teacherStats || []).map(t => `<tr class="hover:bg-accent/50"><td class="px-4 py-3 font-medium">${t.teacherName}</td><td class="px-4 py-3">${t.department}</td><td class="px-4 py-3 text-center">${t.scheduled}</td><td class="px-4 py-3 text-center">${t.completed}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 rounded-full text-xs ${t.completionRate >= 80 ? 'bg-green-100 text-green-700' : t.completionRate >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">${t.completionRate}%</span></td></tr>`).join('')}${(!fairnessData.teacherStats || fairnessData.teacherStats.length === 0) ? '<tr><td colspan="5" class="text-center py-8 text-muted-foreground">No data available</td></tr>' : ''}</tbody></table></div></div>
+                `}
+            </div>
+        `;
+    } catch (error) {
+        return `<div class="text-center py-12 text-red-500">Error loading fairness report: ${error.message}</div>`;
+    } finally { hideLoading(); }
+}
+
+async function renderAdminTeacherWorkload() {
+    try {
+        const workload = await loadTeacherWorkload();
+        const teachers = workload || [];
+        const hasData = teachers.length > 0;
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <h2 class="text-2xl font-bold">Teacher Workload Monitor</h2>
+                ${!hasData ? `<div class="rounded-xl border bg-card p-12 text-center"><i data-lucide="users" class="h-12 w-12 mx-auto text-muted-foreground mb-4"></i><p class="text-muted-foreground">No workload data available yet.</p><p class="text-xs text-muted-foreground mt-1">Once duties are assigned, teacher workloads will appear here.</p><button onclick="showDashboardSection('duty')" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Go to Duty Management</button></div>` : `
+                    <div class="grid gap-4 md:grid-cols-3"><div class="rounded-xl border bg-card p-6"><p class="text-sm text-muted-foreground">Overworked Teachers</p><h3 class="text-3xl font-bold text-red-600">${teachers.filter(t => t.status === 'overworked').length}</h3></div><div class="rounded-xl border bg-card p-6"><p class="text-sm text-muted-foreground">Balanced Teachers</p><h3 class="text-3xl font-bold text-green-600">${teachers.filter(t => t.status === 'balanced').length}</h3></div><div class="rounded-xl border bg-card p-6"><p class="text-sm text-muted-foreground">Underworked Teachers</p><h3 class="text-3xl font-bold text-yellow-600">${teachers.filter(t => t.status === 'underworked').length}</h3></div></div>
+                    <div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Current Workload Distribution</h3></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Teacher</th><th class="px-4 py-3 text-left">Department</th><th class="px-4 py-3 text-center">Monthly Duties</th><th class="px-4 py-3 text-center">Weekly Duties</th><th class="px-4 py-3 text-center">Reliability</th><th class="px-4 py-3 text-center">Status</th></tr></thead><tbody class="divide-y">${teachers.map(teacher => `<tr class="hover:bg-accent/50"><td class="px-4 py-3 font-medium">${teacher.teacherName}</td><td class="px-4 py-3">${teacher.department}</td><td class="px-4 py-3 text-center">${teacher.monthlyDutyCount}</td><td class="px-4 py-3 text-center">${teacher.weeklyDutyCount}</td><td class="px-4 py-3 text-center">${teacher.reliabilityScore}</td><td class="px-4 py-3 text-center"><span class="px-2 py-1 ${teacher.status === 'overworked' ? 'bg-red-100 text-red-700' : teacher.status === 'underworked' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'} text-xs rounded-full">${teacher.status}</span></td></tr>`).join('')}</tbody></table></div></div>
+                `}
+            </div>
+        `;
+    } catch (error) {
+        return `<div class="text-center py-12 text-red-500">Error loading workload: ${error.message}</div>`;
+    }
+}
+
+function renderAdminSettings() {
+    const curriculum = schoolSettings.curriculum || schoolSettings.system || 'cbc';
+    const schoolLevel = schoolSettings.settings?.schoolLevel || 'secondary';
+    const curriculumInfo = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) ? window.CURRICULUMS[curriculum] : { subjects: { secondary: [] } };
+    const levelInfo = curriculumInfo?.levels[schoolLevel] || [];
+    const subjectInfo = curriculumInfo?.subjects[schoolLevel] || [];
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <h2 class="text-2xl font-bold">School Settings</h2>
+            <p class="text-sm text-muted-foreground">Changes made here will reflect across all dashboards for this school.</p>
+            <div class="grid gap-6">
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">School Information</h3><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">School Name</label><input type="text" id="settings-school-name" value="${schoolSettings.name || schoolSettings.schoolName || ''}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></div><div><label class="block text-sm font-medium mb-1">School Level</label><select id="settings-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="primary" ${schoolLevel === 'primary' ? 'selected' : ''}>Primary</option><option value="secondary" ${schoolLevel === 'secondary' ? 'selected' : ''}>Secondary</option><option value="both" ${schoolLevel === 'both' ? 'selected' : ''}>Both</option></select></div></div></div>
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Curriculum Settings</h3><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">Select Curriculum</label><select id="settings-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="cbc" ${curriculum === 'cbc' ? 'selected' : ''}>CBC</option><option value="844" ${curriculum === '844' ? 'selected' : ''}>8-4-4</option><option value="british" ${curriculum === 'british' ? 'selected' : ''}>British</option><option value="american" ${curriculum === 'american' ? 'selected' : ''}>American</option></select></div><div class="p-4 bg-muted/30 rounded-lg"><h4 class="font-sm font-medium mb-2">Curriculum Information</h4><p class="text-sm text-muted-foreground"><span class="font-medium">Name:</span> ${curriculumInfo?.name || 'N/A'}</p><p class="text-sm text-muted-foreground mt-1"><span class="font-medium">Grade Levels:</span> ${levelInfo.join(', ')}</p><p class="text-sm text-muted-foreground mt-1"><span class="font-medium">Core Subjects:</span> ${subjectInfo.join(', ')}</p></div></div></div>
+                <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save Settings</button></div>
+            </div>
+        </div>
+    `;
+}
+
+// ============ ADMIN TIMETABLE (single, clean version) ============
+let currentTimetableId = null;
+
+async function renderAdminTimetable() {
+    const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
+    showLoading();
+    try {
+        const res = await apiRequest(`/api/timetable?weekStartDate=${weekStart}`);
+        const timetable = (res && res.data) ? res.data : null;
+        if (timetable) currentTimetableId = timetable.id;
+        hideLoading();
+
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Timetable Management</h2>
+                <div class="flex gap-3">
+                    <button onclick="generateTimetable('${weekStart}')" class="px-4 py-2 bg-primary text-white rounded-lg">Generate New</button>
+                    ${timetable && !timetable.isPublished ? 
+                        `<button onclick="publishTimetable()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Publish</button>` : ''}
+                </div>
+            </div>
+            <div class="text-sm text-muted-foreground">Current week: ${weekStart}</div>
+            <div id="admin-timetable-grid">
+                ${timetable ? window.renderTimetableGrid(timetable.slots) : '<div class="text-center py-12">No timetable yet. Click Generate to create one.</div>'}
+            </div>
+        </div>`;
+    } catch(e) { hideLoading(); return `<div class="text-red-500">Error: ${escapeHtml(e.message)}</div>`; }
+}
+
+async function generateTimetable(prefilledWeek) {
+    const weekStart = prompt('Week start date (YYYY-MM-DD):', prefilledWeek || moment().startOf('isoWeek').format('YYYY-MM-DD'));
+    if (!weekStart) return;
+    showLoading();
+    try {
+        const res = await apiRequest('/api/timetable/generate', {
+            method: 'POST',
+            body: JSON.stringify({ weekStartDate: weekStart })
+        });
+        if (res.success) {
+            currentTimetableId = res.data.id;
+            // Re‑open the timetable page so the new grid appears instantly
+            await showDashboardSection('timetable');
+            showToast('Timetable generated', 'success');
+        } else {
+            showToast(res.message || 'Generation failed', 'error');
+        }
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+async function publishTimetable() {
+    if (!currentTimetableId) {
+        showToast('No timetable to publish', 'error');
+        return;
+    }
+    showLoading();
+    try {
+        await apiRequest(`/api/timetable/${currentTimetableId}/publish`, { method: 'POST' });
+        showToast('Published', 'success');
+        await showDashboardSection('timetable');
+    } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+// Grid renderer (also used by teacher view)
+function renderTimetableGrid(slots) {
+    if (!slots || !Array.isArray(slots)) return '<p class="text-muted-foreground">No slots available</p>';
+    const daysOrder = ['monday','tuesday','wednesday','thursday','friday'];
+    const timeSlots = ['08:00','09:00','10:00','11:00','12:00','14:00','15:00'];
+    const endTimes   = ['09:00','10:00','11:00','12:00','13:00','15:00','16:00'];
+
+    let html = '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse border"><thead><tr><th class="border p-2 bg-muted">Time</th>';
+    daysOrder.forEach(d => html += `<th class="border p-2 bg-muted capitalize">${d.slice(0,3)}</th>`);
+    html += '</tr></thead><tbody>';
+
+    for (let i = 0; i < timeSlots.length; i++) {
+        html += `<tr><td class="border p-2 font-medium">${timeSlots[i]} - ${endTimes[i]}</td>`;
+        for (const day of daysOrder) {
+            const daySlot = slots.find(s => s.day === day);
+            const period = daySlot ? daySlot.periods.find(p => p.startTime === timeSlots[i]) : null;
+            html += period ?
+                `<td class="border p-2 bg-blue-50 dark:bg-blue-900/20 text-xs">
+                    <strong>${escapeHtml(period.subject)}</strong><br>${escapeHtml(period.className)}<br><span class="text-muted-foreground">${escapeHtml(period.teacherName)}</span>
+                </td>` :
+                '<td class="border p-2 text-center text-muted-foreground">-</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
+}
+
+// ============ PROFILE SECTION ============
+async function renderProfileSection() {
+  const user = getCurrentUser();
+  const emailPref = user.preferences?.email !== false;
+  const pushPref = user.preferences?.push !== false;
+  const darkModePref = document.documentElement.classList.contains('dark');
+
+  return `
+    <div class="space-y-6 max-w-4xl mx-auto">
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
+        <div class="flex items-center gap-6">
+          <div class="relative">
+            <img id="profile-preview" src="${resolveMediaUrl(user.profileImage) || ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
+            <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer">
+              <i data-lucide="camera" class="h-4 w-4"></i>
+              <input type="file" class="profile-picture-input" accept="image/*" class="hidden">
+            </label>
+          </div>
+          <div>
+            <h2 class="text-3xl font-bold">${user.name}</h2>
+            <p class="text-white/80 capitalize">${user.role}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Member Since</p><p class="text-lg font-semibold">${formatDate(user.createdAt)}</p></div>
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Last Login</p><p class="text-lg font-semibold">${user.lastLogin ? timeAgo(user.lastLogin) : 'N/A'}</p></div>
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Account Status</p><p class="text-lg font-semibold text-green-600">Active</p></div>
+      </div>
+
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Profile Information</h3>
+        <form id="profile-form" onsubmit="updateProfile(event)" class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" name="name" value="${user.name}" class="w-full rounded-lg border p-2 bg-background"></div>
+            <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" name="email" value="${user.email || ''}" class="w-full rounded-lg border p-2 bg-background"></div>
+          </div>
+          <div><label class="block text-sm font-medium mb-1">Phone</label><input type="tel" name="phone" value="${user.phone || ''}" class="w-full rounded-lg border p-2 bg-background"></div>
+          <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Profile</button></div>
+        </form>
+      </div>
+
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Change Password</h3>
+        <form id="password-form" onsubmit="updatePassword(event)" class="space-y-4">
+          <div><label class="block text-sm font-medium mb-1">Current Password</label><input type="password" id="current-password" required class="w-full rounded-lg border p-2 bg-background"></div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div><label class="block text-sm font-medium mb-1">New Password</label><input type="password" id="new-password" required minlength="8" class="w-full rounded-lg border p-2 bg-background"></div>
+            <div><label class="block text-sm font-medium mb-1">Confirm Password</label><input type="password" id="confirm-password" required class="w-full rounded-lg border p-2 bg-background"></div>
+          </div>
+          <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Password</button></div>
+        </form>
+      </div>
+
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Preferences</h3>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <div><p class="font-medium">Email Notifications</p></div>
+            <button onclick="togglePreference('email')" id="pref-email" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPref ? 'bg-primary' : 'bg-muted'}">
+              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailPref ? 'translate-x-6' : 'translate-x-1'}"></span>
+            </button>
+          </div>
+          <div class="flex justify-between items-center">
+            <div><p class="font-medium">Push Notifications</p></div>
+            <button onclick="togglePreference('push')" id="pref-push" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushPref ? 'bg-primary' : 'bg-muted'}">
+              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushPref ? 'translate-x-6' : 'translate-x-1'}"></span>
+            </button>
+          </div>
+          <div class="flex justify-between items-center">
+            <div><p class="font-medium">Dark Mode</p></div>
+            <button onclick="toggleTheme()" id="pref-darkmode" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${darkModePref ? 'bg-primary' : 'bg-muted'}">
+              <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkModePref ? 'translate-x-6' : 'translate-x-1'}"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
+        <h3 class="font-semibold text-lg mb-4 text-red-700 dark:text-red-400">Account Actions</h3>
+        <div class="flex gap-3">
+          <button onclick="downloadMyData()" class="px-4 py-2 border rounded-lg">Download My Data</button>
+          <button onclick="deactivateAccount()" class="px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg">Deactivate Account</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function updateProfile(event) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const data = { name: formData.get('name'), email: formData.get('email'), phone: formData.get('phone') };
+  showLoading();
+  try {
+    await api.user.updateProfile(data);
+    const user = getCurrentUser(); user.name = data.name; user.email = data.email; user.phone = data.phone;
+    localStorage.setItem('user', JSON.stringify(user));
+    showToast('Profile updated', 'success');
+    await showDashboardSection('profile');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+async function uploadProfilePicture(file) {
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('picture', file);
+  showLoading();
+  try {
+    const response = await fetch('/api/user/profile-picture', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      body: formData
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('profile-preview').src = resolveMediaUrl(data.data.profileImage);
+      // Update local user object
+      const user = getCurrentUser();
+      user.profileImage = resolveMediaUrl(data.data.profileImage);
+      localStorage.setItem('user', JSON.stringify(user));
+      showToast('Profile picture updated', 'success');
+    } else {
+      throw new Error(data.message);
+    }
+  } catch (error) {
+    showToast(error.message || 'Upload failed', 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+function renderAdminCustomSubjects() {
+    const curriculum = window.schoolSettings?.curriculum || 'cbc';
+    const schoolLevel = window.schoolSettings?.schoolLevel || 'secondary';
+    const curriculumInfo = (window.CURRICULUMS && window.CURRICULUMS[curriculum]) ? window.CURRICULUMS[curriculum] : { subjects: { secondary: [] } };
+    const subjectInfo = curriculumInfo?.subjects[schoolLevel] || [];
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-center"><h2 class="text-2xl font-bold">Custom Subjects</h2></div>
+            <p class="text-sm text-muted-foreground">Add subjects that are not in the standard curriculum</p>
+            <div class="rounded-xl border bg-card p-6">
+                <div class="space-y-4">
+                    <div class="flex gap-2"><input type="text" id="new-subject-name" placeholder="e.g., French, Computer Science, Art" class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"><button onclick="addCustomSubject()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Add Subject</button></div>
+                    <div><h4 class="text-sm font-medium mb-3">Curriculum Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">${subjectInfo.map(subject => `<div class="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"><span class="text-sm font-medium">${subject}</span><span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">core</span></div>`).join('')}</div></div>
+                    <div><h4 class="text-sm font-medium mb-3">Custom Subjects</h4><div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="custom-subjects-container">${customSubjects && customSubjects.length > 0 ? customSubjects.map(subject => `<div class="custom-subject-item flex items-center justify-between p-3 bg-secondary/30 rounded-lg border group" data-subject="${subject}"><span class="text-sm font-medium">${subject}</span><button onclick="removeCustomSubject('${subject}')" class="text-red-500 hover:text-red-700"><i data-lucide="x" class="h-4 w-4"></i></button></div>`).join('') : '<p class="text-sm text-muted-foreground col-span-3 py-4 text-center bg-muted/30 rounded-lg" id="no-custom-subjects-message">No custom subjects added yet</p>'}</div></div>
+                </div>
+            </div>
+            <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2"><i data-lucide="save" class="h-4 w-4"></i> Save Changes</button></div>
+        </div>
+    `;
+}
+
+// ============ CUSTOM SUBJECT ACTIONS ============
+window.addCustomSubject = async function() {
+    const newSubject = document.getElementById('new-subject-name')?.value.trim();
+    if (!newSubject) { showToast('Please enter a subject name', 'error'); return; }
+    const updatedSubjects = [...(customSubjects || []), newSubject];
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ customSubjects: updatedSubjects });
+        if (response?.success) {
+            customSubjects = updatedSubjects;
+            window.customSubjects = updatedSubjects;
+            window.schoolSettings = response.data;
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            await showDashboardSection('custom-subjects');
+            showToast(`Subject "${newSubject}" added`, 'success');
+            await refreshClassManagementIfVisible();
+        } else {
+            throw new Error(response?.message || 'Save failed');
+        }
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { hideLoading(); }
+};
+
+window.removeCustomSubject = async function(subject) {
+    if (!confirm(`Remove "${subject}" from custom subjects?`)) return;
+    const updatedSubjects = (customSubjects || []).filter(s => s !== subject);
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ customSubjects: updatedSubjects });
+        if (response?.success) {
+            customSubjects = updatedSubjects;
+            window.customSubjects = updatedSubjects;
+            window.schoolSettings = response.data;
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            await showDashboardSection('custom-subjects');
+            showToast(`Subject "${subject}" removed`, 'info');
+            await refreshClassManagementIfVisible();
+        } else {
+            throw new Error(response?.message || 'Save failed');
+        }
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { hideLoading(); }
+};
+
+window.saveAllSettings = async function() {
+    const curriculum = document.getElementById('settings-curriculum')?.value;
+    const schoolName = document.getElementById('settings-school-name')?.value;
+    const schoolLevel = document.getElementById('settings-school-level')?.value;
+    if (!schoolName) { showToast('School name is required', 'error'); return; }
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, schoolLevel, customSubjects: customSubjects || [] });
+        if (response && response.success) {
+            window.schoolSettings = response.data;
+            window.customSubjects = response.data.settings?.customSubjects || [];
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            
+            // === ADD THIS BLOCK ===
+            const freshSettings = await api.admin.getSchoolSettings();
+            if (freshSettings && freshSettings.success) {
+                window.schoolSettings = freshSettings.data;
+                window.schoolSettings.curriculum = freshSettings.data.system;
+                window.customSubjects = freshSettings.data.settings?.customSubjects || [];
+                localStorage.setItem('schoolSettings', JSON.stringify(freshSettings.data));
+            }
+            // === END ADD ===
+            
+            const school = JSON.parse(localStorage.getItem('school') || '{}');
+            school.name = schoolName;
+            school.system = curriculum;
+            school.settings = response.data.settings;
+            localStorage.setItem('school', JSON.stringify(school));
+            updateAllSchoolNameElements(schoolName);
+            showToast('✅ Settings saved!', 'success');
+            await updateAdminStats();
+        } else {
+            throw new Error(response?.message || 'Save failed');
+        }
+    } catch (error) {
+        console.error('Save error:', error);
+        showToast(error.message || 'Failed to save settings', 'error');
+    } finally {
+        hideLoading();
+    }
+};
+
+// ============ HELP SECTION ============
+function renderHelpSection() {
+    const user = getCurrentUser();
+    const role = user?.role || 'user';
+    const helpArticles = {
+        superadmin: [{ title: 'How to approve a new school', content: 'Go to School Approvals, review school details, click Approve. The school will be activated immediately.', keywords: ['approve', 'school', 'activate'] }],
+        admin: [{ title: 'How to add a student', content: 'Go to Students, click Add Student, fill in details. The student receives an ELIMUID automatically.', keywords: ['add', 'student'] }, { title: 'Grouped fee structures', content: 'Go to Finance & Fees, create one fee structure, tick one or many classes, then save. Use View Classes or Edit to see, add or remove classes inside the same grouped structure. Activate to generate individual student fee accounts.', keywords: ['finance','fees','classes','structure'] }, { title: 'Manual payments and bursaries', content: 'In Payment Records, find the individual student, then Record Payment or Add Bursary/Credit. Cash, bank, card and manual M-Pesa update that student only after approved/successful status.', keywords: ['cash','bank','card','bursary','payment'] }, { title: 'How to approve a teacher', content: 'Go to Teacher Approvals, review teacher details, click Approve or Reject.', keywords: ['teacher', 'approve'] }, { title: 'How to generate duty roster', content: 'Go to Duty Management, select dates, click Generate Roster.', keywords: ['duty', 'roster'] }, { title: 'How to change curriculum', content: 'Go to Settings, select new curriculum, click Save.', keywords: ['curriculum', 'change'] }],
+        teacher: [{ title: 'How to take attendance', content: 'Go to Attendance, mark each student as Present/Absent/Late, add notes, click Save Attendance.', keywords: ['attendance'] }, { title: 'How to enter grades', content: 'Go to Grades, select subject and assessment type, enter scores, click Save.', keywords: ['grade', 'marks'] }, { title: 'How to check in for duty', content: 'Go to Dashboard, find Duty Card, click Check In.', keywords: ['duty', 'checkin'] }],
+        parent: [{ title: 'How to view child progress', content: 'Select your child from the top, view grades, attendance, and teacher comments.', keywords: ['progress', 'grades'] }, { title: 'How to report absence', content: 'Click Report Absence, select date, enter reason, submit.', keywords: ['absence', 'report'] }, { title: 'How to use Payments', content: 'Go to Payments, select one child, then view that child’s total, parent-paid amount, bursary/credit and balance. Use history filters for Pending, Successful, Failed, Rejected and Bursaries/Credits. Siblings are never mixed.', keywords: ['payment','balance','history','child'] }],
+        student: [{ title: 'How to view my grades', content: 'Go to My Grades to see all your scores and performance.', keywords: ['grade'] }, { title: 'How to use AI Tutor', content: 'Type your question in AI Tutor chat, get instant help.', keywords: ['ai', 'tutor'] }, { title: 'How to join study groups', content: 'Go to Study Chat to connect with other students.', keywords: ['study', 'chat'] }]
+    };
+    const articles = helpArticles[role] || helpArticles.admin;
+    return `
+        <div class="space-y-6 animate-fade-in max-w-5xl mx-auto">
+            <div class="text-center"><h2 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Help Center</h2><p class="text-muted-foreground mt-2">Find answers to common questions and learn how to use the platform</p></div>
+            <div class="relative"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"></i><input type="text" id="help-search" placeholder="Search help articles..." onkeyup="searchHelpArticles()" class="w-full pl-10 pr-4 py-3 rounded-xl border bg-card focus:ring-2 focus:ring-primary transition-all"></div>
+            <div id="help-articles-container" class="grid gap-4">${articles.map(article => `<div class="help-article rounded-xl border bg-card p-6 hover:shadow-md transition-all cursor-pointer" data-title="${article.title.toLowerCase()}" data-content="${article.content.toLowerCase()}" data-keywords="${article.keywords.join(' ').toLowerCase()}" onclick="showHelpArticleDetail('${article.title.replace(/'/g, "\\'")}', '${article.content.replace(/'/g, "\\'")}')"><h3 class="font-semibold text-lg mb-2">📚 ${article.title}</h3><p class="text-muted-foreground">${article.content.substring(0, 150)}${article.content.length > 150 ? '...' : ''}</p></div>`).join('')}</div>
+            <div class="rounded-xl border bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 text-center"><h3 class="font-semibold text-lg mb-2">💬 Still Need Help?</h3><p class="text-muted-foreground mb-4">Contact our support team for assistance</p><div class="flex gap-3 justify-center"><button onclick="openShuleWhatsappSupport()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"><i data-lucide="message-circle" class="h-4 w-4 inline mr-2"></i> Live Chat</button><button onclick="openShuleEmailSupport()" class="px-4 py-2 border rounded-lg hover:bg-accent"><i data-lucide="mail" class="h-4 w-4 inline mr-2"></i> Email Support</button></div></div>
+        </div>
+    `;
+}
+
+window.searchHelpArticles = function() {
+    const searchTerm = document.getElementById('help-search')?.value.toLowerCase().trim();
+    const articles = document.querySelectorAll('.help-article');
+    if (!searchTerm) { articles.forEach(a => a.style.display = 'block'); return; }
+    let found = 0;
+    articles.forEach(article => {
+        const title = article.dataset.title || '';
+        const content = article.dataset.content || '';
+        const keywords = article.dataset.keywords || '';
+        const matches = title.includes(searchTerm) || content.includes(searchTerm) || keywords.includes(searchTerm);
+        article.style.display = matches ? 'block' : 'none';
+        if (matches) found++;
+    });
+    const container = document.getElementById('help-articles-container');
+    let noResults = document.getElementById('no-results-message');
+    if (found === 0 && searchTerm) {
+        if (!noResults) {
+            const msg = document.createElement('div');
+            msg.id = 'no-results-message';
+            msg.className = 'text-center py-12 col-span-full';
+            msg.innerHTML = `<i data-lucide="search-x" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-muted-foreground">No results found for "${searchTerm}"</p><p class="text-sm text-muted-foreground mt-1">Try different keywords or contact support</p>`;
+            container.appendChild(msg);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    } else if (noResults) { noResults.remove(); }
+};
+
+window.showHelpArticleDetail = function(title, content) {
+    let modal = document.getElementById('help-article-modal');
+    if (!modal) {
+        const modalHTML = `<div id="help-article-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeHelpArticleModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4"><div class="rounded-xl border bg-card p-6 shadow-xl animate-fade-in"><div class="modal-content"></div></div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        modal = document.getElementById('help-article-modal');
+    }
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.innerHTML = `<div class="space-y-4"><div class="border-b pb-3"><h3 class="text-xl font-semibold">${title}</h3></div><div class="prose prose-sm max-w-none"><p class="text-muted-foreground">${content}</p></div><div class="flex justify-end gap-2 pt-4 border-t"><button onclick="closeHelpArticleModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button><button onclick="openShuleEmailSupport()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Contact Support</button></div></div>`;
+    }
+    modal.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+function closeHelpArticleModal() { const m = document.getElementById('help-article-modal'); if(m) m.classList.add('hidden'); }
+
+// At the end of admin-dashboard.js, add:
+
+document.addEventListener('change', function(e) {
+    if (e.target.id === 'announcement-recipients') {
+        const val = e.target.value;
+        document.getElementById('class-selector-container').classList.toggle('hidden', val !== 'specific_class');
+        document.getElementById('parent-selector-container').classList.toggle('hidden', val !== 'individual_parent');
+        if (val === 'specific_class') loadClassesForSelect();
+        if (val === 'individual_parent') loadParentsForSelect();
+    }
+});
+
+async function loadClassesForSelect() {
+    try {
+        const response = await api.admin.getClasses();
+        const select = document.getElementById('announcement-class');
+        select.innerHTML = '<option value="">Select a class</option>';
+        response.data.forEach(cls => {
+            select.innerHTML += `<option value="${cls.id}">${escapeHtml(cls.name)} (Grade ${escapeHtml(cls.grade)})</option>`;
+        });
+    } catch (error) {
+        console.error('Failed to load classes:', error);
+    }
+}
+
+async function loadParentsForSelect() {
+    try {
+        const response = await api.admin.getParents();
+        const select = document.getElementById('announcement-parent');
+        select.innerHTML = '<option value="">Select a parent</option>';
+        response.data.forEach(parent => {
+            const user = parent.User || {};
+            select.innerHTML += `<option value="${user.id}">${escapeHtml(user.name)} (${escapeHtml(user.email)})</option>`;
+        });
+    } catch (error) {
+        console.error('Failed to load parents:', error);
+    }
+}
+
+
+async function generateAnnouncementSuggestion() {
+    const topic = document.getElementById('announcement-ai-topic')?.value || 'General announcement';
+    const tone = document.getElementById('announcement-ai-tone')?.value || 'Professional';
+    const recipientType = document.getElementById('announcement-recipients')?.value || 'all_parents';
+    const description = document.getElementById('announcement-message')?.value.trim() || '';
+    const panel = document.getElementById('announcement-ai-suggestion-panel');
+    if (!description) {
+        showToast('Write a brief description first so Shule AI can restructure it.', 'error');
+        return;
+    }
+    if (panel) {
+        panel.classList.remove('hidden');
+        panel.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><span class="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span> Shule AI is preparing an announcement suggestion...</div>';
+    }
+    try {
+        const suggestAnnouncementApi = api?.alerts?.suggestAnnouncement || api?.alerts?.suggestParentMessage;
+        const payload = {
+            audience: recipientType,
+            topic,
+            tone,
+            description,
+            extraContext: {
+                classId: document.getElementById('announcement-class')?.value || null,
+                parentId: document.getElementById('announcement-parent')?.value || null
+            }
+        };
+        const res = await (suggestAnnouncementApi
+            ? suggestAnnouncementApi(payload)
+            : apiRequest('/api/alerts/suggest-announcement', { method: 'POST', body: JSON.stringify(payload) }));
+        const data = res.data || {};
+        const title = data.title || `${topic} Notice`;
+        const message = data.message || description;
+        document.getElementById('announcement-title').value = title;
+        document.getElementById('announcement-message').value = message;
+        if (panel) {
+            const alternatives = Array.isArray(data.alternatives) ? data.alternatives : [];
+            panel.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <i data-lucide="sparkles" class="h-4 w-4 text-primary mt-0.5"></i>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(data.aiLabel || 'AI-generated message suggestion')}</span>
+                            ${data.usage ? `<span class="text-xs text-muted-foreground">${Number(data.usage.used || 0)}/${Number(data.usage.limit || 0)} suggestions used this month</span>` : ''}
+                        </div>
+                        <p><b>${escapeHtml(title)}</b></p>
+                        <p class="whitespace-pre-line">${escapeHtml(message)}</p>
+                        ${data.reason ? `<p class="text-xs text-muted-foreground"><b>Why:</b> ${escapeHtml(data.reason)}</p>` : ''}
+                        ${alternatives.length ? `<div class="space-y-1"><p class="text-xs font-semibold text-muted-foreground">Alternative versions</p>${alternatives.map((alt, idx) => `<button type="button" class="block w-full text-left rounded-lg border bg-background px-3 py-2 text-xs hover:bg-accent" onclick="document.getElementById('announcement-message').value='${escapeHtml(String(alt)).replace(/'/g, '&apos;')}'">${idx + 1}. ${escapeHtml(String(alt))}</button>`).join('')}</div>` : ''}
+                    </div>
+                </div>`;
+            if (window.lucide) lucide.createIcons();
+        }
+        showToast('Shule AI suggestion added. Review before sending.', 'success');
+    } catch (error) {
+        if (panel) panel.innerHTML = `<p class="text-red-600">${escapeHtml(error.message || 'Could not generate suggestion')}</p>`;
+        showToast(error.message || 'Could not generate Shule AI suggestion', 'error');
+    }
+}
+
+async function sendAnnouncement() {
+    const recipientType = document.getElementById('announcement-recipients').value;
+    const title = document.getElementById('announcement-title').value.trim();
+    const message = document.getElementById('announcement-message').value.trim();
+
+    if (!title || !message) {
+        showToast('Please enter a title and message', 'error');
+        return;
+    }
+
+    showLoading();
+    try {
+        let userIds = [];
+        if (['all_parents','fee_defaulters','pending_payments','subscription_expiry'].includes(recipientType)) {
+            const parents = await api.admin.getParents();
+            userIds = (parents.data || []).map(p => p.userId).filter(Boolean);
+        } else if (recipientType === 'whole_school') {
+            const [parents, teachers, students] = await Promise.allSettled([api.admin.getParents(), api.admin.getTeachers ? api.admin.getTeachers() : Promise.resolve({data: []}), api.admin.getStudents ? api.admin.getStudents() : Promise.resolve({data: []})]);
+            userIds = [
+                ...((parents.value?.data || []).map(p => p.userId || p.User?.id)),
+                ...((teachers.value?.data || []).map(t => t.userId || t.User?.id)),
+                ...((students.value?.data || []).map(st => st.userId || st.User?.id))
+            ].filter(Boolean);
+        } else if (recipientType === 'teachers') {
+            const teachers = await (api.admin.getTeachers ? api.admin.getTeachers() : apiRequest('/api/admin/teachers'));
+            userIds = (teachers.data || []).map(t => t.userId || t.User?.id).filter(Boolean);
+        } else if (recipientType === 'students') {
+            const students = await (api.admin.getStudents ? api.admin.getStudents() : apiRequest('/api/admin/students'));
+            userIds = (students.data || []).map(st => st.userId || st.User?.id).filter(Boolean);
+        } else if (recipientType === 'specific_class') {
+            const classId = document.getElementById('announcement-class').value;
+            if (!classId) { showToast('Please select a class', 'error'); hideLoading(); return; }
+            const students = await api.admin.getClassStudents(classId);
+            const parentIds = new Set();
+            (students.data || []).forEach(student => {
+                (student.parents || student.Parents || []).forEach(parent => {
+                    const uid = parent.userId || parent.User?.id;
+                    if (uid) parentIds.add(uid);
+                });
+            });
+            userIds = Array.from(parentIds);
+        } else {
+            const parentId = document.getElementById('announcement-parent').value;
+            if (!parentId) { showToast('Please select a parent', 'error'); hideLoading(); return; }
+            userIds = [parentId];
+        }
+
+        // Send alerts to each user
+        for (const userId of userIds) {
+            await apiRequest('/api/alerts', {
+                method: 'POST',
+                body: JSON.stringify({ userId, type: 'system', category: 'Announcement', severity: 'info', title, message, data: { sourceType: 'ai_assisted_admin_message', aiLabel: 'Shule AI assisted announcement', actionUrl: '#alerts' } })
+            });
+        }
+
+        showToast(`✅ Announcement sent to ${userIds.length} recipient(s)`, 'success');
+        document.getElementById('announcement-title').value = '';
+        document.getElementById('announcement-message').value = '';
+    } catch (error) {
+        showToast(error.message || 'Failed to send announcement', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function renderCalendarManagement() {
+    showLoading();
+    try {
+        const res = await apiRequest('/api/calendar');
+        const events = Array.isArray(res.data) ? res.data : (Array.isArray(res.events) ? res.events : (Array.isArray(res.data?.events) ? res.data.events : []));
+        hideLoading();
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Academic Calendar</h2>
+                    <button onclick="showAddCalendarEventModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ Add Event</button>
+                </div>
+                <div id="admin-calendar-events" class="space-y-2">
+                    ${events.length === 0 ? '<p class="text-center text-muted-foreground">No events yet</p>' :
+                      events.map(e => `
+                        <div class="flex justify-between items-center p-3 border rounded-lg">
+                            <div>
+                                <span class="font-medium">${escapeHtml(e.eventName)}</span>
+                                <span class="text-xs text-muted-foreground ml-2">${formatDate(e.startDate)} ${e.endDate ? '→ '+formatDate(e.endDate) : ''} (${e.eventType})</span>
+                            </div>
+                            <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-sm">Delete</button>
+                        </div>
+                      `).join('')}
+                </div>
+            </div>`;
+    } catch(e) { hideLoading(); return `<div class="text-red-500">Error loading calendar</div>`; }
+}
+
+// ============ EXPORT FUNCTIONS ============
+window.sendAnnouncement = sendAnnouncement;
+window.renderAdminSection = renderAdminSection;
+window.renderCalendarManagement = renderCalendarManagement;
+window.renderAdminDashboard = renderAdminDashboard;
+window.renderAdminStudents = renderAdminStudents;
+window.renderAdminTeachers = renderAdminTeachers;
+window.renderAdminPendingTeachers = renderAdminPendingTeachers;
+window.renderAdminDuty = renderAdminDuty;
+window.renderAdminFairnessReport = renderAdminFairnessReport;
+window.renderAdminTeacherWorkload = renderAdminTeacherWorkload;
+window.renderAdminSettings = renderAdminSettings;
+window.renderAdminCustomSubjects = renderAdminCustomSubjects;
+window.addCustomSubject = addCustomSubject;
+window.removeCustomSubject = removeCustomSubject;
+window.saveAllSettings = saveAllSettings;
+window.renderAdminTimetable = renderAdminTimetable;
+window.generateTimetable = generateTimetable;
+window.publishTimetable = publishTimetable;
+window.renderTimetableGrid = renderTimetableGrid;
+
+
+// ============ SCHOOL SUBSCRIPTION & BILLING ============
+function formatKes(value) {
+    return `KES ${Number(value || 0).toLocaleString()}`;
+}
+
+function subscriptionStatusBadge(status) {
+    const value = String(status || 'pending').toLowerCase();
+    const cls = value === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : value === 'expired' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+    return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${escapeHtml(value)}</span>`;
+}
+
+async function renderAdminSubscriptionBilling() {
+    try {
+        const [statusRes, plansRes, historyRes] = await Promise.all([
+            api.subscription.getSchoolStatus().catch(e => ({ success:false, data:null, message:e.message })),
+            api.subscription.getPlans('school').catch(() => ({ data: [] })),
+            api.subscription.getSchoolBillingHistory().catch(() => ({ data: [] }))
+        ]);
+        const status = statusRes.data || {};
+        const plans = plansRes.data || [];
+        const history = historyRes.data || [];
+        const activePlanCode = status.planCode || 'school_starter';
+        return `
+        <div class="space-y-6 animate-fade-in shule-billing-page">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold">Subscription & Billing</h2>
+                    <p class="text-sm text-muted-foreground">Manage the school subscription paid to Shule AI. This is separate from parent school-fee payments.</p>
+                </div>
+                <button onclick="openSchoolBillingModal('${escapeHtml(activePlanCode)}')" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Renew / Upgrade</button>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Current Plan</p>
+                    <h3 class="text-2xl font-bold mt-1">${escapeHtml(status.currentPlan || 'Starter')}</h3>
+                    <div class="mt-2">${subscriptionStatusBadge(status.status)}</div>
+                </div>
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Billing Cycle</p>
+                    <h3 class="text-2xl font-bold mt-1 capitalize">${escapeHtml(status.billingCycle || 'monthly')}</h3>
+                    <p class="text-xs text-muted-foreground mt-2">Maintenance included</p>
+                </div>
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Expires</p>
+                    <h3 class="text-xl font-bold mt-1">${status.expiresAt ? new Date(status.expiresAt).toLocaleDateString() : 'Not active'}</h3>
+                    <p class="text-xs text-muted-foreground mt-2">${Number(status.daysRemaining || 0)} days remaining</p>
+                </div>
+                <div class="rounded-xl border bg-card p-5">
+                    <p class="text-sm text-muted-foreground">Students</p>
+                    <h3 class="text-2xl font-bold mt-1">${Number(status.studentCount || 0).toLocaleString()}</h3>
+                    <p class="text-xs text-muted-foreground mt-2">School tier: ${escapeHtml(status.schoolTier || status.currentPlan || 'Starter')}</p>
+                </div>
+            </div>
+
+            ${status.gracefulMode ? `
+                <div class="rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-700 p-4">
+                    <h3 class="font-semibold">⚠ School subscription inactive or expired</h3>
+                    <p class="text-sm mt-1">Core operations remain available: attendance, marks, students, teachers, basic reports and fees. Premium features remain locked until renewal.</p>
+                </div>
+            ` : ''}
+
+            <div class="grid gap-4 lg:grid-cols-3">
+                ${plans.map(plan => `
+                    <div class="rounded-xl border bg-card p-5 flex flex-col ${activePlanCode === plan.code ? 'ring-2 ring-primary' : ''}">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-xl font-bold">${escapeHtml(plan.displayName || plan.name)}</h3>
+                                <p class="text-sm text-muted-foreground">${plan.code === 'school_growth' ? 'Recommended' : plan.code === 'school_enterprise' ? 'Premium institutions' : 'Core school operations'}</p>
+                            </div>
+                            ${activePlanCode === plan.code ? '<span class="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">Current</span>' : ''}
+                        </div>
+                        <div class="mt-4 space-y-1">
+                            <p class="text-2xl font-bold">${formatKes(plan.monthlyPriceKes || plan.price)}</p>
+                            <p class="text-sm text-muted-foreground">${plan.yearlyPriceKes ? `${formatKes(plan.yearlyPriceKes)} / year` : 'Custom yearly pricing'}</p>
+                            <p class="text-xs text-muted-foreground">Setup: KES 50,000 – 100,000</p>
+                        </div>
+                        <div class="mt-4 flex-1">
+                            <p class="text-sm font-semibold mb-2">Included</p>
+                            <ul class="text-sm text-muted-foreground space-y-1 max-h-40 overflow-auto">
+                                ${(plan.features || []).slice(0, 8).map(f => `<li>• ${escapeHtml(f)}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <button onclick="openSchoolBillingModal('${escapeHtml(plan.code)}')" class="mt-5 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">${activePlanCode === plan.code ? 'Renew Plan' : 'Choose Plan'}</button>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="rounded-xl border bg-card overflow-hidden">
+                <div class="p-4 border-b flex items-center justify-between">
+                    <div><h3 class="font-semibold">Billing History</h3><p class="text-sm text-muted-foreground">Recent school subscription payment attempts and renewals.</p></div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-muted/50"><tr><th class="text-left px-4 py-3">Date</th><th class="text-left px-4 py-3">Plan</th><th class="text-left px-4 py-3">Cycle</th><th class="text-left px-4 py-3">Amount</th><th class="text-left px-4 py-3">Status</th><th class="text-left px-4 py-3">Receipt</th></tr></thead>
+                        <tbody class="divide-y">
+                            ${history.length ? history.map(row => `<tr><td class="px-4 py-3">${new Date(row.createdAt).toLocaleString()}</td><td class="px-4 py-3">${escapeHtml(row.planName || row.planCode)}</td><td class="px-4 py-3 capitalize">${escapeHtml(row.billingCycle || 'monthly')}</td><td class="px-4 py-3">${formatKes(row.amount)}</td><td class="px-4 py-3">${subscriptionStatusBadge(row.status === 'success' ? 'active' : row.status)}</td><td class="px-4 py-3">${escapeHtml(row.mpesaReceiptNumber || '-')}</td></tr>`).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-muted-foreground">No billing history yet.</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+    } catch (error) {
+        return `<div class="rounded-xl border bg-card p-8 text-red-500">Error loading subscription billing: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
+window.openSchoolBillingModal = async function(defaultPlanCode = 'school_growth') {
+    const plansRes = await api.subscription.getPlans('school').catch(() => ({ data: [] }));
+    const plans = plansRes.data || [];
+    const options = plans.map(plan => `<option value="${escapeHtml(plan.code)}" ${plan.code === defaultPlanCode ? 'selected' : ''}>${escapeHtml(plan.displayName || plan.name)} — ${formatKes(plan.monthlyPriceKes || plan.price)}/month</option>`).join('');
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4';
+    modal.id = 'school-billing-modal';
+    modal.innerHTML = `
+        <div class="w-full max-w-lg rounded-2xl border bg-card text-card-foreground shadow-xl">
+            <div class="p-5 border-b flex items-center justify-between">
+                <h3 class="text-lg font-bold">Renew / Upgrade School Subscription</h3>
+                <button onclick="document.getElementById('school-billing-modal')?.remove()" class="text-muted-foreground hover:text-foreground">×</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div><label class="text-sm font-medium">Select Plan</label><select id="school-sub-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${options}</select></div>
+                <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+                <div><label class="text-sm font-medium">M-PESA Phone Number</label><input id="school-sub-phone" placeholder="2547XXXXXXXX" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
+                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This payment goes to the Shule AI platform account, not the school fee account.</div>
+            </div>
+            <div class="p-5 border-t flex justify-end gap-3"><button onclick="document.getElementById('school-billing-modal')?.remove()" class="px-4 py-2 rounded-lg border">Cancel</button><button onclick="submitSchoolSubscriptionSTK()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Pay via M-PESA</button></div>
+        </div>`;
+    document.body.appendChild(modal);
+};
+
+window.submitSchoolSubscriptionSTK = async function() {
+    const planCode = document.getElementById('school-sub-plan')?.value;
+    const billingCycle = document.getElementById('school-sub-cycle')?.value || 'monthly';
+    const phone = document.getElementById('school-sub-phone')?.value?.trim();
+    if (!phone) { alert('Enter M-PESA phone number'); return; }
+    try {
+        const res = await api.payments.schoolSubscriptionSTK({ planCode, billingCycle, phone });
+        alert(res.message || 'M-PESA prompt sent. Approve payment on your phone.');
+        document.getElementById('school-billing-modal')?.remove();
+        setTimeout(() => showDashboardSection('subscription-billing'), 1200);
+    } catch (error) {
+        alert(error.message || 'Could not start M-PESA payment.');
+    }
+};
+
+
+// V88: load admin dashboard academic calendar preview immediately without overriding main calendar functions.
+(function(){
+  const oldRenderAdminDashboard = window.renderAdminDashboard;
+  if (typeof oldRenderAdminDashboard === 'function' && !oldRenderAdminDashboard.__v88CalendarPreview) {
+    const wrapped = function(){
+      const html = oldRenderAdminDashboard.apply(this, arguments);
+      setTimeout(() => { if (typeof window.loadAdminCalendarPreviewEvents === 'function') window.loadAdminCalendarPreviewEvents(); }, 200);
+      return html;
+    };
+    wrapped.__v88CalendarPreview = true;
+    window.renderAdminDashboard = wrapped;
+  }
+  window.loadAdminCalendarPreviewEvents = loadAdminCalendarPreviewEvents;
+})();
+
+// ============ V102 CURRICULUM + CUSTOM STRUCTURE + SUBJECT CHECKBOX UI ============
+const v102OriginalRenderAdminCustomSubjects = window.renderAdminCustomSubjects || renderAdminCustomSubjects;
+window.renderAdminCustomSubjects = async function() {
+    try {
+        const setup = await api.admin.getCurriculumSetup();
+        const data = setup.data || {};
+        const cfg = data.config || {};
+        const subjects = data.subjectBank || [];
+        const saved = new Set((cfg.schoolSubjects || []).filter(s => s.isOffered !== false).map(s => s.subjectId || s.id || s.name));
+        const grouped = subjects.reduce((acc, s) => {
+            const group = (s.levelLabels && s.levelLabels[0]) || (s.levelCodes && s.levelCodes[0]) || 'Subjects';
+            acc[group] = acc[group] || [];
+            acc[group].push(s);
+            return acc;
+        }, {});
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex justify-between items-center"><div><h2 class="text-2xl font-bold">Add Subjects</h2><p class="text-sm text-muted-foreground">Choose subjects the school offers from the selected curriculum. This updates class subjects, teacher assignment, grading, reports and Career Compass.</p></div><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Save Subjects</button></div>
+                <div class="rounded-xl border bg-card p-6">
+                    <h3 class="font-semibold mb-3">Curriculum Source</h3>
+                    <div class="grid md:grid-cols-3 gap-3 text-sm">
+                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Curriculum</p><p class="font-bold">${cfg.curriculum || 'cbc'}</p></div>
+                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Structure</p><p class="font-bold">${cfg.structureType || 'mixed'}</p></div>
+                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Enabled Levels</p><p class="font-bold">${(data.levels || []).length}</p></div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    ${Object.entries(grouped).map(([group, items]) => `<div class="rounded-xl border bg-card p-5"><div class="flex items-center justify-between mb-3"><h3 class="font-semibold">${group}</h3><button type="button" onclick="v102ToggleSubjectGroup('${group.replace(/'/g,"\\'")}', true)" class="text-xs px-2 py-1 rounded bg-primary/10 text-primary">Check all</button></div><div class="grid md:grid-cols-3 gap-3">${items.map(s => `<label data-v102-group="${group}" class="flex items-start gap-2 p-3 rounded-lg border bg-muted/20"><input type="checkbox" class="v102-school-subject mt-1" data-subject='${JSON.stringify(s).replace(/'/g, '&#39;')}' ${saved.has(s.id) || saved.has(s.name) ? 'checked' : ''}><span><span class="font-medium text-sm">${s.name}</span><span class="block text-xs text-muted-foreground">${s.category || 'subject'}${s.pathway ? ` • ${s.pathway}` : ''}${s.track ? ` • ${s.track}` : ''}</span></span></label>`).join('')}</div></div>`).join('')}
+                </div>
+                <div class="flex justify-end"><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg">Save Curriculum Subjects</button></div>
+            </div>`;
+    } catch (error) {
+        console.error('V102 subject UI error:', error);
+        return `<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700"><h3 class="font-semibold mb-2">Curriculum subject setup failed</h3><p>${error.message}</p><p class="text-sm mt-2">Fix the curriculum/structure setup first; the system will not fall back to old manual subjects because the new engine is the source of truth.</p></div>`;
+    }
+};
+
+const v102OriginalRenderAdminSettings = window.renderAdminSettings || renderAdminSettings;
+window.renderAdminSettings = function() {
+    const curriculum = schoolSettings.curriculum || schoolSettings.system || schoolSettings.settings?.curriculumEngine?.curriculum || 'cbc';
+    const engine = schoolSettings.settings?.curriculumEngine || {};
+    const structureType = engine.structureType || schoolSettings.schoolStructure || schoolSettings.settings?.schoolStructure || 'mixed';
+    const enabled = new Set(engine.enabledLevels || schoolSettings.enabledLevels || []);
+    const levelList = (schoolSettings.curriculumSetup?.enabledLevels || []).map(l => l.label).join(', ');
+    return `
+        <div class="space-y-6 animate-fade-in">
+            <h2 class="text-2xl font-bold">School Settings</h2>
+            <p class="text-sm text-muted-foreground">Curriculum and structure are the master source for classes, subjects, grading, report cards and Career Compass.</p>
+            <div class="grid gap-6">
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">School Information</h3><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">School Name</label><input type="text" id="settings-school-name" value="${schoolSettings.name || schoolSettings.schoolName || ''}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></div></div></div>
+                <div class="rounded-xl border bg-card p-6">
+                    <h3 class="font-semibold mb-4">Curriculum + School Structure</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div><label class="block text-sm font-medium mb-1">Select Curriculum</label><select id="settings-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="cbc" ${curriculum === 'cbc' ? 'selected' : ''}>CBC / CBE</option><option value="844" ${curriculum === '844' ? 'selected' : ''}>8-4-4</option><option value="british" ${curriculum === 'british' ? 'selected' : ''}>British / Cambridge</option><option value="american" ${curriculum === 'american' ? 'selected' : ''}>American</option><option value="custom" ${curriculum === 'custom' ? 'selected' : ''}>Custom</option></select></div>
+                        <div><label class="block text-sm font-medium mb-1">School Structure</label><select id="settings-school-structure" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="primary_only" ${structureType === 'primary_only' ? 'selected' : ''}>Primary only</option><option value="junior_only" ${structureType === 'junior_only' ? 'selected' : ''}>Junior only</option><option value="senior_only" ${structureType === 'senior_only' ? 'selected' : ''}>Senior only</option><option value="secondary_only" ${structureType === 'secondary_only' ? 'selected' : ''}>Secondary only</option><option value="mixed" ${structureType === 'mixed' ? 'selected' : ''}>Mixed / Full</option><option value="custom" ${structureType === 'custom' ? 'selected' : ''}>Custom enabled levels</option></select></div>
+                    </div>
+                    <div class="mt-4 p-4 bg-muted/30 rounded-lg"><p class="text-sm"><span class="font-medium">Currently enabled:</span> ${levelList || 'Use the structure builder below after saving curriculum.'}</p><button onclick="v102LoadStructureBuilder()" class="mt-3 px-3 py-2 rounded-lg border hover:bg-accent text-sm">Load / Edit Enabled Levels</button><div id="v102-structure-builder" class="mt-4"></div></div>
+                </div>
+                <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save Settings</button></div>
+            </div>
+        </div>`;
+};
+
+window.v102ToggleSubjectGroup = function(group, checked) {
+    document.querySelectorAll(`[data-v102-group="${group}"] input[type="checkbox"]`).forEach(cb => { cb.checked = checked; });
+};
+
+window.v102SaveSchoolSubjectCheckboxes = async function() {
+    showLoading();
+    try {
+        const subjects = Array.from(document.querySelectorAll('.v102-school-subject:checked')).map(cb => JSON.parse(cb.dataset.subject.replace(/&#39;/g, "'")));
+        await api.admin.saveSchoolSubjects(subjects);
+        showToast(`✅ ${subjects.length} subjects saved and synced to classes/grading`, 'success');
+        await showDashboardSection('custom-subjects');
+    } catch(error) { showToast(error.message || 'Failed to save subjects', 'error'); }
+    finally { hideLoading(); }
+};
+
+window.v102LoadStructureBuilder = async function() {
+    showLoading();
+    try {
+        const res = await api.admin.getCurriculumLevels();
+        const data = res.data || {};
+        const enabled = new Set(data.enabledLevels || []);
+        const box = document.getElementById('v102-structure-builder');
+        box.innerHTML = `<div class="grid md:grid-cols-3 gap-2">${(data.levels || []).map(l => `<label class="flex items-center gap-2 p-2 rounded border bg-background"><input type="checkbox" class="v102-enabled-level" value="${l.code}" ${enabled.has(l.code) ? 'checked' : ''}><span class="text-sm">${l.label}<span class="block text-xs text-muted-foreground">${l.group || ''}</span></span></label>`).join('')}</div>`;
+    } catch(error) { showToast(error.message || 'Failed to load levels', 'error'); }
+    finally { hideLoading(); }
+};
+
+window.saveAllSettings = async function() {
+    const curriculum = document.getElementById('settings-curriculum')?.value;
+    const schoolName = document.getElementById('settings-school-name')?.value;
+    const structureType = document.getElementById('settings-school-structure')?.value || document.getElementById('settings-school-level')?.value;
+    const enabledLevels = Array.from(document.querySelectorAll('.v102-enabled-level:checked')).map(x => x.value);
+    if (!schoolName) { showToast('School name is required', 'error'); return; }
+    showLoading();
+    try {
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, customSubjects: customSubjects || [] });
+        if (response && response.success) {
+            window.schoolSettings = response.data;
+            window.customSubjects = response.data.settings?.customSubjects || [];
+            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            const school = JSON.parse(localStorage.getItem('school') || '{}');
+            school.name = schoolName; school.system = curriculum; school.settings = response.data.settings;
+            localStorage.setItem('school', JSON.stringify(school));
+            updateAllSchoolNameElements(schoolName);
+            showToast('✅ Curriculum and structure saved safely', 'success');
+            await updateAdminStats();
+        } else throw new Error(response?.message || 'Save failed');
+    } catch(error) { console.error('V102 save settings error:', error); showToast(error.message || 'Failed to save settings', 'error'); }
+    finally { hideLoading(); }
+};
+try { renderAdminCustomSubjects = window.renderAdminCustomSubjects; renderAdminSettings = window.renderAdminSettings; } catch (e) { console.warn('V102 admin renderer binding skipped', e); }
+
+
+// ============ V107 INTEGRATED STUDENT SUBJECT SELECTION + MANUAL BILLING ============
+function adminEsc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function adminArray(value) { return Array.isArray(value) ? value : []; }
+function adminSubjectStatusBadge(status) {
+    const s = String(status || 'not_taken').toLowerCase();
+    const cls = s === 'taking' || s === 'taking_core' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : s === 'exempted' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+    return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${adminEsc(s.replace(/_/g, ' '))}</span>`;
+}
+async function loadAdminStudentSubjectPayload(selectedStudentId) {
+    const [studentsRes, classesRes] = await Promise.all([api.admin.getStudents(), api.admin.getClasses().catch(() => ({ data: [] }))]);
+    const students = adminArray(studentsRes.data);
+    let studentId = selectedStudentId || localStorage.getItem('selectedStudentForSubjects') || students[0]?.id || '';
+    if (!students.some(s => String(s.id) === String(studentId))) studentId = students[0]?.id || '';
+    let detail = null;
+    if (studentId) {
+        detail = await api.admin.getStudentSubjectSelection(studentId);
+        localStorage.setItem('selectedStudentForSubjects', String(studentId));
+    }
+    return { students, classes: adminArray(classesRes.data), studentId, detail: detail?.data || null };
+}
+function subjectLevelLabel(subject) {
+    const levels = subject.levelLabels || subject.levelCodes || [];
+    return Array.isArray(levels) && levels.length ? levels.join(', ') : (subject.levelLabel || subject.levelCode || 'Current class');
+}
+function renderSubjectSelectionRows(eligibleSubjects, selections) {
+    const selectedByName = new Map(adminArray(selections).map(row => [String(row.subjectName || row.name || '').toLowerCase(), row]));
+    if (!eligibleSubjects.length) {
+        return `<div class="rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-100 dark:border-yellow-700 p-5"><h3 class="font-semibold">No valid subjects found for this student class.</h3><p class="text-sm mt-1">Save the curriculum structure and Add Subjects checklist first. The new engine will not use old/manual subjects.</p></div>`;
+    }
+    const groups = new Map();
+    for (const subject of eligibleSubjects) {
+        const key = subject.category || 'subjects';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(subject);
+    }
+    return [...groups.entries()].map(([category, subjects]) => `<div class="rounded-xl border bg-card overflow-hidden"><div class="px-4 py-3 border-b bg-muted/30 flex items-center justify-between gap-3"><div><h3 class="font-semibold capitalize">${adminEsc(String(category).replace(/_/g, ' '))}</h3><p class="text-xs text-muted-foreground">Choose whether this learner is taking each subject.</p></div><span class="text-xs rounded-full border px-2 py-1">${subjects.length} subject(s)</span></div><div class="divide-y">${subjects.map(subject => {
+        const saved = selectedByName.get(String(subject.name || '').toLowerCase());
+        const defaultStatus = saved?.status || (subject.isCore || subject.category === 'compulsory' ? 'taking' : 'not_taken');
+        const data = { subjectId: subject.id, subjectName: subject.name, name: subject.name, category: subject.category || '', isCore: !!subject.isCore, isCompulsory: !!(subject.isCore || subject.category === 'compulsory'), isElective: !!subject.isOptional, pathway: subject.pathway || '', track: subject.track || '' };
+        const meta = `${subjectLevelLabel(subject)}${subject.pathway ? ' • ' + subject.pathway : ''}${subject.track ? ' • ' + subject.track : ''}`;
+        return `<div class="p-4 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-center"><div><p class="font-semibold">${adminEsc(subject.name)}</p><p class="text-xs text-muted-foreground">${adminEsc(meta)}</p></div><div>${adminSubjectStatusBadge(defaultStatus)}</div><select class="student-subject-status rounded-lg border bg-background px-3 py-2 text-sm" data-subject='${adminEsc(JSON.stringify(data))}'><option value="taking" ${defaultStatus === 'taking' || defaultStatus === 'taking_core' ? 'selected' : ''}>Taking / Counted if marked</option><option value="not_taken" ${defaultStatus === 'not_taken' ? 'selected' : ''}>Not Taken</option><option value="exempted" ${defaultStatus === 'exempted' ? 'selected' : ''}>Exempted</option><option value="pending_approval" ${defaultStatus === 'pending_approval' ? 'selected' : ''}>Pending Approval</option></select></div>`;
+    }).join('')}</div></div>`).join('');
+}
+async function renderAdminStudentSubjectSelection() {
+    try {
+        const selected = localStorage.getItem('selectedStudentForSubjects');
+        const { students, studentId, detail } = await loadAdminStudentSubjectPayload(selected);
+        const selectedStudent = students.find(s => String(s.id) === String(studentId));
+        const classItem = detail?.class || null;
+        const eligibleSubjects = adminArray(detail?.eligibleSubjects);
+        const selections = adminArray(detail?.selections);
+        const seniorLike = /grade\s*1[0-2]|year\s*1[0-3]|form\s*[3-4]|senior/i.test(`${classItem?.name || ''} ${classItem?.grade || ''} ${selectedStudent?.grade || ''}`);
+        const pathway = selections.find(s => s.pathway)?.pathway || '';
+        const track = selections.find(s => s.track)?.track || '';
+        return `<div class="space-y-6 animate-fade-in"><div class="rounded-2xl border bg-card p-6"><div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><h2 class="text-2xl font-bold">Student Subject Selection</h2><p class="text-sm text-muted-foreground mt-1">Controlled Grade 10–12 pathway/elective selection. Also works for any class where a learner has Not Taken or Exempted subjects.</p></div><button onclick="showDashboardSection('students')" class="px-4 py-2 rounded-lg border hover:bg-accent">Back to Students</button></div><div class="mt-5 grid gap-4 lg:grid-cols-3"><div class="lg:col-span-2"><label class="block text-sm font-medium mb-1">Select student</label><select id="student-subject-select" class="w-full rounded-lg border bg-background px-3 py-2" onchange="changeSubjectSelectionStudent(this.value)">${students.map(s => `<option value="${adminEsc(s.id)}" ${String(s.id) === String(studentId) ? 'selected' : ''}>${adminEsc(s.User?.name || s.name || 'Student')} — ${adminEsc(s.grade || 'No class')}</option>`).join('')}</select></div><div class="rounded-xl border bg-muted/30 p-4"><p class="text-xs text-muted-foreground">Current class</p><p class="font-bold">${adminEsc(classItem?.name || selectedStudent?.grade || 'No class detected')}</p><p class="text-xs text-muted-foreground mt-1">${eligibleSubjects.length} eligible subject(s)</p></div></div></div><div class="rounded-2xl border bg-card p-5"><div class="grid gap-4 lg:grid-cols-3"><div><label class="block text-sm font-medium mb-1">Pathway ${seniorLike ? '<span class="text-primary">(Senior)</span>' : '<span class="text-muted-foreground">(optional)</span>'}</label><select id="student-pathway" class="w-full rounded-lg border bg-background px-3 py-2">${['', 'STEM', 'Social Sciences', 'Arts & Sports Science', 'Custom'].map(p => `<option value="${adminEsc(p)}" ${pathway === p ? 'selected' : ''}>${p || 'Not selected'}</option>`).join('')}</select></div><div><label class="block text-sm font-medium mb-1">Track</label><input id="student-track" class="w-full rounded-lg border bg-background px-3 py-2" value="${adminEsc(track)}" placeholder="Pure Sciences, Applied Sciences, Humanities..."></div><div class="flex items-end"><div class="grid gap-2 w-full"><button onclick="saveStudentSubjectSelection('${adminEsc(studentId)}')" class="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Save Subject Selection</button><button onclick="v110AdminVerifySubjectSelection('${adminEsc(studentId)}')" class="w-full px-4 py-2 rounded-lg border hover:bg-accent">Verify Student Choice</button></div></div></div><p class="text-xs text-muted-foreground mt-3">Saving here controls teacher grading, report cards, Career Compass, and whether optional subjects count.</p></div><div class="space-y-4">${renderSubjectSelectionRows(eligibleSubjects, selections)}</div></div>`;
+    } catch (error) {
+        return `<div class="rounded-xl border bg-card p-8 text-red-500">Error loading subject selection: ${adminEsc(error.message)}</div>`;
+    }
+}
+function changeSubjectSelectionStudent(studentId) {
+    localStorage.setItem('selectedStudentForSubjects', String(studentId || ''));
+    showDashboardSection('student-subject-selection');
+}
+async function saveStudentSubjectSelection(studentId) {
+    if (!studentId) return showToast('Select a student first', 'error');
+    const pathway = document.getElementById('student-pathway')?.value || null;
+    const track = document.getElementById('student-track')?.value || null;
+    const subjects = [...document.querySelectorAll('.student-subject-status')].map(select => ({ ...JSON.parse(select.dataset.subject || '{}'), status: select.value, pathway: JSON.parse(select.dataset.subject || '{}').pathway || pathway, track: JSON.parse(select.dataset.subject || '{}').track || track }));
+    showLoading();
+    try {
+        const detail = await api.admin.getStudentSubjectSelection(studentId);
+        const classId = detail?.data?.class?.id || null;
+        await api.admin.saveStudentSubjectSelection(studentId, { classId, pathway, track, subjects });
+        showToast('Student subject selection saved.', 'success');
+        await showDashboardSection('student-subject-selection');
+    } catch (error) { showToast(error.message || 'Failed to save subject selection', 'error'); }
+    finally { hideLoading(); }
+}
+function renderAdminStudentSubjectToolbar(html) {
+    return `<div class="rounded-xl border bg-card p-4 mb-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"><div><h3 class="font-semibold">Senior / Elective Subject Selection</h3><p class="text-sm text-muted-foreground">Approve Grade 10–12 pathways, tracks, compulsory subjects, and electives.</p></div><button onclick="showDashboardSection('student-subject-selection')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Open Subject Selection</button></div></div>${html}`;
+}
+function renderAdminPaymentConfirmationCard() {
+    return `<div class="rounded-xl border bg-card p-5" id="payment-confirmation-card"><div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4"><div><h3 class="font-semibold text-lg">Submit Manual Payment Confirmation</h3><p class="text-sm text-muted-foreground mt-1">Use this when the school paid by M-Pesa reference, bank, or cash and it has not reflected automatically. Super admin will approve or reject it.</p></div><span class="text-xs rounded-full border px-3 py-1">Goes to Super Admin</span></div><div class="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3"><label class="block"><span class="text-sm font-medium">Amount Paid</span><input id="pay-amount" type="number" min="0" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="100000"></label><label class="block"><span class="text-sm font-medium">Method</span><select id="pay-method" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="mpesa">M-Pesa</option><option value="bank">Bank Transfer</option><option value="cash">Cash</option><option value="other">Other</option></select></label><label class="block"><span class="text-sm font-medium">Reference / Receipt</span><input id="pay-reference" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="M-Pesa code / bank ref"></label><label class="block"><span class="text-sm font-medium">Paid Date</span><input id="pay-date" type="date" value="${new Date().toISOString().slice(0,10)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="block"><span class="text-sm font-medium">Requested Plan</span><select id="pay-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school_starter">Starter</option><option value="school_growth" selected>Growth</option><option value="school_enterprise">Enterprise</option><option value="custom">Custom</option></select></label><label class="block"><span class="text-sm font-medium">Proof URL / Note</span><input id="pay-proof" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Optional screenshot URL"></label></div><label class="block mt-4"><span class="text-sm font-medium">Notes</span><textarea id="pay-notes" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Example: Paid from school Paybill at 10:32 AM but status did not update."></textarea></label><div class="mt-4 flex justify-end"><button onclick="submitPaymentConfirmation()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Submit for Confirmation</button></div></div>`;
+}
+async function submitPaymentConfirmation() {
+    const data = { amount: Number(document.getElementById('pay-amount')?.value || 0), method: document.getElementById('pay-method')?.value || 'mpesa', reference: document.getElementById('pay-reference')?.value || '', paidAt: document.getElementById('pay-date')?.value || new Date().toISOString(), requestedPlan: document.getElementById('pay-plan')?.value || 'school_growth', proofUrl: document.getElementById('pay-proof')?.value || '', notes: document.getElementById('pay-notes')?.value || '' };
+    if (!data.amount || data.amount <= 0) return showToast('Enter the amount paid', 'error');
+    if (!data.reference.trim()) return showToast('Enter the M-Pesa code, bank reference, or receipt number', 'error');
+    showLoading();
+    try { await api.admin.submitSchoolPaymentConfirmation(data); showToast('Payment confirmation submitted to super admin.', 'success'); ['pay-amount','pay-reference','pay-proof','pay-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); }
+    catch (error) { showToast(error.message || 'Failed to submit payment confirmation', 'error'); }
+    finally { hideLoading(); }
+}
+window.changeSubjectSelectionStudent = changeSubjectSelectionStudent;
+window.saveStudentSubjectSelection = saveStudentSubjectSelection;
+window.submitPaymentConfirmation = submitPaymentConfirmation;
+
+
+// ============ V107 INTEGRATED ADMIN PARENT MESSAGES ============
+async function renderAdminParentMessages() {
+    let conversations = [];
+    try { conversations = (await api.admin.getParentConversations()).data || []; } catch (e) { console.error(e); }
+    return `<div class="max-w-4xl mx-auto space-y-6 animate-fade-in"><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Parent Messages to Admin</h3><p class="text-sm text-muted-foreground">Only parent-admin conversations for this school appear here.</p></div><div class="divide-y">${conversations.length ? conversations.map(c => `<div class="p-4 hover:bg-accent cursor-pointer" onclick="openAdminParentConversation('${adminEsc(c.userId)}')"><div class="flex justify-between"><div><p class="font-medium">${adminEsc(c.userName)}</p><p class="text-xs text-muted-foreground">${c.studentName ? `about ${adminEsc(c.studentName)}` : 'Parent-admin conversation'}</p><p class="text-sm mt-1">${adminEsc((c.lastMessage || '').substring(0, 80))}</p></div><div class="text-right"><p class="text-xs">${typeof timeAgo === 'function' ? timeAgo(c.lastMessageTime) : ''}</p>${c.unreadCount ? `<span class="bg-red-500 text-white text-xs rounded-full px-2 py-1">${c.unreadCount}</span>` : ''}</div></div></div>`).join('') : '<div class="p-8 text-center text-muted-foreground">No parent-admin messages yet.</div>'}</div></div></div>`;
+}
+async function openAdminParentConversation(parentId) {
+    let messages = [];
+    try { messages = (await api.admin.getParentMessages(parentId)).data || []; } catch (e) { showToast(e.message || 'Failed to load messages', 'error'); }
+    let modal = document.getElementById('admin-parent-chat-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'admin-parent-chat-modal';
+        modal.className = 'fixed inset-0 z-50 hidden';
+        modal.innerHTML = `<div class="absolute inset-0 bg-black/50" onclick="closeAdminParentConversation()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl p-4"><div class="rounded-xl border bg-card p-6 shadow-xl"><div class="modal-content"></div></div></div>`;
+        document.body.appendChild(modal);
+    }
+    const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
+    modal.querySelector('.modal-content').innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeAdminParentConversation()" class="p-1">×</button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="admin-parent-chat-msgs">${messages.map(m => `<div class="flex ${Number(m.senderId) === Number(currentUser.id) ? 'justify-end' : 'justify-start'}"><div class="${Number(m.senderId) === Number(currentUser.id) ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${adminEsc(m.content)}</p><p class="text-xs mt-1">${typeof timeAgo === 'function' ? timeAgo(m.createdAt) : ''}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="admin-parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2 bg-background"><button onclick="sendAdminParentReply('${adminEsc(parentId)}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
+    modal.classList.remove('hidden');
+}
+function closeAdminParentConversation() { document.getElementById('admin-parent-chat-modal')?.classList.add('hidden'); }
+async function sendAdminParentReply(parentId) {
+    const input = document.getElementById('admin-parent-reply-input');
+    const message = input?.value?.trim();
+    if (!message) return;
+    try { await api.admin.replyToParent({ parentId, message }); input.value = ''; await openAdminParentConversation(parentId); }
+    catch (e) { showToast(e.message || 'Failed to send reply', 'error'); }
+}
+window.openAdminParentConversation = openAdminParentConversation;
+window.closeAdminParentConversation = closeAdminParentConversation;
+window.sendAdminParentReply = sendAdminParentReply;

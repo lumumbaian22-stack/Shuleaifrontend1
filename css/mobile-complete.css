@@ -1,0 +1,287 @@
+/* Shule AI V86 - Complete mobile responsive + performance layer
+   Additive CSS only. It does not change business logic, routes, fees, payments, tutor, or permissions. */
+
+:root {
+  --v86-mobile-header: 64px;
+  --v86-bottom-nav: 74px;
+  --v86-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --v86-radius: 18px;
+  --v86-touch: 46px;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+body { overscroll-behavior-y: contain; }
+
+/* Universal readable theme tokens for late-added sections. */
+.shule-mobile, .shule-mobile * { box-sizing: border-box; }
+.shule-mobile input, .shule-mobile select, .shule-mobile textarea, .shule-mobile button { font-size: 16px; }
+.shule-mobile button, .shule-mobile a, .shule-mobile [role="button"] { min-height: var(--v86-touch); }
+.shule-mobile img { max-width: 100%; height: auto; }
+.shule-mobile .hidden { display: none !important; }
+
+/* PHASE 1: global shell, sidebar, header, safe area */
+@media (max-width: 1023px) {
+  body.shule-mobile #dashboard-container { min-height: 100dvh; background: hsl(var(--background)); color: hsl(var(--foreground)); }
+  body.shule-mobile #dashboard-container .lg\:ml-64,
+  body.shule-mobile #dashboard-container > .lg\:ml-64 { margin-left: 0 !important; width: 100% !important; }
+  body.shule-mobile main.flex-1,
+  body.shule-mobile #dashboard-main,
+  body.shule-mobile .dashboard-main {
+    width: 100% !important;
+    max-width: 100vw !important;
+    padding: 14px !important;
+    padding-bottom: calc(var(--v86-bottom-nav) + var(--v86-safe-bottom) + 22px) !important;
+  }
+  body.shule-mobile #dashboard-content { width: 100%; min-width: 0; overflow-x: hidden; }
+
+  body.shule-mobile #sidebar {
+    width: min(88vw, 332px) !important;
+    max-width: 332px !important;
+    transform: translateX(-104%) !important;
+    transition: transform .22s ease;
+    box-shadow: 18px 0 48px rgba(2, 6, 23, .25);
+  }
+  body.shule-mobile #sidebar.mobile-open,
+  body.shule-mobile.mobile-sidebar-open #sidebar { transform: translateX(0) !important; }
+  body.shule-mobile #mobile-overlay.mobile-open,
+  body.shule-mobile.mobile-sidebar-open #mobile-overlay { display: block !important; opacity: 1 !important; }
+  body.shule-mobile.mobile-sidebar-open { overflow: hidden; }
+
+  body.shule-mobile header.sticky,
+  body.shule-mobile .dashboard-header,
+  body.shule-mobile #dashboard-header {
+    min-height: var(--v86-mobile-header);
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    gap: 8px !important;
+    background: color-mix(in oklab, hsl(var(--background)) 94%, transparent) !important;
+    backdrop-filter: blur(18px);
+  }
+  body.shule-mobile .dark header.sticky,
+  .dark body.shule-mobile header.sticky { background: color-mix(in oklab, hsl(var(--background)) 90%, transparent) !important; }
+  body.shule-mobile #page-title { font-size: 1rem !important; line-height: 1.15 !important; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.shule-mobile #global-search,
+  body.shule-mobile #search-results,
+  body.shule-mobile header .hidden.md\:flex { display: none !important; }
+  body.shule-mobile #user-name,
+  body.shule-mobile #user-menu .hidden.md\:block { display: none !important; }
+  body.shule-mobile #notification-btn,
+  body.shule-mobile [data-action="alerts"],
+  body.shule-mobile .notification-bell,
+  body.shule-mobile .alerts-bell { min-width: 44px; min-height: 44px; }
+
+  body.shule-mobile .mobile-bottom-nav {
+    position: fixed !important;
+    left: 0; right: 0; bottom: 0;
+    z-index: 45;
+    min-height: calc(var(--v86-bottom-nav) + var(--v86-safe-bottom));
+    padding-bottom: var(--v86-safe-bottom);
+    background: color-mix(in oklab, hsl(var(--background)) 92%, transparent);
+    border-top: 1px solid hsl(var(--border));
+    box-shadow: 0 -14px 34px rgba(15, 23, 42, .10);
+    backdrop-filter: blur(20px);
+  }
+  .dark body.shule-mobile .mobile-bottom-nav,
+  body.shule-mobile .dark .mobile-bottom-nav { box-shadow: 0 -14px 34px rgba(0,0,0,.38); }
+  body.shule-mobile #mobile-nav { min-height: var(--v86-bottom-nav); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; justify-content: flex-start !important; gap: 3px; padding: 0 8px; }
+  body.shule-mobile #mobile-nav::-webkit-scrollbar { display: none; }
+  body.shule-mobile #mobile-nav .mobile-nav-item { flex: 0 0 20%; min-width: 66px; max-width: 94px; border-radius: 17px; padding: 7px 3px; color: hsl(var(--muted-foreground)); text-decoration: none; }
+  body.shule-mobile #mobile-nav .mobile-nav-item.active { color: hsl(var(--primary)) !important; background: color-mix(in oklab, hsl(var(--primary)) 13%, transparent); }
+  body.shule-mobile #mobile-nav .mobile-nav-item span { max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
+}
+
+/* PHASE 2: high-priority dashboard layouts */
+@media (max-width: 767px) {
+  body.shule-mobile .grid,
+  body.shule-mobile [class*="grid-cols-2"],
+  body.shule-mobile [class*="grid-cols-3"],
+  body.shule-mobile [class*="grid-cols-4"],
+  body.shule-mobile [class*="md:grid-cols"],
+  body.shule-mobile [class*="lg:grid-cols"],
+  body.shule-mobile [class*="xl:grid-cols"],
+  body.shule-mobile .dashboard-grid,
+  body.shule-mobile .stats-grid,
+  body.shule-mobile .finance-grid,
+  body.shule-mobile .cards-grid,
+  body.shule-mobile .help-grid,
+  body.shule-mobile .alert-grid,
+  body.shule-mobile .teacher-dashboard-grid,
+  body.shule-mobile .parent-dashboard-grid,
+  body.shule-mobile .student-dashboard-grid,
+  body.shule-mobile .messages-grid { grid-template-columns: 1fr !important; }
+
+  body.shule-mobile .card,
+  body.shule-mobile .dashboard-card,
+  body.shule-mobile .stat-card,
+  body.shule-mobile .finance-card,
+  body.shule-mobile .student-card,
+  body.shule-mobile .teacher-card,
+  body.shule-mobile .homework-card,
+  body.shule-mobile .alert-card,
+  body.shule-mobile .help-card,
+  body.shule-mobile .subscription-card,
+  body.shule-mobile .message-card { max-width: 100%; border-radius: var(--v86-radius) !important; }
+
+  body.shule-mobile .teacher-dashboard table,
+  body.shule-mobile #teacher-dashboard table,
+  body.shule-mobile [data-dashboard="teacher"] table,
+  body.shule-mobile .attendance-table,
+  body.shule-mobile .marks-table,
+  body.shule-mobile .homework-submissions-table { font-size: .95rem; }
+
+  body.shule-mobile .teacher-attendance-card,
+  body.shule-mobile .teacher-homework-card,
+  body.shule-mobile .teacher-marks-card,
+  body.shule-mobile .v86-teacher-action-card {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--v86-radius);
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+  }
+
+  body.shule-mobile .parent-child-switcher,
+  body.shule-mobile .child-selector,
+  body.shule-mobile .student-selector,
+  body.shule-mobile .finance-toolbar,
+  body.shule-mobile .alert-filter-bar,
+  body.shule-mobile .messages-filter-bar {
+    display: flex !important;
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    gap: 8px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.shule-mobile .parent-child-switcher > *,
+  body.shule-mobile .child-selector > *,
+  body.shule-mobile .student-selector > *,
+  body.shule-mobile .finance-toolbar > *,
+  body.shule-mobile .alert-filter-bar > * { flex: 0 0 auto; white-space: nowrap; }
+
+  body.shule-mobile #finance-fees-section .finance-summary,
+  body.shule-mobile .finance-v31 .finance-summary,
+  body.shule-mobile #finance-fees-section .stats-grid,
+  body.shule-mobile .finance-v31 .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+
+  body.shule-mobile #ai-tutor-section,
+  body.shule-mobile .ai-tutor-section,
+  body.shule-mobile .student-ai-tutor { min-height: calc(100dvh - var(--v86-mobile-header) - var(--v86-bottom-nav) - 36px); display: flex; flex-direction: column; }
+  body.shule-mobile .ai-chat-messages,
+  body.shule-mobile #ai-chat-messages,
+  body.shule-mobile .tutor-messages { flex: 1 1 auto; max-height: calc(100dvh - 250px) !important; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  body.shule-mobile .ai-chat-input,
+  body.shule-mobile .tutor-input-bar { position: sticky; bottom: calc(var(--v86-bottom-nav) + var(--v86-safe-bottom)); background: hsl(var(--background)); border-top: 1px solid hsl(var(--border)); padding: 10px 0 0; }
+
+  body.shule-mobile .message-thread,
+  body.shule-mobile .chat-thread,
+  body.shule-mobile #messages-section { max-width: 100%; }
+  body.shule-mobile .message-composer,
+  body.shule-mobile .chat-composer { position: sticky; bottom: calc(var(--v86-bottom-nav) + var(--v86-safe-bottom)); background: hsl(var(--background)); border-top: 1px solid hsl(var(--border)); padding-top: 10px; }
+}
+
+/* PHASE 2/5: table-to-card with pagination support */
+@media (max-width: 720px) {
+  body.shule-mobile table.shule-mobile-card-table { display: block; width: 100%; border: 0 !important; }
+  body.shule-mobile table.shule-mobile-card-table thead { display: none !important; }
+  body.shule-mobile table.shule-mobile-card-table tbody,
+  body.shule-mobile table.shule-mobile-card-table tr,
+  body.shule-mobile table.shule-mobile-card-table td { display: block; width: 100%; }
+  body.shule-mobile table.shule-mobile-card-table tr {
+    margin: 0 0 12px; padding: 13px; border: 1px solid hsl(var(--border)); border-radius: var(--v86-radius);
+    background: hsl(var(--card)); color: hsl(var(--card-foreground)); box-shadow: 0 9px 24px rgba(15,23,42,.07);
+  }
+  .dark body.shule-mobile table.shule-mobile-card-table tr { box-shadow: 0 9px 24px rgba(0,0,0,.28); }
+  body.shule-mobile table.shule-mobile-card-table td {
+    border: 0 !important; padding: 8px 0 !important; min-height: 34px;
+    display: grid; grid-template-columns: minmax(106px, 38%) 1fr; gap: 10px; align-items: start; word-break: break-word;
+  }
+  body.shule-mobile table.shule-mobile-card-table td::before {
+    content: attr(data-label); font-weight: 800; color: hsl(var(--muted-foreground)); font-size: .76rem; text-transform: uppercase; letter-spacing: .02em;
+  }
+  body.shule-mobile table.shule-mobile-card-table td:empty { display: none; }
+  body.shule-mobile table.shule-mobile-card-table td:last-child { border-top: 1px solid hsl(var(--border)) !important; padding-top: 12px !important; margin-top: 4px; }
+  body.shule-mobile table.shule-mobile-card-table td:last-child::before { content: "Actions"; }
+  body.shule-mobile tr.v86-row-hidden { display: none !important; }
+  body.shule-mobile .v86-load-more { width: 100%; margin: 8px 0 18px; min-height: 48px; border-radius: 16px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); font-weight: 700; }
+}
+
+/* PHASE 3: forms and modals */
+@media (max-width: 767px) {
+  body.shule-mobile form,
+  body.shule-mobile .form-grid,
+  body.shule-mobile .modal-form,
+  body.shule-mobile .finance-form,
+  body.shule-mobile .payment-form,
+  body.shule-mobile .announcement-form,
+  body.shule-mobile .profile-form,
+  body.shule-mobile .attendance-form,
+  body.shule-mobile .marks-form,
+  body.shule-mobile .homework-form,
+  body.shule-mobile .v86-mobile-form { grid-template-columns: 1fr !important; }
+
+  body.shule-mobile input,
+  body.shule-mobile select,
+  body.shule-mobile textarea { width: 100%; min-height: var(--v86-touch); border-radius: 13px; }
+  body.shule-mobile textarea { min-height: 112px; }
+  body.shule-mobile .form-actions,
+  body.shule-mobile .modal-actions,
+  body.shule-mobile .finance-actions,
+  body.shule-mobile .payment-actions,
+  body.shule-mobile .announcement-actions,
+  body.shule-mobile .v86-sticky-actions {
+    position: sticky; bottom: 0; z-index: 3; padding: 12px 0 0; background: hsl(var(--card)); border-top: 1px solid hsl(var(--border)); display: grid !important; grid-template-columns: 1fr !important; gap: 9px !important;
+  }
+  body.shule-mobile .form-actions button,
+  body.shule-mobile .modal-actions button,
+  body.shule-mobile .finance-actions button,
+  body.shule-mobile .payment-actions button,
+  body.shule-mobile .announcement-actions button,
+  body.shule-mobile .v86-sticky-actions button { width: 100%; min-height: 48px; }
+}
+
+@media (max-width: 640px) {
+  body.shule-mobile [id$="modal"], body.shule-mobile [id$="-modal"], body.shule-mobile .modal, body.shule-mobile .shule-modal, body.shule-mobile .finance-modal, body.shule-mobile .help-modal, body.shule-mobile .alert-modal { align-items: flex-end !important; }
+  body.shule-mobile [id$="modal"] > div:not(:first-child), body.shule-mobile [id$="-modal"] > div:not(:first-child), body.shule-mobile .modal > div, body.shule-mobile .shule-modal > div, body.shule-mobile .finance-modal > div, body.shule-mobile .help-modal > div, body.shule-mobile .alert-modal > div {
+    width: 100% !important; max-width: 100% !important; max-height: 92dvh !important; overflow-y: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; transform: none !important; padding: 12px !important;
+  }
+  body.shule-mobile .shule-mobile-ready-modal .rounded-xl,
+  body.shule-mobile .shule-mobile-ready-modal .rounded-2xl,
+  body.shule-mobile [id$="modal"] .rounded-xl, body.shule-mobile [id$="modal"] .rounded-2xl, body.shule-mobile [id$="-modal"] .rounded-xl, body.shule-mobile [id$="-modal"] .rounded-2xl { border-radius: 24px 24px 0 0 !important; }
+  body.shule-mobile .v86-modal-handle { width: 44px; height: 5px; border-radius: 999px; background: hsl(var(--muted-foreground) / .35); margin: 0 auto 10px; }
+}
+
+/* Complete theme hardening for finance, alerts, help and mobile cards. */
+#finance-fees-section, .finance-fees-section, .finance-v31, [data-section="finance-fees"],
+#alerts-section, .alert-center, .shule-alert-center,
+#help-section, .help-center, .help-support-section { color: hsl(var(--foreground)); }
+
+.dark #finance-fees-section, .dark .finance-fees-section, .dark .finance-v31, .dark [data-section="finance-fees"],
+.dark #alerts-section, .dark .alert-center, .dark .shule-alert-center,
+.dark #help-section, .dark .help-center, .dark .help-support-section { background: hsl(var(--background)) !important; color: hsl(var(--foreground)) !important; }
+
+.dark #finance-fees-section .bg-white, .dark .finance-v31 .bg-white, .dark .finance-v31-card, .dark .finance-card, .dark .payment-card, .dark .fee-card,
+.dark .alert-card, .dark .help-card, .dark .support-card, .dark .v86-mobile-card { background-color: hsl(var(--card)) !important; color: hsl(var(--card-foreground)) !important; border-color: hsl(var(--border)) !important; }
+
+.dark #finance-fees-section input, .dark #finance-fees-section select, .dark #finance-fees-section textarea, .dark .finance-v31 input, .dark .finance-v31 select, .dark .finance-v31 textarea,
+.dark #help-section input, .dark #help-section select, .dark #help-section textarea,
+.dark #alerts-section input, .dark #alerts-section select, .dark #alerts-section textarea { background-color: hsl(var(--background)) !important; color: hsl(var(--foreground)) !important; border-color: hsl(var(--border)) !important; }
+
+.dark #finance-fees-section table, .dark .finance-v31 table, .dark #finance-fees-section th, .dark .finance-v31 th, .dark #finance-fees-section td, .dark .finance-v31 td { background-color: transparent !important; color: hsl(var(--foreground)) !important; border-color: hsl(var(--border)) !important; }
+.dark #finance-fees-section .text-gray-900, .dark #finance-fees-section .text-slate-900, .dark #finance-fees-section .text-black, .dark .finance-v31 .text-gray-900, .dark .finance-v31 .text-slate-900, .dark .finance-v31 .text-black { color: hsl(var(--foreground)) !important; }
+.dark #finance-fees-section .text-gray-600, .dark #finance-fees-section .text-gray-500, .dark #finance-fees-section .text-slate-500, .dark .finance-v31 .text-gray-600, .dark .finance-v31 .text-gray-500, .dark .finance-v31 .text-slate-500 { color: hsl(var(--muted-foreground)) !important; }
+
+/* PHASE 4: PWA prompt / standalone polish */
+body.shule-pwa-standalone .mobile-bottom-nav { padding-bottom: max(var(--v86-safe-bottom), 10px); }
+#shule-pwa-install-card { position: fixed; left: 14px; right: 14px; bottom: calc(var(--v86-bottom-nav) + var(--v86-safe-bottom) + 12px); z-index: 60; display: none; background: hsl(var(--card)); color: hsl(var(--card-foreground)); border: 1px solid hsl(var(--border)); border-radius: 20px; box-shadow: 0 18px 48px rgba(15,23,42,.22); padding: 14px; }
+#shule-pwa-install-card.show { display: block; }
+@media (min-width: 768px) { #shule-pwa-install-card { left: auto; width: 390px; bottom: 24px; } }
+
+/* PHASE 5: perceived performance and low-end-device friendliness */
+.v86-skeleton { position: relative; overflow: hidden; background: hsl(var(--muted)); border-radius: 14px; min-height: 44px; }
+.v86-skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, hsl(var(--background) / .42), transparent); animation: v86-skeleton 1.2s infinite; }
+@keyframes v86-skeleton { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; } }

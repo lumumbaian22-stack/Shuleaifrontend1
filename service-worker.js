@@ -1,5 +1,5 @@
 /* Shule AI V114 service worker - conservative PWA shell cache */
-const CACHE_NAME = 'shule-ai-v127-ai-parent-plan-alignment';
+const CACHE_NAME = 'shule-ai-v128-frontend-root-deploy-fix';
 const APP_SHELL = [
   '/',
   '/index.html',
