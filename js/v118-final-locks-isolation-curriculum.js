@@ -6,13 +6,13 @@
 
   const PLAN_FEATURES = {
     starter: ['dashboard','teachers','teacher_approvals','students','analytics','alerts','finance_fees','parent_messages','school_settings','billing','classes','report_cards'],
-    growth: ['dashboard','teachers','teacher_approvals','students','analytics','alerts','finance_fees','parent_messages','school_settings','billing','classes','report_cards','calendar','school_branding','timetable'],
-    enterprise: ['dashboard','teachers','teacher_approvals','students','analytics','alerts','finance_fees','parent_messages','school_settings','billing','classes','report_cards','calendar','school_branding','timetable','duty','fairness_report','departments','bulk_sms','senior_subject_choice']
+    growth: ['dashboard','teachers','teacher_approvals','students','analytics','alerts','finance_fees','parent_messages','school_settings','billing','classes','report_cards','calendar','school_branding','timetable','homework'],
+    enterprise: ['dashboard','teachers','teacher_approvals','students','analytics','alerts','finance_fees','parent_messages','school_settings','billing','classes','report_cards','calendar','school_branding','timetable','homework','duty','fairness_report','departments','bulk_sms','senior_subject_choice']
   };
   const SECTION_FEATURE = {
-    calendar:'calendar', timetable:'timetable', 'my-timetable':'timetable', schedule:'timetable', duty:'duty', 'duty-preferences':'duty', departments:'departments', sms:'bulk_sms', 'fairness-report':'fairness_report', 'teacher-workload':'fairness_report', 'school-branding':'school_branding', 'student-subject-selection':'senior_subject_choice', 'subject-choice':'senior_subject_choice', 'subject-selection':'senior_subject_choice', 'subject-requests':'senior_subject_choice', 'subscription-billing':'billing', payments:'billing', 'finance-fees':'finance_fees', 'fee-structures':'finance_fees', 'payment-settings':'finance_fees', alerts:'alerts', 'parent-messages':'parent_messages', students:'students', teachers:'teachers', classes:'classes', analytics:'analytics', settings:'school_settings'
+    calendar:'calendar', homework:'homework', 'my-homework':'homework', timetable:'timetable', 'my-timetable':'timetable', schedule:'timetable', duty:'duty', 'duty-preferences':'duty', departments:'departments', sms:'bulk_sms', 'fairness-report':'fairness_report', 'teacher-workload':'fairness_report', 'school-branding':'school_branding', 'student-subject-selection':'senior_subject_choice', 'subject-choice':'senior_subject_choice', 'subject-selection':'senior_subject_choice', 'subject-requests':'senior_subject_choice', 'subscription-billing':'billing', payments:'billing', 'finance-fees':'finance_fees', 'fee-structures':'finance_fees', 'payment-settings':'finance_fees', alerts:'alerts', 'parent-messages':'parent_messages', students:'students', teachers:'teachers', classes:'classes', analytics:'analytics', settings:'school_settings'
   };
-  const SCHOOL_DEFAULT_BRANDING = { schoolName:'Shule AI', displayName:'Shule AI', name:'Shule AI', logo:null, logoUrl:null, logoDataUrl:null, primaryColor:'#083A85', accentColor:'#11B5B1', colorName:'Shule Blue' };
+  const SCHOOL_DEFAULT_BRANDING = { schoolName:'Shule AI', displayName:'Shule AI', name:'Shule AI', logo:'assets/logo.png', logoUrl:'assets/logo.png', logoDataUrl:null, primaryColor:'#083A85', accentColor:'#11B5B1', colorName:'Shule Blue' };
   function esc(v){ if(typeof escapeHtml==='function') return escapeHtml(v); const d=document.createElement('div'); d.textContent=String(v??''); return d.innerHTML; }
   function role(){ return String((typeof getCurrentRole==='function'?getCurrentRole():localStorage.getItem('userRole')||'')||'').toLowerCase().replace('-', '_'); }
   function schoolPlan(){ const s=window.ShulePlanState||{}; const raw=String(s.planCode||s.currentPlan||s.schoolTier||'starter').toLowerCase().replace(/^school_/, ''); if(raw.includes('enterprise')) return 'enterprise'; if(raw.includes('growth')) return 'growth'; return 'starter'; }
@@ -37,7 +37,7 @@
     window.schoolBranding={...(window.schoolBranding||{}),...SCHOOL_DEFAULT_BRANDING};
     try{ localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); }catch(_){ }
     document.querySelectorAll('#sidebar-school-name,.school-name,.school-name-display,[data-school-name]').forEach(el=>{ el.textContent='Shule AI'; el.setAttribute('title','Shule AI'); });
-    document.querySelectorAll('[data-school-logo],.school-logo,.sidebar-logo,img[data-branding-logo-preview]').forEach(img=>{ if(img.tagName==='IMG') img.removeAttribute('src'); });
+    document.querySelectorAll('[data-school-logo],.school-logo,.sidebar-logo,img[data-branding-logo-preview]').forEach(img=>{ if(img.tagName==='IMG') { img.setAttribute('src','assets/logo.png'); img.onerror=()=>img.setAttribute('src','assets/logo.png'); } });
     if(window.BrandingManager?.apply) setTimeout(()=>window.BrandingManager.apply('Shule AI',{force:true}),10);
   }
   function pruneUnavailable(root=document){
