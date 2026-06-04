@@ -236,9 +236,18 @@ let schoolUpdateCallbacks = [];
 let clickCount = 0;
 
 // ============ SCHOOL SETTINGS ============
+
+function v129SchoolCodeForCache() {
+    try {
+        const u = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
+        const school = JSON.parse(localStorage.getItem('school') || '{}');
+        return String(u?.schoolCode || school?.schoolCode || school?.schoolId || 'unknown-school').trim() || 'unknown-school';
+    } catch (_) { return 'unknown-school'; }
+}
+function v129SchoolCacheKey(base) { return `${base}:${v129SchoolCodeForCache()}`; }
 async function loadSchoolSettings() {
     try {
-        const cached = localStorage.getItem('schoolSettings');
+        const cached = localStorage.getItem(v129SchoolCacheKey('schoolSettings')) || localStorage.getItem('schoolSettings');
         if (cached) {
             try {
                 const parsed = JSON.parse(cached);
@@ -268,6 +277,7 @@ async function loadSchoolSettings() {
                 window.schoolSettings.schoolLevel = response.data.settings?.schoolLevel || 'both';
                 window.customSubjects = response.data.settings?.customSubjects || [];
                 localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
+                localStorage.setItem(v129SchoolCacheKey('schoolSettings'), JSON.stringify(window.schoolSettings));
                 console.log('✅ School settings loaded from API');
                 return window.schoolSettings;
             }
@@ -294,6 +304,7 @@ async function saveSchoolSettings(settings) {
             schoolSettings = response.data;
             customSubjects = response.data.customSubjects || [];
             localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            localStorage.setItem(v129SchoolCacheKey('schoolSettings'), JSON.stringify(response.data));
             showToast('Settings saved successfully!', 'success');
             await showDashboardSection(currentSection);
         }
@@ -338,14 +349,14 @@ function showTermsModal() {
     titleEl.textContent = 'Accept Terms';
     contentEl.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm">Please read and accept the required documents to continue.</p>
-            <div class="grid gap-2 text-sm">
-                <a class="text-primary underline" href="/legal/terms.html" target="_blank" rel="noopener">Open Terms of Service</a>
-                <a class="text-primary underline" href="/legal/privacy.html" target="_blank" rel="noopener">Open Privacy Policy</a>
+            <p class="text-sm">Please accept the Terms of Service and Privacy Policy to continue.</p>
+            <div class="text-xs flex flex-wrap gap-3">
+                <a class="text-primary underline" href="/legal/terms.html" target="_blank" rel="noopener">Read Terms of Service</a>
+                <a class="text-primary underline" href="/legal/privacy.html" target="_blank" rel="noopener">Read Privacy Policy</a>
             </div>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-terms" class="mt-1 rounded">
-                <label for="modal-terms" class="text-xs">I have read and accept the Terms of Service and Privacy Policy</label>
+                <label for="modal-terms" class="text-xs">I accept the Terms of Service and Privacy Policy</label>
             </div>
             <div class="flex justify-end gap-2">
                 <button onclick="logout()" class="px-4 py-2 border rounded-lg">Logout</button>
@@ -381,8 +392,8 @@ function showDPAModal() {
     titleEl.textContent = 'Data Processing Agreement';
     contentEl.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm">As a school administrator, you must accept the Data Processing Agreement (DPA) before managing student data.</p>
-            <a class="text-primary underline text-sm" href="/legal/dpa.html" target="_blank" rel="noopener">Open Data Processing Agreement</a>
+            <p class="text-sm">As a school administrator, you must accept the Data Processing Agreement (DPA) to manage student data.</p>
+            <div class="text-xs"><a class="text-primary underline" href="/legal/dpa.html" target="_blank" rel="noopener">Read Data Processing Agreement</a></div>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-dpa" class="mt-1 rounded">
                 <label for="modal-dpa" class="text-xs">I have read and accept the Data Processing Agreement</label>
@@ -470,7 +481,7 @@ async function showDashboard(role) {
     if (role === 'admin' || role === 'superadmin' || role === 'teacher') {
         await loadSchoolSettings();
     } else {
-        const cached = localStorage.getItem('schoolSettings');
+        const cached = localStorage.getItem(v129SchoolCacheKey('schoolSettings')) || localStorage.getItem('schoolSettings');
         if (cached) {
             try {
                 schoolSettings = JSON.parse(cached);
@@ -613,6 +624,7 @@ async function showDashboardSection(section) {
             'duty-preferences': 'Duty Preferences',
             'fairness-report': 'Fairness Report',
             'teacher-workload': 'Teacher Workload',
+            'report-settings': 'Assessment & Report Card Settings',
             alerts: 'Alerts Center',
             'parent-messages': 'Parent Messages',
             'career-path': 'Career Path'
@@ -655,9 +667,6 @@ async function showDashboardSection(section) {
                     initRoleCharts(currentRole, dashboardData);
                 }
             }, 300);
-        }
-        if (currentRole === 'parent' && section === 'competency') {
-            setTimeout(() => { if (typeof window.initParentCompetencyChart === 'function') window.initParentCompetencyChart(); }, 100);
         }
 
         setupSectionListeners(currentRole, section);

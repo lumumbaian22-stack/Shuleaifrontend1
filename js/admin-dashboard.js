@@ -696,27 +696,13 @@ function renderAdminDashboard() {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Delivery Method</label>
-                            <select id="announcement-channel" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" onchange="updateAnnouncementSmsEstimate && updateAnnouncementSmsEstimate()">
-                                <option value="platform">Platform alert only</option>
-                                <option value="sms">SMS only</option>
-                                <option value="both">Both platform alert + SMS</option>
-                            </select>
+                            <label class="block text-sm font-medium mb-1">Title</label>
+                            <input type="text" id="announcement-title" placeholder="Announcement Title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                         </div>
-                    </div>
-                    <div id="announcement-sms-estimate" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">SMS selected. Token usage will be estimated after recipients are resolved.</div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Title</label>
-                        <input type="text" id="announcement-title" placeholder="Announcement Title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                    </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Brief description / message</label>
                         <textarea id="announcement-message" rows="4" placeholder="Example: Tell Grade 4 parents that Term 2 balances should be cleared by Friday and thank them for support." class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Optional key points for AI</label>
-                        <textarea id="announcement-key-points" rows="2" placeholder="Example: deadline Friday, pay via school account, thank parents" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"></textarea>
                     </div>
                     <div id="announcement-ai-suggestion-panel" class="hidden rounded-xl border bg-muted/30 p-3 text-sm space-y-2"></div>
                     <div class="grid gap-2 md:grid-cols-2">
@@ -2203,95 +2189,3 @@ async function sendAdminParentReply(parentId) {
 window.openAdminParentConversation = openAdminParentConversation;
 window.closeAdminParentConversation = closeAdminParentConversation;
 window.sendAdminParentReply = sendAdminParentReply;
-
-
-// Final locked announcement flow override: guided AI suggestions + platform/SMS/both sending.
-function updateAnnouncementSmsEstimate() {
-    const channel = document.getElementById('announcement-channel')?.value || 'platform';
-    const box = document.getElementById('announcement-sms-estimate');
-    if (!box) return;
-    box.classList.toggle('hidden', channel === 'platform');
-    if (channel !== 'platform') {
-        const tokens = window.__smsTokenBalance ?? 'available';
-        box.textContent = `SMS selected. Tokens remaining: ${tokens}. Tokens reduce when SMS is actually sent.`;
-    }
-}
-
-async function generateAnnouncementSuggestion() {
-    const purpose = document.getElementById('announcement-ai-topic')?.value || 'General announcement';
-    const tone = document.getElementById('announcement-ai-tone')?.value || 'Professional';
-    const audience = document.getElementById('announcement-recipients')?.value || 'all_parents';
-    const channel = document.getElementById('announcement-channel')?.value || 'platform';
-    const description = document.getElementById('announcement-message')?.value.trim() || '';
-    const keyPoints = document.getElementById('announcement-key-points')?.value.trim() || '';
-    const panel = document.getElementById('announcement-ai-suggestion-panel');
-    if (!description && !keyPoints) { showToast('Add a short message or key points first.', 'error'); return; }
-    if (panel) { panel.classList.remove('hidden'); panel.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><span class="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span> Generating 2-3 ready message options...</div>'; }
-    try {
-        const payload = { audience, purpose, topic: purpose, tone, channel, description, keyPoints, requireOptions: true, versions: ['platform','sms'], count: 3,
-            extraContext: { classId: document.getElementById('announcement-class')?.value || null, parentId: document.getElementById('announcement-parent')?.value || null } };
-        const res = await (api?.alerts?.suggestAnnouncement ? api.alerts.suggestAnnouncement(payload) : apiRequest('/api/alerts/suggest-announcement', { method:'POST', body: JSON.stringify(payload) }));
-        const data = res.data || {};
-        const rawOptions = Array.isArray(data.options) ? data.options : [];
-        const fallback = { title: data.title || `${purpose} Notice`, platformMessage: data.platformMessage || data.message || description || keyPoints, smsMessage: data.smsMessage || data.sms || (data.message || description || keyPoints).slice(0, 150) };
-        const options = (rawOptions.length ? rawOptions : [fallback, ...(Array.isArray(data.alternatives) ? data.alternatives.slice(0,2).map((a,i)=>({ title: `${purpose} Option ${i+2}`, platformMessage: String(a), smsMessage: String(a).slice(0,150) })) : [])]).slice(0,3);
-        if (panel) {
-            panel.innerHTML = `<div class="space-y-3"><p class="text-xs font-semibold text-muted-foreground">Choose one, edit it, then press Send manually. AI does not auto-send.</p>${options.map((opt, i) => {
-                const title = opt.title || `${purpose} Option ${i+1}`;
-                const platform = opt.platformMessage || opt.message || opt.platform || '';
-                const sms = opt.smsMessage || opt.sms || String(platform).slice(0,150);
-                const safePayload = encodeURIComponent(JSON.stringify({ title, platform, sms }));
-                return `<div class="rounded-xl border bg-background p-3 space-y-2"><div class="flex items-center justify-between gap-2"><b>Option ${i+1}: ${escapeHtml(title)}</b><button type="button" class="text-xs px-3 py-1 rounded bg-primary text-primary-foreground" onclick="useAnnouncementSuggestion('${safePayload}')">Use this</button></div><div class="text-xs"><b>Platform alert:</b><p class="whitespace-pre-line mt-1">${escapeHtml(platform)}</p></div><div class="text-xs rounded-lg bg-muted/40 p-2"><b>SMS version:</b> ${escapeHtml(sms)}</div></div>`;
-            }).join('')}</div>`;
-        }
-        showToast('AI suggestions ready. Pick one and review before sending.', 'success');
-    } catch (error) {
-        if (panel) panel.innerHTML = `<p class="text-red-600">${escapeHtml(error.message || 'Could not generate suggestions')}</p>`;
-        showToast(error.message || 'Could not generate Shule AI suggestions', 'error');
-    }
-}
-
-function useAnnouncementSuggestion(encoded) {
-    try {
-        const opt = JSON.parse(decodeURIComponent(encoded));
-        const channel = document.getElementById('announcement-channel')?.value || 'platform';
-        document.getElementById('announcement-title').value = opt.title || '';
-        document.getElementById('announcement-message').value = channel === 'sms' ? (opt.sms || opt.platform || '') : (opt.platform || opt.sms || '');
-        const key = document.getElementById('announcement-key-points');
-        if (key) key.value = opt.sms || '';
-        showToast('Suggestion inserted. Review/edit before sending.', 'info');
-    } catch (e) { showToast('Could not use that suggestion', 'error'); }
-}
-
-async function sendAnnouncement() {
-    const recipientType = document.getElementById('announcement-recipients')?.value || 'all_parents';
-    const title = document.getElementById('announcement-title')?.value.trim();
-    const message = document.getElementById('announcement-message')?.value.trim();
-    const channel = document.getElementById('announcement-channel')?.value || 'platform';
-    if (!title || !message) { showToast('Please enter a title and message', 'error'); return; }
-    showLoading();
-    try {
-        const payload = { audience: recipientType, recipientType, title, message, channel, classId: document.getElementById('announcement-class')?.value || null, parentId: document.getElementById('announcement-parent')?.value || null, source: 'admin_announcement' };
-        if (api?.alerts?.sendAnnouncement) {
-            const res = await api.alerts.sendAnnouncement(payload);
-            showToast(res.message || 'Announcement sent', 'success');
-        } else if (channel === 'platform') {
-            await apiRequest('/api/alerts/announcements', { method:'POST', body: JSON.stringify(payload) }).catch(async () => apiRequest('/api/alerts', { method:'POST', body: JSON.stringify({ type:'system', category:'Announcement', severity:'info', title, message, data:{ audience: recipientType, sourceLabel:'Admin Announcement' } }) }));
-            showToast('Platform announcement sent', 'success');
-        } else {
-            await apiRequest('/api/alerts/announcements', { method:'POST', body: JSON.stringify(payload) }).catch(async () => apiRequest('/api/sms/send', { method:'POST', body: JSON.stringify({ audience: recipientType, message: `${title}: ${message}`, classId: payload.classId, parentId: payload.parentId }) }));
-            showToast(channel === 'both' ? 'Announcement and SMS sent/queued' : 'SMS sent/queued', 'success');
-        }
-        document.getElementById('announcement-title').value = '';
-        document.getElementById('announcement-message').value = '';
-        const kp = document.getElementById('announcement-key-points'); if (kp) kp.value = '';
-        const panel = document.getElementById('announcement-ai-suggestion-panel'); if (panel) panel.classList.add('hidden');
-    } catch (error) {
-        showToast(error.message || 'Failed to send announcement', 'error');
-    } finally { hideLoading(); }
-}
-
-window.updateAnnouncementSmsEstimate = updateAnnouncementSmsEstimate;
-window.generateAnnouncementSuggestion = generateAnnouncementSuggestion;
-window.useAnnouncementSuggestion = useAnnouncementSuggestion;
-window.sendAnnouncement = sendAnnouncement;

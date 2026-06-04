@@ -85,21 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    const secretTrigger = document.getElementById('secret-logo-trigger');
-    if (secretTrigger) {
-        secretTrigger.addEventListener('click', () => {
-            clickCount++;
-            if (clickCount === 3) {
-                const superAdminCard = document.getElementById('superadmin-role-card');
-                if (superAdminCard) {
-                    superAdminCard.classList.remove('hidden');
-                    showToast('Super Admin access granted', 'info');
-                }
-                clickCount = 0;
-            }
-            setTimeout(() => clickCount = 0, 2000);
-        });
-    }
+    // v129: secret super-admin trigger is owned by landing-premium.js (#super-admin-trigger, 5 clicks).
 
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('bg-black/50')) {

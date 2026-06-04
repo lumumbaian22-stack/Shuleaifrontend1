@@ -1,10 +1,11 @@
-/* Shule AI V128 service worker - complete app shell cache, API-safe */
-const CACHE_NAME = 'shule-ai-v128-full-locked-final-fix';
+/* Shule AI V129 service worker - final locked PWA shell cache */
+const CACHE_NAME = 'shule-ai-v129-final-locked-fixed';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/offline.html',
   '/manifest.json',
+  '/service-worker.js',
   '/css/approved-student-teacher-ui.css',
   '/css/approved-visuals.css',
   '/css/chat-v9.css',
@@ -43,6 +44,7 @@ const APP_SHELL = [
   '/js/duty-points.js',
   '/js/duty-ui.js',
   '/js/duty.js',
+  '/js/final-locked-v129.js',
   '/js/finance-fees.js',
   '/js/global-profile.js',
   '/js/global-realtime-sync.js',
@@ -81,7 +83,11 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL.map(url => new Request(url, { cache: 'reload' })))).catch(() => null));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL.map(url => new Request(url, { cache: 'reload' }))))
+      .catch(() => null)
+  );
   self.skipWaiting();
 });
 
@@ -93,22 +99,27 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
+
   if (req.method !== 'GET') return;
   if (url.pathname.startsWith('/api/') || url.hostname.includes('onrender.com')) return;
 
   if (req.mode === 'navigate') {
-    event.respondWith(fetch(req).then(response => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put('/index.html', copy)).catch(() => null);
-      return response;
-    }).catch(() => caches.match('/index.html').then(r => r || caches.match('/offline.html'))));
+    event.respondWith(
+      fetch(req).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put('/index.html', copy)).catch(() => null);
+        return response;
+      }).catch(() => caches.match('/offline.html').then(page => page || caches.match('/index.html')))
+    );
     return;
   }
 
-  event.respondWith(caches.match(req).then(cached => cached || fetch(req).then(response => {
-    if (!response || response.status !== 200 || response.type === 'opaque') return response;
-    const copy = response.clone();
-    caches.open(CACHE_NAME).then(cache => cache.put(req, copy)).catch(() => null);
-    return response;
-  }).catch(() => cached)));
+  event.respondWith(
+    caches.match(req).then(cached => cached || fetch(req).then(response => {
+      if (!response || response.status !== 200 || response.type === 'opaque') return response;
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(req, copy)).catch(() => null);
+      return response;
+    }).catch(() => cached))
+  );
 });

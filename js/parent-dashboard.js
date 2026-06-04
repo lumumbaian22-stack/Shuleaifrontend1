@@ -122,9 +122,8 @@ async function renderParentCompetency() {
     competency: comp.name,
     averageLevel: comp.levels.reduce((sum, l) => sum + (l === 'EE' ? 4 : l === 'ME' ? 3 : l === 'AE' ? 2 : 1), 0) / comp.levels.length
   }));
-  window.__parentCompetencyChartData = chartData;
-  setTimeout(() => window.initParentCompetencyChart && window.initParentCompetencyChart(), 80);
-  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Competency Progress</h2><div class="rounded-xl border bg-card p-4"><canvas id="parent-competency-chart" height="300"></canvas></div></div>`;
+  window.__parentCompetencyData = chartData;
+  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Competency Progress</h2><canvas id="parent-competency-chart" height="300"></canvas></div>`;
 }
 
 async function renderParentDashboard() {

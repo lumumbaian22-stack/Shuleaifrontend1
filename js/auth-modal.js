@@ -132,24 +132,21 @@ function getAuthForm(role, mode) {
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Curriculum</label>
-                        <select id="auth-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" onchange="renderAuthCurriculumLevels && renderAuthCurriculumLevels()">
-                            <option value="cbc">CBC / CBE - Kenya</option>
-                            <option value="844">8-4-4 System - Kenya</option>
-                            <option value="british">British / Cambridge</option>
-                            <option value="american">American</option>
-                            <option value="custom">Custom</option>
+                        <label class="block text-sm font-medium mb-1">School Level</label>
+                        <select id="auth-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="primary">Primary</option>
+                            <option value="secondary">Secondary</option>
+                            <option value="both">Both Primary & Secondary</option>
                         </select>
                     </div>
-                    <div class="rounded-xl border bg-muted/20 p-3">
-                        <label class="block text-sm font-semibold mb-2">Actual levels offered by this school</label>
-                        <p class="text-xs text-muted-foreground mb-3">Choose only the levels the school really has. Shule AI will generate classes and subjects from this structure only.</p>
-                        <div id="auth-curriculum-levels" class="grid gap-2">
-                            <label class="flex items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-enabled-level" value="early_learning" checked><span><strong>Early Learning</strong><small class="block text-muted-foreground">PP1 - PP2</small></span></label>
-                            <label class="flex items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-enabled-level" value="primary_learning" checked><span><strong>Primary Learning</strong><small class="block text-muted-foreground">Grade 1 - Grade 6</small></span></label>
-                            <label class="flex items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-enabled-level" value="junior_school"><span><strong>Junior School</strong><small class="block text-muted-foreground">Grade 7 - Grade 9</small></span></label>
-                            <label class="flex items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-enabled-level" value="senior_secondary"><span><strong>Senior Secondary</strong><small class="block text-muted-foreground">Grade 10 - Grade 12, pathways and subject choices</small></span></label>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Curriculum</label>
+                        <select id="auth-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <option value="cbc">CBC (Competency Based Curriculum)</option>
+                            <option value="844">8-4-4 System</option>
+                            <option value="british">British Curriculum</option>
+                            <option value="american">American Curriculum</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Phone</label>
@@ -290,8 +287,10 @@ async function safeAcceptAuthConsent() {
     try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         if (!token || !window.api?.consent?.accept) return;
-        await window.api.consent.accept(true, true);
+        await safeAcceptAuthConsent();
     } catch (error) {
+        // Signup flows can complete before a login token exists, especially pending teacher approval.
+        // Do not fail account/request creation just because consent recording needs auth.
         console.warn('Consent acceptance skipped until authenticated:', error.message);
     }
 }
@@ -388,10 +387,8 @@ async function handleAuthSubmit() {
                     password: document.getElementById('auth-password')?.value,
                     phone: document.getElementById('auth-phone')?.value,
                     schoolName: document.getElementById('auth-school-name')?.value,
-                    schoolLevel: deriveAuthSchoolLevel(),
+                    schoolLevel: document.getElementById('auth-school-level')?.value,
                     curriculum: document.getElementById('auth-curriculum')?.value,
-                    enabledLevels: getAuthEnabledLevels(),
-                    curriculumStructure: { curriculum: document.getElementById('auth-curriculum')?.value, enabledLevels: getAuthEnabledLevels() },
                     schoolType: document.querySelector('input[name="auth-school-type"]:checked')?.value || 'day',
                     termsAccepted: true,
                     privacyAccepted: true
@@ -647,39 +644,13 @@ function showStudentHelp() {
     showToast('Contact your teacher to reset your password or get your ELIMUID', 'info', 5000);
 }
 
-function openLegalDocument(path) {
-    const url = path.startsWith('/') ? path : '/' + path;
-    window.open(url, '_blank', 'noopener,noreferrer');
+// Terms and Privacy placeholders (you can implement actual modals later)
+function showTerms() {
+    alert('Terms of Service: By using ShuleAI, you agree to our terms...');
 }
-function showTerms() { openLegalDocument('/legal/terms.html'); }
-function showPrivacy() { openLegalDocument('/legal/privacy.html'); }
-function showDPA() { openLegalDocument('/legal/dpa.html'); }
 
-function getAuthEnabledLevels() {
-    return Array.from(document.querySelectorAll('.auth-enabled-level:checked')).map(cb => cb.value);
-}
-function deriveAuthSchoolLevel() {
-    const levels = getAuthEnabledLevels();
-    const hasPrimary = levels.includes('early_learning') || levels.includes('primary_learning');
-    const hasSecondary = levels.includes('junior_school') || levels.includes('senior_secondary');
-    if (hasPrimary && hasSecondary) return 'both';
-    if (hasSecondary) return 'secondary';
-    return 'primary';
-}
-function renderAuthCurriculumLevels() {
-    const curriculum = document.getElementById('auth-curriculum')?.value || 'cbc';
-    const box = document.getElementById('auth-curriculum-levels');
-    if (!box) return;
-    const rows = curriculum === '844'
-      ? [ ['primary_844','Primary - Standard 1 to 8', true], ['secondary_844','Secondary - Form 1 to 4', false] ]
-      : curriculum === 'cbc'
-        ? [ ['early_learning','Early Learning - PP1 to PP2', true], ['primary_learning','Primary Learning - Grade 1 to 6', true], ['junior_school','Junior School - Grade 7 to 9', false], ['senior_secondary','Senior Secondary - Grade 10 to 12', false] ]
-        : [ ['custom_levels','Use school-defined/custom levels', true] ];
-    box.innerHTML = rows.map(([value,label,checked]) => `<label class="flex items-start gap-3 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-enabled-level" value="${value}" ${checked?'checked':''}><span><strong>${label.split(' - ')[0]}</strong><small class="block text-muted-foreground">${label.split(' - ')[1] || 'Configured later in School Settings'}</small></span></label>`).join('');
-}
-function closePasswordChangeModal() {
-    const modal = document.getElementById('password-change-modal');
-    if (modal) modal.classList.add('hidden');
+function showPrivacy() {
+    alert('Privacy Policy: We protect your data...');
 }
 
 window.openAuthModal = openAuthModal;
@@ -693,9 +664,3 @@ window.handleFirstPasswordChange = handleFirstPasswordChange;
 window.showStudentHelp = showStudentHelp;
 window.showTerms = showTerms;
 window.showPrivacy = showPrivacy;
-window.showDPA = showDPA;
-window.openLegalDocument = openLegalDocument;
-window.getAuthEnabledLevels = getAuthEnabledLevels;
-window.deriveAuthSchoolLevel = deriveAuthSchoolLevel;
-window.renderAuthCurriculumLevels = renderAuthCurriculumLevels;
-window.closePasswordChangeModal = closePasswordChangeModal;

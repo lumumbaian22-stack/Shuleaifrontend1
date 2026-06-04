@@ -19,6 +19,32 @@ function syncProfileAvatarUI() {
     }, 0);
 }
 
+function getSessionSchoolCode(user = currentUser, school = currentSchool) {
+    return String(user?.schoolCode || school?.schoolCode || school?.schoolId || '').trim();
+}
+
+function clearUnsafeSchoolCacheForNewLogin() {
+    ['schoolSettings','schoolBranding','sidebarBrand','schoolName','schoolLogo','selectedChild','shule_selected_child','shule_selected_child_id'].forEach(k => localStorage.removeItem(k));
+}
+
+function saveSchoolScopedCache(baseKey, value) {
+    const code = getSessionSchoolCode();
+    if (!code) return;
+    try { localStorage.setItem(`${baseKey}:${code}`, typeof value === 'string' ? value : JSON.stringify(value)); } catch (_) {}
+}
+
+function restoreSchoolScopedCache() {
+    const code = getSessionSchoolCode();
+    if (!code) return;
+    const lastCode = localStorage.getItem('activeSchoolCode');
+    if (lastCode && lastCode !== code) clearUnsafeSchoolCacheForNewLogin();
+    localStorage.setItem('activeSchoolCode', code);
+    const settings = localStorage.getItem(`schoolSettings:${code}`);
+    const branding = localStorage.getItem(`schoolBranding:${code}`);
+    if (settings) localStorage.setItem('schoolSettings', settings);
+    if (branding) localStorage.setItem('schoolBranding', branding);
+}
+
 // Check if user is authenticated on page load
 async function checkAuth() {
     const token = localStorage.getItem('authToken');
@@ -47,6 +73,8 @@ async function checkAuth() {
                 }
 
         localStorage.setItem('userRole', currentUser.role);
+        restoreSchoolScopedCache();
+        if (currentSchool) saveSchoolScopedCache('schoolSettings', currentSchool);
         
         return true;
     } catch (error) {
@@ -56,7 +84,13 @@ async function checkAuth() {
         localStorage.removeItem('user');
         localStorage.removeItem('school');
         localStorage.removeItem('userRole');
-    clearSchoolScopedRuntimeCache();
+    localStorage.removeItem('activeSchoolCode');
+    localStorage.removeItem('schoolSettings');
+    localStorage.removeItem('schoolBranding');
+    localStorage.removeItem('sidebarBrand');
+    localStorage.removeItem('selectedChild');
+    localStorage.removeItem('shule_selected_child');
+    localStorage.removeItem('shule_selected_child_id');
         return false;
     }
 }
@@ -64,6 +98,7 @@ async function checkAuth() {
 // Super Admin login
 async function superAdminLogin(email, password, secretKey) {
     try {
+        clearUnsafeSchoolCacheForNewLogin();
         const response = await api.auth.superAdminLogin(email, password, secretKey);
         if (!response.success) throw new Error(response.message);
         
@@ -74,6 +109,7 @@ async function superAdminLogin(email, password, secretKey) {
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
         localStorage.setItem('userRole', currentUser.role);
+        restoreSchoolScopedCache();
         
         return response;
     } catch (error) {
@@ -157,6 +193,7 @@ async function parentSignup(parentData) {
 // Student login with ELIMUID
 async function studentLogin(elimuid, password) {
     try {
+        clearUnsafeSchoolCacheForNewLogin();
         const response = await api.auth.studentLogin(elimuid, password);
         if (!response.success) throw new Error(response.message);
         
@@ -166,6 +203,7 @@ async function studentLogin(elimuid, password) {
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
         localStorage.setItem('userRole', currentUser.role);
+        restoreSchoolScopedCache();
         
         return response;
     } catch (error) {
@@ -176,8 +214,8 @@ async function studentLogin(elimuid, password) {
 // Regular login for admin/teacher/parent
 async function login(emailOrPhone, password, role) {
     try {
+        clearUnsafeSchoolCacheForNewLogin();
         console.log('🔐 Attempting login for role:', role);
-        clearSchoolScopedRuntimeCache();
 
         const response = await api.auth.login(emailOrPhone, password, role);
         if (!response.success) throw new Error(response.message);
@@ -218,6 +256,8 @@ async function login(emailOrPhone, password, role) {
         localStorage.setItem('user', JSON.stringify(currentUser));
         localStorage.setItem('school', JSON.stringify(currentSchool));
         localStorage.setItem('userRole', currentUser.role);
+        restoreSchoolScopedCache();
+        if (currentSchool) saveSchoolScopedCache('schoolSettings', currentSchool);
 
         console.log('✅ Login successful, redirecting to dashboard');
 
@@ -255,7 +295,13 @@ function logout() {
     localStorage.removeItem('user');
     localStorage.removeItem('school');
     localStorage.removeItem('userRole');
-    clearSchoolScopedRuntimeCache();
+    localStorage.removeItem('activeSchoolCode');
+    localStorage.removeItem('schoolSettings');
+    localStorage.removeItem('schoolBranding');
+    localStorage.removeItem('sidebarBrand');
+    localStorage.removeItem('selectedChild');
+    localStorage.removeItem('shule_selected_child');
+    localStorage.removeItem('shule_selected_child_id');
     authToken = null;
     refreshToken = null;
     currentUser = null;
@@ -281,12 +327,8 @@ function getCurrentSchool() {
     const schoolStr = localStorage.getItem('school');
     if (!schoolStr) return null;
     const school = JSON.parse(schoolStr);
-    // Only return if school is active
-    if (school.status !== 'active') {
-      localStorage.removeItem('school');
-      return null;
-    }
-    return school;
+    // Getter must not delete inactive/expired school data. Access gating handles locks separately.
+    return school && typeof school === 'object' ? school : null;
   } catch (error) {
     console.error('Error parsing school:', error);
     return null;

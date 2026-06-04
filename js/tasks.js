@@ -1,34 +1,32 @@
-// tasks.js - Task management
+// tasks.js - Task management with real backend persistence
 
 function addTeacherTask() {
-    if (typeof showAddTaskModal === 'function') return showAddTaskModal();
     const modal = document.getElementById('add-task-modal');
     if (modal) modal.classList.remove('hidden');
 }
 
 async function saveTask() {
     const title = document.getElementById('task-title')?.value?.trim();
+    const description = document.getElementById('task-description')?.value?.trim() || '';
+    const dueDate = document.getElementById('task-due-date')?.value || null;
     if (!title) {
         showToast('Please enter a task title', 'error');
         return;
     }
-    const payload = {
-        title,
-        description: document.getElementById('task-desc')?.value?.trim() || '',
-        dueDate: document.getElementById('task-due')?.value || null,
-        priority: document.getElementById('task-priority')?.value || 'medium'
-    };
-    showLoading?.();
     try {
-        if (!window.api?.tasks?.createTask) throw new Error('Task API is not available');
-        await window.api.tasks.createTask(payload);
+        if (typeof showLoading === 'function') showLoading();
+        await (window.api?.tasks?.createTask
+            ? window.api.tasks.createTask({ title, description, dueDate })
+            : window.apiRequest('/api/tasks', { method: 'POST', body: JSON.stringify({ title, description, dueDate }) }));
         showToast('Task saved successfully', 'success');
         closeAddTaskModal();
-        if (typeof showDashboardSection === 'function') await showDashboardSection('tasks');
+        if (window.currentSection === 'tasks' && typeof window.showDashboardSection === 'function') {
+            await window.showDashboardSection('tasks');
+        }
     } catch (error) {
         showToast(error.message || 'Failed to save task', 'error');
     } finally {
-        hideLoading?.();
+        if (typeof hideLoading === 'function') hideLoading();
     }
 }
 

@@ -6,7 +6,7 @@ const maxReconnectAttempts = 5;
 
 // Connect WebSocket with authentication
 function connectWebSocket() {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
     if (!token || !user.id) return;
@@ -31,9 +31,9 @@ function connectWebSocket() {
         window.socket.close();
     }
     
-    // Connect to Socket.io server
-    const socketBase = ((window.API_BASE_URL || localStorage.getItem('SHULE_API_BASE_URL') || 'https://shuleaibackend-32h1.onrender.com') + '').replace(/\/api\/?$/, '').replace(/\/$/, '');
-    socket = io(socketBase, {
+    // Connect to the same backend base URL used by api.js/localStorage overrides
+    const socketBaseUrl = (localStorage.getItem('SHULE_API_BASE_URL') || window.SHULE_API_BASE_URL || 'https://shuleaibackend-32h1.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
+    socket = io(socketBaseUrl, {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,
