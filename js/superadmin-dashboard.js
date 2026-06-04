@@ -33,6 +33,17 @@ async function renderSuperAdminSection(section) {
     }
 }
 
+
+async function renderSuperAdminPlatformPayments() {
+    let rows = [];
+    let error = '';
+    try {
+        const res = await (api.payments?.getPlatformManualQueue ? api.payments.getPlatformManualQueue() : apiRequest('/api/payments/platform/manual-queue'));
+        rows = Array.isArray(res.data) ? res.data : (res.data?.payments || res.data?.requests || []);
+    } catch (e) { error = e.message || 'Could not load platform payments.'; }
+    return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground">School subscriptions, parent subscriptions, manual confirmations and platform billing queue.</p></div>${error ? `<div class="rounded-xl border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-300">${escapeHtml(error)}</div>` : ''}<div class="rounded-xl border bg-card overflow-hidden"><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School/Parent</th><th class="p-3 text-left">Reference</th><th class="p-3 text-left">Amount</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Date</th></tr></thead><tbody>${rows.length ? rows.map(p => `<tr class="border-t"><td class="p-3">${escapeHtml(p.schoolName || p.parentName || p.User?.name || p.School?.name || 'Payment')}</td><td class="p-3 font-mono text-xs">${escapeHtml(p.reference || p.mpesaCode || p.transactionCode || '')}</td><td class="p-3">KES ${Number(p.amount || 0).toLocaleString()}</td><td class="p-3">${escapeHtml(p.status || 'pending')}</td><td class="p-3">${typeof formatDate === 'function' ? formatDate(p.createdAt) : (p.createdAt || '')}</td></tr>`).join('') : '<tr><td colspan="5" class="p-8 text-center text-muted-foreground">No platform payment records found.</td></tr>'}</tbody></table></div></div>`;
+}
+
 // ============ MAIN DASHBOARD ============
 function renderSuperAdminDashboard() {
     const data = dashboardData || {};
@@ -539,3 +550,5 @@ window.loadSuperAdminSettings = async function() {
         // populate form if needed
     } catch (error) { console.error('Error loading settings:', error); }
 };
+
+window.renderSuperAdminPlatformPayments = renderSuperAdminPlatformPayments;

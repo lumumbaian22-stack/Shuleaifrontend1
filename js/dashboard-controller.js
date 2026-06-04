@@ -2,7 +2,7 @@
 
 
 const RULEBOOK_SECTION_FEATURE = {
-    calendar:'calendar', 'calendar-management':'calendar', timetable:'timetable', 'my-timetable':'timetable', schedule:'timetable', homework:'homework', 'my-homework':'homework', duty:'duty', 'duty-preferences':'duty', departments:'departments', 'fairness-report':'fairness_report', sms:'bulk_sms', 'school-branding':'school_branding', 'student-subject-selection':'senior_subject_choice', 'subject-choice':'senior_subject_choice'
+    calendar:'calendar', 'calendar-management':'calendar', timetable:'timetable', 'my-timetable':'timetable', schedule:'timetable', homework:'homework', 'my-homework':'homework', duty:'duty', 'duty-preferences':'duty', departments:'departments', 'fairness-report':'fairness_report', sms:'bulk_sms', 'school-branding':'school_branding', 'student-subject-selection':'senior_subject_choice', 'subject-choice':'senior_subject_choice', 'career-path':'senior_subject_choice', 'subject-requests':'senior_subject_choice'
 };
 function currentSchoolPayload() {
     try { return typeof getCurrentSchool === 'function' ? getCurrentSchool() : JSON.parse(localStorage.getItem('school') || 'null'); } catch (_) { return null; }
@@ -18,13 +18,24 @@ function hasSchoolFeature(feature) {
     if (!feature) return true;
     let user = null;
     try { user = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || 'null'); } catch (_) { user = null; }
-    if (['super_admin','superadmin'].includes(String(user?.role || '').toLowerCase())) return true;
+    const role = String(user?.role || localStorage.getItem('userRole') || '').toLowerCase();
+    if (['super_admin','superadmin'].includes(role)) return true;
+
     const school = currentSchoolPayload() || {};
-    if (school.fullAccess || school.access?.fullAccess || school.override || school.pilotFullAccess || school.demoMode || school.freeAccess) return true;
+    const schoolCode = user?.schoolCode || school?.schoolCode || school?.shortCode || school?.code || '';
+    const schoolId = user?.schoolId || school?.id || school?.schoolId || '';
+    const schoolScopedFeatures = new Set(['school_branding','calendar','timetable','homework','duty','departments','bulk_sms','fairness_report','senior_subject_choice']);
+
+    // School-scoped modules must not render/call endpoints until an actual school context is hydrated.
+    // This prevents School scope 403 loops on admin/teacher dashboards.
+    if (schoolScopedFeatures.has(feature) && !schoolCode && !schoolId) return false;
+
+    if (school.suspended || school.access?.suspended || String(school.accessMode || '').toLowerCase() === 'suspended') return false;
+    if (school.fullAccess || school.access?.fullAccess || school.override || school.pilotFullAccess || school.demoMode || school.freeAccess || school.manualFullAccess || school.access?.mode === 'pilot') return true;
+
     const features = currentFeatureList();
     if (features.includes('*') || features.includes(feature)) return true;
-    // Fallback only when the backend has not hydrated featureList yet. This mirrors the locked plan matrix
-    // without making hidden/locked UI cards; once backend data exists, backend featureList wins.
+
     const plan = String(school.planCode || school.currentPlan || school.subscriptionPlan || school.plan || school.tier || school.access?.planCode || '').toLowerCase();
     if (!features.length && plan) {
       const starter = ['dashboard','teachers','teacher_approvals','students','analytics','alerts','finance_fees','parent_messages','school_settings','billing','classes','report_cards'];
@@ -69,7 +80,7 @@ function updateSidebar(role) {
         if (schoolNameSpan && school && school.status === 'active' && school.name) {
             schoolNameSpan.textContent = school.name;
         } else if (schoolNameSpan) {
-            schoolNameSpan.textContent = 'ShuleAI';
+            schoolNameSpan.textContent = 'Shule AI';
         }
     }
 
@@ -395,7 +406,7 @@ function showTermsModal() {
     titleEl.textContent = 'Accept Terms';
     contentEl.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm">Please accept the <a href="legal/terms.html" target="_blank" class="text-primary underline">Terms of Service</a> and <a href="legal/privacy.html" target="_blank" class="text-primary underline">Privacy Policy</a> to continue.</p>
+            <p class="text-sm">Please read and accept the <a href="legal/terms.html" target="_blank" rel="noopener" class="text-primary underline">Terms of Service</a> and <a href="legal/privacy.html" target="_blank" rel="noopener" class="text-primary underline">Privacy Policy</a> to continue.</p>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-terms" class="mt-1 rounded">
                 <label for="modal-terms" class="text-xs">I accept the Terms of Service and Privacy Policy</label>
@@ -431,10 +442,10 @@ function showDPAModal() {
     const contentEl = document.getElementById('auth-modal-content');
     if (!modal) return;
     
-    titleEl.textContent = '<a href="legal/dpa.html" target="_blank" class="text-primary underline">Data Processing Agreement</a>';
+    titleEl.textContent = 'Accept Data Processing Agreement';
     contentEl.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm">As a school administrator, you must accept the Data Processing Agreement (DPA) to manage student data.</p>
+            <p class="text-sm">As a school administrator, you must read and accept the <a href="legal/dpa.html" target="_blank" rel="noopener" class="text-primary underline">Data Processing Agreement (DPA)</a> to manage student data.</p>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-dpa" class="mt-1 rounded">
                 <label for="modal-dpa" class="text-xs">I have read and accept the Data Processing Agreement</label>

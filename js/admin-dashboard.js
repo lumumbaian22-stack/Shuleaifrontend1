@@ -558,6 +558,8 @@ async function renderAdminSection(section) {
                 return await renderAdminTeacherWorkload();
             case 'settings':
                 return renderAdminSettings();
+            case 'school-branding':
+                return renderAdminBrandingSection ? await renderAdminBrandingSection() : await renderAdminSettings('branding');
             case 'subscription-billing':
                 return `${await renderAdminSubscriptionBilling()}<div class="mt-6">${renderAdminPaymentConfirmationCard()}</div>`;
             case 'sms':
@@ -586,6 +588,8 @@ async function renderAdminSection(section) {
 function renderAdminDashboard() {
     const school = getCurrentSchool();
     const data = dashboardData || {};
+    const calendarAllowed = typeof hasSchoolFeature === 'function' ? hasSchoolFeature('calendar') : true;
+    setTimeout(() => { if (calendarAllowed && typeof window.loadAdminCalendarPreviewEvents === 'function') window.loadAdminCalendarPreviewEvents(); if (typeof window.setupAnnouncementRecipientControls === 'function') window.setupAnnouncementRecipientControls(); if (typeof window.v130UpdateSmsEstimate === 'function') window.v130UpdateSmsEstimate(); }, 120);
     return `
         <div class="space-y-6 animate-fade-in">
             <!-- School Profile Card -->
@@ -728,7 +732,7 @@ function renderAdminDashboard() {
                 </div>
             </div>
 
-            <!-- Charts Row -->
+            ${calendarAllowed ? `<!-- Calendar Preview -->
             <div class="rounded-xl border bg-card p-6">
                  <h3 class="font-semibold mb-4 flex items-center gap-2">
                      <i data-lucide="calendar" class="h-5 w-5"></i> Academic Calendar
@@ -739,7 +743,7 @@ function renderAdminDashboard() {
                  <button onclick="showAddCalendarEventModal()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm">
                      + Add Event
                   </button>
-             </div>
+             </div>` : ''}
         </div>
     `;
 }
@@ -1040,25 +1044,20 @@ function escapeHtml(str) {
 }
 
 async function loadAdminCalendarPreviewEvents() {
-    const res = await apiRequest('/api/calendar');
-    if (res.success) {
-        const container = document.getElementById('admin-calendar-events');
-        if (!container) return;
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('calendar')) return;
+    const container = document.getElementById('admin-calendar-events');
+    if (!container) return;
+    try {
+        const res = await apiRequest('/api/calendar');
         const events = Array.isArray(res.data) ? res.data : (Array.isArray(res.events) ? res.events : (Array.isArray(res.data?.events) ? res.data.events : []));
-        if (events.length === 0) {
-            container.innerHTML = '<p class="text-sm text-muted-foreground">No events yet.</p>';
-        } else {
-            container.classList.add('max-h-72','overflow-y-auto','pr-2');
-            container.innerHTML = events.map(e => `
-                <div class="flex justify-between items-start gap-3 py-2 border-b">
-                    <div class="min-w-0">
-                        <span class="font-medium block truncate">${escapeHtml(e.eventName || e.title || 'Untitled Event')}</span>
-                        <span class="text-xs text-muted-foreground">${formatDate(e.startDate || e.date)} ${e.endDate ? '→ '+formatDate(e.endDate) : ''}</span>
-                    </div>
-                    <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs shrink-0">Delete</button>
-                </div>
-            `).join('');
-        }
+        container.innerHTML = events.length ? events.slice(0,4).map(e => `
+            <div class="flex items-center justify-between gap-3 border rounded-lg p-3 mb-2">
+                <div><p class="font-medium text-sm">${escapeHtml(e.eventName || e.title || 'Event')}</p><p class="text-xs text-muted-foreground">${formatDate(e.startDate || e.date)} ${e.eventType ? '• '+escapeHtml(e.eventType) : ''}</p></div>
+                <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs shrink-0">Delete</button>
+            </div>`).join('') : '<p class="text-sm text-muted-foreground">No calendar events yet.</p>';
+    } catch (e) {
+        if (container) container.innerHTML = '<p class="text-sm text-muted-foreground">Calendar is not available for this school plan.</p>';
+        console.warn('Calendar preview skipped:', e.message);
     }
 }
 
@@ -1503,6 +1502,7 @@ window.saveAllSettings = async function() {
             localStorage.setItem('school', JSON.stringify(school));
             updateAllSchoolNameElements(schoolName);
             showToast('✅ Settings saved!', 'success');
+            if (api.admin?.syncCurriculumClasses) await api.admin.syncCurriculumClasses().catch(e => console.warn('Class sync skipped', e.message));
             await updateAdminStats();
         } else {
             throw new Error(response?.message || 'Save failed');
@@ -1689,71 +1689,109 @@ async function saveAdminReportSettings() {
     await api.admin.saveAssessmentSettings(assessmentSettings);
     showToast('Assessment/report settings saved', 'success');
 }
-function v130AnnouncementOption(title, platformMessage, smsMessage, tone) { return { title, platformMessage, smsMessage, tone }; }
+function v132AnnouncementOption(title, platformMessage, smsMessage, tone) { return { title, platformMessage, smsMessage, tone }; }
+function normalizeAnnouncementOptionsFromResponse(res, fallback) {
+    const raw = res?.data?.suggestion || res?.suggestion || res?.data || res || {};
+    let options = Array.isArray(raw.options) ? raw.options : [];
+    if (!options.length && Array.isArray(raw.alternatives)) {
+        options = raw.alternatives.map((x, i) => ({ title: x.title || `${fallback.purpose} Option ${i+1}`, platformMessage: x.platformMessage || x.message || x, smsMessage: x.smsMessage || String(x.message || x || '').slice(0,155), tone: x.tone || fallback.tone }));
+    }
+    if (!options.length && (raw.title || raw.message)) options = [{ title: raw.title || fallback.title, platformMessage: raw.platformMessage || raw.message || fallback.message, smsMessage: raw.smsMessage || String(raw.message || fallback.message).slice(0,155), tone: raw.tone || fallback.tone }];
+    return options.slice(0,3).map((o, i) => v132AnnouncementOption(o.title || `${fallback.purpose} Notice`, o.platformMessage || o.message || fallback.message, (o.smsMessage || o.sms || o.message || fallback.message).slice(0,155), o.tone || ['Formal','Friendly','Short'][i] || fallback.tone));
+}
 async function generateAnnouncementSuggestion() {
     const purpose = document.getElementById('announcement-ai-topic')?.value || 'General announcement';
     const tone = document.getElementById('announcement-ai-tone')?.value || 'Professional';
     const audience = document.getElementById('announcement-recipients')?.value || 'all_parents';
+    const channel = document.getElementById('announcement-channel')?.value || 'platform';
     const keyPoints = document.getElementById('announcement-message')?.value.trim() || '';
+    const titleInput = document.getElementById('announcement-title')?.value.trim() || `${purpose} Notice`;
     const panel = document.getElementById('announcement-ai-suggestion-panel');
     window.__announcementOptions = [];
-    if (panel) { panel.classList.remove('hidden'); panel.innerHTML = '<p class="text-xs text-muted-foreground">Generating fresh suggestions…</p>'; }
-    if (!keyPoints) { if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; } return showToast('Add the key points/message first.', 'error'); }
-    const baseTitle = `${purpose} Notice`;
-    const platform = `${tone} ${purpose.toLowerCase()} for ${audience.replace(/_/g,' ')}. ${keyPoints}`.replace(/\s+/g,' ').trim();
-    const sms = `${purpose}: ${keyPoints}`.replace(/\s+/g,' ').trim().slice(0, 155);
-    const options = [
-        v130AnnouncementOption(baseTitle, platform, sms, 'Formal'),
-        v130AnnouncementOption(`${purpose} Reminder`, `Hello, kindly note: ${keyPoints}. Thank you for your continued support.`, `Reminder: ${keyPoints}`.slice(0,155), 'Friendly'),
-        v130AnnouncementOption(`Important ${purpose}`, `Important update: ${keyPoints}. Please take the necessary action.`, `Important: ${keyPoints}`.slice(0,155), 'Short')
-    ];
+    if (panel) { panel.classList.remove('hidden'); panel.innerHTML = '<p class="text-xs text-muted-foreground">Generating fresh Shule AI suggestions…</p>'; }
+    if (!keyPoints) { if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; } return showToast('Write the key points/message first.', 'error'); }
+    const fallback = { purpose, tone, title:titleInput, message:`${tone} ${purpose.toLowerCase()} for ${audience.replace(/_/g,' ')}. ${keyPoints}`.replace(/\s+/g,' ').trim() };
+    let options = [];
+    try {
+        const res = await (api.alerts?.suggestAnnouncement ? api.alerts.suggestAnnouncement({ title: titleInput, topic: purpose, tone, audience, channel, description: keyPoints }) : apiRequest('/api/alerts/suggest-announcement', { method:'POST', body: JSON.stringify({ title:titleInput, topic:purpose, tone, audience, channel, description:keyPoints }) }));
+        options = normalizeAnnouncementOptionsFromResponse(res, fallback);
+    } catch (e) {
+        console.warn('AI suggestion unavailable, using local formatter:', e.message);
+    }
+    if (!options.length) {
+        options = [
+            v132AnnouncementOption(titleInput, fallback.message, `${purpose}: ${keyPoints}`.replace(/\s+/g,' ').slice(0,155), 'Formal'),
+            v132AnnouncementOption(`${purpose} Reminder`, `Hello, kindly note: ${keyPoints}. Thank you for your continued support.`, `Reminder: ${keyPoints}`.slice(0,155), 'Friendly'),
+            v132AnnouncementOption(`Important ${purpose}`, `Important update: ${keyPoints}. Please take the necessary action.`, `Important: ${keyPoints}`.slice(0,155), 'Short')
+        ];
+    }
+    window.__announcementOptions = options;
     if (panel) {
         panel.classList.remove('hidden');
-        panel.innerHTML = `<div class="space-y-3"><p class="text-xs font-semibold text-muted-foreground">Choose one. AI does not send automatically.</p>${options.map((o,i)=>`<div class="rounded-lg border bg-background p-3"><div class="flex items-center justify-between"><b>Option ${i+1}: ${escapeHtml(o.tone)}</b><button type="button" onclick="useAnnouncementSuggestion(${i})" class="text-xs px-3 py-1 rounded bg-primary text-primary-foreground">Use this</button></div><p class="mt-2 font-semibold">${escapeHtml(o.title)}</p><p class="text-sm mt-1"><b>Platform:</b> ${escapeHtml(o.platformMessage)}</p><p class="text-xs mt-1 text-muted-foreground"><b>SMS:</b> ${escapeHtml(o.smsMessage)}</p></div>`).join('')}</div>`;
-        window.__announcementOptions = options;
+        panel.innerHTML = `<div class="space-y-3"><p class="text-xs font-semibold text-muted-foreground">Choose one. AI does not send automatically.</p>${options.map((o,i)=>`<div class="rounded-lg border bg-background p-3"><div class="flex items-center justify-between"><b>Option ${i+1}: ${escapeHtml(o.tone)}</b><div class="flex gap-2"><button type="button" onclick="useAnnouncementSuggestion(${i}, 'platform')" class="text-xs px-3 py-1 rounded border">Use platform</button><button type="button" onclick="useAnnouncementSuggestion(${i}, 'sms')" class="text-xs px-3 py-1 rounded bg-primary text-primary-foreground">Use SMS</button></div></div><p class="mt-2 font-semibold">${escapeHtml(o.title)}</p><p class="text-sm mt-1"><b>Platform:</b> ${escapeHtml(o.platformMessage)}</p><p class="text-xs mt-1 text-muted-foreground"><b>SMS:</b> ${escapeHtml(o.smsMessage)}</p></div>`).join('')}</div>`;
     }
 }
-function useAnnouncementSuggestion(index) {
+function useAnnouncementSuggestion(index, preferredChannel) {
     const o = (window.__announcementOptions || [])[index];
     if (!o) return;
-    document.getElementById('announcement-title').value = o.title;
-    const channel = document.getElementById('announcement-channel')?.value || 'platform';
-    document.getElementById('announcement-message').value = channel === 'sms' ? o.smsMessage : o.platformMessage;
+    const channel = preferredChannel || document.getElementById('announcement-channel')?.value || 'platform';
+    const titleEl = document.getElementById('announcement-title');
+    const msgEl = document.getElementById('announcement-message');
+    if (titleEl) titleEl.value = o.title || '';
+    if (msgEl) msgEl.value = channel === 'sms' ? (o.smsMessage || o.platformMessage || '') : (o.platformMessage || o.smsMessage || '');
+    if (preferredChannel && document.getElementById('announcement-channel')) document.getElementById('announcement-channel').value = preferredChannel;
+    v130UpdateSmsEstimate();
 }
 function v130UpdateSmsEstimate() {
     const channel = document.getElementById('announcement-channel')?.value || 'platform';
     const target = document.getElementById('announcement-sms-estimate');
-    if (target) target.textContent = channel === 'platform' ? 'No SMS tokens will be used.' : 'SMS tokens will be estimated from recipients before sending.';
+    if (target) target.textContent = channel === 'platform' ? 'No SMS tokens will be used.' : 'SMS tokens will be estimated from the selected audience before sending.';
 }
-window.renderAdminReportSettings = renderAdminReportSettings;
-window.saveAdminReportSettings = saveAdminReportSettings;
-window.useAnnouncementSuggestion = useAnnouncementSuggestion;
-window.v130UpdateSmsEstimate = v130UpdateSmsEstimate;
-
+async function setupAnnouncementRecipientControls() {
+    const recipients = document.getElementById('announcement-recipients');
+    if (!recipients || recipients.dataset.bound === 'true') return;
+    recipients.dataset.bound = 'true';
+    const classBox = document.getElementById('class-selector-container');
+    const parentBox = document.getElementById('parent-selector-container');
+    const update = async () => {
+        const value = recipients.value;
+        if (classBox) classBox.classList.toggle('hidden', value !== 'specific_class');
+        if (parentBox) parentBox.classList.toggle('hidden', value !== 'individual_parent');
+        if (value === 'specific_class') {
+            const select = document.getElementById('announcement-class');
+            if (select && !select.dataset.loaded) {
+                const res = await api.admin.getClasses().catch(() => ({data: []}));
+                select.innerHTML = '<option value="">Select class</option>' + (res.data || []).map(c => `<option value="${c.id}">${escapeHtml(c.name || c.grade || 'Class')}</option>`).join('');
+                select.dataset.loaded = 'true';
+            }
+        }
+        if (value === 'individual_parent') {
+            const select = document.getElementById('announcement-parent');
+            if (select && !select.dataset.loaded) {
+                const res = await api.admin.getParents().catch(() => ({data: []}));
+                select.innerHTML = '<option value="">Select parent</option>' + (res.data || []).map(p => `<option value="${p.userId || p.User?.id || p.id}">${escapeHtml(p.User?.name || p.name || p.email || 'Parent')}</option>`).join('');
+                select.dataset.loaded = 'true';
+            }
+        }
+    };
+    recipients.addEventListener('change', update);
+    update();
+}
 async function sendAnnouncement() {
-    const recipientType = document.getElementById('announcement-recipients').value;
+    const recipientType = document.getElementById('announcement-recipients')?.value || 'all_parents';
     const channel = document.getElementById('announcement-channel')?.value || 'platform';
-    const title = document.getElementById('announcement-title').value.trim();
-    const message = document.getElementById('announcement-message').value.trim();
-
-    if (!title || !message) {
-        showToast('Please enter a title and message', 'error');
-        return;
-    }
-
+    const title = document.getElementById('announcement-title')?.value.trim() || '';
+    const message = document.getElementById('announcement-message')?.value.trim() || '';
+    if (!title || !message) return showToast('Please enter a title and message', 'error');
     showLoading();
     try {
         let userIds = [];
         if (['all_parents','fee_defaulters','pending_payments','subscription_expiry'].includes(recipientType)) {
             const parents = await api.admin.getParents();
-            userIds = (parents.data || []).map(p => p.userId).filter(Boolean);
+            userIds = (parents.data || []).map(p => p.userId || p.User?.id).filter(Boolean);
         } else if (recipientType === 'whole_school') {
             const [parents, teachers, students] = await Promise.allSettled([api.admin.getParents(), api.admin.getTeachers ? api.admin.getTeachers() : Promise.resolve({data: []}), api.admin.getStudents ? api.admin.getStudents() : Promise.resolve({data: []})]);
-            userIds = [
-                ...((parents.value?.data || []).map(p => p.userId || p.User?.id)),
-                ...((teachers.value?.data || []).map(t => t.userId || t.User?.id)),
-                ...((students.value?.data || []).map(st => st.userId || st.User?.id))
-            ].filter(Boolean);
+            userIds = [...((parents.value?.data || []).map(p => p.userId || p.User?.id)), ...((teachers.value?.data || []).map(t => t.userId || t.User?.id)), ...((students.value?.data || []).map(st => st.userId || st.User?.id))].filter(Boolean);
         } else if (recipientType === 'teachers') {
             const teachers = await (api.admin.getTeachers ? api.admin.getTeachers() : apiRequest('/api/admin/teachers'));
             userIds = (teachers.data || []).map(t => t.userId || t.User?.id).filter(Boolean);
@@ -1761,37 +1799,26 @@ async function sendAnnouncement() {
             const students = await (api.admin.getStudents ? api.admin.getStudents() : apiRequest('/api/admin/students'));
             userIds = (students.data || []).map(st => st.userId || st.User?.id).filter(Boolean);
         } else if (recipientType === 'specific_class') {
-            const classId = document.getElementById('announcement-class').value;
-            if (!classId) { showToast('Please select a class', 'error'); hideLoading(); return; }
+            const classId = document.getElementById('announcement-class')?.value;
+            if (!classId) throw new Error('Please select a class');
             const students = await api.admin.getClassStudents(classId);
             const parentIds = new Set();
-            (students.data || []).forEach(student => {
-                (student.parents || student.Parents || []).forEach(parent => {
-                    const uid = parent.userId || parent.User?.id;
-                    if (uid) parentIds.add(uid);
-                });
-            });
-            userIds = Array.from(parentIds);
-        } else {
-            const parentId = document.getElementById('announcement-parent').value;
-            if (!parentId) { showToast('Please select a parent', 'error'); hideLoading(); return; }
+            (students.data || []).forEach(student => (student.parents || student.Parents || []).forEach(parent => { const uid = parent.userId || parent.User?.id; if (uid) parentIds.add(uid); }));
+            userIds = [...parentIds];
+        } else if (recipientType === 'individual_parent') {
+            const parentId = document.getElementById('announcement-parent')?.value;
+            if (!parentId) throw new Error('Please select a parent');
             userIds = [parentId];
         }
-
-        if (channel === 'sms' || channel === 'both') {
-            await (api.sms?.send ? api.sms.send({ audience: recipientType, recipientCount: userIds.length, message, title }) : apiRequest('/api/sms/send', { method:'POST', body: JSON.stringify({ audience: recipientType, recipientCount: userIds.length, message, title }) }));
+        if ((channel === 'sms' || channel === 'both')) {
+            await api.sms.send({ audience: recipientType, recipientCount: userIds.length, message, title, recipientIds:userIds });
         }
         if (channel === 'platform' || channel === 'both') {
-        // Send alerts to each user
-        for (const userId of userIds) {
-            await apiRequest('/api/alerts', {
-                method: 'POST',
-                body: JSON.stringify({ userId, type: 'system', category: 'Announcement', severity: 'info', title, message, data: { sourceType: 'ai_assisted_admin_message', aiLabel: 'Shule AI assisted announcement', actionUrl: '#alerts' } })
-            });
+            for (const userId of userIds) {
+                await apiRequest('/api/alerts', { method:'POST', body: JSON.stringify({ userId, type:'system', category:'Announcement', severity:'info', title, message, sourceLabel:'Admin announcement', data:{ sourceType:'admin_announcement', channel } }) });
+            }
         }
-
-        }
-        showToast(`✅ Announcement sent to ${userIds.length} recipient(s) via ${channel}`, 'success');
+        showToast(`Announcement sent to ${userIds.length} recipient(s) via ${channel}`, 'success');
         document.getElementById('announcement-title').value = '';
         document.getElementById('announcement-message').value = '';
         window.__announcementOptions = [];
@@ -1799,10 +1826,14 @@ async function sendAnnouncement() {
         if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; }
     } catch (error) {
         showToast(error.message || 'Failed to send announcement', 'error');
-    } finally {
-        hideLoading();
-    }
+    } finally { hideLoading(); }
 }
+window.renderAdminReportSettings = renderAdminReportSettings;
+window.saveAdminReportSettings = saveAdminReportSettings;
+window.generateAnnouncementSuggestion = generateAnnouncementSuggestion;
+window.useAnnouncementSuggestion = useAnnouncementSuggestion;
+window.setupAnnouncementRecipientControls = setupAnnouncementRecipientControls;
+window.v130UpdateSmsEstimate = v130UpdateSmsEstimate;
 
 async function renderCalendarManagement() {
     showLoading();
@@ -1831,6 +1862,27 @@ async function renderCalendarManagement() {
             </div>`;
     } catch(e) { hideLoading(); return `<div class="text-red-500">Error loading calendar</div>`; }
 }
+
+
+async function renderAdminBrandingSection() {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('school_branding')) {
+        return `<div class="space-y-4 animate-fade-in"><h2 class="text-2xl font-bold">School Branding</h2><div class="rounded-xl border bg-card p-6"><p class="text-muted-foreground">School branding is available on Growth, Enterprise, or Super Admin full-access/demo/pilot schools. Starter/unpaid schools use the default Shule AI logo and name.</p></div></div>`;
+    }
+    let branding = {};
+    try { branding = (await apiRequest('/api/owner/branding')).data || {}; } catch (_) { branding = (window.BrandingManager?.getStoredBranding?.() || {}); }
+    const presets = window.BrandingManager?.colorPresets || { 'Shule Blue':{}, 'Royal Blue':{}, 'Emerald Green':{}, Purple:{}, Orange:{}, Red:{}, Gold:{}, Slate:{} };
+    const logo = branding.logoDataUrl || branding.logoUrl || branding.logo || '';
+    return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">School Branding</h2><p class="text-sm text-muted-foreground">Growth/Enterprise/full-access schools can personalize sidebar logo, display name and report footer.</p></div><div class="rounded-xl border bg-card p-6 grid gap-4 lg:grid-cols-2"><div class="space-y-4"><label class="block text-sm font-medium">Sidebar / Report Display Name<input id="branding-school-name" value="${escapeHtml(branding.schoolName || branding.displayName || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="block text-sm font-medium">Color Preset<select id="branding-color-name" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${Object.keys(presets).map(k => `<option value="${escapeHtml(k)}" ${k === (branding.colorName || 'Shule Blue') ? 'selected' : ''}>${escapeHtml(k)}</option>`).join('')}</select></label><label class="block text-sm font-medium">Logo URL<input id="branding-logo-url" value="${escapeHtml(branding.logoUrl || '')}" placeholder="https://..." class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="block text-sm font-medium">Upload Logo<input id="branding-logo-file" type="file" accept="image/*" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label></div><div class="space-y-4"><div class="rounded-xl border bg-muted/30 p-4"><p class="text-sm font-medium mb-2">Preview</p><div class="h-24 flex items-center justify-center bg-background rounded-lg border">${logo ? `<img src="${escapeHtml(logo)}" class="max-h-20 max-w-40 object-contain" onerror="this.replaceWith(document.createTextNode('Logo preview unavailable'))">` : '<span class="text-sm text-muted-foreground">Shule AI default logo</span>'}</div></div><label class="block text-sm font-medium">Report Footer<textarea id="branding-report-footer" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(branding.reportFooter || '')}</textarea></label><label class="block text-sm font-medium">Payment Instructions<textarea id="branding-payment-instructions" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(branding.paymentInstructions || '')}</textarea></label></div><div class="lg:col-span-2 flex justify-end"><button onclick="saveAdminBranding()" class="px-6 py-3 rounded-lg bg-primary text-primary-foreground">Save Branding</button></div></div></div>`;
+}
+async function saveAdminBranding() {
+    const file = document.getElementById('branding-logo-file')?.files?.[0];
+    const payload = { schoolName: document.getElementById('branding-school-name')?.value?.trim(), colorName: document.getElementById('branding-color-name')?.value, logoUrl: document.getElementById('branding-logo-url')?.value?.trim(), reportFooter: document.getElementById('branding-report-footer')?.value?.trim(), paymentInstructions: document.getElementById('branding-payment-instructions')?.value?.trim() };
+    if (file) payload.logoDataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); });
+    showLoading();
+    try { const res = await apiRequest('/api/owner/branding', { method:'PUT', body: JSON.stringify(payload) }); window.schoolBranding = res.data || payload; localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding })); showToast('Branding saved', 'success'); await showDashboardSection('school-branding'); } catch (e) { showToast(e.message || 'Could not save branding', 'error'); } finally { hideLoading(); }
+}
+window.renderAdminBrandingSection = renderAdminBrandingSection;
+window.saveAdminBranding = saveAdminBranding;
 
 // ============ EXPORT FUNCTIONS ============
 window.sendAnnouncement = sendAnnouncement;
@@ -2001,20 +2053,7 @@ window.submitSchoolSubscriptionSTK = async function() {
 };
 
 
-// V88: load admin dashboard academic calendar preview immediately without overriding main calendar functions.
-(function(){
-  const oldRenderAdminDashboard = window.renderAdminDashboard;
-  if (typeof oldRenderAdminDashboard === 'function' && !oldRenderAdminDashboard.__v88CalendarPreview) {
-    const wrapped = function(){
-      const html = oldRenderAdminDashboard.apply(this, arguments);
-      setTimeout(() => { if (typeof window.loadAdminCalendarPreviewEvents === 'function') window.loadAdminCalendarPreviewEvents(); }, 200);
-      return html;
-    };
-    wrapped.__v88CalendarPreview = true;
-    window.renderAdminDashboard = wrapped;
-  }
-  window.loadAdminCalendarPreviewEvents = loadAdminCalendarPreviewEvents;
-})();
+window.loadAdminCalendarPreviewEvents = loadAdminCalendarPreviewEvents;
 
 // ============ V102 CURRICULUM + CUSTOM STRUCTURE + SUBJECT CHECKBOX UI ============
 const v102OriginalRenderAdminCustomSubjects = window.renderAdminCustomSubjects || renderAdminCustomSubjects;
@@ -2139,6 +2178,7 @@ window.saveAllSettings = async function() {
             localStorage.setItem('school', JSON.stringify(school));
             updateAllSchoolNameElements(schoolName);
             showToast('✅ Curriculum and structure saved safely', 'success');
+            if (api.admin?.syncCurriculumClasses) await api.admin.syncCurriculumClasses().catch(e => console.warn('Class sync skipped', e.message));
             await updateAdminStats();
         } else throw new Error(response?.message || 'Save failed');
     } catch(error) { console.error('V102 save settings error:', error); showToast(error.message || 'Failed to save settings', 'error'); }

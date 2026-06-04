@@ -57,6 +57,17 @@ async function renderStudentSection(section) {
     }
 }
 
+
+function renderStudentCareerPathSection() {
+    const allowed = typeof sectionAllowedByRulebook === 'function' ? sectionAllowedByRulebook('career-path') : false;
+    if (!allowed) {
+        return `<div class="space-y-4 animate-fade-in"><h2 class="text-2xl font-bold">Career Path</h2><div class="rounded-xl border bg-card p-6"><p class="text-muted-foreground">Career pathways and subject-choice tools are only shown for senior secondary learners in schools that have Senior Secondary enabled.</p></div></div>`;
+    }
+    const student = dashboardData?.student || getCurrentUser()?.student || {};
+    const selections = dashboardData?.subjectSelections || student.subjectSelections || [];
+    return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">Career Path & Subject Choices</h2><p class="text-sm text-muted-foreground">Senior Secondary pathway support for Grade 10–12.</p></div><div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-3">My selected subjects</h3>${selections.length ? selections.map(s => `<div class="p-3 border rounded-lg mb-2"><b>${escapeHtml(s.subjectName || s.subject || 'Subject')}</b><p class="text-xs text-muted-foreground">${escapeHtml(s.pathway || s.track || '')} ${s.status ? '• '+escapeHtml(s.status) : ''}</p></div>`).join('') : '<p class="text-sm text-muted-foreground">No senior subject choices have been submitted yet.</p>'}</div></div>`;
+}
+
 async function renderStudentDashboard() {
     try {
         if (!dashboardData || Object.keys(dashboardData).length === 0 || !dashboardData.student || !dashboardData.school) {
@@ -1540,6 +1551,7 @@ window.loadTutorProgress = async function() {
 
 // ============ EXPORT FUNCTIONS ============
 window.renderStudentSection = renderStudentSection;
+window.renderStudentCareerPathSection = renderStudentCareerPathSection;
 window.renderStudentDashboard = renderStudentDashboard;
 window.renderStudentGrades = renderStudentGrades;
 window.renderStudentAttendance = renderStudentAttendance;

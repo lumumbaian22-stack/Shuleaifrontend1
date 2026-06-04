@@ -188,33 +188,48 @@ function normalizeLevel(level) {
 
 // ============ GRADE CALCULATION ============
 function getGradeFromScore(score, curriculum, level, customScale) {
-    // customScale can be an array of { grade, min, max } or an object with passMark/failMark
-    if (Array.isArray(customScale) && customScale.length > 0) {
-        const s = Number(score);
-        for (const entry of customScale) {
-            if (s >= entry.min && s <= entry.max) return entry.grade;
-        }
-        return 'N/A'; // fallback if no match
-    }
-
-    // Legacy: if customScale has passMark/failMark (used previously)
-    if (customScale && (customScale.passMark !== undefined || customScale.failMark !== undefined)) {
-        if (customScale.passMark !== undefined && score >= customScale.passMark) return 'PASS';
-        if (customScale.failMark !== undefined && score < customScale.failMark) return 'FAIL';
-        return 'PASS';
-    }
-
-    // Default curriculum grading
-    const curriculumData = CURRICULUMS[curriculum];
-    if (!curriculumData) return 'N/A';
-    let normalizedLevel = level;
-    if (level === 'both') normalizedLevel = 'secondary';
-    const scale = curriculumData.grading[normalizedLevel] || curriculumData.grading.primary || [];
     const scoreNum = Number(score);
-    if (isNaN(scoreNum)) return 'N/A';
-    for (const entry of scale) {
-        const [min, max] = entry.range.split('-').map(Number);
-        if (scoreNum >= min && scoreNum <= max) return entry.grade;
+    if (!Number.isFinite(scoreNum)) return 'N/A';
+
+    if (Array.isArray(customScale) && customScale.length > 0) {
+        for (const entry of customScale) {
+            const min = Number(entry.min ?? entry.minScore ?? entry.from ?? 0);
+            const max = Number(entry.max ?? entry.maxScore ?? entry.to ?? 100);
+            if (scoreNum >= min && scoreNum <= max) return entry.grade || entry.label || entry.name || 'N/A';
+        }
+    }
+    if (customScale && (customScale.passMark !== undefined || customScale.failMark !== undefined)) {
+        if (customScale.passMark !== undefined && scoreNum >= Number(customScale.passMark)) return 'PASS';
+        if (customScale.failMark !== undefined && scoreNum < Number(customScale.failMark)) return 'FAIL';
+    }
+
+    const cur = String(curriculum || window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc').toLowerCase().replace(/-/g,'');
+    const rawLevel = String(level || window.schoolSettings?.schoolLevel || window.currentMarksClassName || '').toLowerCase();
+    const isSenior = /grade\s*1[0-2]|grade_1[0-2]|senior|form\s*[1-4]|secondary/.test(rawLevel);
+    const isPrimaryOrJunior = /pp|play|grade\s*[1-9]|grade_[1-9]|primary|junior|class\s*[1-8]/.test(rawLevel);
+
+    if (cur.includes('844') || cur.includes('8 4 4') || cur.includes('american') || cur.includes('british') || (cur.includes('cbc') && isSenior)) {
+        if (scoreNum >= 80) return cur.includes('british') ? 'A*' : 'A';
+        if (scoreNum >= 70) return 'B';
+        if (scoreNum >= 60) return 'C';
+        if (scoreNum >= 50) return 'D';
+        return cur.includes('american') ? 'F' : 'E';
+    }
+    if (cur.includes('cbc') || cur.includes('cbe') || isPrimaryOrJunior) {
+        if (scoreNum >= 80) return 'EE';
+        if (scoreNum >= 50) return 'ME';
+        if (scoreNum >= 20) return 'AE';
+        return 'BE';
+    }
+
+    const curriculumData = CURRICULUMS[curriculum] || CURRICULUMS[String(curriculum || '').toLowerCase()];
+    if (curriculumData?.grading) {
+        let normalizedLevel = level === 'both' ? 'secondary' : (level || 'primary');
+        const scale = curriculumData.grading[normalizedLevel] || curriculumData.grading.primary || curriculumData.grading.secondary || [];
+        for (const entry of scale) {
+            const [min, max] = String(entry.range || '').split('-').map(Number);
+            if (Number.isFinite(min) && Number.isFinite(max) && scoreNum >= min && scoreNum <= max) return entry.grade;
+        }
     }
     return 'N/A';
 }
@@ -454,13 +469,31 @@ function saveStreamSettings() {
 async function autoGenerateClassesOnCurriculumChange() {
     showLoading();
     try {
+        // Final rulebook: class generation must come from the backend curriculum engine,
+        // not from a stale frontend guess. The backend reads the saved curriculum,
+        // enabled level groups, individual levels, and current schoolCode, then creates
+        // or reactivates the full class list that belongs to that school.
+        if (window.api?.admin?.syncCurriculumClasses) {
+            const res = await window.api.admin.syncCurriculumClasses();
+            const data = res?.data || res || {};
+            const touched = data.touchedClassIds || data.classes || data.created || [];
+            showToast(touched.length ? `Curriculum classes synced: ${touched.length} class(es) updated/created` : 'Curriculum classes are already synced from school settings', 'success');
+            if (typeof loadClasses === 'function') {
+                try { await loadClasses(); } catch (_) {}
+            }
+            if (typeof renderClassManagement === 'function' && document.getElementById('dashboard-content')) {
+                try { document.getElementById('dashboard-content').innerHTML = await renderClassManagement(); } catch (_) {}
+            }
+            return;
+        }
+
         const classesToCreate = await generateClassesFromCurriculum(true);
         const existingClasses = await loadAllClasses();
         const existingNames = new Set(existingClasses.map(c => c.name));
         const newClasses = classesToCreate.filter(c => !existingNames.has(c.name));
 
         if (newClasses.length === 0) {
-            showToast('All curriculum classes already exist', 'info');
+            showToast('Curriculum classes are already synced from school settings', 'info');
             return;
         }
 
@@ -476,15 +509,15 @@ async function autoGenerateClassesOnCurriculumChange() {
                 await api.admin.createClass(classData);
                 created++;
             } catch (error) {
-                console.error(`Failed to create class ${classData.name}:`, error);
+                console.error('Error creating class:', classData.name, error);
             }
         }
-        showToast(`✅ Created ${created} new classes`, 'success');
-        await showDashboardSection('classes');
-        if (typeof refreshClassesList === 'function') await refreshClassesList();
+
+        showToast(`Created ${created} classes successfully`, 'success');
+        if (typeof loadClasses === 'function') await loadClasses();
     } catch (error) {
-        console.error('Error generating classes:', error);
-        showToast('Failed to generate classes', 'error');
+        console.error('Error auto-generating classes:', error);
+        showToast(error.message || 'Failed to sync curriculum classes', 'error');
     } finally {
         hideLoading();
     }

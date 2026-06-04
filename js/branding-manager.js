@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const PLATFORM_SHORT_NAME = 'ShuleAI';
+  const PLATFORM_SHORT_NAME = 'Shule AI';
   const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png';
   const PLATFORM_LOGO_DARK = 'assets/logo-light.png';
   const BRAND_COLOR_PRESETS = {
@@ -77,10 +77,25 @@
       clean(u?.student?.school?.name) || clean(u?.teacher?.school?.name) || clean(u?.parent?.school?.name) || '';
   }
 
-  function isSchoolBranded() { return !isSuperAdmin() && !!getSchoolNameFromAnySource(); }
+  function brandingAllowed() {
+    if (isSuperAdmin()) return false;
+    const school = getStoredSchool() || {};
+    const settings = getStoredSettings() || {};
+    const access = school.access || settings.access || {};
+    if (school.suspended || access.suspended || String(school.accessMode || '').toLowerCase() === 'suspended') return false;
+    if (school.fullAccess || access.fullAccess || school.pilotFullAccess || school.demoMode || school.freeAccess || school.manualFullAccess || access.mode === 'pilot') return true;
+    const list = school.featureList || school.features || access.featureList || settings.featureList || [];
+    if (Array.isArray(list) && (list.includes('*') || list.includes('school_branding'))) return true;
+    if (list && typeof list === 'object' && (list['*'] || list.school_branding)) return true;
+    const plan = String(school.planCode || school.currentPlan || school.subscriptionPlan || school.plan || access.planCode || settings.planCode || '').toLowerCase();
+    return plan.includes('growth') || plan.includes('enterprise');
+  }
+
+  function isSchoolBranded() { return brandingAllowed() && !!getSchoolNameFromAnySource(); }
   function getDisplayName() { return isSchoolBranded() ? getSchoolNameFromAnySource() : PLATFORM_SHORT_NAME; }
 
   function getLogoSource() {
+    if (!brandingAllowed()) return '';
     const b = getStoredBranding();
     const raw = clean(b.logoDataUrl) || clean(b.logoUrl) || clean(b.logo) || '';
     if (raw && typeof window.resolveMediaUrl === 'function') return window.resolveMediaUrl(raw);
@@ -99,7 +114,7 @@
   }
 
   function normalizeColorPreset() {
-    const b = getStoredBranding();
+    const b = brandingAllowed() ? getStoredBranding() : {}; 
     const name = b.colorName && BRAND_COLOR_PRESETS[b.colorName] ? b.colorName : 'Shule Blue';
     const preset = BRAND_COLOR_PRESETS[name];
     return {
@@ -274,8 +289,8 @@
 
   function apply(newName, opts = {}) {
     if (applying) return getDisplayName();
-    if (newName) syncStoredSchoolName(newName);
-    const displayName = newName ? clean(newName) : getDisplayName();
+    if (newName && brandingAllowed()) syncStoredSchoolName(newName);
+    const displayName = brandingAllowed() && newName ? clean(newName) : getDisplayName();
     const hash = buildHash(displayName);
     if (!opts.force && hash === lastAppliedHash) return displayName;
     applying = true;
@@ -323,7 +338,7 @@
       loadedOnce = true;
       window.schoolBranding = branding;
       localStorage.setItem('schoolBranding', JSON.stringify(branding));
-      apply(branding.schoolName || branding.displayName || branding.name, { force: true });
+      apply(brandingAllowed() ? (branding.schoolName || branding.displayName || branding.name) : null, { force: true });
       return branding;
     } catch (_) {
       loadedOnce = true;
@@ -346,6 +361,7 @@
     getLogoSource,
     getSchoolName: getSchoolNameFromAnySource,
     isSchoolBranded,
+    brandingAllowed,
     loadSchoolBranding,
     apply,
     forceApply: (name) => apply(name, { force: true }),
@@ -365,11 +381,11 @@
     const branding = event?.detail || {};
     window.schoolBranding = { ...(window.schoolBranding || {}), ...branding };
     try { localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); } catch (_) {}
-    apply(branding.schoolName || branding.displayName || branding.name, { force: true });
+    apply(brandingAllowed() ? (branding.schoolName || branding.displayName || branding.name) : null, { force: true });
   });
   window.addEventListener('school-name-changed', (event) => {
     const nextName = event?.detail?.newName || event?.detail?.schoolName || event?.detail?.name;
-    apply(nextName, { force: true });
+    apply(brandingAllowed() ? nextName : null, { force: true });
   });
   window.addEventListener('themechange', () => apply(null, { force: true }));
   const originalToggleTheme = window.toggleTheme;

@@ -541,6 +541,8 @@ async function renderParentPayments() {
         const selectedChildId = dashboardData?.selectedChildId || dashboardData?.children?.[0]?.id;
         const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
         const historyFilter = localStorage.getItem('parent_payment_history_filter') || 'all';
+        const subPhone = escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : '') || '');
+        const childSubHtml = renderParentChildSubscriptionCards ? renderParentChildSubscriptionCards(selectedChildId, selectedChild, subPhone) : '';
 
         let finance = { accounts: [], totals: { totalExpected:0, parentPaidAmount:0, creditAmount:0, balance:0 } };
         let payments = [];
@@ -569,6 +571,7 @@ async function renderParentPayments() {
 
         return `
             <div class="space-y-6 animate-fade-in" id="parent-payments-root" data-student-id="${escapeHtml(selectedChildId || '')}">
+                ${childSubHtml}
                 <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
                     <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(selectedChild?.schoolName || school?.name || 'Your School')}</h2>
                     <p class="text-sm text-muted-foreground">School Fees & Student-Specific Payment Verification</p>
@@ -799,6 +802,41 @@ async function reportAbsence() {
     }
 }
 
+
+
+function renderParentChildSubscriptionCards(selectedChildId, selectedChild, phone='') {
+    const plans = [
+        { code:'basic', name:'Basic', amount:150, features:['Report cards','Attendance','Progress'], ai:'No AI Tutor' },
+        { code:'premium', name:'Premium', amount:300, features:['Everything in Basic','AI Tutor: 6 messages/day','Child timetable if school has timetable'], ai:'6 AI messages/day' },
+        { code:'ultimate', name:'Ultimate', amount:800, features:['Everything in Premium','Extended AI Tutor','Live child analytics','Stronger child alerts','Child recommendations'], ai:'Extended AI access' }
+    ];
+    return `<div class="rounded-xl border bg-card p-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4"><div><h3 class="font-semibold text-lg">Shule AI Child Subscription</h3><p class="text-sm text-muted-foreground">Per-child subscription. Selected child: <b>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || selectedChildId || 'Child')}</b></p></div><input id="parent-sub-phone" type="tel" value="${phone}" placeholder="2547XXXXXXXX" class="rounded-lg border bg-background px-3 py-2 text-sm md:w-56"></div><div class="grid gap-4 md:grid-cols-3">${plans.map(p => `<div class="rounded-xl border p-4 bg-background"><div class="flex justify-between items-start"><div><h4 class="font-bold">${p.name}</h4><p class="text-sm text-muted-foreground">KES ${p.amount.toLocaleString()} / month</p></div><span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(p.ai)}</span></div><ul class="mt-3 text-sm space-y-1">${p.features.map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}</ul><button onclick="payChildSubscription('${p.code}', ${p.amount})" class="mt-4 w-full rounded-lg bg-primary text-primary-foreground py-2">Try STK / Pay ${p.name}</button><div class="mt-3"><input id="parent-sub-code-${p.code}" class="w-full rounded-lg border bg-background px-3 py-2 text-sm uppercase" placeholder="Manual M-Pesa code/reference"><button onclick="submitManualChildSubscription('${p.code}', ${p.amount})" class="mt-2 w-full rounded-lg border py-2 text-sm">Submit Code for Approval</button></div></div>`).join('')}</div></div>`;
+}
+async function payChildSubscription(planCode, amount) {
+    const studentId = dashboardData?.selectedChildId || document.getElementById('payment-child')?.value;
+    const phone = document.getElementById('parent-sub-phone')?.value?.trim() || getParentPaymentPhone();
+    if (!studentId) return showToast('Select a child first', 'error');
+    if (!phone) return showToast('Enter M-Pesa phone number', 'error');
+    showLoading();
+    try {
+        const res = await api.payments.parentSubscriptionSTK({ studentId: Number(studentId), plan: planCode, planCode, amount, phone, billingPeriod:'monthly' });
+        showToast(res.message || 'Subscription M-Pesa prompt sent.', 'success');
+    } catch (e) { showToast(e.message || 'Could not start subscription payment', 'error'); }
+    finally { hideLoading(); }
+}
+async function submitManualChildSubscription(planCode, amount) {
+    const studentId = dashboardData?.selectedChildId || document.getElementById('payment-child')?.value;
+    const mpesaCode = document.getElementById(`parent-sub-code-${planCode}`)?.value?.trim()?.toUpperCase();
+    const phone = document.getElementById('parent-sub-phone')?.value?.trim() || getParentPaymentPhone();
+    if (!studentId) return showToast('Select a child first', 'error');
+    if (!mpesaCode) return showToast('Enter the manual M-Pesa code/reference', 'error');
+    showLoading();
+    try {
+        const res = await api.payments.parentSubscriptionManual({ studentId: Number(studentId), plan: planCode, planCode, amount, phone, mpesaCode, billingPeriod:'monthly' });
+        showToast(res.message || 'Subscription payment submitted for approval.', 'success');
+    } catch (e) { showToast(e.message || 'Could not submit subscription code', 'error'); }
+    finally { hideLoading(); }
+}
 
 function getParentPaymentPhone() {
     const explicit = document.getElementById('payment-phone')?.value?.trim();
@@ -1296,3 +1334,7 @@ async function refreshParentPaymentPanelSoft() {
     if (window.lucide?.createIcons) window.lucide.createIcons();
 }
 window.refreshParentPaymentPanelSoft = refreshParentPaymentPanelSoft;
+
+window.renderParentChildSubscriptionCards = renderParentChildSubscriptionCards;
+window.payChildSubscription = payChildSubscription;
+window.submitManualChildSubscription = submitManualChildSubscription;

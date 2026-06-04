@@ -367,6 +367,7 @@ const adminAPI = {
     getAssessmentSettings: () => apiRequest('/api/admin/assessment-settings'),
     saveAssessmentSettings: (assessmentSettings) => apiRequest('/api/admin/assessment-settings', { method: 'PUT', body: JSON.stringify({ assessmentSettings }) }),
     getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
+    syncCurriculumClasses: () => apiRequest('/api/admin/curriculum/classes/sync', { method:'POST', body: JSON.stringify({}) }),
     getStudentSubjectSelection: (studentId) => apiRequest(`/api/admin/students/${studentId}/subject-selection`),
     saveStudentSubjectSelection: (studentId, data) => apiRequest(`/api/admin/students/${studentId}/subject-selection`, { method: 'PUT', body: JSON.stringify(data) }),
     submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) }),

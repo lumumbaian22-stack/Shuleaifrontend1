@@ -59,6 +59,7 @@ async function renderTeacherSection(section) {
       case 'students': return await renderTeacherStudents();
       case 'attendance': return await renderTeacherAttendance();
       case 'grades': return await renderTeacherMarksEntry();
+      case 'subject-requests': return await renderTeacherSubjectRequests();
       case 'tasks': return await renderTeacherTasks();
       case 'duty': return await (window.v12RenderTeacherDuty || window.renderTeacherDuty)();
       case 'duty-preferences': return renderTeacherDutyPreferences();
@@ -1069,6 +1070,7 @@ async function submitSwapRequest() {
 }
 
 function renderTeacherDutyPreferences() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Duty Preferences</h2><p class="text-muted-foreground">Duty is not available for this school plan.</p></div>`;
   return `<div class="space-y-6"><h2 class="text-2xl font-bold">Duty Preferences</h2><div class="rounded-xl border bg-card p-6 max-w-2xl mx-auto"><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">Preferred Days</label><div class="flex flex-wrap gap-3" id="pref-days">${['Monday','Tuesday','Wednesday','Thursday','Friday'].map(d => `<label class="flex items-center gap-2"><input type="checkbox" value="${d.toLowerCase()}" class="pref-day"> <span>${d}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Preferred Areas</label><div class="flex flex-wrap gap-3" id="pref-areas">${['morning','lunch','afternoon','whole_day'].map(a => `<label class="flex items-center gap-2"><input type="checkbox" value="${a}" class="pref-area"> <span>${a}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Max Duties Per Week</label><input type="number" id="max-duties" value="3" min="1" max="5" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text14 font-medium mb-1">Blackout Dates</label><div class="flex gap-2"><input type="date" id="blackout-date" class="flex-1 rounded-lg border p-2 bg-background"><button onclick="addBlackoutDate()" class="px-3 py-2 bg-primary text-white rounded-lg">Add</button></div><div id="blackout-dates-list" class="mt-2 space-y-1"></div></div><button onclick="saveDutyPreferences()" class="w-full bg-primary text-white py-2 rounded-lg">Save Preferences</button></div></div></div>`;
 }
 window.addBlackoutDate = function() {
@@ -2199,6 +2201,19 @@ async function createHomeworkDiscussion(taskId) {
     }
 }
 
+
+async function renderTeacherSubjectRequests() {
+  if (typeof sectionAllowedByRulebook === 'function' && !sectionAllowedByRulebook('subject-requests')) {
+    return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Subject Requests</h2><p class="text-muted-foreground">Senior subject-choice requests appear only for schools that have Senior Secondary enabled and the senior subject choice feature available.</p></div>`;
+  }
+  let rows = [];
+  try {
+    const res = await (api.teacher.getSubjectRequests ? api.teacher.getSubjectRequests() : apiRequest('/api/teacher/subject-requests'));
+    rows = Array.isArray(res.data) ? res.data : (res.data?.requests || []);
+  } catch (e) { rows = []; }
+  return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">Senior Subject Requests</h2><p class="text-sm text-muted-foreground">Review Grade 10–12 learner subject choices for your assigned senior classes.</p></div><div class="rounded-xl border bg-card p-6">${rows.length ? rows.map(r => `<div class="border rounded-lg p-3 mb-2"><b>${escapeHtml(r.studentName || r.Student?.User?.name || 'Student')}</b><p class="text-sm text-muted-foreground">${escapeHtml(r.subjectName || r.subject || 'Subject')} • ${escapeHtml(r.status || 'pending')}</p></div>`).join('') : '<p class="text-sm text-muted-foreground">No senior subject requests found.</p>'}</div></div>`;
+}
+
 // ============ EXPORTS ============
 window.viewStudentDetails = viewStudentDetails;
 window.showStudentDetailModalFromStudent = showStudentDetailModalFromStudent;
@@ -2206,6 +2221,7 @@ window.closeStudentDetailModal = closeStudentDetailModal;
 window.reportAbsenceForStudent = reportAbsenceForStudent;
 window.openMessageParent = openMessageParent;
 window.renderTeacherSection = renderTeacherSection;
+window.renderTeacherSubjectRequests = renderTeacherSubjectRequests;
 window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.renderTeacherDashboard = renderTeacherDashboard;
 window.renderTeacherStudents = renderTeacherStudents;

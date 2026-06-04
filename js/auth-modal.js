@@ -188,8 +188,8 @@ function getAuthForm(role, mode) {
                     <div class="flex items-start gap-2 mt-4">
                         <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
                         <label for="auth-terms" class="text-xs text-muted-foreground">
-                            I agree to the <a href="#" onclick="showTerms()" class="text-primary hover:underline">Terms of Service</a> and 
-                            <a href="#" onclick="showPrivacy()" class="text-primary hover:underline">Privacy Policy</a>.
+                            I agree to the <a href="legal/terms.html" target="_blank" rel="noopener" onclick="return showTerms(event)" class="text-primary hover:underline">Terms of Service</a> and 
+                            <a href="legal/privacy.html" target="_blank" rel="noopener" onclick="return showPrivacy(event)" class="text-primary hover:underline">Privacy Policy</a>.
                         </label>
                     </div>
                 </div>
@@ -234,8 +234,8 @@ function getAuthForm(role, mode) {
                     <div class="flex items-start gap-2 mt-4">
                         <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
                         <label for="auth-terms" class="text-xs text-muted-foreground">
-                            I agree to the <a href="#" onclick="showTerms()" class="text-primary hover:underline">Terms of Service</a> and 
-                            <a href="#" onclick="showPrivacy()" class="text-primary hover:underline">Privacy Policy</a>.
+                            I agree to the <a href="legal/terms.html" target="_blank" rel="noopener" onclick="return showTerms(event)" class="text-primary hover:underline">Terms of Service</a> and 
+                            <a href="legal/privacy.html" target="_blank" rel="noopener" onclick="return showPrivacy(event)" class="text-primary hover:underline">Privacy Policy</a>.
                         </label>
                     </div>
                 </div>
@@ -266,8 +266,8 @@ function getAuthForm(role, mode) {
                     <div class="flex items-start gap-2 mt-4">
                         <input type="checkbox" id="auth-terms" class="mt-1 rounded" required>
                         <label for="auth-terms" class="text-xs text-muted-foreground">
-                            I agree to the <a href="#" onclick="showTerms()" class="text-primary hover:underline">Terms of Service</a> and 
-                            <a href="#" onclick="showPrivacy()" class="text-primary hover:underline">Privacy Policy</a>.
+                            I agree to the <a href="legal/terms.html" target="_blank" rel="noopener" onclick="return showTerms(event)" class="text-primary hover:underline">Terms of Service</a> and 
+                            <a href="legal/privacy.html" target="_blank" rel="noopener" onclick="return showPrivacy(event)" class="text-primary hover:underline">Privacy Policy</a>.
                         </label>
                     </div>
                 </div>
@@ -671,13 +671,29 @@ function showStudentHelp() {
     showToast('Contact your teacher to reset your password or get your ELIMUID', 'info', 5000);
 }
 
-// Terms and Privacy placeholders (you can implement actual modals later)
-function showTerms() {
-    alert('Terms of Service: By using ShuleAI, you agree to our terms...');
+function openLegalDocument(path, event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const normalizedPath = String(path || '').replace(/^\/+/, '');
+    const url = normalizedPath.startsWith('legal/') ? normalizedPath : `legal/${normalizedPath}`;
+    try {
+        const opened = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!opened) window.location.href = url;
+    } catch (error) {
+        window.location.href = url;
+    }
+    return false;
 }
 
-function showPrivacy() {
-    alert('Privacy Policy: We protect your data...');
+function showTerms(event) {
+    return openLegalDocument('legal/terms.html', event);
+}
+
+function showPrivacy(event) {
+    return openLegalDocument('legal/privacy.html', event);
+}
+
+function showDPA(event) {
+    return openLegalDocument('legal/dpa.html', event);
 }
 
 window.openAuthModal = openAuthModal;
@@ -691,3 +707,5 @@ window.handleFirstPasswordChange = handleFirstPasswordChange;
 window.showStudentHelp = showStudentHelp;
 window.showTerms = showTerms;
 window.showPrivacy = showPrivacy;
+window.showDPA = showDPA;
+window.openLegalDocument = openLegalDocument;
