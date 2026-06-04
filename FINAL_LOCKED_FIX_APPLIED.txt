@@ -1,0 +1,17 @@
+Shule AI v128 full locked frontend ZIP fixes applied.
+
+Includes:
+- Starter/Growth/Enterprise frontend feature visibility guard.
+- Starter branding locked to Shule AI name/logo/colors. Growth/Enterprise/full-access can use school branding.
+- Multi-school cache cleanup on login/logout.
+- Real legal pages for Terms, Privacy and DPA.
+- Consent modal links to real documents.
+- Admin signup includes Kenya CBC/CBE level checkboxes plus 8-4-4/custom support payload.
+- Upload token refresh fix.
+- WebSocket base URL uses current API base URL.
+- Parent competency chart no longer uses inline script inside innerHTML.
+- Task save now persists through backend API.
+- Bulk SMS school-admin UI simplified to tokens, compose, send, and history; API/provider config remains Super Admin side.
+- Admin announcements support platform alert, SMS, or both; AI suggestions return selectable options.
+- Service worker cache rebuilt for the full production app shell and API-safe fetch handling.
+- Removed junk logo.png1/logo.png2/logo.png3 assets.

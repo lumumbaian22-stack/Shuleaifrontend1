@@ -338,10 +338,14 @@ function showTermsModal() {
     titleEl.textContent = 'Accept Terms';
     contentEl.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm">Please accept the Terms of Service and Privacy Policy to continue.</p>
+            <p class="text-sm">Please read and accept the required documents to continue.</p>
+            <div class="grid gap-2 text-sm">
+                <a class="text-primary underline" href="/legal/terms.html" target="_blank" rel="noopener">Open Terms of Service</a>
+                <a class="text-primary underline" href="/legal/privacy.html" target="_blank" rel="noopener">Open Privacy Policy</a>
+            </div>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-terms" class="mt-1 rounded">
-                <label for="modal-terms" class="text-xs">I accept the Terms of Service and Privacy Policy</label>
+                <label for="modal-terms" class="text-xs">I have read and accept the Terms of Service and Privacy Policy</label>
             </div>
             <div class="flex justify-end gap-2">
                 <button onclick="logout()" class="px-4 py-2 border rounded-lg">Logout</button>
@@ -377,7 +381,8 @@ function showDPAModal() {
     titleEl.textContent = 'Data Processing Agreement';
     contentEl.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm">As a school administrator, you must accept the Data Processing Agreement (DPA) to manage student data.</p>
+            <p class="text-sm">As a school administrator, you must accept the Data Processing Agreement (DPA) before managing student data.</p>
+            <a class="text-primary underline text-sm" href="/legal/dpa.html" target="_blank" rel="noopener">Open Data Processing Agreement</a>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-dpa" class="mt-1 rounded">
                 <label for="modal-dpa" class="text-xs">I have read and accept the Data Processing Agreement</label>
@@ -650,6 +655,9 @@ async function showDashboardSection(section) {
                     initRoleCharts(currentRole, dashboardData);
                 }
             }, 300);
+        }
+        if (currentRole === 'parent' && section === 'competency') {
+            setTimeout(() => { if (typeof window.initParentCompetencyChart === 'function') window.initParentCompetencyChart(); }, 100);
         }
 
         setupSectionListeners(currentRole, section);

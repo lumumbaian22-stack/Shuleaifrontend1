@@ -683,8 +683,9 @@ async function uploadFile(endpoint, fileOrFormData, onProgress) {
         xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
         
         xhr.open('POST', `${API_BASE_URL}${endpoint}`);
-        if (authToken) {
-            xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+        const currentToken = localStorage.getItem('authToken') || localStorage.getItem('token') || authToken;
+        if (currentToken) {
+            xhr.setRequestHeader('Authorization', `Bearer ${currentToken}`);
         }
         xhr.send(formData);
     });

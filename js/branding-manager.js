@@ -64,6 +64,31 @@
     return role === 'superadmin' || role === 'super_admin';
   }
 
+  function getAccessPayload() {
+    const s = getStoredSchool() || {};
+    const d = window.dashboardData || window.studentDashboardData || {};
+    const st = getStoredSettings() || {};
+    return { ...st, ...(st.access || {}), ...s, ...(s.access || {}), ...(d.school || {}), ...(d.access || {}), ...(d.subscription || {}) };
+  }
+
+  function hasFullAccessOverride() {
+    const a = getAccessPayload();
+    const mode = String(a.accessMode || a.mode || a.subscriptionMode || '').toLowerCase();
+    return !!(a.pilotFullAccess || a.demoMode || a.freeMode || a.fullAccess || a.manualFullAccessOverride || a.manualOverride || a.isPilot || a.isDemo || a.isFree || mode.includes('pilot') || mode.includes('demo') || mode.includes('free') || mode.includes('full'));
+  }
+
+  function getPlanCode() {
+    const a = getAccessPayload();
+    return String(a.planCode || a.currentPlan || a.plan || a.subscriptionPlan || a.tier || 'starter').toLowerCase();
+  }
+
+  function schoolCanUseBranding() {
+    if (isSuperAdmin()) return false;
+    if (hasFullAccessOverride()) return true;
+    const plan = getPlanCode();
+    return plan.includes('growth') || plan.includes('enterprise');
+  }
+
   function getSchoolNameFromAnySource() {
     const b = getStoredBranding();
     const s = getStoredSchool();
@@ -77,10 +102,11 @@
       clean(u?.student?.school?.name) || clean(u?.teacher?.school?.name) || clean(u?.parent?.school?.name) || '';
   }
 
-  function isSchoolBranded() { return !isSuperAdmin() && !!getSchoolNameFromAnySource(); }
+  function isSchoolBranded() { return schoolCanUseBranding() && !!getSchoolNameFromAnySource(); }
   function getDisplayName() { return isSchoolBranded() ? getSchoolNameFromAnySource() : PLATFORM_SHORT_NAME; }
 
   function getLogoSource() {
+    if (!schoolCanUseBranding()) return '';
     const b = getStoredBranding();
     const raw = clean(b.logoDataUrl) || clean(b.logoUrl) || clean(b.logo) || '';
     if (raw && typeof window.resolveMediaUrl === 'function') return window.resolveMediaUrl(raw);
@@ -99,6 +125,10 @@
   }
 
   function normalizeColorPreset() {
+    if (!schoolCanUseBranding()) {
+      const preset = BRAND_COLOR_PRESETS['Shule Blue'];
+      return { colorName: 'Shule Blue', primaryColor: preset.primaryColor, accentColor: preset.accentColor };
+    }
     const b = getStoredBranding();
     const name = b.colorName && BRAND_COLOR_PRESETS[b.colorName] ? b.colorName : 'Shule Blue';
     const preset = BRAND_COLOR_PRESETS[name];
@@ -352,7 +382,7 @@
     updateAllSchoolNameElements: (name) => apply(name, { force: true }),
     updateSidebarSchoolName: (name) => apply(name, { force: true }),
     syncStoredSchoolName,
-    debug: () => ({ branding: getStoredBranding(), logo: getLogoSource(), colors: normalizeColorPreset(), name: getDisplayName(), hash: lastAppliedHash })
+    debug: () => ({ branding: getStoredBranding(), logo: getLogoSource(), colors: normalizeColorPreset(), name: getDisplayName(), canUseBranding: schoolCanUseBranding(), plan: getPlanCode(), fullAccess: hasFullAccessOverride(), hash: lastAppliedHash })
   };
 
   window.updateAllSchoolNameElements = window.BrandingManager.updateAllSchoolNameElements;

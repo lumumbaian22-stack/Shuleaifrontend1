@@ -429,9 +429,9 @@
     {
       icon: '🤖',
       title: 'AI Tutor is locked or unavailable',
-      summary: 'Student AI Tutor requires an active Essential, Smart or Genius child subscription. If DeepSeek has insufficient balance, no usage should be deducted.',
+      summary: 'Student AI Tutor requires an active Premium or Ultimate child subscription. Basic includes report cards, attendance and progress only. If DeepSeek has insufficient balance, no usage should be deducted.',
       tags: ['ai tutor', 'subscription', 'deepseek', 'usage'],
-      steps: ['Confirm the student has Essential, Smart or Genius plan.', 'Check today’s usage limit.', 'If the answer fails, try again later.', 'No usage is deducted when Shule AI cannot answer.', 'Parent can renew or upgrade the child plan.']
+      steps: ['Confirm the selected child has Premium or Ultimate.', 'Check today’s usage limit.', 'If the answer fails, try again later.', 'No usage is deducted when Shule AI cannot answer.', 'Parent can renew or upgrade the child plan.']
     },
     {
       icon: '💳',
@@ -485,7 +485,7 @@
     ],
     parent: [
       { icon: '👥', title: 'I have many children but only one appears', summary: 'Parent-child linking may be incomplete. Contact the school so they can link the missing child to your parent account.', tags: ['children', 'parent link', 'missing child'], steps: ['Open Children.', 'Refresh once.', 'If still missing, contact school admin.', 'Share the child name, class, and admission number.'] },
-      { icon: '🔒', title: 'AI Tutor asks for subscription', summary: 'There is no free AI tier. Each child needs Essential, Smart or Genius before using the AI Tutor.', tags: ['ai tutor', 'subscription', 'essential', 'smart', 'genius'], steps: ['Open Subscriptions.', 'Select the child.', 'Choose Essential, Smart or Genius.', 'Complete payment.', 'Ask the student to reopen AI Tutor.'] }
+      { icon: '🔒', title: 'AI Tutor asks for subscription', summary: 'Basic has no AI Tutor. Each child needs Premium or Ultimate before using the AI Tutor.', tags: ['ai tutor', 'subscription', 'basic', 'premium', 'ultimate'], steps: ['Open Subscriptions.', 'Select the child.', 'Choose Premium or Ultimate.', 'Complete payment.', 'Ask the student to reopen AI Tutor.'] }
     ],
     teacher: [
       { icon: '👩‍🏫', title: 'My assigned class or subject is missing', summary: 'Teacher access depends on class and subject assignments made by admin.', tags: ['assigned class', 'subject', 'teacher'], steps: ['Open Classes/Students.', 'Refresh once.', 'Ask admin to confirm class teacher or subject teacher assignment.', 'Log out and log in again after changes.'] },
@@ -671,7 +671,7 @@
     ['Payment pending','Pending payments are visible but do not reduce balance until school finance approves them. Check the selected child and fee account.'],
     ['Balance not reducing','Balances reduce only after successful/approved payments, bursaries, waivers or credits. Failed/rejected payments stay in history but do not reduce the balance.'],
     ['Payment history missing','Select the correct child first. Payment history is student-specific and never mixes siblings.'],
-    ['AI Tutor locked','AI Tutor requires an active Essential, Smart or Genius child plan. There is no free tier.'],
+    ['AI Tutor locked','AI Tutor requires an active Premium or Ultimate child plan. Basic has no AI Tutor.'],
     ['AI Tutor unavailable','If DeepSeek has insufficient balance or network fails, no student usage is deducted. Try again after support confirms the AI provider is funded.'],
     ['Marks showing N/A','Marks must be between 0 and 100. The system calculates grade using the school curriculum. Refresh if curriculum settings were just changed.'],
     ['Report card not opening','Make sure the student belongs to your class/school/parent account and that published marks exist.'],

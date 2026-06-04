@@ -56,6 +56,7 @@ async function checkAuth() {
         localStorage.removeItem('user');
         localStorage.removeItem('school');
         localStorage.removeItem('userRole');
+    clearSchoolScopedRuntimeCache();
         return false;
     }
 }
@@ -176,6 +177,7 @@ async function studentLogin(elimuid, password) {
 async function login(emailOrPhone, password, role) {
     try {
         console.log('🔐 Attempting login for role:', role);
+        clearSchoolScopedRuntimeCache();
 
         const response = await api.auth.login(emailOrPhone, password, role);
         if (!response.success) throw new Error(response.message);
@@ -253,6 +255,7 @@ function logout() {
     localStorage.removeItem('user');
     localStorage.removeItem('school');
     localStorage.removeItem('userRole');
+    clearSchoolScopedRuntimeCache();
     authToken = null;
     refreshToken = null;
     currentUser = null;
