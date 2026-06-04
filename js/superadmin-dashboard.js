@@ -17,7 +17,7 @@ async function renderSuperAdminSection(section) {
              case 'help':
                 return renderHelpSection();   
             case 'platform-health':
-                return renderSuperAdminHealth();
+                return await renderSuperAdminHealth();
             case 'platform-payments':
                 return await renderSuperAdminPlatformPayments();
             case 'settings':
@@ -47,6 +47,8 @@ async function renderSuperAdminPlatformPayments() {
 // ============ MAIN DASHBOARD ============
 function renderSuperAdminDashboard() {
     const data = dashboardData || {};
+    const recentSchools = [...(data.pendingSchools || []), ...(data.schools || [])].slice(0, 5);
+    const recentActivityRows = recentSchools.length ? recentSchools.map(s => `<div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors"><div class="h-10 w-10 rounded-full ${s.status === 'active' ? 'bg-green-100' : 'bg-yellow-100'} flex items-center justify-center"><i data-lucide="${s.status === 'active' ? 'check-circle' : 'clock'}" class="h-5 w-5 ${s.status === 'active' ? 'text-green-600' : 'text-yellow-600'}"></i></div><div class="flex-1"><p class="text-sm font-medium">${s.status === 'active' ? 'School Active' : 'School Registration'}</p><p class="text-xs text-muted-foreground">${escapeHtml(s.officialSchoolName || s.name || s.schoolName || 'Unnamed School')} • ${escapeHtml(s.shortCode || s.schoolId || '')}</p></div><span class="text-xs text-muted-foreground">${typeof formatDate === 'function' ? formatDate(s.createdAt || s.updatedAt) : (s.createdAt || '')}</span></div>`).join('') : '<div class="p-6 text-sm text-muted-foreground">No platform activity found yet.</div>';
     return `
         <div class="space-y-6 animate-fade-in">
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -141,28 +143,7 @@ function renderSuperAdminDashboard() {
                 <div class="p-4 border-b">
                     <h3 class="font-semibold">Recent Activity</h3>
                 </div>
-                <div class="divide-y">
-                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
-                        <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                            <i data-lucide="check-circle" class="h-5 w-5 text-green-600"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">School Approved</p>
-                            <p class="text-xs text-muted-foreground">Nairobi Academy was approved by Super Admin</p>
-                        </div>
-                        <span class="text-xs text-muted-foreground">2 hours ago</span>
-                    </div>
-                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
-                        <div class="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                            <i data-lucide="clock" class="h-5 w-5 text-yellow-600"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">New School Registration</p>
-                            <p class="text-xs text-muted-foreground">Mombasa Academy registered and pending approval</p>
-                        </div>
-                        <span class="text-xs text-muted-foreground">5 hours ago</span>
-                    </div>
-                </div>
+                <div class="divide-y">${recentActivityRows}</div>
             </div>
         </div>
     `;
@@ -239,132 +220,42 @@ async function renderSuperAdminNameChangeRequests() {
 }
 
 // ============ PLATFORM HEALTH ============
-function renderSuperAdminHealth() {
-    const data = dashboardData || {};
+async function renderSuperAdminHealth() {
+    let status = {}, metrics = {}, events = [];
+    try {
+        const [statusRes, metricsRes, eventsRes] = await Promise.all([
+            apiRequest('/api/super-admin/system/status').catch(e => ({ data:{ error:e.message } })),
+            apiRequest('/api/super-admin/system/metrics').catch(e => ({ data:{ error:e.message } })),
+            apiRequest('/api/super-admin/system/events').catch(e => ({ data:[] }))
+        ]);
+        status = statusRes.data || {};
+        metrics = metricsRes.data || {};
+        events = Array.isArray(eventsRes.data) ? eventsRes.data : [];
+    } catch (e) { status = { error:e.message }; }
+    const okDot = (state) => String(state || '').toLowerCase().includes('operational') || String(state || '').toLowerCase().includes('connected') ? 'bg-green-500' : 'bg-yellow-500';
+    const pct = (n) => Number.isFinite(Number(n)) ? Math.max(0, Math.min(100, Number(n))) : null;
+    const cpu = pct(metrics.cpuUsage);
+    const mem = pct(metrics.memoryUsage);
+    const storage = pct(metrics.storagePercent);
+    const eventRows = events.length ? events.map(ev => `<div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors"><div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center"><i data-lucide="activity" class="h-5 w-5 text-blue-600"></i></div><div class="flex-1"><p class="text-sm font-medium">${escapeHtml(ev.title || ev.type || 'Platform event')}</p><p class="text-xs text-muted-foreground">${escapeHtml(ev.description || ev.message || '')}</p></div><span class="text-xs text-muted-foreground">${typeof formatDate === 'function' ? formatDate(ev.timestamp || ev.createdAt) : (ev.timestamp || '')}</span></div>`).join('') : `<div class="p-6 text-sm text-muted-foreground">No recent platform events found.</div>`;
     return `
         <div class="space-y-6 animate-fade-in">
             <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold">Platform Health</h2>
-                <button onclick="renderSuperAdminHealth()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
-                    <i data-lucide="refresh-cw" class="h-4 w-4"></i>
-                    Refresh
-                </button>
+                <button onclick="showDashboardSection('platform-health')" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2"><i data-lucide="refresh-cw" class="h-4 w-4"></i>Refresh</button>
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div class="rounded-xl border bg-card p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-muted-foreground">Database</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <div class="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
-                                <h3 class="text-xl font-bold">Operational</h3>
-                            </div>
-                            <p class="text-xs text-muted-foreground mt-1">Last checked: just now</p>
-                        </div>
-                        <div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                            <i data-lucide="database" class="h-6 w-6 text-green-600"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="rounded-xl border bg-card p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-muted-foreground">API Server</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <div class="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
-                                <h3 class="text-xl font-bold">Operational</h3>
-                            </div>
-                            <p class="text-xs text-muted-foreground mt-1">Response: 42ms</p>
-                        </div>
-                        <div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                            <i data-lucide="server" class="h-6 w-6 text-green-600"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="rounded-xl border bg-card p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-muted-foreground">Storage</p>
-                            <div class="mt-1">
-                                <h3 class="text-xl font-bold">45GB / 100GB</h3>
-                                <div class="w-full h-2 bg-muted rounded-full mt-2 overflow-hidden">
-                                    <div class="h-full rounded-full bg-green-500" style="width: 45%"></div>
-                                </div>
-                                <p class="text-xs text-muted-foreground mt-1">45% Used</p>
-                            </div>
-                        </div>
-                        <div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                            <i data-lucide="hard-drive" class="h-6 w-6 text-amber-600"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="rounded-xl border bg-card p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-muted-foreground">WebSocket</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <div class="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
-                                <h3 class="text-xl font-bold">Connected</h3>
-                            </div>
-                            <p class="text-xs text-muted-foreground mt-1">Active connections: 124</p>
-                        </div>
-                        <div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                            <i data-lucide="zap" class="h-6 w-6 text-green-600"></i>
-                        </div>
-                    </div>
-                </div>
+                <div class="rounded-xl border bg-card p-6"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Database</p><div class="flex items-center gap-2 mt-1"><div class="h-3 w-3 rounded-full ${okDot(status.database)}"></div><h3 class="text-xl font-bold">${escapeHtml(status.database || 'Unknown')}</h3></div><p class="text-xs text-muted-foreground mt-1">Last checked: ${status.databaseLastCheck ? (typeof formatDate === 'function' ? formatDate(status.databaseLastCheck) : status.databaseLastCheck) : 'not available'}</p></div><div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center"><i data-lucide="database" class="h-6 w-6 text-green-600"></i></div></div></div>
+                <div class="rounded-xl border bg-card p-6"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">API Server</p><div class="flex items-center gap-2 mt-1"><div class="h-3 w-3 rounded-full ${okDot(status.api)}"></div><h3 class="text-xl font-bold">${escapeHtml(status.api || 'Unknown')}</h3></div><p class="text-xs text-muted-foreground mt-1">Response: ${status.apiLatency !== undefined ? `${Number(status.apiLatency)}ms` : 'not available'}</p></div><div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center"><i data-lucide="server" class="h-6 w-6 text-green-600"></i></div></div></div>
+                <div class="rounded-xl border bg-card p-6"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Database Storage</p><div class="mt-1"><h3 class="text-xl font-bold">${metrics.storageUsed !== undefined ? `${Number(metrics.storageUsed).toFixed(2)}GB` : 'Not available'}</h3><div class="w-full h-2 bg-muted rounded-full mt-2 overflow-hidden"><div class="h-full rounded-full bg-green-500" style="width:${storage === null ? 0 : storage}%"></div></div><p class="text-xs text-muted-foreground mt-1">${storage === null ? 'Host quota not exposed' : `${storage}% Used`}</p></div></div><div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center"><i data-lucide="hard-drive" class="h-6 w-6 text-amber-600"></i></div></div></div>
+                <div class="rounded-xl border bg-card p-6"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">WebSocket</p><div class="flex items-center gap-2 mt-1"><div class="h-3 w-3 rounded-full ${okDot(status.websocket)}"></div><h3 class="text-xl font-bold">${escapeHtml(status.websocket || 'Unknown')}</h3></div><p class="text-xs text-muted-foreground mt-1">Active connections: ${Number(status.activeConnections || 0)}</p></div><div class="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center"><i data-lucide="zap" class="h-6 w-6 text-green-600"></i></div></div></div>
             </div>
             <div class="grid gap-4 md:grid-cols-2">
-                <div class="rounded-xl border bg-card p-6">
-                    <h3 class="font-semibold mb-4">CPU Usage</h3>
-                    <div class="relative pt-1">
-                        <div class="flex mb-2 items-center justify-between">
-                            <div><span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full bg-blue-100 text-blue-700">Current</span></div>
-                            <div class="text-right"><span class="text-xs font-semibold inline-block text-blue-600">32%</span></div>
-                        </div>
-                        <div class="overflow-hidden h-3 mb-4 text-xs flex rounded bg-blue-100">
-                            <div style="width:32%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500"></div>
-                        </div>
-                        <div class="flex justify-between text-xs text-muted-foreground">
-                            <span>Min: 15%</span><span>Avg: 35%</span><span>Max: 75%</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="rounded-xl border bg-card p-6">
-                    <h3 class="font-semibold mb-4">Memory Usage</h3>
-                    <div class="relative pt-1">
-                        <div class="flex mb-2 items-center justify-between">
-                            <div><span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full bg-purple-100 text-purple-700">Current</span></div>
-                            <div class="text-right"><span class="text-xs font-semibold inline-block text-purple-600">48%</span></div>
-                        </div>
-                        <div class="overflow-hidden h-3 mb-4 text-xs flex rounded bg-purple-100">
-                            <div style="width:48%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-purple-500 transition-all duration-500"></div>
-                        </div>
-                        <div class="flex justify-between text-xs text-muted-foreground">
-                            <span>Used: 3.2GB</span><span>Total: 8GB</span>
-                        </div>
-                    </div>
-                </div>
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">CPU Load</h3><div class="flex mb-2 items-center justify-between"><span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full bg-blue-100 text-blue-700">Current</span><span class="text-xs font-semibold inline-block text-blue-600">${cpu === null ? 'Not available' : `${cpu}%`}</span></div><div class="overflow-hidden h-3 mb-4 text-xs flex rounded bg-blue-100"><div style="width:${cpu || 0}%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-500"></div></div><p class="text-xs text-muted-foreground">Host CPU is estimated from runtime load average when available.</p></div>
+                <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Memory Usage</h3><div class="flex mb-2 items-center justify-between"><span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full bg-purple-100 text-purple-700">Current</span><span class="text-xs font-semibold inline-block text-purple-600">${mem === null ? 'Not available' : `${mem}%`}</span></div><div class="overflow-hidden h-3 mb-4 text-xs flex rounded bg-purple-100"><div style="width:${mem || 0}%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-purple-500 transition-all duration-500"></div></div><div class="flex justify-between text-xs text-muted-foreground"><span>Used: ${metrics.memoryUsed !== undefined ? `${metrics.memoryUsed}GB` : 'N/A'}</span><span>Total: ${metrics.memoryTotal !== undefined ? `${metrics.memoryTotal}GB` : 'N/A'}</span></div></div>
             </div>
-            <div class="rounded-xl border bg-card">
-                <div class="p-4 border-b">
-                    <h3 class="font-semibold">Recent Platform Events</h3>
-                </div>
-                <div class="divide-y">
-                    <div class="p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors">
-                        <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <i data-lucide="building-2" class="h-5 w-5 text-blue-600"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium">New School Registered</p>
-                            <p class="text-xs text-muted-foreground">Mombasa Academy signed up</p>
-                        </div>
-                        <span class="text-xs text-muted-foreground">2 hours ago</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+            <div class="rounded-xl border bg-card"><div class="p-4 border-b"><h3 class="font-semibold">Recent Platform Events</h3></div><div class="divide-y">${eventRows}</div></div>
+        </div>`;
 }
 
 // ============ PLATFORM SETTINGS ============

@@ -1062,6 +1062,7 @@ async function loadAdminCalendarPreviewEvents() {
 }
 
 function showAddCalendarEventModal() {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('calendar')) return showToast('Calendar is not available for this school plan.', 'warning');
     const name = prompt('Event name:');
     if (!name) return;
     const startDate = prompt('Start date (YYYY-MM-DD):');
@@ -1870,18 +1871,58 @@ async function renderAdminBrandingSection() {
     }
     let branding = {};
     try { branding = (await apiRequest('/api/owner/branding')).data || {}; } catch (_) { branding = (window.BrandingManager?.getStoredBranding?.() || {}); }
-    const presets = window.BrandingManager?.colorPresets || { 'Shule Blue':{}, 'Royal Blue':{}, 'Emerald Green':{}, Purple:{}, Orange:{}, Red:{}, Gold:{}, Slate:{} };
+    const presets = window.BrandingManager?.colorPresets || { 'Shule Blue': { primaryColor:'#083A85', accentColor:'#11B5B1' } };
+    const selectedPreset = branding.colorName || 'Shule Blue';
     const logo = branding.logoDataUrl || branding.logoUrl || branding.logo || '';
-    return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">School Branding</h2><p class="text-sm text-muted-foreground">Growth/Enterprise/full-access schools can personalize sidebar logo, display name and report footer.</p></div><div class="rounded-xl border bg-card p-6 grid gap-4 lg:grid-cols-2"><div class="space-y-4"><label class="block text-sm font-medium">Sidebar / Report Display Name<input id="branding-school-name" value="${escapeHtml(branding.schoolName || branding.displayName || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="block text-sm font-medium">Color Preset<select id="branding-color-name" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${Object.keys(presets).map(k => `<option value="${escapeHtml(k)}" ${k === (branding.colorName || 'Shule Blue') ? 'selected' : ''}>${escapeHtml(k)}</option>`).join('')}</select></label><label class="block text-sm font-medium">Logo URL<input id="branding-logo-url" value="${escapeHtml(branding.logoUrl || '')}" placeholder="https://..." class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="block text-sm font-medium">Upload Logo<input id="branding-logo-file" type="file" accept="image/*" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label></div><div class="space-y-4"><div class="rounded-xl border bg-muted/30 p-4"><p class="text-sm font-medium mb-2">Preview</p><div class="h-24 flex items-center justify-center bg-background rounded-lg border">${logo ? `<img src="${escapeHtml(logo)}" class="max-h-20 max-w-40 object-contain" onerror="this.replaceWith(document.createTextNode('Logo preview unavailable'))">` : '<span class="text-sm text-muted-foreground">Shule AI default logo</span>'}</div></div><label class="block text-sm font-medium">Report Footer<textarea id="branding-report-footer" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(branding.reportFooter || '')}</textarea></label><label class="block text-sm font-medium">Payment Instructions<textarea id="branding-payment-instructions" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(branding.paymentInstructions || '')}</textarea></label></div><div class="lg:col-span-2 flex justify-end"><button onclick="saveAdminBranding()" class="px-6 py-3 rounded-lg bg-primary text-primary-foreground">Save Branding</button></div></div></div>`;
+    const primary = branding.primaryColor || presets[selectedPreset]?.primaryColor || '#083A85';
+    const accent = branding.accentColor || presets[selectedPreset]?.accentColor || '#11B5B1';
+    return `<div class="space-y-6 animate-fade-in">
+      <div><h2 class="text-2xl font-bold">School Branding</h2><p class="text-sm text-muted-foreground">Customize sidebar identity, report branding, school colors and payment instructions. Starter/unpaid schools will still show Shule AI default branding.</p></div>
+      <div class="rounded-xl border bg-card p-6 grid gap-5 lg:grid-cols-2">
+        <div class="space-y-4">
+          <label class="block text-sm font-medium">Sidebar / Report Display Name<input id="branding-school-name" value="${escapeHtml(branding.schoolName || branding.displayName || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
+          <label class="block text-sm font-medium">Color Preset<select id="branding-color-name" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" onchange="applyBrandingPresetPreview()">${Object.keys(presets).map(k => `<option value="${escapeHtml(k)}" ${k === selectedPreset ? 'selected' : ''}>${escapeHtml(k)}</option>`).join('')}</select></label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block text-sm font-medium">Primary Color<input id="branding-primary-color" type="color" value="${escapeHtml(primary)}" class="mt-1 w-full h-11 rounded-lg border bg-background px-2 py-1"></label>
+            <label class="block text-sm font-medium">Accent Color<input id="branding-accent-color" type="color" value="${escapeHtml(accent)}" class="mt-1 w-full h-11 rounded-lg border bg-background px-2 py-1"></label>
+          </div>
+          <label class="block text-sm font-medium">Logo URL<input id="branding-logo-url" value="${escapeHtml(branding.logoUrl || '')}" placeholder="https://..." class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
+          <label class="block text-sm font-medium">Upload Logo<input id="branding-logo-file" type="file" accept="image/*" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
+        </div>
+        <div class="space-y-4">
+          <div class="rounded-xl border bg-muted/30 p-4"><p class="text-sm font-medium mb-2">Preview</p><div data-branding-logo-preview class="h-24 flex items-center justify-center bg-background rounded-lg border">${logo ? `<img src="${escapeHtml(logo)}" class="max-h-20 max-w-40 object-contain" onerror="this.replaceWith(document.createTextNode('Logo preview unavailable'))">` : '<span class="text-sm text-muted-foreground">Shule AI default logo</span>'}</div><div class="mt-3 flex gap-2"><span id="branding-primary-preview" class="h-8 w-16 rounded border" style="background:${escapeHtml(primary)}"></span><span id="branding-accent-preview" class="h-8 w-16 rounded border" style="background:${escapeHtml(accent)}"></span></div></div>
+          <label class="block text-sm font-medium">Report Footer<textarea id="branding-report-footer" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(branding.reportFooter || '')}</textarea></label>
+          <label class="block text-sm font-medium">Payment Instructions<textarea id="branding-payment-instructions" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(branding.paymentInstructions || '')}</textarea></label>
+        </div>
+        <div class="lg:col-span-2 flex justify-end"><button onclick="saveAdminBranding()" class="px-6 py-3 rounded-lg bg-primary text-primary-foreground">Save Branding</button></div>
+      </div>
+    </div>`;
 }
+
+function applyBrandingPresetPreview() {
+  const presets = window.BrandingManager?.colorPresets || {};
+  const selected = document.getElementById('branding-color-name')?.value;
+  const preset = presets[selected];
+  if (!preset) return;
+  const primary = document.getElementById('branding-primary-color');
+  const accent = document.getElementById('branding-accent-color');
+  if (primary) primary.value = preset.primaryColor;
+  if (accent) accent.value = preset.accentColor;
+  const pp = document.getElementById('branding-primary-preview');
+  const ap = document.getElementById('branding-accent-preview');
+  if (pp) pp.style.background = preset.primaryColor;
+  if (ap) ap.style.background = preset.accentColor;
+}
+
 async function saveAdminBranding() {
     const file = document.getElementById('branding-logo-file')?.files?.[0];
-    const payload = { schoolName: document.getElementById('branding-school-name')?.value?.trim(), colorName: document.getElementById('branding-color-name')?.value, logoUrl: document.getElementById('branding-logo-url')?.value?.trim(), reportFooter: document.getElementById('branding-report-footer')?.value?.trim(), paymentInstructions: document.getElementById('branding-payment-instructions')?.value?.trim() };
+    const payload = { schoolName: document.getElementById('branding-school-name')?.value?.trim(), colorName: document.getElementById('branding-color-name')?.value, primaryColor: document.getElementById('branding-primary-color')?.value, accentColor: document.getElementById('branding-accent-color')?.value, logoUrl: document.getElementById('branding-logo-url')?.value?.trim(), reportFooter: document.getElementById('branding-report-footer')?.value?.trim(), paymentInstructions: document.getElementById('branding-payment-instructions')?.value?.trim() };
     if (file) payload.logoDataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); });
     showLoading();
-    try { const res = await apiRequest('/api/owner/branding', { method:'PUT', body: JSON.stringify(payload) }); window.schoolBranding = res.data || payload; localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding })); showToast('Branding saved', 'success'); await showDashboardSection('school-branding'); } catch (e) { showToast(e.message || 'Could not save branding', 'error'); } finally { hideLoading(); }
+    try { const res = await apiRequest('/api/owner/branding', { method:'PUT', body: JSON.stringify(payload) }); window.schoolBranding = res.data || payload; localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); try { if (window.schoolScopedKey) localStorage.setItem(window.schoolScopedKey('schoolBranding'), JSON.stringify(window.schoolBranding)); } catch (_) {} window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding })); showToast('Branding saved', 'success'); await showDashboardSection('school-branding'); } catch (e) { showToast(e.message || 'Could not save branding', 'error'); } finally { hideLoading(); }
 }
 window.renderAdminBrandingSection = renderAdminBrandingSection;
+window.applyBrandingPresetPreview = applyBrandingPresetPreview;
 window.saveAdminBranding = saveAdminBranding;
 
 // ============ EXPORT FUNCTIONS ============

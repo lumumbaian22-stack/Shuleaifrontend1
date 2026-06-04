@@ -198,7 +198,12 @@
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js').catch(err => {
+      navigator.serviceWorker.register('/service-worker.js?v=136').then(reg => {
+        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        return reg.update?.();
+      }).then(() => {
+        if (navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_OLD_CACHES' });
+      }).catch(err => {
         console.warn('[Shule AI PWA] Service worker registration failed:', err?.message || err);
       });
     });

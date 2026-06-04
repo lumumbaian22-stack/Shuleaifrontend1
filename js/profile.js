@@ -404,14 +404,22 @@ async function uploadSignature(file) {
         });
         const data = await response.json();
         if (response.ok && data.success) {
-            const user = getCurrentUser();
-            const signatureUrl = v116ResolveUploadedMediaUrl(data.data?.signatureUrl || data.data?.signature || data.signatureUrl || data.signature || '');
+            const user = getCurrentUser() || {};
+            const rawSignature = data.data?.signatureUrl || data.data?.signature || data.signatureUrl || data.signature || '';
+            const signatureUrl = v116ResolveUploadedMediaUrl(rawSignature);
             if (!signatureUrl) throw new Error('Upload succeeded but no signature URL was returned');
-            user.signature = signatureUrl;
-            user.signatureUrl = signatureUrl;
-            localStorage.setItem('user', JSON.stringify(user));
+            const preferences = { ...(user.preferences || {}), signatureUrl, signatureDataUrl: rawSignature.startsWith('data:') ? rawSignature : (user.preferences?.signatureDataUrl || null), signatureFileUrl: data.data?.signatureFileUrl || user.preferences?.signatureFileUrl || null, signatureUpdatedAt: new Date().toISOString() };
+            const updatedUser = { ...user, signature: signatureUrl, signatureUrl, preferences };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            localStorage.setItem('shule_user', JSON.stringify(updatedUser));
+            window.currentUser = updatedUser;
+            if (window.dashboardData) {
+              window.dashboardData.user = { ...(window.dashboardData.user || {}), signature: signatureUrl, signatureUrl, preferences };
+              window.dashboardData.profile = { ...(window.dashboardData.profile || {}), signature: signatureUrl, signatureUrl };
+            }
             const preview = document.getElementById('signature-preview');
-            if (preview) preview.src = signatureUrl;
+            if (preview) { preview.src = signatureUrl; preview.dataset.savedSignature = 'true'; }
             showToast('Signature uploaded successfully', 'success');
         } else {
             throw new Error(data.message || 'Upload failed');

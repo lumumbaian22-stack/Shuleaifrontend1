@@ -425,7 +425,9 @@ const teacherAPI = {
     getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
     getGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassStudentsForSubject: (params = {}) => apiRequest('/api/teacher/class-students' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
-    getClassReportSnapshots: (params = {}) => apiRequest('/api/teacher/reports/snapshots' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''))
+    getClassReportSnapshots: (params = {}) => apiRequest('/api/teacher/reports/snapshots' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    getSubjectRequests: () => apiRequest('/api/teacher/subject-selection-requests'),
+    reviewSubjectRequest: (selectionId, data) => apiRequest(`/api/teacher/subject-selection-requests/${selectionId}/review`, { method:'POST', body: JSON.stringify(data || {}) })
 };
 
 // ============ PARENT ENDPOINTS ============

@@ -8,7 +8,7 @@
 
   const PLATFORM_SHORT_NAME = 'Shule AI';
   const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png';
-  const PLATFORM_LOGO_DARK = 'assets/logo-light.png';
+  const PLATFORM_LOGO_DARK = 'assets/logo-light.png'; // keep visible in dark mode; old dark asset can disappear on some dashboards
   const BRAND_COLOR_PRESETS = {
     'Shule Blue': { primaryColor: '#083A85', accentColor: '#11B5B1' },
     'Royal Blue': { primaryColor: '#0B2F6B', accentColor: '#3B82F6' },
@@ -179,7 +179,7 @@
     if (!light) {
       light = document.createElement('img');
       light.id = 'sidebar-logo-light';
-      light.className = 'h-10 w-10 object-contain block dark:hidden school-sidebar-logo'; light.style.maxWidth = '40px'; light.style.maxHeight = '40px';
+      light.className = 'h-10 w-10 object-contain block dark:hidden school-sidebar-logo'; light.style.maxWidth = '40px'; light.style.maxHeight = '40px'; light.style.backgroundColor = 'transparent';
       light.setAttribute('data-school-logo', 'true');
       light.setAttribute('data-brand-logo-light', 'true');
       container.insertBefore(light, container.firstChild);
@@ -187,7 +187,7 @@
     if (!dark) {
       dark = document.createElement('img');
       dark.id = 'sidebar-logo-dark';
-      dark.className = 'h-10 w-10 object-contain hidden dark:block school-sidebar-logo'; dark.style.maxWidth = '40px'; dark.style.maxHeight = '40px';
+      dark.className = 'h-10 w-10 object-contain hidden dark:block school-sidebar-logo'; dark.style.maxWidth = '40px'; dark.style.maxHeight = '40px'; dark.style.backgroundColor = 'transparent';
       dark.setAttribute('data-school-logo', 'true');
       dark.setAttribute('data-brand-logo-dark', 'true');
       container.insertBefore(dark, light.nextSibling);
@@ -338,6 +338,7 @@
       loadedOnce = true;
       window.schoolBranding = branding;
       localStorage.setItem('schoolBranding', JSON.stringify(branding));
+      try { if (window.schoolScopedKey) localStorage.setItem(window.schoolScopedKey('schoolBranding'), JSON.stringify(branding)); } catch (_) {}
       apply(brandingAllowed() ? (branding.schoolName || branding.displayName || branding.name) : null, { force: true });
       return branding;
     } catch (_) {
@@ -387,7 +388,7 @@
     const nextName = event?.detail?.newName || event?.detail?.schoolName || event?.detail?.name;
     apply(brandingAllowed() ? nextName : null, { force: true });
   });
-  window.addEventListener('themechange', () => apply(null, { force: true }));
+  window.addEventListener('themechange', () => { apply(null, { force: true }); setTimeout(() => apply(null, { force: true }), 120); });
   const originalToggleTheme = window.toggleTheme;
   setTimeout(() => {
     if (typeof window.toggleTheme === 'function' && !window.toggleTheme.__brandingWrapped) {
