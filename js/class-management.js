@@ -39,7 +39,7 @@ async function loadEligibleSubjectsForClass(classId) {
     try {
         if (!api.admin.getEligibleSubjectsForClass) return [];
         const response = await api.admin.getEligibleSubjectsForClass(classId);
-        const rows = Array.isArray(response.data) ? response.data : [];
+        const rows = Array.isArray(response.data) ? response.data : (response.data?.subjects || response.data?.data || []);
         return rows.map(s => s.name || s.subjectName || s.subject || s).filter(Boolean);
     } catch (error) {
         console.error('Failed to load curriculum-valid subjects for class:', error);

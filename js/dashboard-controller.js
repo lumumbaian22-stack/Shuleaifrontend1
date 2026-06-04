@@ -16,10 +16,25 @@ function currentFeatureList() {
 }
 function hasSchoolFeature(feature) {
     if (!feature) return true;
+    let user = null;
+    try { user = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || 'null'); } catch (_) { user = null; }
+    if (['super_admin','superadmin'].includes(String(user?.role || '').toLowerCase())) return true;
     const school = currentSchoolPayload() || {};
-    if (school.fullAccess || school.access?.fullAccess) return true;
+    if (school.fullAccess || school.access?.fullAccess || school.override || school.pilotFullAccess || school.demoMode || school.freeAccess) return true;
     const features = currentFeatureList();
-    return features.includes('*') || features.includes(feature);
+    if (features.includes('*') || features.includes(feature)) return true;
+    // Fallback only when the backend has not hydrated featureList yet. This mirrors the locked plan matrix
+    // without making hidden/locked UI cards; once backend data exists, backend featureList wins.
+    const plan = String(school.planCode || school.currentPlan || school.subscriptionPlan || school.plan || school.tier || school.access?.planCode || '').toLowerCase();
+    if (!features.length && plan) {
+      const starter = ['dashboard','teachers','teacher_approvals','students','analytics','alerts','finance_fees','parent_messages','school_settings','billing','classes','report_cards'];
+      const growth = starter.concat(['calendar','school_branding','timetable','homework']);
+      const enterprise = growth.concat(['duty','fairness_report','departments','bulk_sms','senior_subject_choice']);
+      if (plan.includes('enterprise')) return enterprise.includes(feature);
+      if (plan.includes('growth')) return growth.includes(feature);
+      return starter.includes(feature);
+    }
+    return false;
 }
 function isSeniorSubjectChoiceVisible() {
     const school = currentSchoolPayload() || {};
@@ -540,7 +555,7 @@ async function showDashboard(role) {
             const [students, subjects, todayDuty] = await Promise.all([
                 api.teacher.getMyStudents().catch(err => ({ data: [] })),
                 api.teacher.getMySubjects().catch(err => ({ data: [] })),
-                api.duty.getTodayDuty().catch(err => ({ data: {} }))
+                hasSchoolFeature('duty') ? api.duty.getTodayDuty().catch(err => ({ data: {} })) : Promise.resolve({ data: null })
             ]);
             dashboardData = { students: students.data, subjects: subjects.data, todayDuty: todayDuty.data };
         } else if (role === 'parent') {

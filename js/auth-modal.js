@@ -131,22 +131,45 @@ function getAuthForm(role, mode) {
                             </label>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">School Level</label>
-                        <select id="auth-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <option value="primary">Primary</option>
-                            <option value="secondary">Secondary</option>
-                            <option value="both">Both Primary & Secondary</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Curriculum</label>
-                        <select id="auth-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            <option value="cbc">CBC (Competency Based Curriculum)</option>
-                            <option value="844">8-4-4 System</option>
-                            <option value="british">British Curriculum</option>
-                            <option value="american">American Curriculum</option>
-                        </select>
+                    <div class="rounded-xl border bg-muted/20 p-4 space-y-4">
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Curriculum</label>
+                                <select id="auth-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                    <option value="cbc">CBC / CBE</option>
+                                    <option value="844">8-4-4 System</option>
+                                    <option value="british">British / Cambridge</option>
+                                    <option value="american">American</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">School Structure</label>
+                                <select id="auth-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                    <option value="primary_only">Primary only</option>
+                                    <option value="junior_only">Junior only</option>
+                                    <option value="senior_only">Senior secondary only</option>
+                                    <option value="secondary_only">8-4-4 Secondary only</option>
+                                    <option value="mixed" selected>Mixed / Full</option>
+                                    <option value="custom">Custom selected levels</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold mb-2">Enabled CBC / CBE levels for class generation</p>
+                            <div class="grid gap-2 md:grid-cols-2">
+                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="early_learning" data-levels="playgroup,pp1,pp2" onchange="authApplyLevelGroup(this)" checked><span><b>Early Learning</b><small class="block text-muted-foreground">Playgroup, PP1–PP2</small></span></label>
+                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="primary_learning" data-levels="grade_1,grade_2,grade_3,grade_4,grade_5,grade_6" onchange="authApplyLevelGroup(this)" checked><span><b>Primary Learning</b><small class="block text-muted-foreground">Grade 1–6</small></span></label>
+                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="junior_school" data-levels="grade_7,grade_8,grade_9" onchange="authApplyLevelGroup(this)" checked><span><b>Junior School</b><small class="block text-muted-foreground">Grade 7–9</small></span></label>
+                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="senior_secondary" data-levels="grade_10,grade_11,grade_12" onchange="authApplyLevelGroup(this)"><span><b>Senior Secondary</b><small class="block text-muted-foreground">Grade 10–12</small></span></label>
+                            </div>
+                        </div>
+                        <details class="rounded-lg border bg-background p-3">
+                            <summary class="cursor-pointer text-sm font-medium">Advanced individual levels</summary>
+                            <div class="grid gap-2 md:grid-cols-3 mt-3 text-sm">
+                                ${['playgroup:Playgroup:Pre-primary','pp1:PP1:Pre-primary','pp2:PP2:Pre-primary','grade_1:Grade 1:Lower Primary','grade_2:Grade 2:Lower Primary','grade_3:Grade 3:Lower Primary','grade_4:Grade 4:Upper Primary','grade_5:Grade 5:Upper Primary','grade_6:Grade 6:Upper Primary','grade_7:Grade 7:Junior School','grade_8:Grade 8:Junior School','grade_9:Grade 9:Junior School','grade_10:Grade 10:Senior School','grade_11:Grade 11:Senior School','grade_12:Grade 12:Senior School'].map(item => { const [code,label,group]=item.split(':'); const checked=!['grade_10','grade_11','grade_12'].includes(code); return `<label class="flex items-center gap-2 rounded border p-2"><input type="checkbox" class="auth-enabled-level" value="${code}" ${checked?'checked':''}><span>${label}<small class="block text-muted-foreground">${group}</small></span></label>`; }).join('')}
+                            </div>
+                        </details>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Phone</label>
@@ -388,7 +411,11 @@ async function handleAuthSubmit() {
                     phone: document.getElementById('auth-phone')?.value,
                     schoolName: document.getElementById('auth-school-name')?.value,
                     schoolLevel: document.getElementById('auth-school-level')?.value,
+                    structureType: document.getElementById('auth-school-level')?.value,
+                    schoolStructure: document.getElementById('auth-school-level')?.value,
                     curriculum: document.getElementById('auth-curriculum')?.value,
+                    enabledLevels: getAuthEnabledLevels(),
+                    enabledLevelGroups: getAuthEnabledLevelGroups(),
                     schoolType: document.querySelector('input[name="auth-school-type"]:checked')?.value || 'day',
                     termsAccepted: true,
                     privacyAccepted: true

@@ -4,10 +4,19 @@ let currentSchool = null;
 
 // Helper: Merge teacher profile into user object
 function mergeTeacherProfile(userData, profile) {
-    if (profile && userData.role === 'teacher') {
-        userData.teacher = profile;
-        // Also set classTeacher at root level for easier access
-        if (profile.classTeacher) userData.classTeacher = profile.classTeacher;
+    if (profile) {
+        if (userData.role === 'teacher') {
+            userData.teacher = profile;
+            if (profile.classTeacher) userData.classTeacher = profile.classTeacher;
+        }
+        if (profile.signature || profile.signatureUrl) {
+            userData.signature = profile.signature || profile.signatureUrl;
+            userData.signatureUrl = profile.signatureUrl || profile.signature;
+        }
+    }
+    if (userData.preferences?.signatureUrl || userData.preferences?.signatureAbsoluteUrl) {
+        userData.signature = userData.preferences.signatureUrl || userData.preferences.signatureAbsoluteUrl;
+        userData.signatureUrl = userData.preferences.signatureUrl || userData.preferences.signatureAbsoluteUrl;
     }
     return userData;
 }

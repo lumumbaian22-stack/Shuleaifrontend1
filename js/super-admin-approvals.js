@@ -2,6 +2,31 @@
 
 // ============ SCHOOL MANAGEMENT ============
 
+function officialSchoolName(school) {
+    if (!school) return 'Unnamed School';
+    const settings = school.settings || {};
+    const candidates = [
+        school.officialSchoolName,
+        school.originalSignupName,
+        school.signupSchoolName,
+        school.schoolName,
+        settings.officialSchoolName,
+        settings.originalSignupName,
+        settings.signupSchoolName,
+        settings.organizationName,
+        settings.displayName,
+        settings.schoolName,
+        school.adminOrganizationName,
+        school.adminSchoolName,
+        school.adminName,
+        school.displayName,
+        school.name
+    ].filter(v => v !== undefined && v !== null).map(v => String(v).trim()).filter(Boolean);
+    const nonPlatform = candidates.find(v => !/^shule\s*ai$/i.test(v));
+    return nonPlatform || candidates[0] || `School ${school.shortCode || school.schoolId || school.id || ''}`.trim() || 'Unnamed School';
+}
+
+
 // Load pending schools
 async function loadPendingSchools() {
     try {
@@ -74,7 +99,7 @@ function renderPendingSchoolsTable(schools) {
         
         tableHtml += `
             <tr class="hover:bg-accent/50 transition-colors">
-                <td class="px-4 py-3 font-medium">${school.displayName || school.originalSignupName || school.name || 'N/A'}</td>
+                <td class="px-4 py-3 font-medium">${escapeHtml(officialSchoolName(school))}</td>
                 <td class="px-4 py-3">${admin ? admin.email : 'No admin yet'}</td>
                 <td class="px-4 py-3">
                     <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${school.shortCode || 'N/A'}</span>
@@ -309,7 +334,7 @@ function getSchoolDetailsHTML(school) {
                 <div class="grid grid-cols-2 gap-3 text-sm">
                     <div>
                         <p class="text-muted-foreground">School Name</p>
-                        <p class="font-medium school-name-display">${school.displayName || school.originalSignupName || school.name || 'N/A'}</p>
+                        <p class="font-medium school-name-display">${escapeHtml(officialSchoolName(school))}</p>
                     </div>
                     <div>
                         <p class="text-muted-foreground">Curriculum</p>
@@ -946,67 +971,33 @@ async function rejectNameChange(requestId) {
 
 // Render schools management table
 function renderSchoolsTable(schools) {
-    if (!schools || schools.length === 0) {
-        return '<div class="text-center py-8 text-muted-foreground">No schools found</div>';
-    }
-    
+    if (!schools || schools.length === 0) return '<div class="text-center py-8 text-muted-foreground">No schools found</div>';
     return `
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-muted/50">
-                    <tr>
-                        <th class="px-4 py-3 text-left font-medium">School</th>
-                        <th class="px-4 py-3 text-left font-medium">Short Code</th>
-                        <th class="px-4 py-3 text-left font-medium">Status</th>
-                        <th class="px-4 py-3 text-left font-medium">Teachers</th>
-                        <th class="px-4 py-3 text-left font-medium">Students</th>
-                        <th class="px-4 py-3 text-right font-medium">Actions</th>
-                    </tr>
+                  <tr>
+                    <th class="px-4 py-3 text-left font-medium">School</th>
+                    <th class="px-4 py-3 text-left font-medium">Curriculum</th>
+                    <th class="px-4 py-3 text-left font-medium">Access</th>
+                    <th class="px-4 py-3 text-left font-medium">Status</th>
+                    <th class="px-4 py-3 text-right font-medium">Actions</th>
+                  </tr>
                 </thead>
                 <tbody class="divide-y">
-                    ${schools.map(school => `
-                        <tr class="hover:bg-accent/50 transition-colors">
-                            <td class="px-4 py-3 font-medium school-name-display">${school.displayName || school.originalSignupName || school.name}</td>
-                            <td class="px-4 py-3">
-                                <span class="font-mono text-xs bg-muted px-2 py-1 rounded">${school.shortCode}</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium 
-                                    ${school.status === 'active' ? 'bg-green-100 text-green-700' : 
-                                      school.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                                      school.status === 'suspended' ? 'bg-red-100 text-red-700' : 
-                                      'bg-gray-100 text-gray-700'}">
-                                    ${school.status}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">${school.stats?.teachers || 0}</td>
-                            <td class="px-4 py-3">${school.stats?.students || 0}</td>
-                            <td class="px-4 py-3 text-right">
-                                <button onclick="viewSchoolDetails('${school.id}')" class="p-2 hover:bg-accent rounded-lg" title="View Details">
-                                    <i data-lucide="eye" class="h-4 w-4"></i>
-                                </button>
-                                <button onclick="editSchool('${school.id}')" class="p-2 hover:bg-accent rounded-lg" title="Edit School">
-                                    <i data-lucide="edit" class="h-4 w-4"></i>
-                                </button>
-                                ${school.status === 'active' ? `
-                                    <button onclick="suspendSchool('${school.id}')" class="p-2 hover:bg-yellow-100 rounded-lg text-yellow-600" title="Suspend School">
-                                        <i data-lucide="pause-circle" class="h-4 w-4"></i>
-                                    </button>
-                                ` : school.status === 'suspended' ? `
-                                    <button onclick="reactivateSchool('${school.id}')" class="p-2 hover:bg-green-100 rounded-lg text-green-600" title="Reactivate School">
-                                        <i data-lucide="play-circle" class="h-4 w-4"></i>
-                                    </button>
-                                ` : ''}
-                                <button onclick="deleteSchool('${school.id}')" class="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Delete School">
-                                    <i data-lucide="trash-2" class="h-4 w-4"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `).join('')}
+                    ${schools.map(school => {
+                      const name = officialSchoolName(school);
+                      return `<tr class="hover:bg-accent/50 transition-colors">
+                        <td class="px-4 py-3"><p class="font-medium school-name-display">${escapeHtml(name)}</p><p class="text-xs text-muted-foreground">${escapeHtml(school.shortCode || school.schoolId || '')}</p></td>
+                        <td class="px-4 py-3">${escapeHtml(school.system || school.curriculum || school.settings?.curriculumEngine?.curriculum || 'N/A')}<br><span class="text-xs text-muted-foreground">${escapeHtml(school.schoolStructure || school.settings?.curriculumEngine?.structureType || school.settings?.schoolLevel || 'mixed')}</span></td>
+                        <td class="px-4 py-3">${typeof v102AccessBadge === 'function' ? v102AccessBadge(school.access) : escapeHtml(school.access?.accessMode || school.accessMode || 'plan limited')}${school.pilotFullAccessEnabled ? '<p class="text-xs text-blue-600 mt-1">pilot on</p>' : ''}</td>
+                        <td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${school.status === 'active' ? 'bg-green-100 text-green-700' : school.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : school.status === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">${escapeHtml(school.status || 'unknown')}</span></td>
+                        <td class="px-4 py-3 text-right"><button onclick="viewSchoolDetails('${school.id}')" class="px-3 py-1 rounded-lg border hover:bg-accent text-xs">View / Access</button></td>
+                      </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
-        </div>
-    `;
+        </div>`;
 }
 
 // Render suspended schools table
@@ -1348,18 +1339,4 @@ window.v102ReviewPaymentRequest = async function(requestId, action) {
         document.getElementById('school-details-modal')?.classList.add('hidden');
     } catch (error) { showToast(error.message || 'Failed to review request', 'error'); }
     finally { hideLoading(); }
-};
-
-const v102OldRenderSchoolsTable = window.renderSchoolsTable || renderSchoolsTable;
-window.renderSchoolsTable = function(schools) {
-    if (!schools || schools.length === 0) return '<div class="text-center py-8 text-muted-foreground">No schools found</div>';
-    return `
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left font-medium">School</th><th class="px-4 py-3 text-left font-medium">Curriculum</th><th class="px-4 py-3 text-left font-medium">Access</th><th class="px-4 py-3 text-left font-medium">Status</th><th class="px-4 py-3 text-right font-medium">Actions</th></tr></thead>
-                <tbody class="divide-y">
-                    ${schools.map(school => `<tr class="hover:bg-accent/50 transition-colors"><td class="px-4 py-3"><p class="font-medium school-name-display">${school.displayName || school.originalSignupName || school.name || 'N/A'}</p><p class="text-xs text-muted-foreground">${school.shortCode || ''}</p></td><td class="px-4 py-3">${school.system || school.curriculum || 'N/A'}<br><span class="text-xs text-muted-foreground">${school.schoolStructure || school.settings?.curriculumEngine?.structureType || school.settings?.schoolLevel || 'mixed'}</span></td><td class="px-4 py-3">${v102AccessBadge(school.access)}${school.pilotFullAccessEnabled ? '<p class="text-xs text-blue-600 mt-1">pilot on</p>' : ''}</td><td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${school.status === 'active' ? 'bg-green-100 text-green-700' : school.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : school.status === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}">${school.status}</span></td><td class="px-4 py-3 text-right"><button onclick="viewSchoolDetails('${school.id}')" class="px-3 py-1 rounded-lg border hover:bg-accent text-xs">View / Access</button></td></tr>`).join('')}
-                </tbody>
-            </table>
-        </div>`;
 };

@@ -19,7 +19,7 @@ async function renderSuperAdminSection(section) {
             case 'platform-health':
                 return renderSuperAdminHealth();
             case 'platform-payments':
-                return await window.v12RenderPlatformPayments();
+                return await renderSuperAdminPlatformPayments();
             case 'settings':
                 return renderSuperAdminSettings();
             case 'alerts':

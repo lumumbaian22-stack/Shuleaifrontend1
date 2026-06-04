@@ -5,7 +5,7 @@ var dashboardData = window.dashboardData;
 function parentSelectedChildStorageKey() {
     try { const user = typeof getCurrentUser === 'function' ? getCurrentUser() : {}; return window.parentSelectedChildKey ? window.parentSelectedChildKey(user?.id) : `selectedChild:${user?.id || 'unknown-parent'}`; } catch (_) { return 'selectedChild:unknown-parent'; }
 }
-function getStoredSelectedChildId() { return localStorage.getItem(parentSelectedChildStorageKey()) || getStoredSelectedChildId() || ''; }
+function getStoredSelectedChildId() { return localStorage.getItem(parentSelectedChildStorageKey()) || localStorage.getItem('shule_selected_child_id') || ''; }
 function setStoredSelectedChildId(id) { localStorage.setItem(parentSelectedChildStorageKey(), String(id || '')); localStorage.setItem('shule_selected_child_id', String(id || '')); }
 
 

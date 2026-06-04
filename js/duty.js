@@ -2,6 +2,7 @@
 
 // Load today's duty
 async function loadTodayDuty() {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return null;
     try {
         const response = await api.duty.getTodayDuty();
         return response.data;
@@ -14,6 +15,7 @@ async function loadTodayDuty() {
 
 // Load weekly duty
 async function loadWeeklyDuty() {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return null;
     try {
         const response = await api.duty.getWeeklyDuty();
         return response.data;
@@ -26,6 +28,7 @@ async function loadWeeklyDuty() {
 
 // Check in to duty
 async function checkInDuty(location = 'School Gate', notes = '') {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) { showToast('Duty is not available for this school plan.', 'warning'); return null; }
     try {
         const response = await api.duty.checkIn({ location, notes });
         showToast('✅ Checked in successfully!', 'success');
@@ -42,6 +45,7 @@ async function checkInDuty(location = 'School Gate', notes = '') {
 
 // Check out from duty
 async function checkOutDuty(location = 'School Gate', notes = '') {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) { showToast('Duty is not available for this school plan.', 'warning'); return null; }
     try {
         const response = await api.duty.checkOut({ location, notes });
         showToast('✅ Checked out successfully!', 'success');
@@ -58,6 +62,7 @@ async function checkOutDuty(location = 'School Gate', notes = '') {
 
 // Update duty preferences
 async function updateDutyPreferences(preferences) {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) { showToast('Duty is not available for this school plan.', 'warning'); return null; }
     try {
         const response = await api.duty.updatePreferences(preferences);
         showToast('✅ Preferences updated', 'success');
@@ -70,6 +75,7 @@ async function updateDutyPreferences(preferences) {
 
 // Request duty swap
 async function requestDutySwap(dutyDate, reason, targetTeacherId = null) {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) { showToast('Duty is not available for this school plan.', 'warning'); return null; }
     try {
         const response = await api.duty.requestSwap({ dutyDate, reason, targetTeacherId });
         showToast('✅ Swap request sent to admin', 'success');

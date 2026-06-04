@@ -60,31 +60,40 @@ function toggleSwitch(btn) {
     }
 }
 
-function toggleTheme() {
-  const isDark = document.documentElement.classList.contains('dark');
-  if (isDark) {
-    document.documentElement.classList.remove('dark');
-  } else {
-    document.documentElement.classList.add('dark');
-  }
-  // Update the dark mode toggle button UI if it exists
+function applySavedTheme() {
+  try {
+    const saved = localStorage.getItem('shule_theme') || localStorage.getItem('theme') || localStorage.getItem('appTheme');
+    if (saved === 'dark') document.documentElement.classList.add('dark');
+    if (saved === 'light') document.documentElement.classList.remove('dark');
+  } catch (_) {}
+}
+
+function updateThemeToggleUI() {
   const darkModeBtn = document.getElementById('pref-darkmode');
-  if (darkModeBtn) {
-    const newDarkMode = document.documentElement.classList.contains('dark');
-    if (newDarkMode) {
-      darkModeBtn.classList.remove('bg-muted');
-      darkModeBtn.classList.add('bg-primary');
-      darkModeBtn.querySelector('span').classList.remove('translate-x-1');
-      darkModeBtn.querySelector('span').classList.add('translate-x-6');
-    } else {
-      darkModeBtn.classList.remove('bg-primary');
-      darkModeBtn.classList.add('bg-muted');
-      darkModeBtn.querySelector('span').classList.remove('translate-x-6');
-      darkModeBtn.querySelector('span').classList.add('translate-x-1');
-    }
+  if (!darkModeBtn) return;
+  const span = darkModeBtn.querySelector('span');
+  const newDarkMode = document.documentElement.classList.contains('dark');
+  darkModeBtn.classList.toggle('bg-primary', newDarkMode);
+  darkModeBtn.classList.toggle('bg-muted', !newDarkMode);
+  if (span) {
+    span.classList.toggle('translate-x-6', newDarkMode);
+    span.classList.toggle('translate-x-1', !newDarkMode);
   }
+}
+
+function toggleTheme() {
+  const nextDark = !document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark', nextDark);
+  try {
+    localStorage.setItem('shule_theme', nextDark ? 'dark' : 'light');
+    localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+  } catch (_) {}
+  updateThemeToggleUI();
   if (typeof updateChartTheme === 'function') updateChartTheme();
 }
+
+applySavedTheme();
+document.addEventListener('DOMContentLoaded', function(){ applySavedTheme(); updateThemeToggleUI(); });
 
 function toggleMobileSidebar() {
     const sidebar = document.getElementById('sidebar');

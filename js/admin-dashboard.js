@@ -560,6 +560,8 @@ async function renderAdminSection(section) {
                 return renderAdminSettings();
             case 'subscription-billing':
                 return `${await renderAdminSubscriptionBilling()}<div class="mt-6">${renderAdminPaymentConfirmationCard()}</div>`;
+            case 'sms':
+                return await renderAdminSms();
             case 'alerts':
                 return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('admin');
             case 'parent-messages':
@@ -1100,6 +1102,9 @@ async function renderAdminPendingTeachers() {
 }
 
 async function renderAdminDuty() {
+    if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) {
+        return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Duty Management</h2><p class="text-muted-foreground">Duty is available only for Enterprise or full-access schools.</p></div>`;
+    }
     try {
         const todayDuty = await loadTodayDuty();
         const weeklyDuty = await loadWeeklyDuty();
@@ -1617,6 +1622,55 @@ async function loadParentsForSelect() {
 
 
 
+
+async function renderAdminSms() {
+    try {
+        const [cfgRes, historyRes] = await Promise.all([
+            api.sms?.getConfig ? api.sms.getConfig().catch(e => ({ success:false, data:{ enabled:false, tokensRemaining:0, message:e.message } })) : Promise.resolve({ data:{ enabled:false, tokensRemaining:0 } }),
+            api.sms?.getHistory ? api.sms.getHistory().catch(() => ({ data:[] })) : Promise.resolve({ data:[] })
+        ]);
+        const cfg = cfgRes.data || {};
+        const history = Array.isArray(historyRes.data) ? historyRes.data : [];
+        if (cfg.enabled === false) {
+            return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Bulk SMS</h2><p class="text-muted-foreground">Bulk SMS is not available for this school's current plan. It should not appear in normal navigation unless the school is Enterprise or on full access.</p></div>`;
+        }
+        return `<div class="space-y-6 animate-fade-in">
+            <div class="flex justify-between items-start gap-4 flex-wrap"><div><h2 class="text-2xl font-bold">Bulk SMS</h2><p class="text-sm text-muted-foreground">Compose and send only. Provider/API credentials are managed by Super Admin.</p></div><div class="rounded-xl border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">Tokens remaining</p><p class="text-2xl font-bold text-primary">${Number(cfg.tokensRemaining || 0).toLocaleString()}</p></div></div>
+            <div class="rounded-xl border bg-card p-6 space-y-4">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div><label class="block text-sm font-medium mb-1">Audience / Recipients</label><select id="sms-audience" class="w-full rounded-lg border bg-background px-3 py-2 text-sm" onchange="updateSmsAudienceHint()"><option value="all_parents">All Parents</option><option value="whole_school">Whole School</option><option value="teachers">Teachers</option><option value="students">Students</option><option value="specific_class">Specific Class Parents</option><option value="fee_defaulters">Fee Defaulters</option><option value="selected_parents">Selected Parents</option></select><p id="sms-audience-hint" class="text-xs text-muted-foreground mt-1">Choose who should receive this SMS.</p></div>
+                    <div><label class="block text-sm font-medium mb-1">Sender ID</label><input class="w-full rounded-lg border bg-muted px-3 py-2 text-sm" value="${escapeHtml(cfg.senderId || 'SHULEAI')}" readonly></div>
+                </div>
+                <div><label class="block text-sm font-medium mb-1">SMS Message</label><textarea id="sms-message" rows="5" maxlength="480" class="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Write the SMS message here..."></textarea><p class="text-xs text-muted-foreground mt-1">Tokens are deducted only when SMS is sent.</p></div>
+                <div class="flex justify-end"><button onclick="sendAdminSms()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg">Send SMS</button></div>
+            </div>
+            <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">SMS History</h3>${history.length ? `<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">Date</th><th class="p-3 text-left">Audience</th><th class="p-3 text-left">Message</th><th class="p-3 text-right">Reached</th><th class="p-3 text-right">Tokens</th></tr></thead><tbody>${history.map(r => `<tr class="border-t"><td class="p-3">${escapeHtml(new Date(r.createdAt || r.created_at || Date.now()).toLocaleString())}</td><td class="p-3">${escapeHtml(r.audience || '-')}</td><td class="p-3">${escapeHtml(r.message || '').slice(0,120)}</td><td class="p-3 text-right">${Number(r.successCount ?? r.recipientCount ?? 0)}</td><td class="p-3 text-right">${Number(r.tokensUsed ?? r.recipientCount ?? 0)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-sm text-muted-foreground">No SMS history yet.</p>'}</div>
+        </div>`;
+    } catch (error) {
+        return `<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700"><h2 class="font-bold">SMS could not load</h2><p>${escapeHtml(error.message || 'Unknown error')}</p></div>`;
+    }
+}
+function updateSmsAudienceHint() {
+    const audience = document.getElementById('sms-audience')?.value || 'all_parents';
+    const hint = document.getElementById('sms-audience-hint');
+    if (hint) hint.textContent = audience === 'specific_class' ? 'Class selection can be added before final send; current backend will resolve recipients by audience.' : 'Backend resolves recipients by selected audience and school scope.';
+}
+async function sendAdminSms() {
+    const audience = document.getElementById('sms-audience')?.value || 'all_parents';
+    const message = document.getElementById('sms-message')?.value?.trim() || '';
+    if (!message) return showToast('Write the SMS message first.', 'error');
+    showLoading();
+    try {
+        const res = await api.sms.send({ audience, message, recipientType: audience });
+        showToast(`SMS sent. Tokens used: ${res.data?.tokensUsed ?? '-'}`, 'success');
+        await showDashboardSection('sms');
+    } catch (e) { showToast(e.message || 'Failed to send SMS', 'error'); }
+    finally { hideLoading(); }
+}
+window.renderAdminSms = renderAdminSms;
+window.updateSmsAudienceHint = updateSmsAudienceHint;
+window.sendAdminSms = sendAdminSms;
+
 async function renderAdminReportSettings() {
     const fallback = [
         { key:'cat', label:'CAT', showOnReport:true, countInFinal:true, weight:10, displayOrder:1, assessmentType:'CAT' },
@@ -1642,7 +1696,9 @@ async function generateAnnouncementSuggestion() {
     const audience = document.getElementById('announcement-recipients')?.value || 'all_parents';
     const keyPoints = document.getElementById('announcement-message')?.value.trim() || '';
     const panel = document.getElementById('announcement-ai-suggestion-panel');
-    if (!keyPoints) return showToast('Add the key points/message first.', 'error');
+    window.__announcementOptions = [];
+    if (panel) { panel.classList.remove('hidden'); panel.innerHTML = '<p class="text-xs text-muted-foreground">Generating fresh suggestions…</p>'; }
+    if (!keyPoints) { if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; } return showToast('Add the key points/message first.', 'error'); }
     const baseTitle = `${purpose} Notice`;
     const platform = `${tone} ${purpose.toLowerCase()} for ${audience.replace(/_/g,' ')}. ${keyPoints}`.replace(/\s+/g,' ').trim();
     const sms = `${purpose}: ${keyPoints}`.replace(/\s+/g,' ').trim().slice(0, 155);
@@ -1676,6 +1732,7 @@ window.v130UpdateSmsEstimate = v130UpdateSmsEstimate;
 
 async function sendAnnouncement() {
     const recipientType = document.getElementById('announcement-recipients').value;
+    const channel = document.getElementById('announcement-channel')?.value || 'platform';
     const title = document.getElementById('announcement-title').value.trim();
     const message = document.getElementById('announcement-message').value.trim();
 
@@ -1737,6 +1794,9 @@ async function sendAnnouncement() {
         showToast(`✅ Announcement sent to ${userIds.length} recipient(s) via ${channel}`, 'success');
         document.getElementById('announcement-title').value = '';
         document.getElementById('announcement-message').value = '';
+        window.__announcementOptions = [];
+        const panel = document.getElementById('announcement-ai-suggestion-panel');
+        if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; }
     } catch (error) {
         showToast(error.message || 'Failed to send announcement', 'error');
     } finally {

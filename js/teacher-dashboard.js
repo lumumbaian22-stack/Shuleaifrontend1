@@ -154,13 +154,13 @@ async function renderTeacherDashboard() {
           </div>
         </div>
       </div>
-      <div class="rounded-xl border bg-card p-6" id="duty-card"><div class="flex justify-between items-start"><div><h3 class="font-semibold">Today's Duty</h3><p class="text-sm text-muted-foreground" id="duty-location">Loading...</p></div><span class="duty-status px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-full" id="duty-status">Not Checked In</span></div><div class="mt-4 flex gap-3"><button onclick="handleCheckIn()" class="flex-1 bg-primary text-primary-foreground py-2 rounded-lg" id="check-in-btn">Check In</button><button onclick="handleCheckOut()" class="flex-1 border bg-background py-2 rounded-lg" id="check-out-btn" disabled>Check Out</button></div><div class="mt-3 text-xs text-muted-foreground">Last duty rating: <span id="last-rating">4.5</span>/5</div></div>
+      ${typeof hasSchoolFeature === 'function' && hasSchoolFeature('duty') ? `<div class="rounded-xl border bg-card p-6" id="duty-card"><div class="flex justify-between items-start"><div><h3 class="font-semibold">Today's Duty</h3><p class="text-sm text-muted-foreground" id="duty-location">Loading...</p></div><span class="duty-status px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-full" id="duty-status">Not Checked In</span></div><div class="mt-4 flex gap-3"><button onclick="handleCheckIn()" class="flex-1 bg-primary text-primary-foreground py-2 rounded-lg" id="check-in-btn">Check In</button><button onclick="handleCheckOut()" class="flex-1 border bg-background py-2 rounded-lg" id="check-out-btn" disabled>Check Out</button></div><div class="mt-3 text-xs text-muted-foreground">Duty is available for your school plan.</div></div>` : ''}
     </div>
   `;
 
-  setTimeout(() => {
-    loadTodayDuty();
-  }, 100);
+  if (typeof hasSchoolFeature === 'function' && hasSchoolFeature('duty')) {
+    setTimeout(() => { loadTodayDuty(); }, 100);
+  }
 
   return html;
 }
@@ -1031,6 +1031,9 @@ async function deleteTask(taskId) {
 
 // ============ DUTY MANAGEMENT ============
 async function renderTeacherDuty() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) {
+    return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Duty</h2><p class="text-muted-foreground">Duty is not available for this school plan.</p></div>`;
+  }
   let weeklyDuty = [];
   let todayDuty = null;
   try {
@@ -1052,6 +1055,7 @@ async function renderTeacherDuty() {
   `;
 }
 async function submitSwapRequest() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is not available for this school plan.', 'warning');
   const date = document.getElementById('swap-date')?.value;
   const reason = document.getElementById('swap-reason')?.value;
   if (!date || !reason) { showToast('Please fill all fields', 'error'); return; }
@@ -1079,6 +1083,7 @@ window.addBlackoutDate = function() {
   if (window.lucide) lucide.createIcons();
 };
 window.saveDutyPreferences = async function() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is not available for this school plan.', 'warning');
   const preferredDays = Array.from(document.querySelectorAll('.pref-day:checked')).map(cb => cb.value);
   const preferredAreas = Array.from(document.querySelectorAll('.pref-area:checked')).map(cb => cb.value);
   const maxDutiesPerWeek = parseInt(document.getElementById('max-duties')?.value) || 3;
@@ -1544,6 +1549,7 @@ async function uploadProfilePicture(file) {
 
 // ============ DUTY CARD HELPERS ============
 async function loadTodayDuty() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return null;
   try {
     const res = await api.duty.getTodayDuty();
     const duty = res.data?.duties?.find(d => d.teacherId === getCurrentUser()?.id);
@@ -1577,6 +1583,7 @@ async function loadTodayDuty() {
 }
 
 async function handleCheckIn() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is not available for this school plan.', 'warning');
   showLoading();
   try {
     await api.duty.checkIn({ location: 'School', notes: '' });
@@ -1585,6 +1592,7 @@ async function handleCheckIn() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 async function handleCheckOut() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is not available for this school plan.', 'warning');
   showLoading();
   try {
     await api.duty.checkOut({ location: 'School', notes: '' });

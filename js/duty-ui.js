@@ -27,6 +27,7 @@ function v93DeviceInfo() {
 }
 
 async function renderAdminSmartDuty() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return '<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Duty Management</h2><p class="text-muted-foreground">Duty is only available for Enterprise or full-access schools.</p></div>';
   return `
     <div class="space-y-6 animate-fade-in">
       <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-gray-800 dark:to-gray-700">
@@ -169,10 +170,12 @@ async function renderAdminSmartDuty() {
 }
 
 async function v93LoadAdminDuty() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   await Promise.allSettled([v93LoadDutyConfig(), v93LoadComplianceReport(), v93LoadLateArrivals()]);
 }
 
 async function v93LoadDutyConfig() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   try {
     const res = await api.duty.getVerificationConfig();
     const data = res.data || {};
@@ -198,6 +201,7 @@ async function v93LoadDutyConfig() {
 }
 
 async function v93SaveDutyConfig() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   try {
     showLoading();
     const payload = {
@@ -236,6 +240,7 @@ async function v93UseCurrentLocationAsSchool() {
 }
 
 async function v93LoadComplianceReport() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   const root = document.getElementById('v93-compliance-root');
   if (!root) return;
   try {
@@ -283,6 +288,7 @@ async function v93LoadComplianceReport() {
 }
 
 async function v93LoadLateArrivals() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   const root = document.getElementById('v93-late-root');
   if (!root) return;
   try {
@@ -402,6 +408,7 @@ async function renderTeacherSmartDuty() {
 }
 
 async function v93LoadTeacherDuty() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   try {
     const [todayRes, configRes, weekRes] = await Promise.allSettled([
       api.duty.getTodayDuty(),
@@ -457,6 +464,7 @@ async function v93CaptureTeacherGps() {
 }
 
 async function v93TeacherCheckIn() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   try {
     showLoading();
     if (!v93CapturedGps) v93CapturedGps = await v93GetGps();
@@ -473,6 +481,7 @@ async function v93TeacherCheckIn() {
 }
 
 async function v93TeacherCheckOut() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return;
   try {
     showLoading();
     if (!v93CapturedGps) v93CapturedGps = await v93GetGps();
