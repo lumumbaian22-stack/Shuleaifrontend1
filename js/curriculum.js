@@ -447,7 +447,7 @@ function saveStreamSettings() {
     }
     if (!window.schoolSettings) window.schoolSettings = {};
     window.schoolSettings.streams = streamSettings;
-    localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
+    localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(window.schoolSettings));
     showToast('Stream settings saved', 'success');
 }
 
@@ -509,7 +509,7 @@ async function handleCurriculumChange(newCurriculum) {
 
         if (response.success) {
             window.schoolSettings.curriculum = newCurriculum;
-            localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
+            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(window.schoolSettings));
 
             if (typeof emitCurriculumUpdate === 'function') {
                 emitCurriculumUpdate(newCurriculum);

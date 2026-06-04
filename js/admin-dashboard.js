@@ -552,6 +552,8 @@ async function renderAdminSection(section) {
                 return await renderAdminFairnessReport();
             case 'custom-subjects':
                 return renderAdminCustomSubjects();
+            case 'report-settings':
+                return await renderAdminReportSettings();
             case 'teacher-workload':
                 return await renderAdminTeacherWorkload();
             case 'settings':
@@ -696,9 +698,18 @@ function renderAdminDashboard() {
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Title</label>
-                            <input type="text" id="announcement-title" placeholder="Announcement Title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                            <label class="block text-sm font-medium mb-1">Delivery Method</label>
+                            <select id="announcement-channel" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" onchange="v130UpdateSmsEstimate()">
+                                <option value="platform">Platform alert only</option>
+                                <option value="sms">SMS only</option>
+                                <option value="both">Both platform alert + SMS</option>
+                            </select>
+                            <p id="announcement-sms-estimate" class="text-xs text-muted-foreground mt-1"></p>
                         </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Title</label>
+                        <input type="text" id="announcement-title" placeholder="Announcement Title" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Brief description / message</label>
@@ -1425,7 +1436,7 @@ window.addCustomSubject = async function() {
             customSubjects = updatedSubjects;
             window.customSubjects = updatedSubjects;
             window.schoolSettings = response.data;
-            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             await showDashboardSection('custom-subjects');
             showToast(`Subject "${newSubject}" added`, 'success');
             await refreshClassManagementIfVisible();
@@ -1446,7 +1457,7 @@ window.removeCustomSubject = async function(subject) {
             customSubjects = updatedSubjects;
             window.customSubjects = updatedSubjects;
             window.schoolSettings = response.data;
-            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             await showDashboardSection('custom-subjects');
             showToast(`Subject "${subject}" removed`, 'info');
             await refreshClassManagementIfVisible();
@@ -1468,7 +1479,7 @@ window.saveAllSettings = async function() {
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];
-            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             
             // === ADD THIS BLOCK ===
             const freshSettings = await api.admin.getSchoolSettings();
@@ -1476,7 +1487,7 @@ window.saveAllSettings = async function() {
                 window.schoolSettings = freshSettings.data;
                 window.schoolSettings.curriculum = freshSettings.data.system;
                 window.customSubjects = freshSettings.data.settings?.customSubjects || [];
-                localStorage.setItem('schoolSettings', JSON.stringify(freshSettings.data));
+                localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(freshSettings.data));
             }
             // === END ADD ===
             
@@ -1605,64 +1616,63 @@ async function loadParentsForSelect() {
 }
 
 
+
+async function renderAdminReportSettings() {
+    const fallback = [
+        { key:'cat', label:'CAT', showOnReport:true, countInFinal:true, weight:10, displayOrder:1, assessmentType:'CAT' },
+        { key:'midterm', label:'Midterm', showOnReport:true, countInFinal:true, weight:20, displayOrder:2, assessmentType:'Midterm' },
+        { key:'endterm', label:'End Term', showOnReport:true, countInFinal:true, weight:50, displayOrder:3, assessmentType:'End Term' },
+        { key:'sba', label:'SBA', showOnReport:false, countInFinal:false, weight:10, displayOrder:4, assessmentType:'SBA' },
+        { key:'project', label:'Project', showOnReport:false, countInFinal:false, weight:5, displayOrder:5, assessmentType:'Project' },
+        { key:'practical', label:'Practical', showOnReport:false, countInFinal:false, weight:5, displayOrder:6, assessmentType:'Practical' }
+    ];
+    const res = await (api.admin.getAssessmentSettings ? api.admin.getAssessmentSettings() : Promise.resolve({data:{assessmentSettings:fallback}})).catch(() => ({data:{assessmentSettings:fallback}}));
+    const rows = res.data?.assessmentSettings?.length ? res.data.assessmentSettings : fallback;
+    return `<div class="space-y-6 animate-fade-in"><div class="flex justify-between items-center"><div><h2 class="text-2xl font-bold">Assessment & Report Settings</h2><p class="text-sm text-muted-foreground">Choose exactly which tests appear on report cards and what counts in final results.</p></div><button onclick="showDashboardSection('settings')" class="px-4 py-2 rounded-lg border hover:bg-accent">Back to Settings</button></div><div class="rounded-xl border bg-card overflow-hidden"><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">Assessment</th><th class="p-3">Show</th><th class="p-3">Count</th><th class="p-3">Weight %</th><th class="p-3">Order</th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="border-t" data-assessment-row data-key="${escapeHtml(r.key)}" data-type="${escapeHtml(r.assessmentType || r.label)}"><td class="p-3 font-medium">${escapeHtml(r.label)}</td><td class="p-3 text-center"><input type="checkbox" class="assess-show" ${r.showOnReport !== false ? 'checked' : ''}></td><td class="p-3 text-center"><input type="checkbox" class="assess-count" ${r.countInFinal !== false ? 'checked' : ''}></td><td class="p-3"><input type="number" min="0" max="100" class="assess-weight w-24 rounded border bg-background px-2 py-1" value="${Number(r.weight||0)}"></td><td class="p-3"><input type="number" min="1" class="assess-order w-20 rounded border bg-background px-2 py-1" value="${Number(r.displayOrder||i+1)}"></td></tr>`).join('')}</tbody></table></div><div class="flex justify-end"><button onclick="saveAdminReportSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg">Save Report Settings</button></div></div>`;
+}
+async function saveAdminReportSettings() {
+    const assessmentSettings = [...document.querySelectorAll('[data-assessment-row]')].map((row, index) => ({ key: row.dataset.key, label: row.querySelector('td')?.textContent?.trim() || row.dataset.key, assessmentType: row.dataset.type, showOnReport: !!row.querySelector('.assess-show')?.checked, countInFinal: !!row.querySelector('.assess-count')?.checked, weight: Number(row.querySelector('.assess-weight')?.value || 0), displayOrder: Number(row.querySelector('.assess-order')?.value || index + 1) }));
+    await api.admin.saveAssessmentSettings(assessmentSettings);
+    showToast('Assessment/report settings saved', 'success');
+}
+function v130AnnouncementOption(title, platformMessage, smsMessage, tone) { return { title, platformMessage, smsMessage, tone }; }
 async function generateAnnouncementSuggestion() {
-    const topic = document.getElementById('announcement-ai-topic')?.value || 'General announcement';
+    const purpose = document.getElementById('announcement-ai-topic')?.value || 'General announcement';
     const tone = document.getElementById('announcement-ai-tone')?.value || 'Professional';
-    const recipientType = document.getElementById('announcement-recipients')?.value || 'all_parents';
-    const description = document.getElementById('announcement-message')?.value.trim() || '';
+    const audience = document.getElementById('announcement-recipients')?.value || 'all_parents';
+    const keyPoints = document.getElementById('announcement-message')?.value.trim() || '';
     const panel = document.getElementById('announcement-ai-suggestion-panel');
-    if (!description) {
-        showToast('Write a brief description first so Shule AI can restructure it.', 'error');
-        return;
-    }
+    if (!keyPoints) return showToast('Add the key points/message first.', 'error');
+    const baseTitle = `${purpose} Notice`;
+    const platform = `${tone} ${purpose.toLowerCase()} for ${audience.replace(/_/g,' ')}. ${keyPoints}`.replace(/\s+/g,' ').trim();
+    const sms = `${purpose}: ${keyPoints}`.replace(/\s+/g,' ').trim().slice(0, 155);
+    const options = [
+        v130AnnouncementOption(baseTitle, platform, sms, 'Formal'),
+        v130AnnouncementOption(`${purpose} Reminder`, `Hello, kindly note: ${keyPoints}. Thank you for your continued support.`, `Reminder: ${keyPoints}`.slice(0,155), 'Friendly'),
+        v130AnnouncementOption(`Important ${purpose}`, `Important update: ${keyPoints}. Please take the necessary action.`, `Important: ${keyPoints}`.slice(0,155), 'Short')
+    ];
     if (panel) {
         panel.classList.remove('hidden');
-        panel.innerHTML = '<div class="flex items-center gap-2 text-muted-foreground"><span class="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span> Shule AI is preparing an announcement suggestion...</div>';
-    }
-    try {
-        const suggestAnnouncementApi = api?.alerts?.suggestAnnouncement || api?.alerts?.suggestParentMessage;
-        const payload = {
-            audience: recipientType,
-            topic,
-            tone,
-            description,
-            extraContext: {
-                classId: document.getElementById('announcement-class')?.value || null,
-                parentId: document.getElementById('announcement-parent')?.value || null
-            }
-        };
-        const res = await (suggestAnnouncementApi
-            ? suggestAnnouncementApi(payload)
-            : apiRequest('/api/alerts/suggest-announcement', { method: 'POST', body: JSON.stringify(payload) }));
-        const data = res.data || {};
-        const title = data.title || `${topic} Notice`;
-        const message = data.message || description;
-        document.getElementById('announcement-title').value = title;
-        document.getElementById('announcement-message').value = message;
-        if (panel) {
-            const alternatives = Array.isArray(data.alternatives) ? data.alternatives : [];
-            panel.innerHTML = `
-                <div class="flex items-start gap-2">
-                    <i data-lucide="sparkles" class="h-4 w-4 text-primary mt-0.5"></i>
-                    <div class="space-y-2 flex-1">
-                        <div class="flex flex-wrap gap-2 items-center">
-                            <span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(data.aiLabel || 'AI-generated message suggestion')}</span>
-                            ${data.usage ? `<span class="text-xs text-muted-foreground">${Number(data.usage.used || 0)}/${Number(data.usage.limit || 0)} suggestions used this month</span>` : ''}
-                        </div>
-                        <p><b>${escapeHtml(title)}</b></p>
-                        <p class="whitespace-pre-line">${escapeHtml(message)}</p>
-                        ${data.reason ? `<p class="text-xs text-muted-foreground"><b>Why:</b> ${escapeHtml(data.reason)}</p>` : ''}
-                        ${alternatives.length ? `<div class="space-y-1"><p class="text-xs font-semibold text-muted-foreground">Alternative versions</p>${alternatives.map((alt, idx) => `<button type="button" class="block w-full text-left rounded-lg border bg-background px-3 py-2 text-xs hover:bg-accent" onclick="document.getElementById('announcement-message').value='${escapeHtml(String(alt)).replace(/'/g, '&apos;')}'">${idx + 1}. ${escapeHtml(String(alt))}</button>`).join('')}</div>` : ''}
-                    </div>
-                </div>`;
-            if (window.lucide) lucide.createIcons();
-        }
-        showToast('Shule AI suggestion added. Review before sending.', 'success');
-    } catch (error) {
-        if (panel) panel.innerHTML = `<p class="text-red-600">${escapeHtml(error.message || 'Could not generate suggestion')}</p>`;
-        showToast(error.message || 'Could not generate Shule AI suggestion', 'error');
+        panel.innerHTML = `<div class="space-y-3"><p class="text-xs font-semibold text-muted-foreground">Choose one. AI does not send automatically.</p>${options.map((o,i)=>`<div class="rounded-lg border bg-background p-3"><div class="flex items-center justify-between"><b>Option ${i+1}: ${escapeHtml(o.tone)}</b><button type="button" onclick="useAnnouncementSuggestion(${i})" class="text-xs px-3 py-1 rounded bg-primary text-primary-foreground">Use this</button></div><p class="mt-2 font-semibold">${escapeHtml(o.title)}</p><p class="text-sm mt-1"><b>Platform:</b> ${escapeHtml(o.platformMessage)}</p><p class="text-xs mt-1 text-muted-foreground"><b>SMS:</b> ${escapeHtml(o.smsMessage)}</p></div>`).join('')}</div>`;
+        window.__announcementOptions = options;
     }
 }
+function useAnnouncementSuggestion(index) {
+    const o = (window.__announcementOptions || [])[index];
+    if (!o) return;
+    document.getElementById('announcement-title').value = o.title;
+    const channel = document.getElementById('announcement-channel')?.value || 'platform';
+    document.getElementById('announcement-message').value = channel === 'sms' ? o.smsMessage : o.platformMessage;
+}
+function v130UpdateSmsEstimate() {
+    const channel = document.getElementById('announcement-channel')?.value || 'platform';
+    const target = document.getElementById('announcement-sms-estimate');
+    if (target) target.textContent = channel === 'platform' ? 'No SMS tokens will be used.' : 'SMS tokens will be estimated from recipients before sending.';
+}
+window.renderAdminReportSettings = renderAdminReportSettings;
+window.saveAdminReportSettings = saveAdminReportSettings;
+window.useAnnouncementSuggestion = useAnnouncementSuggestion;
+window.v130UpdateSmsEstimate = v130UpdateSmsEstimate;
 
 async function sendAnnouncement() {
     const recipientType = document.getElementById('announcement-recipients').value;
@@ -1711,6 +1721,10 @@ async function sendAnnouncement() {
             userIds = [parentId];
         }
 
+        if (channel === 'sms' || channel === 'both') {
+            await (api.sms?.send ? api.sms.send({ audience: recipientType, recipientCount: userIds.length, message, title }) : apiRequest('/api/sms/send', { method:'POST', body: JSON.stringify({ audience: recipientType, recipientCount: userIds.length, message, title }) }));
+        }
+        if (channel === 'platform' || channel === 'both') {
         // Send alerts to each user
         for (const userId of userIds) {
             await apiRequest('/api/alerts', {
@@ -1719,7 +1733,8 @@ async function sendAnnouncement() {
             });
         }
 
-        showToast(`✅ Announcement sent to ${userIds.length} recipient(s)`, 'success');
+        }
+        showToast(`✅ Announcement sent to ${userIds.length} recipient(s) via ${channel}`, 'success');
         document.getElementById('announcement-title').value = '';
         document.getElementById('announcement-message').value = '';
     } catch (error) {
@@ -1997,7 +2012,7 @@ window.renderAdminSettings = function() {
                         <div><label class="block text-sm font-medium mb-1">Select Curriculum</label><select id="settings-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="cbc" ${curriculum === 'cbc' ? 'selected' : ''}>CBC / CBE</option><option value="844" ${curriculum === '844' ? 'selected' : ''}>8-4-4</option><option value="british" ${curriculum === 'british' ? 'selected' : ''}>British / Cambridge</option><option value="american" ${curriculum === 'american' ? 'selected' : ''}>American</option><option value="custom" ${curriculum === 'custom' ? 'selected' : ''}>Custom</option></select></div>
                         <div><label class="block text-sm font-medium mb-1">School Structure</label><select id="settings-school-structure" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="primary_only" ${structureType === 'primary_only' ? 'selected' : ''}>Primary only</option><option value="junior_only" ${structureType === 'junior_only' ? 'selected' : ''}>Junior only</option><option value="senior_only" ${structureType === 'senior_only' ? 'selected' : ''}>Senior only</option><option value="secondary_only" ${structureType === 'secondary_only' ? 'selected' : ''}>Secondary only</option><option value="mixed" ${structureType === 'mixed' ? 'selected' : ''}>Mixed / Full</option><option value="custom" ${structureType === 'custom' ? 'selected' : ''}>Custom enabled levels</option></select></div>
                     </div>
-                    <div class="mt-4 p-4 bg-muted/30 rounded-lg"><p class="text-sm"><span class="font-medium">Currently enabled:</span> ${levelList || 'Use the structure builder below after saving curriculum.'}</p><button onclick="v102LoadStructureBuilder()" class="mt-3 px-3 py-2 rounded-lg border hover:bg-accent text-sm">Load / Edit Enabled Levels</button><div id="v102-structure-builder" class="mt-4"></div></div>
+                    <div class="mt-4 p-4 bg-muted/30 rounded-lg"><p class="text-sm"><span class="font-medium">Currently enabled:</span> ${levelList || 'Use the structure builder below after saving curriculum.'}</p><button onclick="v102LoadStructureBuilder()" class="mt-3 px-3 py-2 rounded-lg border hover:bg-accent text-sm">Load / Edit Enabled Levels</button><div id="v102-structure-builder" class="mt-4"></div><button onclick="showDashboardSection('report-settings')" class="mt-3 px-3 py-2 rounded-lg border hover:bg-accent text-sm">Assessment & Report Settings</button></div>
                 </div>
                 <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save Settings</button></div>
             </div>
@@ -2025,10 +2040,24 @@ window.v102LoadStructureBuilder = async function() {
         const res = await api.admin.getCurriculumLevels();
         const data = res.data || {};
         const enabled = new Set(data.enabledLevels || []);
+        const enabledGroups = new Set(data.enabledLevelGroups || []);
         const box = document.getElementById('v102-structure-builder');
-        box.innerHTML = `<div class="grid md:grid-cols-3 gap-2">${(data.levels || []).map(l => `<label class="flex items-center gap-2 p-2 rounded border bg-background"><input type="checkbox" class="v102-enabled-level" value="${l.code}" ${enabled.has(l.code) ? 'checked' : ''}><span class="text-sm">${l.label}<span class="block text-xs text-muted-foreground">${l.group || ''}</span></span></label>`).join('')}</div>`;
+        const groups = data.levelGroups || [];
+        const groupHtml = groups.length ? `<div class="grid md:grid-cols-2 gap-3 mb-4">${groups.map(g => {
+            const allChecked = (g.levelCodes || []).every(code => enabled.has(code)) || enabledGroups.has(g.code);
+            return `<label class="flex items-start gap-3 p-4 rounded-xl border bg-background"><input type="checkbox" class="v130-enabled-group mt-1" value="${g.code}" data-levels="${(g.levelCodes || []).join(',')}" ${allChecked ? 'checked' : ''} onchange="v130ApplyLevelGroup(this)"><span><span class="font-semibold">${g.label}</span><span class="block text-xs text-muted-foreground">${g.description || ''}</span></span></label>`;
+        }).join('')}</div>` : '';
+        const levelHtml = `<details class="rounded-xl border bg-muted/20 p-3"><summary class="cursor-pointer text-sm font-medium">Advanced individual levels</summary><div class="grid md:grid-cols-3 gap-2 mt-3">${(data.levels || []).map(l => `<label class="flex items-center gap-2 p-2 rounded border bg-background"><input type="checkbox" class="v102-enabled-level" value="${l.code}" ${enabled.has(l.code) ? 'checked' : ''}><span class="text-sm">${l.label}<span class="block text-xs text-muted-foreground">${l.group || ''}</span></span></label>`).join('')}</div></details>`;
+        box.innerHTML = `${groupHtml}${levelHtml}`;
     } catch(error) { showToast(error.message || 'Failed to load levels', 'error'); }
     finally { hideLoading(); }
+};
+window.v130ApplyLevelGroup = function(cb) {
+    const levels = String(cb.dataset.levels || '').split(',').filter(Boolean);
+    for (const code of levels) {
+        const levelBox = document.querySelector(`.v102-enabled-level[value="${code}"]`);
+        if (levelBox) levelBox.checked = cb.checked;
+    }
 };
 
 window.saveAllSettings = async function() {
@@ -2036,14 +2065,15 @@ window.saveAllSettings = async function() {
     const schoolName = document.getElementById('settings-school-name')?.value;
     const structureType = document.getElementById('settings-school-structure')?.value || document.getElementById('settings-school-level')?.value;
     const enabledLevels = Array.from(document.querySelectorAll('.v102-enabled-level:checked')).map(x => x.value);
+    const enabledLevelGroups = Array.from(document.querySelectorAll('.v130-enabled-group:checked')).map(x => x.value);
     if (!schoolName) { showToast('School name is required', 'error'); return; }
     showLoading();
     try {
-        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, customSubjects: customSubjects || [] });
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, enabledLevelGroups, customSubjects: customSubjects || [] });
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];
-            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
+            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             const school = JSON.parse(localStorage.getItem('school') || '{}');
             school.name = schoolName; school.system = curriculum; school.settings = response.data.settings;
             localStorage.setItem('school', JSON.stringify(school));

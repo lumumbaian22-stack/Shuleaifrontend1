@@ -806,9 +806,9 @@ async function approveNameChange(requestId) {
                 localStorage.setItem('school', JSON.stringify(updatedSchool));
                 
                 // Update schoolSettings
-                const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+                const settings = JSON.parse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')) || '{}');
                 settings.schoolName = newSchoolName;
-                localStorage.setItem('schoolSettings', JSON.stringify(settings));
+                localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(settings));
                 
                 // Update global variables
                 if (typeof window.schoolSettings !== 'undefined') {

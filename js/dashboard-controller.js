@@ -1,5 +1,42 @@
 // Shule AI v34 - Single dashboard controller bundle
 
+
+const RULEBOOK_SECTION_FEATURE = {
+    calendar:'calendar', 'calendar-management':'calendar', timetable:'timetable', 'my-timetable':'timetable', schedule:'timetable', homework:'homework', 'my-homework':'homework', duty:'duty', 'duty-preferences':'duty', departments:'departments', 'fairness-report':'fairness_report', sms:'bulk_sms', 'school-branding':'school_branding', 'student-subject-selection':'senior_subject_choice', 'subject-choice':'senior_subject_choice'
+};
+function currentSchoolPayload() {
+    try { return typeof getCurrentSchool === 'function' ? getCurrentSchool() : JSON.parse(localStorage.getItem('school') || 'null'); } catch (_) { return null; }
+}
+function currentFeatureList() {
+    const school = currentSchoolPayload() || {};
+    const list = school.featureList || school.features || school.access?.featureList || school.plan?.features || [];
+    if (Array.isArray(list)) return list;
+    if (list && typeof list === 'object') return Object.entries(list).filter(([,v]) => !!v).map(([k]) => k);
+    return [];
+}
+function hasSchoolFeature(feature) {
+    if (!feature) return true;
+    const school = currentSchoolPayload() || {};
+    if (school.fullAccess || school.access?.fullAccess) return true;
+    const features = currentFeatureList();
+    return features.includes('*') || features.includes(feature);
+}
+function isSeniorSubjectChoiceVisible() {
+    const school = currentSchoolPayload() || {};
+    const cfg = school.curriculumSetup || school.settings?.curriculumEngine || {};
+    const levels = (cfg.enabledLevels || school.enabledLevels || []).join(' ').toLowerCase();
+    return hasSchoolFeature('senior_subject_choice') && /grade_1[0-2]|grade\s*1[0-2]|senior/.test(levels);
+}
+function sectionAllowedByRulebook(section) {
+    const feature = RULEBOOK_SECTION_FEATURE[section];
+    if (!feature) return true;
+    if (feature === 'senior_subject_choice') return isSeniorSubjectChoiceVisible();
+    return hasSchoolFeature(feature);
+}
+function filterNavByRulebook(items) { return (items || []).filter(item => sectionAllowedByRulebook(item.section)); }
+window.hasSchoolFeature = hasSchoolFeature;
+window.sectionAllowedByRulebook = sectionAllowedByRulebook;
+
 // ===== sidebar.js merged into dashboard-controller.js =====
 // sidebar.js - Sidebar navigation and user info
 
@@ -133,7 +170,8 @@ function updateSidebar(role) {
         }
     };
 
-    const config = sidebarConfig[role] || sidebarConfig.student;
+    const rawConfig = sidebarConfig[role] || sidebarConfig.student;
+    const config = { main: filterNavByRulebook(rawConfig.main), settings: filterNavByRulebook(rawConfig.settings) };
 
     nav.innerHTML = config.main.map(item => `
         <a href="#" onclick="showDashboardSection('${item.section}')" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors sidebar-link" data-section="${item.section}">
@@ -236,18 +274,11 @@ let schoolUpdateCallbacks = [];
 let clickCount = 0;
 
 // ============ SCHOOL SETTINGS ============
-
-function v129SchoolCodeForCache() {
-    try {
-        const u = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
-        const school = JSON.parse(localStorage.getItem('school') || '{}');
-        return String(u?.schoolCode || school?.schoolCode || school?.schoolId || 'unknown-school').trim() || 'unknown-school';
-    } catch (_) { return 'unknown-school'; }
-}
-function v129SchoolCacheKey(base) { return `${base}:${v129SchoolCodeForCache()}`; }
 async function loadSchoolSettings() {
     try {
-        const cached = localStorage.getItem(v129SchoolCacheKey('schoolSettings')) || localStorage.getItem('schoolSettings');
+        const school = currentSchoolPayload();
+        const cacheKey = window.schoolScopedKey ? window.schoolScopedKey('schoolSettings', school?.schoolId || school?.schoolCode) : `schoolSettings:${school?.schoolId || school?.schoolCode || 'unknown'}`;
+        const cached = localStorage.getItem(cacheKey);
         if (cached) {
             try {
                 const parsed = JSON.parse(cached);
@@ -276,8 +307,7 @@ async function loadSchoolSettings() {
                 // Extract schoolLevel from nested settings
                 window.schoolSettings.schoolLevel = response.data.settings?.schoolLevel || 'both';
                 window.customSubjects = response.data.settings?.customSubjects || [];
-                localStorage.setItem('schoolSettings', JSON.stringify(window.schoolSettings));
-                localStorage.setItem(v129SchoolCacheKey('schoolSettings'), JSON.stringify(window.schoolSettings));
+                localStorage.setItem(cacheKey, JSON.stringify(window.schoolSettings));
                 console.log('✅ School settings loaded from API');
                 return window.schoolSettings;
             }
@@ -303,8 +333,9 @@ async function saveSchoolSettings(settings) {
         if (response.success) {
             schoolSettings = response.data;
             customSubjects = response.data.customSubjects || [];
-            localStorage.setItem('schoolSettings', JSON.stringify(response.data));
-            localStorage.setItem(v129SchoolCacheKey('schoolSettings'), JSON.stringify(response.data));
+            const school = currentSchoolPayload();
+            const cacheKey = window.schoolScopedKey ? window.schoolScopedKey('schoolSettings', school?.schoolId || school?.schoolCode) : `schoolSettings:${school?.schoolId || school?.schoolCode || 'unknown'}`;
+            localStorage.setItem(cacheKey, JSON.stringify(response.data));
             showToast('Settings saved successfully!', 'success');
             await showDashboardSection(currentSection);
         }
@@ -349,11 +380,7 @@ function showTermsModal() {
     titleEl.textContent = 'Accept Terms';
     contentEl.innerHTML = `
         <div class="space-y-4">
-            <p class="text-sm">Please accept the Terms of Service and Privacy Policy to continue.</p>
-            <div class="text-xs flex flex-wrap gap-3">
-                <a class="text-primary underline" href="/legal/terms.html" target="_blank" rel="noopener">Read Terms of Service</a>
-                <a class="text-primary underline" href="/legal/privacy.html" target="_blank" rel="noopener">Read Privacy Policy</a>
-            </div>
+            <p class="text-sm">Please accept the <a href="legal/terms.html" target="_blank" class="text-primary underline">Terms of Service</a> and <a href="legal/privacy.html" target="_blank" class="text-primary underline">Privacy Policy</a> to continue.</p>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-terms" class="mt-1 rounded">
                 <label for="modal-terms" class="text-xs">I accept the Terms of Service and Privacy Policy</label>
@@ -389,11 +416,10 @@ function showDPAModal() {
     const contentEl = document.getElementById('auth-modal-content');
     if (!modal) return;
     
-    titleEl.textContent = 'Data Processing Agreement';
+    titleEl.textContent = '<a href="legal/dpa.html" target="_blank" class="text-primary underline">Data Processing Agreement</a>';
     contentEl.innerHTML = `
         <div class="space-y-4">
             <p class="text-sm">As a school administrator, you must accept the Data Processing Agreement (DPA) to manage student data.</p>
-            <div class="text-xs"><a class="text-primary underline" href="/legal/dpa.html" target="_blank" rel="noopener">Read Data Processing Agreement</a></div>
             <div class="flex items-start gap-2">
                 <input type="checkbox" id="modal-dpa" class="mt-1 rounded">
                 <label for="modal-dpa" class="text-xs">I have read and accept the Data Processing Agreement</label>
@@ -481,7 +507,7 @@ async function showDashboard(role) {
     if (role === 'admin' || role === 'superadmin' || role === 'teacher') {
         await loadSchoolSettings();
     } else {
-        const cached = localStorage.getItem(v129SchoolCacheKey('schoolSettings')) || localStorage.getItem('schoolSettings');
+        const cached = localStorage.getItem('schoolSettings');
         if (cached) {
             try {
                 schoolSettings = JSON.parse(cached);
@@ -578,6 +604,11 @@ async function showDashboardSection(section) {
     const pageTitle = document.getElementById('page-title');
 
     if (!content) return;
+    if (!sectionAllowedByRulebook(section)) {
+        content.innerHTML = '<div class="text-center py-12"><p class="text-muted-foreground">This section is not available for the current school access level.</p></div>';
+        updateSidebarActiveState(section);
+        return;
+    }
 
     showLoading();
 
@@ -621,10 +652,10 @@ async function showDashboardSection(section) {
             'teacher-approvals': 'Pending Teacher Approvals',
             'paid-schools': 'Paid Schools',
             'custom-subjects': 'Custom Subjects',
+            'report-settings': 'Assessment & Report Settings',
             'duty-preferences': 'Duty Preferences',
             'fairness-report': 'Fairness Report',
             'teacher-workload': 'Teacher Workload',
-            'report-settings': 'Assessment & Report Card Settings',
             alerts: 'Alerts Center',
             'parent-messages': 'Parent Messages',
             'career-path': 'Career Path'

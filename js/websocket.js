@@ -31,9 +31,8 @@ function connectWebSocket() {
         window.socket.close();
     }
     
-    // Connect to the same backend base URL used by api.js/localStorage overrides
-    const socketBaseUrl = (localStorage.getItem('SHULE_API_BASE_URL') || window.SHULE_API_BASE_URL || 'https://shuleaibackend-32h1.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
-    socket = io(socketBaseUrl, {
+    // Connect to Socket.io server
+    socket = io((localStorage.getItem('SHULE_API_BASE_URL') || window.SHULE_API_BASE_URL || 'https://shuleaibackend-32h1.onrender.com').replace(/\/api\/?$/, ''), {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,
@@ -146,9 +145,9 @@ function connectWebSocket() {
     // Curriculum updates
     socket.on('curriculum-updated', (data) => {
         console.log('🔔 Curriculum updated:', data);
-        const schoolSettings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+        const schoolSettings = JSON.parse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')) || '{}');
         schoolSettings.curriculum = data.curriculum;
-        localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+        localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(schoolSettings));
         if (typeof showDashboardSection === 'function') {
              showDashboardSection(window.currentSection || 'dashboard');
         }

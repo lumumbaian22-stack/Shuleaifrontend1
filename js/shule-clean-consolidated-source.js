@@ -1099,54 +1099,30 @@
   window.api.sms.getConfig = window.api.sms.getConfig || (() => apiReq('/api/sms/config'));
   window.api.sms.saveConfig = window.api.sms.saveConfig || ((payload) => apiReq('/api/sms/config', { method:'PUT', body:JSON.stringify(payload) }));
   window.api.sms.send = window.api.sms.send || ((payload) => apiReq('/api/sms/send', { method:'POST', body:JSON.stringify(payload) }));
+  window.api.sms.getHistory = window.api.sms.getHistory || (() => apiReq('/api/sms/history'));
 
   function parseRecipients(value){ return String(value || '').split(/[\n,;]+/).map(s => s.trim()).filter(Boolean); }
   function parseProviders(value){ try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { throw new Error('Providers JSON is invalid'); } }
 
   window.v110RenderSms = async function(){
-    const res = await window.api.sms.getConfig().catch(e => ({ success:false, message:e.message, data:{} }));
-    const cfg = res.data || {};
-    const remaining = Math.max(0, Number(cfg.tokenBalance || 0) - Number(cfg.usedThisMonth || 0));
-    return `<div class="space-y-6 animate-fade-in">
-      <div class="rounded-2xl border bg-card p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div><p class="text-xs uppercase tracking-wide text-muted-foreground">${isSuper() ? 'Platform SMS' : 'School SMS'}</p><h2 class="text-3xl font-bold">Bulk SMS Center</h2><p class="text-sm text-muted-foreground mt-1">Provider-neutral SMS. It works as a ready queue now and can later connect to Africa's Talking, Twilio, Infobip, Celcom or any provider.</p></div>
-        <div class="grid grid-cols-3 gap-2 text-center text-xs"><div class="rounded-xl border p-3"><b>${esc(cfg.activeProvider || 'noop')}</b><span class="block text-muted-foreground">Provider</span></div><div class="rounded-xl border p-3"><b>${Number(cfg.tokenBalance || 0).toLocaleString()}</b><span class="block text-muted-foreground">Tokens</span></div><div class="rounded-xl border p-3"><b>${remaining.toLocaleString()}</b><span class="block text-muted-foreground">Remaining</span></div></div>
-      </div>
-      <div class="grid xl:grid-cols-[.9fr_1.1fr] gap-5">
-        <div class="rounded-2xl border bg-card p-6 space-y-4">
-          <h3 class="font-semibold text-lg">SMS Settings</h3>
-          <div class="grid md:grid-cols-2 gap-3">
-            <label class="space-y-1"><span class="text-sm font-medium">Sender ID</span><input id="sms-sender-id" value="${esc(cfg.senderId || 'SHULEAI')}" class="w-full rounded-lg border bg-background px-3 py-2"></label>
-            <label class="space-y-1"><span class="text-sm font-medium">Active provider</span><input id="sms-provider" value="${esc(cfg.activeProvider || 'noop')}" class="w-full rounded-lg border bg-background px-3 py-2" placeholder="noop / africastalking / twilio"></label>
-            <label class="space-y-1"><span class="text-sm font-medium">Token balance</span><input id="sms-token-balance" type="number" min="0" value="${Number(cfg.tokenBalance || 0)}" class="w-full rounded-lg border bg-background px-3 py-2"></label>
-            <label class="space-y-1"><span class="text-sm font-medium">Monthly limit</span><input id="sms-monthly-limit" type="number" min="0" value="${Number(cfg.monthlyLimit || 0)}" class="w-full rounded-lg border bg-background px-3 py-2"></label>
-          </div>
-          <label class="flex items-center gap-2 text-sm"><input id="sms-api-ready" type="checkbox" ${cfg.apiReady ? 'checked' : ''}> API provider is connected and allowed to send live SMS</label>
-          <label class="space-y-1 block"><span class="text-sm font-medium">Providers JSON</span><textarea id="sms-providers" rows="6" class="w-full rounded-lg border bg-background px-3 py-2 font-mono text-xs">${esc(JSON.stringify(cfg.providers || [], null, 2))}</textarea></label>
-          <label class="space-y-1 block"><span class="text-sm font-medium">Notes</span><textarea id="sms-notes" rows="3" class="w-full rounded-lg border bg-background px-3 py-2">${esc(cfg.notes || '')}</textarea></label>
-          <button onclick="v113SaveSmsConfig()" class="px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold">Save SMS Settings</button>
-        </div>
-        <div class="rounded-2xl border bg-card p-6 space-y-4">
-          <h3 class="font-semibold text-lg">Compose / Validate SMS</h3>
-          <label class="space-y-1 block"><span class="text-sm font-medium">Recipients</span><textarea id="sms-recipients" rows="5" class="w-full rounded-lg border bg-background px-3 py-2" placeholder="2547..., one per line or comma separated"></textarea></label>
-          <label class="space-y-1 block"><span class="text-sm font-medium">Message</span><textarea id="sms-message" rows="7" maxlength="480" class="w-full rounded-lg border bg-background px-3 py-2" placeholder="Type school alert or platform SMS..."></textarea></label>
-          <div class="flex gap-3 flex-wrap"><button onclick="v113SendSmsDraft()" class="px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold">Validate / Queue SMS</button><span class="text-xs text-muted-foreground self-center">If API is not connected, the backend validates the draft without charging tokens.</span></div>
-          <div id="sms-send-result" class="text-sm"></div>
-        </div>
-      </div>
-    </div>`;
+    const [configRes, historyRes] = await Promise.all([
+      window.api.sms.getConfig().catch(e => ({ success:false, message:e.message, data:{} })),
+      window.api.sms.getHistory ? window.api.sms.getHistory().catch(() => ({ data:[] })) : Promise.resolve({ data:[] })
+    ]);
+    const cfg = configRes.data || {};
+    const history = historyRes.data || [];
+    if (isSuper()) {
+      return `<div class="space-y-6 animate-fade-in"><div class="rounded-2xl border bg-card p-6"><h2 class="text-3xl font-bold">Platform SMS Provider</h2><p class="text-sm text-muted-foreground mt-1">Only Super Admin manages provider credentials and school token allocation.</p></div><div class="rounded-2xl border bg-card p-6 space-y-4"><div class="grid md:grid-cols-2 gap-3"><label class="space-y-1"><span class="text-sm font-medium">Provider</span><input id="sms-provider" value="${esc(cfg.provider || '')}" class="w-full rounded-lg border bg-background px-3 py-2"></label><label class="space-y-1"><span class="text-sm font-medium">Sender ID</span><input id="sms-sender-id" value="${esc(cfg.senderId || 'SHULEAI')}" class="w-full rounded-lg border bg-background px-3 py-2"></label><label class="space-y-1 md:col-span-2"><span class="text-sm font-medium">API Key</span><input id="sms-api-key" value="" placeholder="Leave blank to keep existing" class="w-full rounded-lg border bg-background px-3 py-2"></label><label class="flex items-center gap-2 text-sm"><input id="sms-enabled" type="checkbox" ${cfg.providerConfigured ? 'checked' : ''}> Provider enabled/configured</label></div><div class="grid md:grid-cols-2 gap-3"><input id="sms-alloc-school" placeholder="School code e.g. SCH-2026-00001" class="rounded-lg border bg-background px-3 py-2"><input id="sms-alloc-tokens" type="number" placeholder="Token balance" class="rounded-lg border bg-background px-3 py-2"></div><button onclick="v113SaveSmsConfig()" class="px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold">Save Platform SMS Settings</button></div></div>`;
+    }
+    const tokens = Number(cfg.tokensRemaining || 0);
+    return `<div class="space-y-6 animate-fade-in"><div class="rounded-2xl border bg-card p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">School SMS</p><h2 class="text-3xl font-bold">Bulk SMS Center</h2><p class="text-sm text-muted-foreground mt-1">Compose and send only. Provider/API credentials are controlled by Super Admin.</p></div><div class="rounded-xl border p-4 text-center"><b class="text-2xl">${tokens.toLocaleString()}</b><span class="block text-xs text-muted-foreground">Tokens Remaining</span></div></div><div class="grid xl:grid-cols-[.9fr_1.1fr] gap-5"><div class="rounded-2xl border bg-card p-6 space-y-4"><h3 class="font-semibold text-lg">Send SMS</h3><label class="space-y-1 block"><span class="text-sm font-medium">Audience / Recipients</span><textarea id="sms-recipients" rows="5" class="w-full rounded-lg border bg-background px-3 py-2" placeholder="2547..., one per line or comma separated"></textarea></label><label class="space-y-1 block"><span class="text-sm font-medium">Message</span><textarea id="sms-message" rows="7" maxlength="480" class="w-full rounded-lg border bg-background px-3 py-2" placeholder="Type school SMS..."></textarea></label><button onclick="v113SendSmsDraft()" class="px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold">Send SMS</button><div id="sms-send-result" class="text-sm"></div></div><div class="rounded-2xl border bg-card p-6"><h3 class="font-semibold text-lg mb-3">SMS History</h3><div class="space-y-2 max-h-[420px] overflow-auto">${history.length ? history.map(row => `<div class="rounded-lg border p-3 text-sm"><div class="flex justify-between gap-3"><b>${esc(row.audience || 'Audience')}</b><span class="text-xs text-muted-foreground">${esc(row.createdAt || '')}</span></div><p class="mt-1">${esc(row.message || '')}</p><p class="text-xs text-muted-foreground mt-1">Reached: ${Number(row.successCount || 0)} • Failed: ${Number(row.failedCount || 0)} • Tokens: ${Number(row.tokensUsed || 0)}</p></div>`).join('') : '<p class="text-sm text-muted-foreground">No SMS sent yet.</p>'}</div></div></div></div>`;
   };
 
   window.v113SaveSmsConfig = async function(){
-    const payload = {
-      senderId: $('sms-sender-id')?.value || 'SHULEAI',
-      activeProvider: $('sms-provider')?.value || 'noop',
-      tokenBalance: Number($('sms-token-balance')?.value || 0),
-      monthlyLimit: Number($('sms-monthly-limit')?.value || 0),
-      apiReady: !!$('sms-api-ready')?.checked,
-      providers: parseProviders($('sms-providers')?.value),
-      notes: $('sms-notes')?.value || ''
-    };
+    const payload = { provider: $('sms-provider')?.value || '', senderId: $('sms-sender-id')?.value || 'SHULEAI', apiKey: $('sms-api-key')?.value || undefined, enabled: !!$('sms-enabled')?.checked };
+    const schoolCode = $('sms-alloc-school')?.value?.trim();
+    const tokens = $('sms-alloc-tokens')?.value;
+    if (schoolCode) { payload.schoolCode = schoolCode; payload.tokens = Number(tokens || 0); }
     await window.api.sms.saveConfig(payload);
     toast('SMS settings saved');
     await window.showDashboardSection?.('sms');
@@ -1154,7 +1130,8 @@
   window.v113SendSmsDraft = async function(){
     const result = $('sms-send-result');
     try {
-      const payload = { recipients: parseRecipients($('sms-recipients')?.value), message: $('sms-message')?.value || '' };
+      const recipients = parseRecipients($('sms-recipients')?.value);
+      const payload = { recipients, recipientCount: recipients.length, audience:'manual_sms', message: $('sms-message')?.value || '' };
       const res = await window.api.sms.send(payload);
       if (result) result.innerHTML = `<div class="rounded-xl border p-3 ${res.queued ? 'text-green-700' : 'text-amber-700'}">${esc(res.message || 'SMS processed')}<pre class="text-xs mt-2 whitespace-pre-wrap">${esc(JSON.stringify(res.data || {}, null, 2))}</pre></div>`;
       toast(res.message || 'SMS processed', res.queued ? 'success' : 'info');

@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         lucide.createIcons();
     }
 
-    const savedSettings = localStorage.getItem('schoolSettings');
+    const savedSettings = (localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings'));
     if (savedSettings) {
         try {
             schoolSettings = JSON.parse(savedSettings);
@@ -85,7 +85,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    // v129: secret super-admin trigger is owned by landing-premium.js (#super-admin-trigger, 5 clicks).
+    const secretTrigger = document.getElementById('secret-logo-trigger');
+    if (secretTrigger) {
+        secretTrigger.addEventListener('click', () => {
+            clickCount++;
+            if (clickCount === 3) {
+                const superAdminCard = document.getElementById('superadmin-role-card');
+                if (superAdminCard) {
+                    superAdminCard.classList.remove('hidden');
+                    showToast('Super Admin access granted', 'info');
+                }
+                clickCount = 0;
+            }
+            setTimeout(() => clickCount = 0, 2000);
+        });
+    }
 
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('bg-black/50')) {
@@ -129,9 +143,9 @@ window.addEventListener('storage', function(e) {
                 localStorage.setItem('school', JSON.stringify(updatedSchool));
                 
                 // Update schoolSettings
-                const settings = JSON.parse(localStorage.getItem('schoolSettings') || '{}');
+                const settings = JSON.parse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')) || '{}');
                 settings.schoolName = nameChangeData.newName;
-                localStorage.setItem('schoolSettings', JSON.stringify(settings));
+                localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(settings));
                 
                 // Update global variables
                 if (typeof window.schoolSettings !== 'undefined') {

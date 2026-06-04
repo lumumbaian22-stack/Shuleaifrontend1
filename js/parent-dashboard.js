@@ -2,6 +2,11 @@
 // Use global dashboardData from dashboard-controller.js
 if (typeof window.dashboardData === 'undefined') window.dashboardData = {};
 var dashboardData = window.dashboardData;
+function parentSelectedChildStorageKey() {
+    try { const user = typeof getCurrentUser === 'function' ? getCurrentUser() : {}; return window.parentSelectedChildKey ? window.parentSelectedChildKey(user?.id) : `selectedChild:${user?.id || 'unknown-parent'}`; } catch (_) { return 'selectedChild:unknown-parent'; }
+}
+function getStoredSelectedChildId() { return localStorage.getItem(parentSelectedChildStorageKey()) || getStoredSelectedChildId() || ''; }
+function setStoredSelectedChildId(id) { localStorage.setItem(parentSelectedChildStorageKey(), String(id || '')); localStorage.setItem('shule_selected_child_id', String(id || '')); }
 
 
 function getParentChildDisplay(child) {
@@ -122,8 +127,12 @@ async function renderParentCompetency() {
     competency: comp.name,
     averageLevel: comp.levels.reduce((sum, l) => sum + (l === 'EE' ? 4 : l === 'ME' ? 3 : l === 'AE' ? 2 : 1), 0) / comp.levels.length
   }));
-  window.__parentCompetencyData = chartData;
-  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Competency Progress</h2><canvas id="parent-competency-chart" height="300"></canvas></div>`;
+  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Competency Progress</h2><canvas id="parent-competency-chart" height="300"></canvas><script>
+    new Chart(document.getElementById('parent-competency-chart'), {
+      type: 'bar',
+      data: { labels: ${JSON.stringify(chartData.map(c => c.competency))}, datasets: [{ label: 'Average Level (1-4)', data: ${JSON.stringify(chartData.map(c => c.averageLevel))}, backgroundColor: '#3b82f6' }] }
+    });
+  </script></div>`;
 }
 
 async function renderParentDashboard() {
@@ -133,7 +142,7 @@ async function renderParentDashboard() {
         const children = childrenResponse.data || [];
 
         let selectedChildSummary = null;
-        let selectedChildId = localStorage.getItem('shule_selected_child_id') || (children.length > 0 ? children[0].id : null);
+        let selectedChildId = getStoredSelectedChildId() || (children.length > 0 ? children[0].id : null);
 
         if (selectedChildId && children.length > 0) {
             // Verify child still belongs to parent
@@ -652,7 +661,7 @@ async function renderParentChat() {
                           (dashboardData?.children && dashboardData.children[0]?.User);
     const childName = selectedChild?.name || 'your child';
     const classTeacher = dashboardData?.selectedChild?.classTeacher;
-    const conversations = await api.parent.getConversations({ studentId: dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '' }).catch(() => ({data: []}));
+    const conversations = await api.parent.getConversations({ studentId: dashboardData?.selectedChildId || getStoredSelectedChildId() || '' }).catch(() => ({data: []}));
     const parentConversations = conversations.data || [];
     setTimeout(() => { if (window.loadParentRecipientConversation) window.loadParentRecipientConversation(); }, 120);
 
@@ -1138,7 +1147,7 @@ async function loadParentAlerts() {
   const container = document.getElementById('parent-alerts-container');
   if (!container) return;
   try {
-    const activeChildId = String(dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim();
+    const activeChildId = String(dashboardData?.selectedChildId || getStoredSelectedChildId() || '').trim();
     const res = await apiRequest('/api/alerts' + (activeChildId ? `?studentId=${encodeURIComponent(activeChildId)}` : ''));
     const alerts = (res.data || []).filter(a => !activeChildId || !a.studentId || String(a.studentId) === activeChildId);
     if (alerts.length === 0) {

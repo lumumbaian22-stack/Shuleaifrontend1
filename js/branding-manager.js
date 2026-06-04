@@ -48,7 +48,7 @@
   }
 
   function getStoredSettings() {
-    return window.schoolSettings || safeParse(localStorage.getItem('schoolSettings'), {}) || {};
+    return window.schoolSettings || safeParse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')), {}) || {};
   }
 
   function getStoredBranding() {
@@ -141,10 +141,10 @@
       localStorage.setItem('school', JSON.stringify(school));
       window.currentSchool = school;
     }
-    const settings = safeParse(localStorage.getItem('schoolSettings'), {}) || {};
+    const settings = safeParse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')), {}) || {};
     settings.schoolName = name;
     settings.name = settings.name || name;
-    localStorage.setItem('schoolSettings', JSON.stringify(settings));
+    localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(settings));
     window.schoolSettings = { ...(window.schoolSettings || {}), ...settings };
   }
 

@@ -364,6 +364,8 @@ const adminAPI = {
     getCurriculumSubjectBank: () => apiRequest('/api/admin/curriculum/subject-bank'),
     getSchoolSubjects: () => apiRequest('/api/admin/curriculum/school-subjects'),
     saveSchoolSubjects: (subjects) => apiRequest('/api/admin/curriculum/school-subjects', { method: 'PUT', body: JSON.stringify({ subjects }) }),
+    getAssessmentSettings: () => apiRequest('/api/admin/assessment-settings'),
+    saveAssessmentSettings: (assessmentSettings) => apiRequest('/api/admin/assessment-settings', { method: 'PUT', body: JSON.stringify({ assessmentSettings }) }),
     getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
     getStudentSubjectSelection: (studentId) => apiRequest(`/api/admin/students/${studentId}/subject-selection`),
     saveStudentSubjectSelection: (studentId, data) => apiRequest(`/api/admin/students/${studentId}/subject-selection`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -834,6 +836,12 @@ const api = {
     tutor: tutorAPI,              // <-- ENHANCED AI TUTOR
     payments: paymentAPI,          // <-- DARAJA / M-PESA
     feeStructures: feeStructureAPI, // <-- ADMIN FEE STRUCTURE CONTROL
+    sms: {
+        getConfig: () => apiRequest('/api/sms/config'),
+        saveConfig: (payload) => apiRequest('/api/sms/config', { method:'PUT', body: JSON.stringify(payload) }),
+        send: (payload) => apiRequest('/api/sms/send', { method:'POST', body: JSON.stringify(payload) }),
+        getHistory: () => apiRequest('/api/sms/history')
+    },
     homeTasks: {
         getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),
         complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })

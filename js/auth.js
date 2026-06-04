@@ -12,37 +12,39 @@ function mergeTeacherProfile(userData, profile) {
     return userData;
 }
 
+function schoolScopedKey(key, schoolCode = null) {
+    const code = schoolCode || currentSchool?.schoolId || currentSchool?.schoolCode || currentUser?.schoolCode || 'unknown';
+    return `${key}:${code}`;
+}
+
+function parentSelectedChildKey(userId = null) {
+    const id = userId || currentUser?.id || getCurrentUser()?.id || 'unknown-parent';
+    return `selectedChild:${id}`;
+}
+
+function clearSessionScopedDashboardState() {
+    ['schoolSettings','schoolBranding','sidebarBrand','selectedChild','shule_selected_child_id','dashboardData','parentDashboardData','studentDashboardData'].forEach(k => localStorage.removeItem(k));
+}
+
+function persistSessionPayload(userData, schoolData) {
+    currentUser = userData || null;
+    currentSchool = schoolData || null;
+    if (currentUser) {
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('userRole', currentUser.role || '');
+    }
+    if (currentSchool) {
+        const schoolCode = currentSchool.schoolId || currentSchool.schoolCode || currentUser?.schoolCode;
+        localStorage.setItem('school', JSON.stringify(currentSchool));
+        if (schoolCode) localStorage.setItem(schoolScopedKey('schoolSettings', schoolCode), JSON.stringify(currentSchool));
+    }
+}
+
 function syncProfileAvatarUI() {
     setTimeout(() => {
         if (typeof updateUserInfo === 'function') updateUserInfo();
         if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
     }, 0);
-}
-
-function getSessionSchoolCode(user = currentUser, school = currentSchool) {
-    return String(user?.schoolCode || school?.schoolCode || school?.schoolId || '').trim();
-}
-
-function clearUnsafeSchoolCacheForNewLogin() {
-    ['schoolSettings','schoolBranding','sidebarBrand','schoolName','schoolLogo','selectedChild','shule_selected_child','shule_selected_child_id'].forEach(k => localStorage.removeItem(k));
-}
-
-function saveSchoolScopedCache(baseKey, value) {
-    const code = getSessionSchoolCode();
-    if (!code) return;
-    try { localStorage.setItem(`${baseKey}:${code}`, typeof value === 'string' ? value : JSON.stringify(value)); } catch (_) {}
-}
-
-function restoreSchoolScopedCache() {
-    const code = getSessionSchoolCode();
-    if (!code) return;
-    const lastCode = localStorage.getItem('activeSchoolCode');
-    if (lastCode && lastCode !== code) clearUnsafeSchoolCacheForNewLogin();
-    localStorage.setItem('activeSchoolCode', code);
-    const settings = localStorage.getItem(`schoolSettings:${code}`);
-    const branding = localStorage.getItem(`schoolBranding:${code}`);
-    if (settings) localStorage.setItem('schoolSettings', settings);
-    if (branding) localStorage.setItem('schoolBranding', branding);
 }
 
 // Check if user is authenticated on page load
@@ -60,22 +62,8 @@ async function checkAuth() {
         // Merge teacher profile if applicable
         userData = mergeTeacherProfile(userData, profile);
         
-        currentUser = userData;
-        currentSchool = response.data.school;
-        
-        localStorage.setItem('user', JSON.stringify(currentUser));
+        persistSessionPayload(userData, response.data.school || null);
         syncProfileAvatarUI();
-
-        if (currentSchool && currentSchool.status === 'active') {
-            localStorage.setItem('school', JSON.stringify(currentSchool));
-            } else {
-                localStorage.removeItem('school');
-                }
-
-        localStorage.setItem('userRole', currentUser.role);
-        restoreSchoolScopedCache();
-        if (currentSchool) saveSchoolScopedCache('schoolSettings', currentSchool);
-        
         return true;
     } catch (error) {
         console.error('Auth check failed:', error);
@@ -84,13 +72,6 @@ async function checkAuth() {
         localStorage.removeItem('user');
         localStorage.removeItem('school');
         localStorage.removeItem('userRole');
-    localStorage.removeItem('activeSchoolCode');
-    localStorage.removeItem('schoolSettings');
-    localStorage.removeItem('schoolBranding');
-    localStorage.removeItem('sidebarBrand');
-    localStorage.removeItem('selectedChild');
-    localStorage.removeItem('shule_selected_child');
-    localStorage.removeItem('shule_selected_child_id');
         return false;
     }
 }
@@ -98,7 +79,6 @@ async function checkAuth() {
 // Super Admin login
 async function superAdminLogin(email, password, secretKey) {
     try {
-        clearUnsafeSchoolCacheForNewLogin();
         const response = await api.auth.superAdminLogin(email, password, secretKey);
         if (!response.success) throw new Error(response.message);
         
@@ -106,10 +86,9 @@ async function superAdminLogin(email, password, secretKey) {
         authToken = response.data.token;
         currentUser = response.data.user;
         
+        clearSessionScopedDashboardState();
         localStorage.setItem('authToken', authToken);
-        localStorage.setItem('user', JSON.stringify(currentUser));
-        localStorage.setItem('userRole', currentUser.role);
-        restoreSchoolScopedCache();
+        persistSessionPayload(currentUser, null);
         
         return response;
     } catch (error) {
@@ -193,7 +172,6 @@ async function parentSignup(parentData) {
 // Student login with ELIMUID
 async function studentLogin(elimuid, password) {
     try {
-        clearUnsafeSchoolCacheForNewLogin();
         const response = await api.auth.studentLogin(elimuid, password);
         if (!response.success) throw new Error(response.message);
         
@@ -203,7 +181,6 @@ async function studentLogin(elimuid, password) {
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('user', JSON.stringify(currentUser));
         localStorage.setItem('userRole', currentUser.role);
-        restoreSchoolScopedCache();
         
         return response;
     } catch (error) {
@@ -214,7 +191,6 @@ async function studentLogin(elimuid, password) {
 // Regular login for admin/teacher/parent
 async function login(emailOrPhone, password, role) {
     try {
-        clearUnsafeSchoolCacheForNewLogin();
         console.log('🔐 Attempting login for role:', role);
 
         const response = await api.auth.login(emailOrPhone, password, role);
@@ -252,12 +228,9 @@ async function login(emailOrPhone, password, role) {
             throw new Error('Your account is pending approval. Please wait for the super admin to approve your school.');
         }
 
+        clearSessionScopedDashboardState();
         localStorage.setItem('authToken', authToken);
-        localStorage.setItem('user', JSON.stringify(currentUser));
-        localStorage.setItem('school', JSON.stringify(currentSchool));
-        localStorage.setItem('userRole', currentUser.role);
-        restoreSchoolScopedCache();
-        if (currentSchool) saveSchoolScopedCache('schoolSettings', currentSchool);
+        persistSessionPayload(currentUser, currentSchool);
 
         console.log('✅ Login successful, redirecting to dashboard');
 
@@ -290,18 +263,12 @@ async function changePassword(currentPassword, newPassword) {
 
 // Logout
 function logout() {
+    clearSessionScopedDashboardState();
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     localStorage.removeItem('school');
     localStorage.removeItem('userRole');
-    localStorage.removeItem('activeSchoolCode');
-    localStorage.removeItem('schoolSettings');
-    localStorage.removeItem('schoolBranding');
-    localStorage.removeItem('sidebarBrand');
-    localStorage.removeItem('selectedChild');
-    localStorage.removeItem('shule_selected_child');
-    localStorage.removeItem('shule_selected_child_id');
     authToken = null;
     refreshToken = null;
     currentUser = null;
@@ -324,11 +291,10 @@ function getCurrentUser() {
 // Get current school
 function getCurrentSchool() {
   try {
+    if (currentSchool) return currentSchool;
     const schoolStr = localStorage.getItem('school');
     if (!schoolStr) return null;
-    const school = JSON.parse(schoolStr);
-    // Getter must not delete inactive/expired school data. Access gating handles locks separately.
-    return school && typeof school === 'object' ? school : null;
+    return JSON.parse(schoolStr);
   } catch (error) {
     console.error('Error parsing school:', error);
     return null;
@@ -352,6 +318,9 @@ window.verifySchoolCode = verifySchoolCode;
 window.changePassword = changePassword;
 window.checkAuth = checkAuth;
 window.logout = logout;
+window.schoolScopedKey = schoolScopedKey;
+window.parentSelectedChildKey = parentSelectedChildKey;
+window.clearSessionScopedDashboardState = clearSessionScopedDashboardState;
 window.getCurrentUser = getCurrentUser;
 window.getCurrentSchool = getCurrentSchool;
 window.getCurrentRole = getCurrentRole;

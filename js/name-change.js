@@ -62,3 +62,5 @@ async function processNameChange() {
 window.showNameChangeModal = showNameChangeModal;
 window.closeNameChangeModal = closeNameChangeModal;
 window.processNameChange = processNameChange;
+function closePasswordChangeModal() { const m = document.getElementById('password-change-modal'); if (m) m.classList.add('hidden'); }
+window.closePasswordChangeModal = closePasswordChangeModal;

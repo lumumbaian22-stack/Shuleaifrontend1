@@ -1,40 +1,17 @@
-// tasks.js - Task management with real backend persistence
-
-function addTeacherTask() {
-    const modal = document.getElementById('add-task-modal');
-    if (modal) modal.classList.remove('hidden');
-}
-
+// Tasks section: real backend save, no fake success toast.
 async function saveTask() {
-    const title = document.getElementById('task-title')?.value?.trim();
-    const description = document.getElementById('task-description')?.value?.trim() || '';
-    const dueDate = document.getElementById('task-due-date')?.value || null;
-    if (!title) {
-        showToast('Please enter a task title', 'error');
-        return;
-    }
-    try {
-        if (typeof showLoading === 'function') showLoading();
-        await (window.api?.tasks?.createTask
-            ? window.api.tasks.createTask({ title, description, dueDate })
-            : window.apiRequest('/api/tasks', { method: 'POST', body: JSON.stringify({ title, description, dueDate }) }));
-        showToast('Task saved successfully', 'success');
-        closeAddTaskModal();
-        if (window.currentSection === 'tasks' && typeof window.showDashboardSection === 'function') {
-            await window.showDashboardSection('tasks');
-        }
-    } catch (error) {
-        showToast(error.message || 'Failed to save task', 'error');
-    } finally {
-        if (typeof hideLoading === 'function') hideLoading();
-    }
+  const title = document.getElementById('task-title')?.value?.trim() || document.getElementById('task-name')?.value?.trim();
+  const description = document.getElementById('task-description')?.value?.trim() || '';
+  const dueDate = document.getElementById('task-due-date')?.value || document.getElementById('task-date')?.value || null;
+  if (!title) return showToast('Task title is required', 'error');
+  showLoading?.();
+  try {
+    await (api.tasks?.createTask ? api.tasks.createTask({ title, description, dueDate }) : apiRequest('/api/tasks', { method:'POST', body: JSON.stringify({ title, description, dueDate }) }));
+    showToast('Task saved successfully', 'success');
+    if (typeof closeTaskModal === 'function') closeTaskModal();
+    if (typeof showDashboardSection === 'function') await showDashboardSection('tasks');
+  } catch (error) {
+    showToast(error.message || 'Failed to save task', 'error');
+  } finally { hideLoading?.(); }
 }
-
-function closeAddTaskModal() {
-    const modal = document.getElementById('add-task-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
-window.addTeacherTask = addTeacherTask;
 window.saveTask = saveTask;
-window.closeAddTaskModal = closeAddTaskModal;
