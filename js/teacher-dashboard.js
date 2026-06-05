@@ -701,10 +701,13 @@ function showMarksEntryModal(className) {
   const terms = ['Term 1', 'Term 2', 'Term 3'];
 
   const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
-  let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary';
-  if (!level || level === 'both') {
-    const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
-    level = primaryKeywords.some(kw => String(className || '').toUpperCase().includes(kw)) ? 'primary' : 'secondary';
+  let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'primary';
+  const classLevelSource = String(className || currentMarksClassName || level || '').toUpperCase();
+  if (!level || ['both','mixed','full','secondary'].includes(String(level).toLowerCase())) {
+    const primaryJuniorKeywords = ['PLAYGROUP','PP1','PP2','GRADE 1','GRADE 2','GRADE 3','GRADE 4','GRADE 5','GRADE 6','GRADE 7','GRADE 8','GRADE 9','STANDARD','PRIMARY','JUNIOR'];
+    const seniorKeywords = ['GRADE 10','GRADE 11','GRADE 12','FORM 1','FORM 2','FORM 3','FORM 4','SENIOR'];
+    if (seniorKeywords.some(kw => classLevelSource.includes(kw))) level = 'secondary';
+    else if (primaryJuniorKeywords.some(kw => classLevelSource.includes(kw))) level = 'primary';
   }
   const curriculumName = (window.CURRICULUMS?.[curriculum]?.name) || String(curriculum).toUpperCase();
   const scale = window.currentGradingScale || window.CURRICULUMS?.[curriculum]?.grading?.[level] || [];
@@ -882,15 +885,15 @@ window.updateGradeDisplayForStudent = function(studentId) {
                        window.schoolSettings?.system || 
                        'cbc';
     
-    // Try to get level from schoolSettings, otherwise infer from class name
+    // Try to get level from schoolSettings, otherwise infer from class name.
     let level = window.schoolSettings?.schoolLevel || 
                 window.schoolSettings?.settings?.schoolLevel;
-    
-    // If level is 'both' or missing, use class name to decide
-    if (!level || level === 'both') {
-      const className = currentMarksClassName || '';
-      const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
-      level = primaryKeywords.some(kw => className.toUpperCase().includes(kw)) ? 'primary' : 'secondary';
+    const className = String(currentMarksClassName || '').toUpperCase();
+    if (!level || ['both','mixed','full','secondary'].includes(String(level).toLowerCase())) {
+      const seniorKeywords = ['GRADE 10','GRADE 11','GRADE 12','FORM 1','FORM 2','FORM 3','FORM 4','SENIOR'];
+      const primaryJuniorKeywords = ['PLAYGROUP','PP1','PP2','GRADE 1','GRADE 2','GRADE 3','GRADE 4','GRADE 5','GRADE 6','GRADE 7','GRADE 8','GRADE 9','STANDARD','PRIMARY','JUNIOR'];
+      if (seniorKeywords.some(kw => className.includes(kw))) level = 'secondary';
+      else if (primaryJuniorKeywords.some(kw => className.includes(kw))) level = 'primary';
     }
     
     const grade = getGradeFromScore(score, curriculum, level, window.currentGradingScale);
@@ -1057,9 +1060,13 @@ async function renderTeacherDuty() {
 }
 async function submitSwapRequest() {
   if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is not available for this school plan.', 'warning');
-  const date = document.getElementById('swap-date')?.value;
-  const reason = document.getElementById('swap-reason')?.value;
-  if (!date || !reason) { showToast('Please fill all fields', 'error'); return; }
+  const date = String(document.getElementById('swap-date')?.value || '').trim();
+  const reason = String(document.getElementById('swap-reason')?.value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
+    showToast('Please select a valid duty date from the date picker.', 'error');
+    return;
+  }
+  if (!reason) { showToast('Please enter a reason for the swap request.', 'error'); return; }
   showLoading();
   try {
     await api.duty.requestSwap({ dutyDate: date, reason });

@@ -79,9 +79,10 @@
 
   function brandingAllowed() {
     if (isSuperAdmin()) return false;
-    const school = getStoredSchool() || {};
-    const settings = getStoredSettings() || {};
-    const access = school.access || settings.access || {};
+    const dataSchool = (window.dashboardData && window.dashboardData.school) || (window.studentDashboardData && window.studentDashboardData.school) || {};
+    const school = { ...(dataSchool || {}), ...(getStoredSchool() || {}) };
+    const settings = { ...(dataSchool.settings || {}), ...(getStoredSettings() || {}) };
+    const access = school.access || settings.access || dataSchool.access || {};
     if (school.suspended || access.suspended || String(school.accessMode || '').toLowerCase() === 'suspended') return false;
     if (school.fullAccess || access.fullAccess || school.pilotFullAccess || school.demoMode || school.freeAccess || school.manualFullAccess || access.mode === 'pilot') return true;
     const list = school.featureList || school.features || access.featureList || settings.featureList || [];
@@ -214,13 +215,16 @@
 
   function applyLogos() {
     const [light, dark] = ensureSidebarLogoElements();
+    const modeIsDark = currentMode() === 'dark';
+    if (light) light.style.display = modeIsDark ? 'none' : 'block';
+    if (dark) dark.style.display = modeIsDark ? 'block' : 'none';
     const name = `${getDisplayName()} Logo`;
     const schoolLogo = getLogoSource();
     const lightSrc = schoolLogo && !isSuperAdmin() ? schoolLogo : PLATFORM_LOGO_LIGHT;
     const darkSrc = schoolLogo && !isSuperAdmin() ? schoolLogo : PLATFORM_LOGO_DARK;
 
     setImageStable(light, lightSrc, PLATFORM_LOGO_LIGHT, name);
-    setImageStable(dark, darkSrc, PLATFORM_LOGO_LIGHT, name); // dark fallback uses visible light asset to avoid disappearing
+    setImageStable(dark, darkSrc || PLATFORM_LOGO_LIGHT, PLATFORM_LOGO_LIGHT, name); // dark fallback uses visible light asset to avoid disappearing
 
     document.querySelectorAll('[data-report-school-logo], [data-school-logo-watermark]').forEach((img) => {
       const src = schoolLogo && !isSuperAdmin() ? schoolLogo : PLATFORM_LOGO_LIGHT;

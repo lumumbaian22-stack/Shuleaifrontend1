@@ -805,6 +805,7 @@ const paymentAPI = {
     parentSubscriptionSTK: (data) => apiRequest('/api/payments/parent/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),
     parentSubscriptionManual: (data) => apiRequest('/api/payments/parent/subscription/manual', { method: 'POST', body: JSON.stringify(data) }),
     getPlatformManualQueue: () => apiRequest('/api/payments/superadmin/platform-manual-queue'),
+    getParentSchoolPaymentSettings: () => apiRequest('/api/payments/parent/school-settings'),
     reviewPlatformManualPayment: (paymentId, data = {}) => apiRequest(`/api/payments/superadmin/platform-manual-queue/${paymentId}/review`, { method: 'POST', body: JSON.stringify(data) }),
     schoolSubscriptionSTK: (data) => apiRequest('/api/payments/school/subscription/stk', { method: 'POST', body: JSON.stringify(data) }),
     adminNameChangeSTK: (data) => apiRequest('/api/payments/admin/name-change/stk', { method: 'POST', body: JSON.stringify(data) }),

@@ -741,6 +741,8 @@ async function showDashboardSection(section) {
         }, 30);
 
         lucide.createIcons();
+        if (typeof window.__shuleDashboardPostRender === 'function') window.__shuleDashboardPostRender();
+        if (typeof window.__shuleMobilePostRender === 'function') window.__shuleMobilePostRender();
     } catch (error) {
         console.error('Error loading section:', error);
         content.innerHTML = `<div class="text-center py-12">
@@ -842,6 +844,12 @@ function setupSectionListeners(role, section) {
             });
         }
     }
+
+    if (role === 'parent' && section === 'payments') {
+        setTimeout(() => {
+            if (typeof window.refreshParentSchoolPaymentInfo === 'function') window.refreshParentSchoolPaymentInfo();
+        }, 100);
+    }
 }
 
 async function updateAdminStats() {
@@ -895,8 +903,7 @@ window.onSchoolUpdate = onSchoolUpdate;
 window.checkConsentAndDPA = checkConsentAndDPA;
 
 
-// ===== dashboard-production.js merged into dashboard-controller.js =====
-
+// ===== dashboard shell helpers integrated into dashboard-controller.js =====
 (function () {
   function getRole() {
     try {
@@ -934,7 +941,7 @@ window.checkConsentAndDPA = checkConsentAndDPA;
       document.body.classList.toggle('sidebar-collapsed');
       localStorage.setItem('shule_sidebar_collapsed', document.body.classList.contains('sidebar-collapsed') ? '1' : '0');
       if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
+      if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
     });
 
     header.classList.add('justify-between');
@@ -950,15 +957,17 @@ window.checkConsentAndDPA = checkConsentAndDPA;
     if (saved === 'dark') document.documentElement.classList.add('dark');
     if (saved === 'light') document.documentElement.classList.remove('dark');
 
+    if (window.__shuleThemeEnhanced) return;
+    window.__shuleThemeEnhanced = true;
     const originalToggleTheme = window.toggleTheme;
     window.toggleTheme = function () {
-      if (typeof originalToggleTheme === 'function') {
-        originalToggleTheme();
-      } else {
-        document.documentElement.classList.toggle('dark');
-      }
+      if (typeof originalToggleTheme === 'function') originalToggleTheme();
+      else document.documentElement.classList.toggle('dark');
       localStorage.setItem('shule_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-      setTimeout(applyRoleClass, 0);
+      setTimeout(() => {
+        applyRoleClass();
+        if (window.BrandingManager?.forceApply) window.BrandingManager.forceApply();
+      }, 0);
     };
   }
 
@@ -969,49 +978,6 @@ window.checkConsentAndDPA = checkConsentAndDPA;
       link.classList.toggle('sidebar-link-active', isActive);
       link.classList.toggle('active', isActive);
     });
-  }
-
-  function patchShowDashboardSection() {
-    if (window.__dashboardProductionPatched) return;
-    if (typeof window.showDashboardSection !== 'function') return;
-
-    const original = window.showDashboardSection;
-    window.showDashboardSection = async function (section) {
-      window.currentSection = section;
-      applyRoleClass();
-      const result = await original.apply(this, arguments);
-      setTimeout(function () {
-        applyRoleClass();
-        enhanceSidebar();
-        markActiveLinks();
-        injectStudentXP();
-        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
-      }, 0);
-      return result;
-    };
-    window.__dashboardProductionPatched = true;
-  }
-
-  function patchShowDashboard() {
-    if (window.__dashboardShellPatched) return;
-    if (typeof window.showDashboard !== 'function') return;
-
-    const original = window.showDashboard;
-    window.showDashboard = async function () {
-      applyRoleClass();
-      const result = await original.apply(this, arguments);
-      setTimeout(function () {
-        applyRoleClass();
-        enhanceSidebar();
-        markActiveLinks();
-        injectStudentXP();
-        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
-        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
-      }, 0);
-      return result;
-    };
-    window.__dashboardShellPatched = true;
   }
 
   function injectStudentXP() {
@@ -1047,13 +1013,18 @@ window.checkConsentAndDPA = checkConsentAndDPA;
     content.prepend(hero);
   }
 
-  function boot() {
-    enhanceTheme();
+  window.__shuleDashboardPostRender = function () {
     applyRoleClass();
     enhanceSidebar();
-    patchShowDashboard();
-    patchShowDashboardSection();
     markActiveLinks();
+    injectStudentXP();
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
+  };
+
+  function boot() {
+    enhanceTheme();
+    window.__shuleDashboardPostRender();
 
     const observer = new MutationObserver(function () {
       applyRoleClass();
@@ -1064,19 +1035,8 @@ window.checkConsentAndDPA = checkConsentAndDPA;
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-
-  window.addEventListener('load', function () {
-    patchShowDashboard();
-    patchShowDashboardSection();
-    applyRoleClass();
-    enhanceSidebar();
-    markActiveLinks();
-  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 
 
@@ -1269,21 +1229,15 @@ window.checkConsentAndDPA = checkConsentAndDPA;
     if (w.lucide?.createIcons) w.lucide.createIcons();
   }
 
-  function patchSectionRenderer() {
-    if (w.__v18SectionRendererPatched) return;
-    const original = w.showDashboardSection;
-    if (typeof original !== 'function') return;
-    w.__v18SectionRendererPatched = true;
-    w.showDashboardSection = async function v18ShowDashboardSection(section) {
-      const result = await original.apply(this, arguments);
-      setTimeout(() => {
-        enhanceContent(d);
-        addMobileMoreNav();
-        if (isMobile()) sidebarClose();
-      }, 30);
-      return result;
-    };
+  function runMobilePostRender() {
+    setTimeout(() => {
+      enhanceContent(d);
+      addMobileMoreNav();
+      if (isMobile()) sidebarClose();
+    }, 30);
   }
+
+  w.__shuleMobilePostRender = runMobilePostRender;
 
   function installMutationObserver() {
     const target = d.getElementById('dashboard-content') || d.body;
@@ -1310,33 +1264,17 @@ window.checkConsentAndDPA = checkConsentAndDPA;
     setMobileClass();
     enhanceContent(d);
     addMobileMoreNav();
-    patchSectionRenderer();
     installMutationObserver();
     patchResize();
     if (isMobile()) sidebarClose();
 
     // Some older files rebuild mobile nav after login; re-run after common async loads.
-    setTimeout(() => { enhanceContent(d); addMobileMoreNav(); patchSectionRenderer(); }, 500);
-    setTimeout(() => { enhanceContent(d); addMobileMoreNav(); patchSectionRenderer(); }, 1500);
+    setTimeout(() => { enhanceContent(d); addMobileMoreNav(); }, 500);
+    setTimeout(() => { enhanceContent(d); addMobileMoreNav(); }, 1500);
   }
 
   if (d.readyState === 'loading') d.addEventListener('DOMContentLoaded', init);
   else init();
 
   w.v18EnhanceMobileLayout = enhanceContent;
-})();
-
-
-// ===== v34 dashboard cleanup =====
-(function(){
-  function cleanupSidebar(){
-    document.querySelectorAll('[data-section="payment-settings"],[data-section="fee-structures"]').forEach(el=>el.remove());
-    document.querySelectorAll('.sidebar-link, .nav-item, button, a').forEach(el=>{
-      const t=(el.textContent||'').trim().toLowerCase();
-      if(t==='payment details' || t==='fee structures') el.remove();
-    });
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', cleanupSidebar); else cleanupSidebar();
-  const mo=new MutationObserver(cleanupSidebar);
-  if(document.body) mo.observe(document.body,{childList:true,subtree:true});
 })();

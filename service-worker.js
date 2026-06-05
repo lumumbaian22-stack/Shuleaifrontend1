@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-v136-scope-branding-signature-cache-reset';
+const CACHE_NAME = 'shule-ai-v139-no-old-runtime-patches';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

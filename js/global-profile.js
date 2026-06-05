@@ -5,12 +5,19 @@
     catch (_) { return {}; }
   }
 
+  const brokenProfileImages = new Set();
+  const brokenProfileFilenames = new Set();
   function media(url) {
     if (!url) return '';
-    if (typeof resolveMediaUrl === 'function') return resolveMediaUrl(url);
-    if (/^https?:\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url;
-    const base = (window.API_BASE_URL || '').replace(/\/$/, '');
-    return base ? base + (url.startsWith('/') ? url : '/' + url) : url;
+    let resolved = '';
+    if (typeof resolveMediaUrl === 'function') resolved = resolveMediaUrl(url);
+    else if (/^https?:\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) resolved = url;
+    else {
+      const base = (window.API_BASE_URL || '').replace(/\/$/, '');
+      resolved = base ? base + (url.startsWith('/') ? url : '/' + url) : url;
+    }
+    try { const file = String(resolved).split('/').pop(); if (brokenProfileFilenames.has(file)) return ''; } catch (_) {}
+    return brokenProfileImages.has(resolved) ? '' : resolved;
   }
 
   function initials(name) {
@@ -25,11 +32,31 @@
     return div.innerHTML;
   }
 
+  function fallbackAvatarHtml(name) {
+    return `<span class="h-full w-full rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">${safeName(initials(name))}</span>`;
+  }
+
+  function markBrokenProfileImage(src, el, name) {
+    if (src) { brokenProfileImages.add(src); try { brokenProfileFilenames.add(String(src).split('/').pop()); } catch (_) {} }
+    if (!el) return;
+    if (el.tagName === 'IMG') {
+      const span = document.createElement('span');
+      span.className = el.className || 'h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold';
+      span.classList.remove('object-cover', 'global-profile-click');
+      span.textContent = initials(name || 'User');
+      el.replaceWith(span);
+      return;
+    }
+    el.innerHTML = fallbackAvatarHtml(name || 'User');
+  }
+
   function setImageIntoElement(el, src, name) {
-    if (!el || !src) return;
+    if (!el) return;
     src = media(src);
+    if (!src) { if (!el.querySelector?.('img') && !el.textContent.trim()) el.innerHTML = fallbackAvatarHtml(name || 'User'); return; }
 
     if (el.tagName === 'IMG') {
+      el.onerror = function(){ markBrokenProfileImage(src, this, name); };
       el.src = src;
       el.alt = name || 'Profile picture';
       el.classList.add('global-profile-click');
@@ -38,7 +65,7 @@
       return;
     }
 
-    el.innerHTML = `<img src="${src}" alt="${safeName(name || 'Profile picture')}" class="h-full w-full rounded-full object-cover global-profile-click cursor-pointer" data-profile-full="${src}" data-profile-name="${safeName(name || 'Profile picture')}">`;
+    el.innerHTML = `<img src="${src}" alt="${safeName(name || 'Profile picture')}" class="h-full w-full rounded-full object-cover global-profile-click cursor-pointer" data-profile-full="${src}" data-profile-name="${safeName(name || 'Profile picture')}" onerror="this.dispatchEvent(new CustomEvent('profile-image-broken',{bubbles:true,detail:{src:this.src,name:this.dataset.profileName}}))">`;
   }
 
   let profileApplyInProgress = false;
@@ -111,6 +138,8 @@
   function closeProfileImageModal() {
     document.getElementById('global-profile-image-modal')?.remove();
   }
+
+  document.addEventListener('profile-image-broken', function(e){ markBrokenProfileImage(e.detail?.src, e.target?.parentElement, e.detail?.name); });
 
   document.addEventListener('click', function (e) {
     const target = e.target.closest('.global-profile-click, img[data-profile-full], img.user-avatar, #profile-preview');

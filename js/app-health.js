@@ -8,3 +8,20 @@ window.addEventListener('load', () => {
     if (overlay && hasVisibleShell) overlay.classList.add('hidden');
   }, 2500);
 });
+
+
+// shule-ai-clean-service-worker-register-v139
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js?v=139')
+      .then(async (registration) => {
+        if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        try { await registration.update?.(); } catch (_) {}
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_OLD_CACHES' });
+        }
+      })
+      .catch((error) => console.warn('[Shule AI] Service worker registration failed:', error?.message || error));
+  });
+})();

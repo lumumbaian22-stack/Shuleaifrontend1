@@ -187,15 +187,43 @@ function normalizeLevel(level) {
 }
 
 // ============ GRADE CALCULATION ============
+function parseGradeRange(entry) {
+    if (!entry || typeof entry !== 'object') return null;
+    let min = entry.min ?? entry.minScore ?? entry.from ?? entry.low ?? null;
+    let max = entry.max ?? entry.maxScore ?? entry.to ?? entry.high ?? null;
+    const rawRange = entry.range ?? entry.scoreRange ?? entry.marksRange ?? entry.bounds;
+    if ((min === null || max === null) && Array.isArray(rawRange) && rawRange.length >= 2) {
+        min = rawRange[0]; max = rawRange[1];
+    }
+    if ((min === null || max === null) && typeof rawRange === 'string') {
+        const m = rawRange.match(/(-?\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(-?\d+(?:\.\d+)?)/i);
+        if (m) { min = m[1]; max = m[2]; }
+    }
+    min = Number(min); max = Number(max);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+    if (min > max) [min, max] = [max, min];
+    return { min, max };
+}
+
+function normalizeGradeLevelForScore(level, className) {
+    const raw = String(level || className || '').toLowerCase();
+    if (/pp\s*1|pp\s*2|play|pre.?primary|early|grade\s*[1-6]\b|grade_[1-6]\b|primary|standard\s*[1-8]/.test(raw)) return 'primary';
+    if (/grade\s*[7-9]\b|grade_[7-9]\b|junior/.test(raw)) return 'primary'; // CBC/CBE junior uses competency levels unless school changes grading.
+    if (/grade\s*1[0-2]\b|grade_1[0-2]\b|senior|secondary|form\s*[1-4]/.test(raw)) return 'secondary';
+    if (raw === 'both' || raw === 'mixed' || raw === 'full') return 'primary';
+    return raw || 'primary';
+}
+
+// ============ GRADE CALCULATION ============
 function getGradeFromScore(score, curriculum, level, customScale) {
     const scoreNum = Number(score);
     if (!Number.isFinite(scoreNum)) return 'N/A';
 
     if (Array.isArray(customScale) && customScale.length > 0) {
         for (const entry of customScale) {
-            const min = Number(entry.min ?? entry.minScore ?? entry.from ?? 0);
-            const max = Number(entry.max ?? entry.maxScore ?? entry.to ?? 100);
-            if (scoreNum >= min && scoreNum <= max) return entry.grade || entry.label || entry.name || 'N/A';
+            const bounds = parseGradeRange(entry);
+            if (!bounds) continue;
+            if (scoreNum >= bounds.min && scoreNum <= bounds.max) return entry.grade || entry.label || entry.name || 'N/A';
         }
     }
     if (customScale && (customScale.passMark !== undefined || customScale.failMark !== undefined)) {
@@ -203,19 +231,17 @@ function getGradeFromScore(score, curriculum, level, customScale) {
         if (customScale.failMark !== undefined && scoreNum < Number(customScale.failMark)) return 'FAIL';
     }
 
-    const cur = String(curriculum || window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc').toLowerCase().replace(/-/g,'');
-    const rawLevel = String(level || window.schoolSettings?.schoolLevel || window.currentMarksClassName || '').toLowerCase();
-    const isSenior = /grade\s*1[0-2]|grade_1[0-2]|senior|form\s*[1-4]|secondary/.test(rawLevel);
-    const isPrimaryOrJunior = /pp|play|grade\s*[1-9]|grade_[1-9]|primary|junior|class\s*[1-8]/.test(rawLevel);
+    const cur = String(curriculum || window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc').toLowerCase().replace(/[-_]/g,'');
+    const normalizedLevel = normalizeGradeLevelForScore(level || window.schoolSettings?.schoolLevel, window.currentMarksClassName);
 
-    if (cur.includes('844') || cur.includes('8 4 4') || cur.includes('american') || cur.includes('british') || (cur.includes('cbc') && isSenior)) {
+    if (cur.includes('844') || cur.includes('american') || cur.includes('british') || ((cur.includes('cbc') || cur.includes('cbe')) && normalizedLevel === 'secondary')) {
         if (scoreNum >= 80) return cur.includes('british') ? 'A*' : 'A';
         if (scoreNum >= 70) return 'B';
         if (scoreNum >= 60) return 'C';
         if (scoreNum >= 50) return 'D';
         return cur.includes('american') ? 'F' : 'E';
     }
-    if (cur.includes('cbc') || cur.includes('cbe') || isPrimaryOrJunior) {
+    if (cur.includes('cbc') || cur.includes('cbe')) {
         if (scoreNum >= 80) return 'EE';
         if (scoreNum >= 50) return 'ME';
         if (scoreNum >= 20) return 'AE';
@@ -224,11 +250,10 @@ function getGradeFromScore(score, curriculum, level, customScale) {
 
     const curriculumData = CURRICULUMS[curriculum] || CURRICULUMS[String(curriculum || '').toLowerCase()];
     if (curriculumData?.grading) {
-        let normalizedLevel = level === 'both' ? 'secondary' : (level || 'primary');
         const scale = curriculumData.grading[normalizedLevel] || curriculumData.grading.primary || curriculumData.grading.secondary || [];
         for (const entry of scale) {
-            const [min, max] = String(entry.range || '').split('-').map(Number);
-            if (Number.isFinite(min) && Number.isFinite(max) && scoreNum >= min && scoreNum <= max) return entry.grade;
+            const bounds = parseGradeRange(entry);
+            if (bounds && scoreNum >= bounds.min && scoreNum <= bounds.max) return entry.grade;
         }
     }
     return 'N/A';

@@ -1249,6 +1249,31 @@ setTimeout(() => {
   loadLiveAttendance();
 }, 200);
 
+
+async function refreshParentSchoolPaymentInfo() {
+    const body = document.getElementById('parent-school-payment-info-body');
+    if (!body) return;
+    body.innerHTML = '<span class="text-muted-foreground">Loading school payment details...</span>';
+    try {
+        const res = await (api.payments?.getParentSchoolPaymentSettings ? api.payments.getParentSchoolPaymentSettings() : apiRequest('/api/payments/parent/school-settings'));
+        const d = res.data || {};
+        const lines = [];
+        lines.push(`<div><span class="text-muted-foreground">Payment mode:</span> <strong>${escapeHtml(d.paymentMode || 'manual')}</strong></div>`);
+        if (d.mpesaType) lines.push(`<div><span class="text-muted-foreground">M-Pesa type:</span> <strong>${escapeHtml(d.mpesaType)}</strong></div>`);
+        if (d.paybill) lines.push(`<div><span class="text-muted-foreground">Paybill:</span> <strong>${escapeHtml(d.paybill)}</strong></div>`);
+        if (d.till) lines.push(`<div><span class="text-muted-foreground">Till:</span> <strong>${escapeHtml(d.till)}</strong></div>`);
+        if (d.shortcode && !d.paybill && !d.till) lines.push(`<div><span class="text-muted-foreground">Shortcode:</span> <strong>${escapeHtml(d.shortcode)}</strong></div>`);
+        if (d.referenceFormat) lines.push(`<div><span class="text-muted-foreground">Account reference:</span> <strong>${escapeHtml(d.referenceFormat)}</strong></div>`);
+        if (d.bankName || d.accountNumber) lines.push(`<div><span class="text-muted-foreground">Bank:</span> <strong>${escapeHtml(d.bankName || '')}</strong> ${escapeHtml(d.accountNumber || '')}</div>`);
+        if (d.accountName) lines.push(`<div><span class="text-muted-foreground">Account name:</span> <strong>${escapeHtml(d.accountName)}</strong></div>`);
+        const instructions = d.manualInstructions || d.offlineInstructions || 'Use the school payment details, then submit your reference for verification.';
+        body.innerHTML = `<div class="grid gap-1">${lines.join('')}<div class="mt-2 text-muted-foreground">${escapeHtml(instructions)}</div></div>`;
+    } catch (e) {
+        body.innerHTML = `<span class="text-red-600">${escapeHtml(e.message || 'Could not load payment details.')}</span>`;
+    }
+}
+window.refreshParentSchoolPaymentInfo = refreshParentSchoolPaymentInfo;
+
 // ============ EXPORT FUNCTIONS ============
 window.loadParentAlerts = loadParentAlerts;
 window.loadLiveAttendance = loadLiveAttendance;

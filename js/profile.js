@@ -208,7 +208,7 @@ async function updateProfile(event) {
             user.name = profileData.name;
             user.email = profileData.email;
             user.phone = profileData.phone;
-            localStorage.setItem('user', JSON.stringify(user));
+            safeSetUserStorage(user);
             updateUserInfo();
         }
     } catch (error) {
@@ -269,7 +269,7 @@ async function togglePreference(prefKey) {
         const response = await api.user.updatePreferences(preferences);
         if (response.success) {
             user.preferences = preferences;
-            localStorage.setItem('user', JSON.stringify(user));
+            safeSetUserStorage(user);
             showToast('Preferences updated', 'success');
         }
     } catch (error) {
@@ -354,8 +354,7 @@ async function uploadProfilePicture(file) {
                 profileImage: returnedProfileImage,
                 profilePicture: returnedProfileImage
             };
-            localStorage.setItem('user', JSON.stringify(mergedUser));
-            localStorage.setItem('shule_user', JSON.stringify(mergedUser));
+            safeSetUserStorage(mergedUser);
 
             const preview = document.getElementById('profile-preview');
             const resolvedUrl = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(returnedProfileImage) : returnedProfileImage;
@@ -389,6 +388,28 @@ function v116ResolveUploadedMediaUrl(value) {
     return `${base}/${raw.replace(/^\/+/, '')}`;
 }
 
+
+function stripLargeMediaForStorage(obj) {
+    try {
+        const clone = JSON.parse(JSON.stringify(obj || {}));
+        if (clone.preferences) {
+            // Keep durable metadata in localStorage, but never store large base64 blobs there.
+            if (String(clone.preferences.signatureDataUrl || '').startsWith('data:')) clone.preferences.signatureDataUrl = null;
+            if (String(clone.preferences.profileImageDataUrl || '').startsWith('data:')) clone.preferences.profileImageDataUrl = null;
+        }
+        if (String(clone.signature || '').startsWith('data:')) clone.signature = clone.preferences?.signatureFileUrl || clone.signatureUrl || '';
+        if (String(clone.signatureUrl || '').startsWith('data:')) clone.signatureUrl = clone.preferences?.signatureFileUrl || clone.signature || '';
+        if (String(clone.profileImage || '').startsWith('data:')) clone.profileImage = clone.preferences?.profileImageFileUrl || '';
+        return clone;
+    } catch (_) { return obj || {}; }
+}
+function safeSetUserStorage(user) {
+    const safe = stripLargeMediaForStorage(user);
+    try { localStorage.setItem('user', JSON.stringify(safe)); } catch (_) {}
+    try { localStorage.setItem('currentUser', JSON.stringify(safe)); } catch (_) {}
+    try { localStorage.setItem('shule_user', JSON.stringify(safe)); } catch (_) {}
+}
+
 // Signature upload function
 async function uploadSignature(file) {
     if (!file) return;
@@ -410,9 +431,7 @@ async function uploadSignature(file) {
             if (!signatureUrl) throw new Error('Upload succeeded but no signature URL was returned');
             const preferences = { ...(user.preferences || {}), signatureUrl, signatureDataUrl: rawSignature.startsWith('data:') ? rawSignature : (user.preferences?.signatureDataUrl || null), signatureFileUrl: data.data?.signatureFileUrl || user.preferences?.signatureFileUrl || null, signatureUpdatedAt: new Date().toISOString() };
             const updatedUser = { ...user, signature: signatureUrl, signatureUrl, preferences };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-            localStorage.setItem('shule_user', JSON.stringify(updatedUser));
+            safeSetUserStorage(updatedUser);
             window.currentUser = updatedUser;
             if (window.dashboardData) {
               window.dashboardData.user = { ...(window.dashboardData.user || {}), signature: signatureUrl, signatureUrl, preferences };

@@ -2,6 +2,21 @@
 let currentUser = null;
 let currentSchool = null;
 
+
+function stripLargeMediaForStorage(obj) {
+    try {
+        const clone = JSON.parse(JSON.stringify(obj || {}));
+        if (clone.preferences) {
+            if (String(clone.preferences.signatureDataUrl || '').startsWith('data:')) clone.preferences.signatureDataUrl = null;
+            if (String(clone.preferences.profileImageDataUrl || '').startsWith('data:')) clone.preferences.profileImageDataUrl = null;
+        }
+        if (String(clone.signature || '').startsWith('data:')) clone.signature = clone.preferences?.signatureFileUrl || clone.signatureUrl || '';
+        if (String(clone.signatureUrl || '').startsWith('data:')) clone.signatureUrl = clone.preferences?.signatureFileUrl || clone.signature || '';
+        if (String(clone.profileImage || '').startsWith('data:')) clone.profileImage = clone.preferences?.profileImageFileUrl || '';
+        return clone;
+    } catch (_) { return obj || {}; }
+}
+
 // Helper: Merge teacher profile into user object
 function mergeTeacherProfile(userData, profile) {
     if (profile) {
@@ -39,7 +54,7 @@ function persistSessionPayload(userData, schoolData) {
     currentUser = userData || null;
     currentSchool = schoolData || null;
     if (currentUser) {
-        localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(currentUser)));
         localStorage.setItem('userRole', currentUser.role || '');
     }
     if (currentSchool) {
@@ -135,7 +150,7 @@ async function checkAdminStatusAfterApproval() {
                 if (response.success) {
                     const refreshedUser = response.data.user;
                     if (refreshedUser.isActive === true) {
-                        localStorage.setItem('user', JSON.stringify(refreshedUser));
+                        localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(refreshedUser)));
                         localStorage.setItem('userRole', refreshedUser.role);
                         syncProfileAvatarUI();
                         currentUser = refreshedUser;
@@ -188,7 +203,7 @@ async function studentLogin(elimuid, password) {
         currentUser = response.data.user;
         
         localStorage.setItem('authToken', authToken);
-        localStorage.setItem('user', JSON.stringify(currentUser));
+        localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(currentUser)));
         localStorage.setItem('userRole', currentUser.role);
         
         return response;
@@ -294,7 +309,7 @@ function logout() {
 
 // Get current user
 function getCurrentUser() {
-    return currentUser || JSON.parse(localStorage.getItem('user') || '{}');
+    return currentUser || window.currentUser || JSON.parse(localStorage.getItem('user') || '{}');
 }
 
 // Get current school

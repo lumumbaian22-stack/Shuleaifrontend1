@@ -1,3 +1,4 @@
+function stripLargeMediaForStorage(obj){try{const clone=JSON.parse(JSON.stringify(obj||{}));if(clone.preferences){if(String(clone.preferences.signatureDataUrl||'').startsWith('data:'))clone.preferences.signatureDataUrl=null;if(String(clone.preferences.profileImageDataUrl||'').startsWith('data:'))clone.preferences.profileImageDataUrl=null;}if(String(clone.signature||'').startsWith('data:'))clone.signature=clone.preferences?.signatureFileUrl||clone.signatureUrl||'';if(String(clone.signatureUrl||'').startsWith('data:'))clone.signatureUrl=clone.preferences?.signatureFileUrl||clone.signature||'';return clone;}catch(_){return obj||{};}}
 // auth-modal.js - Authentication modal handling
 
 function openAuthModal(role, mode) {
@@ -571,7 +572,7 @@ async function handleStudentLogin() {
         if (response.success) {
             authToken = response.data.token;        // Update global authToken
             localStorage.setItem('authToken', authToken);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+            localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(response.data.user)));
             localStorage.setItem('student', JSON.stringify(response.data.student));
             localStorage.setItem('userRole', 'student');
 
