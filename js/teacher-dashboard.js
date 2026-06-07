@@ -251,6 +251,7 @@ async function toggleClassReportReview(classId) {
 }
 
 function renderClassTeacherReportReview(gradebook, term, year) {
+    window.__classReportPreviewedStudents = new Set();
     const subjects = gradebook.subjects || [];
     const students = gradebook.students || [];
     const classId = gradebook.classId || '';
@@ -267,20 +268,20 @@ function renderClassTeacherReportReview(gradebook, term, year) {
         </div>
         <div class="overflow-x-auto border rounded-xl">
           <table class="w-full text-xs min-w-[900px]" id="class-report-review-table">
-            <thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left sticky left-0 bg-muted/50">Student</th>${subjects.map(s => `<th class="px-2 py-2 text-center">${escapeHtml(s)}</th>`).join('')}<th class="px-2 py-2 text-center">Avg</th><th class="px-2 py-2 text-center">Grade</th><th class="px-2 py-2 text-center">Status</th></tr></thead>
+            <thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left sticky left-0 bg-muted/50">Student</th>${subjects.map(s => `<th class="px-2 py-2 text-center">${escapeHtml(s)}</th>`).join('')}<th class="px-2 py-2 text-center">Avg</th><th class="px-2 py-2 text-center">Grade</th><th class="px-2 py-2 text-center">Status</th><th class="px-2 py-2 text-center">Report Card</th></tr></thead>
             <tbody class="divide-y">
               ${students.map(st => {
                 const missing = subjects.filter(sub => st.scores?.[sub] === null || st.scores?.[sub] === undefined);
                 return `<tr data-student-id="${st.id}"><td class="px-3 py-2 font-medium sticky left-0 bg-card">${escapeHtml(st.name || 'Student')}<div class="text-[10px] text-muted-foreground">${escapeHtml(st.elimuid || st.admissionNumber || '')}</div></td>${subjects.map(sub => {
                   const val = st.scores?.[sub]; const recordId = st.recordIds?.[sub] || '';
                   return `<td class="px-2 py-2 text-center"><input class="class-review-score w-16 text-center rounded border px-1 py-1 bg-background ${val == null ? 'border-red-300' : ''}" data-record-id="${recordId}" data-student-id="${st.id}" data-subject="${escapeHtml(sub)}" value="${val == null ? '' : val}" type="number" min="0" max="100" ${recordId ? '' : 'disabled'} oninput="updateClassReviewRow('${st.id}')" onchange="saveClassReviewMark(this)"></td>`;
-                }).join('')}<td class="px-2 py-2 text-center font-semibold" id="class-review-avg-${st.id}">${st.overallAverage == null ? '—' : st.overallAverage + '%'}</td><td class="px-2 py-2 text-center" id="class-review-grade-${st.id}">${escapeHtml(st.finalGrade || '—')}</td><td class="px-2 py-2 text-center" id="class-review-status-${st.id}"><span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + escapeHtml(missing.join(', ')) : 'Ready'}</span></td></tr>`;
-              }).join('') || `<tr><td colspan="${subjects.length + 4}" class="px-3 py-8 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
+                }).join('')}<td class="px-2 py-2 text-center font-semibold" id="class-review-avg-${st.id}">${st.overallAverage == null ? '—' : st.overallAverage + '%'}</td><td class="px-2 py-2 text-center" id="class-review-grade-${st.id}">${escapeHtml(st.finalGrade || '—')}</td><td class="px-2 py-2 text-center" id="class-review-status-${st.id}"><span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + escapeHtml(missing.join(', ')) : 'Ready'}</span></td><td class="px-2 py-2 text-center"><button type="button" class="px-2 py-1 rounded border bg-background hover:bg-muted" onclick="openClassTeacherReportCardPreview('${st.id}','${classId}')">Preview</button></td></tr>`;
+              }).join('') || `<tr><td colspan="${subjects.length + 5}" class="px-3 py-8 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
             </tbody>
           </table>
         </div>
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border p-4">
-          <p class="text-sm text-muted-foreground">You can correct unpublished marks here before publishing. Grades and averages recalculate instantly; backend also recalculates before save/publish.</p>
+          <div class="space-y-2"><p class="text-sm text-muted-foreground">You can correct unpublished marks here before publishing. Preview each student report card first so you can verify marks, comments, signatures, and layout before parents/students see it.</p><label class="flex items-center gap-2 text-sm font-medium"><input id="class-report-reviewed-checkbox" type="checkbox" class="rounded"> I have previewed and verified the class report cards.</label></div>
           <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${publishedReady ? 'bg-primary text-white' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${publishedReady ? '' : 'disabled'}>Publish Full Class Report</button>
         </div>
       </div>`;
@@ -312,11 +313,27 @@ async function saveClassReviewMark(input) {
   } catch(e) { showToast(e.message || 'Could not update mark', 'error'); }
 }
 
+async function openClassTeacherReportCardPreview(studentId, classId) {
+  const term = document.getElementById('class-report-term')?.value || 'Term 1';
+  const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+  const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+  window.__teacherReportPreviewContext = { classId, term, year, assessmentName };
+  window.__classReportPreviewedStudents = window.__classReportPreviewedStudents || new Set();
+  window.__classReportPreviewedStudents.add(String(studentId));
+  try { await openReportCard(studentId); }
+  finally { setTimeout(() => { delete window.__teacherReportPreviewContext; }, 1500); }
+}
+
 async function publishClassReportFromStudents(classId) {
   const term = document.getElementById('class-report-term')?.value || 'Term 1';
   const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
   if (!classId) return showToast('Class not found', 'error');
-  if (!confirm(`Publish full class report for ${term} ${year}? Students and parents will see it.`)) return;
+  const rowIds = [...document.querySelectorAll('#class-report-review-table tbody tr[data-student-id]')].map(r => String(r.dataset.studentId || '')).filter(Boolean);
+  const viewed = window.__classReportPreviewedStudents || new Set();
+  const notPreviewed = rowIds.filter(id => !viewed.has(id));
+  if (notPreviewed.length) return showToast(`Preview all student report cards before publishing. Remaining: ${notPreviewed.length}`, 'error');
+  if (!document.getElementById('class-report-reviewed-checkbox')?.checked) return showToast('Tick the verification checkbox before publishing.', 'error');
+  if (!confirm(`Publish full class report for ${term} ${year}? Students and parents will see it after this.`)) return;
   showLoading();
   try {
     const assessmentName = document.getElementById('class-report-assessment')?.value || '';
@@ -463,65 +480,133 @@ function getGradeColorClass(grade) {
     return 'bg-red-100 text-red-700';
 }
 
-// ============ ATTENDANCE (FIXED ENDPOINT) ============
-async function renderTeacherAttendance() {
-    const data = await loadMyStudents();
-    const students = data.students || [];
-    if (!students.length) return '<div class="text-center py-12">No students in your class</div>';
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Fetch existing attendance for today using the correct endpoint
-    const attendanceRes = await api.teacher.getAttendanceForDate ? 
-        await api.teacher.getAttendanceForDate(today).catch(() => ({ data: [] })) : 
-        { data: [] };
-    const attendanceMap = {};
-    if (attendanceRes.data) {
-        attendanceRes.data.forEach(a => { attendanceMap[a.studentId] = a; });
-    }
-
-    let html = `<div class="space-y-6"><h2 class="text-2xl font-bold">Take Attendance - ${today}</h2>`;
-    html += `<div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b flex justify-end"><button onclick="saveAttendance()" class="px-4 py-2 bg-primary text-white rounded-lg">Save Attendance</button></div>`;
-    html += `<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-left">Notes</th></tr></thead><tbody>`;
-
-    students.forEach(s => {
-        const att = attendanceMap[s.id] || { status: 'present', reason: '' };
-        html += `<tr data-student-id="${s.id}">
-            <td class="px-4 py-3">${escapeHtml(s.name)}</td>
-            <td class="px-4 py-3">${escapeHtml(s.elimuid)}</td>
-            <td class="px-4 py-3 text-center">
-                <select class="attendance-status rounded border px-2 py-1 bg-background">
-                    <option value="present" ${att.status === 'present' ? 'selected' : ''}>Present</option>
-                    <option value="absent" ${att.status === 'absent' ? 'selected' : ''}>Absent</option>
-                    <option value="late" ${att.status === 'late' ? 'selected' : ''}>Late</option>
-                    <option value="sick" ${att.status === 'sick' ? 'selected' : ''}>Sick</option>
-                </select>
-            </td>
-            <td class="px-4 py-3">
-                <input type="text" class="attendance-note w-full rounded border px-2 py-1 bg-background" placeholder="Note" value="${escapeHtml(att.reason || '')}">
-            </td>
-        </tr>`;
-    });
-
-    html += `</tbody></table></div></div></div>`;
-    return html;
+// ============ ATTENDANCE: DAILY DRAFT -> FINAL LOCK -> RELEASE ============
+function shuleAttendanceToday() {
+  try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date()); }
+  catch (_) { return new Date().toISOString().slice(0, 10); }
 }
 
-async function saveAttendance() {
-  const rows = document.querySelectorAll('[data-student-id]');
-  const attendanceData = [];
-  for (const row of rows) {
-    const studentId = row.dataset.studentId;
-    const status = row.querySelector('.attendance-status')?.value;
-    const reason = row.querySelector('.attendance-note')?.value;
-    if (status) attendanceData.push({ studentId: parseInt(studentId), date: new Date().toISOString().split('T')[0], status, reason });
+function attendanceSessionPayload(response) {
+  return response?.data?.data || response?.data || response || null;
+}
+
+async function renderTeacherAttendance() {
+  const teacherData = await loadMyStudents();
+  if (!teacherData?.isClassTeacher) {
+    return '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">Daily class attendance can only be submitted and locked by the assigned class teacher or school admin.</p></div>';
   }
-  if (!attendanceData.length) return showToast('No attendance data', 'error');
+  const classId = teacherData.classId || teacherData.class?.id;
+  if (!classId) return '<div class="text-center py-12">Your class assignment could not be identified. Ask the school admin to confirm the class-teacher assignment.</div>';
+  const today = shuleAttendanceToday();
+  let session;
+  try {
+    session = attendanceSessionPayload(await api.teacher.getAttendanceSession(classId, today));
+  } catch (error) {
+    return `<div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-5 text-red-700 dark:text-red-200">Could not load today's attendance session: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+  }
+  if (!session) return '<div class="text-center py-12">Attendance session could not be loaded.</div>';
+  window.__teacherAttendanceSession = session;
+  const students = session.students || [];
+  const locked = session.status === 'locked' || !!session.lockedAt;
+  const statusLabel = locked ? 'Final Attendance Submitted · Locked' : session.status === 'draft' ? 'Draft' : 'Not Started';
+  const badgeClass = locked ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+  const counts = session.counts || {};
+  const disabled = locked ? 'disabled' : '';
+  const disabledClass = locked ? 'opacity-70 cursor-not-allowed' : '';
+
+  return `<div class="space-y-5" id="teacher-attendance-session" data-session-id="${session.id}" data-class-id="${classId}" data-date="${today}">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div><p class="text-xs uppercase tracking-wide text-muted-foreground">${escapeHtml(session.class?.name || teacherData.class?.name || 'My Class')}</p><h2 class="text-2xl font-bold">Daily Attendance · ${today}</h2><p class="text-sm text-muted-foreground">Save while working, then submit once to permanently lock today's register.</p></div>
+      <span id="attendance-session-status" class="inline-flex self-start rounded-full px-3 py-1.5 text-sm font-semibold ${badgeClass}">${statusLabel}</span>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      ${[['Total',students.length],['Present',counts.present || 0],['Absent',counts.absent || 0],['Late',counts.late || 0],['Sick',counts.sick || 0]].map(([label,value]) => `<div class="rounded-xl border bg-card p-3"><p class="text-xs text-muted-foreground">${label}</p><p class="text-xl font-bold" data-attendance-count="${label.toLowerCase()}">${value}</p></div>`).join('')}
+    </div>
+    ${locked ? '<div class="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 p-4 text-sm text-green-800 dark:text-green-200">This register is immutable. Any genuine correction must be made by an authorised school admin and will retain the original value in the audit history.</div>' : ''}
+    <div class="rounded-xl border bg-card overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-sm" id="attendance-session-table"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-left">Notes</th></tr></thead><tbody>
+        ${students.map(student => {
+          const row = student.attendance || {};
+          const status = row.status || 'present';
+          return `<tr class="border-t" data-attendance-student-id="${student.id}"><td class="px-4 py-3 font-medium">${escapeHtml(student.name || 'Student')}</td><td class="px-4 py-3">${escapeHtml(student.elimuid || student.admissionNumber || '—')}</td><td class="px-4 py-3 text-center"><select ${disabled} onchange="updateAttendanceSessionCounts()" class="attendance-status rounded-lg border px-2 py-2 bg-background ${disabledClass}"><option value="present" ${status === 'present' ? 'selected' : ''}>Present</option><option value="absent" ${status === 'absent' ? 'selected' : ''}>Absent</option><option value="late" ${status === 'late' ? 'selected' : ''}>Late</option><option value="sick" ${status === 'sick' ? 'selected' : ''}>Sick</option><option value="holiday" ${status === 'holiday' ? 'selected' : ''}>Holiday</option></select></td><td class="px-4 py-3"><input ${disabled} type="text" class="attendance-note w-full rounded-lg border px-3 py-2 bg-background ${disabledClass}" placeholder="Optional note" value="${escapeHtml(row.reason || '')}"></td></tr>`;
+        }).join('') || '<tr><td colspan="4" class="px-4 py-10 text-center text-muted-foreground">No active learners are assigned to this class.</td></tr>'}
+      </tbody></table></div>
+      <div class="p-4 border-t flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+        <p class="text-xs text-muted-foreground">${locked ? `Locked ${session.lockedAt ? new Date(session.lockedAt).toLocaleString() : ''}` : 'Final submission cannot be undone by a teacher.'}</p>
+        <div class="flex flex-wrap gap-2">
+          ${locked ? `<button onclick="showClassReleasePanel()" class="px-4 py-2 rounded-lg bg-primary text-white">Release Class / Send Update</button>` : `<button onclick="saveAttendanceDraftSession()" class="px-4 py-2 rounded-lg border bg-background">Save Draft</button><button onclick="lockAttendanceSession()" class="px-4 py-2 rounded-lg bg-primary text-white">Submit and Lock Attendance</button>`}
+        </div>
+      </div>
+    </div>
+    <div id="class-release-panel" class="hidden rounded-xl border bg-card p-5">
+      <h3 class="font-semibold text-lg">Send class release notice</h3><p class="text-sm text-muted-foreground mb-4">A second notice on the same day is recorded as an update, not a duplicate release.</p>
+      <div class="grid gap-3 md:grid-cols-3"><label class="text-sm">Release type<select id="class-release-type" class="mt-1 w-full rounded-lg border px-3 py-2 bg-background" onchange="toggleCustomReleaseMessage()"><option value="normal">Released normally</option><option value="early">Released early</option><option value="delayed">Release delayed</option><option value="transport_delayed">School transport delayed</option><option value="custom">Custom release notice</option></select></label><label class="text-sm">Channel<select id="class-release-channel" class="mt-1 w-full rounded-lg border px-3 py-2 bg-background"><option value="platform">Platform alert</option><option value="both">Platform + SMS</option><option value="sms">SMS</option></select></label><label id="class-release-message-wrap" class="hidden text-sm md:col-span-3">Custom message<textarea id="class-release-message" rows="3" class="mt-1 w-full rounded-lg border px-3 py-2 bg-background" placeholder="Write the release notice"></textarea></label></div>
+      <div class="mt-4 flex justify-end"><button onclick="sendClassReleaseNotice()" class="px-4 py-2 rounded-lg bg-primary text-white">Send Release Notice</button></div>
+    </div>
+  </div>`;
+}
+
+function collectAttendanceSessionRecords() {
+  return [...document.querySelectorAll('#attendance-session-table [data-attendance-student-id]')].map(row => ({ studentId:Number(row.dataset.attendanceStudentId), status:row.querySelector('.attendance-status')?.value || 'present', reason:(row.querySelector('.attendance-note')?.value || '').trim() }));
+}
+
+function updateAttendanceSessionCounts() {
+  const records = collectAttendanceSessionRecords();
+  ['present','absent','late','sick'].forEach(status => { const el=document.querySelector(`[data-attendance-count="${status}"]`); if(el) el.textContent=records.filter(record=>record.status===status).length; });
+}
+
+async function saveAttendanceDraftSession(options = {}) {
+  const session = window.__teacherAttendanceSession;
+  if (!session?.id) return showToast('Attendance session is not ready', 'error');
+  const records = collectAttendanceSessionRecords();
+  if (!records.length) return showToast('No learners found in this register', 'error');
+  if (!options.silent) showLoading();
+  try {
+    const response = await api.teacher.saveAttendanceDraft(session.id, records);
+    window.__teacherAttendanceSession = attendanceSessionPayload(response) || session;
+    showToast(options.lockNext ? 'Draft saved. Locking final attendance…' : 'Attendance draft saved', 'success');
+    return true;
+  } catch (error) { showToast(error.message || 'Attendance could not be saved', 'error'); return false; }
+  finally { if (!options.silent) hideLoading(); }
+}
+
+async function lockAttendanceSession() {
+  const session = window.__teacherAttendanceSession;
+  if (!session?.id) return showToast('Attendance session is not ready', 'error');
+  const confirmed = window.confirm('Submit and permanently lock attendance for today? Teachers cannot edit it after this step.');
+  if (!confirmed) return;
   showLoading();
   try {
-    for (const data of attendanceData) await api.teacher.takeAttendance(data);
-    showToast('Attendance saved', 'success');
-  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+    const saved = await saveAttendanceDraftSession({ silent:true, lockNext:true });
+    if (!saved) return;
+    const response = await api.teacher.lockAttendanceSession(session.id);
+    window.__teacherAttendanceSession = attendanceSessionPayload(response) || session;
+    showToast('Final attendance submitted and locked', 'success');
+    const container = document.getElementById('main-content');
+    if (container) container.innerHTML = await renderTeacherAttendance();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (error) { showToast(error.message || 'Attendance could not be locked', 'error'); }
+  finally { hideLoading(); }
 }
+
+function showClassReleasePanel() { document.getElementById('class-release-panel')?.classList.remove('hidden'); }
+function toggleCustomReleaseMessage() { document.getElementById('class-release-message-wrap')?.classList.toggle('hidden', document.getElementById('class-release-type')?.value !== 'custom'); }
+
+async function sendClassReleaseNotice() {
+  const session = window.__teacherAttendanceSession;
+  if (!session?.id) return showToast('Locked attendance session is unavailable', 'error');
+  const releaseType = document.getElementById('class-release-type')?.value || 'normal';
+  const channel = document.getElementById('class-release-channel')?.value || 'platform';
+  const message = (document.getElementById('class-release-message')?.value || '').trim();
+  if (releaseType === 'custom' && !message) return showToast('Write the custom release notice first', 'error');
+  showLoading();
+  try { const response = await api.teacher.releaseAttendanceClass(session.id, { releaseType, channel, message }); showToast(response?.message || 'Class release notice sent', 'success'); document.getElementById('class-release-panel')?.classList.add('hidden'); }
+  catch (error) { showToast(error.message || 'Release notice could not be sent', 'error'); }
+  finally { hideLoading(); }
+}
+
+// Compatibility name retained for older buttons, but it now saves the shared daily draft.
+async function saveAttendance() { return saveAttendanceDraftSession(); }
 
 // ============ COMPETENCY ============
 async function renderTeacherCompetency() {
@@ -1219,50 +1304,20 @@ function renderStaffMessages(messages) {
 async function switchStaffChat(type, partnerId = null, partnerName = '') {
     currentStaffChatType = type;
     currentStaffChatPartner = partnerId;
-    document.getElementById('staff-chat-title').innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerName}`;
-    
-    // Remove previous listener to prevent duplicates
-    if (window.socket) {
-        window.socket.off('new-group-message');
-        window.socket.off('new-private-message');
-        window.socket.off('message-deleted');
-    }
-    
+    const title = document.getElementById('staff-chat-title');
+    if (title) title.innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerName}`;
+
+    // This legacy panel is fetch-only. All socket events are owned by
+    // realtime-client.js and chat-v9-ui.js so opening this panel cannot attach
+    // duplicate listeners or cause repeated messages.
     let messages = [];
     if (type === 'group') {
         const res = await api.teacher.getGroupMessages();
         messages = res.data || [];
-        // Listen for new group messages
-        if (window.socket) {
-            window.socket.on('new-group-message', (data) => {
-                if (currentStaffChatType === 'group') {
-                    appendStaffMessage(data);
-                }
-            });
-        }
     } else if (partnerId) {
         const res = await api.teacher.getPrivateMessages(partnerId);
         messages = res.data || [];
-        if (window.socket) {
-            window.socket.on('new-private-message', (data) => {
-                if (currentStaffChatType === 'private' && (data.from === partnerId || data.to === partnerId)) {
-                    appendStaffMessage(data);
-                }
-            });
-        }
     }
-    
-    // Listen for message deleted events
-    if (window.socket) {
-        window.socket.on('message-deleted', (data) => {
-            if (currentStaffChatType === 'group' || 
-                (currentStaffChatType === 'private' && (data.messageId))) {
-                // Refresh chat to show updated messages
-                switchStaffChat(currentStaffChatType, currentStaffChatPartner);
-            }
-        });
-    }
-    
     renderStaffMessages(messages);
 }
 
@@ -1511,10 +1566,7 @@ async function downloadMyData() {
   showLoading();
   try {
     const res = await api.user.exportMyData();
-    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `shuleai_data_${new Date().toISOString()}.json`; a.click();
-    URL.revokeObjectURL(url);
+    downloadStructuredCsv(res.data, `Shule_AI_My_Data_${new Date().toISOString().split('T')[0]}.csv`);
     showToast('Data exported', 'success');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
@@ -2243,6 +2295,12 @@ window.handleCheckIn = handleCheckIn;
 window.handleCheckOut = handleCheckOut;
 window.loadTodayDuty = loadTodayDuty;
 window.saveAttendance = saveAttendance;
+window.sendClassReleaseNotice = sendClassReleaseNotice;
+window.toggleCustomReleaseMessage = toggleCustomReleaseMessage;
+window.showClassReleasePanel = showClassReleasePanel;
+window.updateAttendanceSessionCounts = updateAttendanceSessionCounts;
+window.lockAttendanceSession = lockAttendanceSession;
+window.saveAttendanceDraftSession = saveAttendanceDraftSession;
 window.renderTeacherTimetable = renderTeacherTimetable;
 window.openMarksEntry = openMarksEntry;
 window.closeMarksEntryModal = closeMarksEntryModal;
@@ -2326,3 +2384,5 @@ async function refreshSavedClassReports(classId) {
   }
 }
 window.refreshSavedClassReports = refreshSavedClassReports;
+
+window.openClassTeacherReportCardPreview = openClassTeacherReportCardPreview;

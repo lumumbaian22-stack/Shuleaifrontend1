@@ -29,6 +29,9 @@ function v9Safe(value) {
   return text.replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c]));
 }
 function v9CurrentUser() { try { return typeof getCurrentUser === 'function' ? getCurrentUser() : null; } catch { return null; } }
+function v9ClientMessageId(){ return (window.crypto?.randomUUID?.() || `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`); }
+function v9DirectKey(a,b){ return `direct:${[Number(a),Number(b)].sort((x,y)=>x-y).join(':')}`; }
+function v9JoinConversation(key){ window.ShuleRealtime?.joinConversation?.(key || null); }
 function v9Initials(name) { return String(name || 'U').split(' ').filter(Boolean).map(x => x[0]).join('').slice(0,2).toUpperCase(); }
 function v9Time(value) { if (!value) return ''; try { return new Date(value).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }); } catch { return ''; } }
 function v9AttachmentLabel(file) { if (!file) return ''; return file.name || file.originalname || 'Attachment'; }
@@ -82,11 +85,18 @@ function v9ConversationSubtitle(selected) {
   if (v9ChatState.activeTab === 'groups') return `${v9ChatState.members.length} members • managed group`;
   return 'Teacher-to-teacher private chat';
 }
-function v9RenderMessageListOnly() {
+function v9RenderMessageListOnly(forceBottom = false) {
   const list = document.getElementById('v9-message-list');
   if (!list) return;
+  const wasNearBottom = forceBottom || (list.scrollHeight - list.scrollTop - list.clientHeight < 96);
+  const previousTop = list.scrollTop;
   list.innerHTML = v9RenderMessages(v9CurrentUser());
-  list.scrollTop = list.scrollHeight;
+  list.scrollTop = wasNearBottom ? list.scrollHeight : previousTop;
+}
+function v9RenderConversationListOnly() {
+  const list = document.getElementById('v9-conversation-list');
+  if (!list) return;
+  list.innerHTML = v9ChatState.activeTab === 'chats' ? v9RenderDirectList() : v9ChatState.activeTab === 'parents' ? v9RenderParentList() : v9RenderGroupList();
 }
 function v9AppendMessageToState(message) {
   if (!message) return;
@@ -175,13 +185,17 @@ async function v9LoadCurrentMessages() {
     if (v9ChatState.activeTab === 'study') return v9RenderTeacherShell();
     if (v9ChatState.activeTab === 'announcements') return v9RenderTeacherShell();
     let res = { data: [] };
+    const me = v9CurrentUser();
     if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) {
+      v9JoinConversation(v9DirectKey(me?.id, v9ChatState.selectedTeacher.id));
       res = await chatV9API.getDirectMessages(v9ChatState.selectedTeacher.id);
     } else if (v9ChatState.mode === 'parent' && v9ChatState.selectedParent && window.api?.teacher?.getParentMessages) {
+      v9JoinConversation(null);
       res = await window.api.teacher.getParentMessages(v9ChatState.selectedParent.userId);
       const selectedKey = v9ChatState.selectedParent.conversationKey;
       if (selectedKey) res.data = (res.data || []).filter(m => !m.metadata?.conversationKey || m.metadata.conversationKey === selectedKey);
     } else if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) {
+      v9JoinConversation(`group:${Number(v9ChatState.selectedGroup.id)}`);
       res = await chatV9API.getGroupMessages(v9ChatState.selectedGroup.id);
       await v9LoadMembers(v9ChatState.selectedGroup.id);
     }
@@ -234,7 +248,7 @@ function v9RenderDirectList() {
   return v9ChatState.teachers.map(t => `
     <button class="tm6-list-item ${Number(v9ChatState.selectedTeacher?.id) === Number(t.id) ? 'active' : ''}" onclick="v9SelectTeacher(${Number(t.id)})">
       <span class="tm6-avatar">${v9Initials(t.name)}</span>
-      <span><strong>${v9Safe(t.name)}</strong><small>${v9Safe(t.role === 'student' ? (t.Student?.grade || t.className || 'Student') : (t.email || 'Teacher'))}</small></span>
+      <span><strong>${v9Safe(t.name)}</strong><small>${v9Safe(t.role === 'student' ? (t.Student?.grade || t.className || 'Student') : (t.email || 'Teacher'))}${t.unreadCount ? ` • ${t.unreadCount} unread` : ''}</small></span>
     </button>`).join('');
 }
 function v9RenderParentList() {
@@ -253,7 +267,7 @@ function v9RenderGroupList() {
   return v9ChatState.groups.map(g => `
     <button class="tm6-list-item ${Number(v9ChatState.selectedGroup?.id) === Number(g.id) ? 'active' : ''}" onclick="v9SelectGroup(${Number(g.id)})">
       <span class="tm6-avatar ${g.type || ''}">${g.type === 'department' ? '🏫' : g.type === 'staff' ? '👥' : '💬'}</span>
-      <span><strong>${v9Safe(g.name)}</strong><small>${v9Safe(g.type || 'group')}${g.headName ? ' • '+v9Safe(g.headName) : ''}</small></span>
+      <span><strong>${v9Safe(g.name)}</strong><small>${v9Safe(g.type || 'group')}${g.headName ? ' • '+v9Safe(g.headName) : ''}${g.unreadCount ? ` • ${g.unreadCount} unread` : ''}</small></span>
     </button>`).join('');
 }
 function v9RenderChatWindow(selected) {
@@ -409,14 +423,15 @@ function v9RenderAnnouncements(root) {
   root.innerHTML = `<div class="tm6-announcements"><h3>Announcements</h3><p>Use this area for class or group broadcasts. The announcement composer will reuse the same attachment and group delivery logic.</p><button class="tm6-btn primary" onclick="v9OpenCreateGroupModal()">Create announcement group</button></div>`;
 }
 
-function v9SelectTeacher(id) { v9ChatState.selectedTeacher = v9ChatState.teachers.find(t => Number(t.id) === Number(id)); v9ChatState.mode = 'direct'; v9LoadCurrentMessages(); }
+function v9SelectTeacher(id) { v9ChatState.selectedTeacher = v9ChatState.teachers.find(t => Number(t.id) === Number(id)); if(v9ChatState.selectedTeacher)v9ChatState.selectedTeacher.unreadCount=0; v9ChatState.mode = 'direct'; v9LoadCurrentMessages(); }
 function v9SelectParent(id, conversationKey = '') {
   v9ChatState.selectedParent = v9ChatState.parents.find(p => Number(p.userId) === Number(id) && (!conversationKey || String(p.conversationKey || '') === String(conversationKey)))
     || v9ChatState.parents.find(p => Number(p.userId) === Number(id)) || null;
+  if(v9ChatState.selectedParent)v9ChatState.selectedParent.unreadCount=0;
   v9ChatState.mode = 'parent';
   v9LoadCurrentMessages();
 }
-function v9SelectGroup(id) { v9ChatState.selectedGroup = v9ChatState.groups.find(g => Number(g.id) === Number(id)); v9ChatState.mode = 'group'; v9LoadCurrentMessages(); }
+function v9SelectGroup(id) { v9ChatState.selectedGroup = v9ChatState.groups.find(g => Number(g.id) === Number(id)); if(v9ChatState.selectedGroup)v9ChatState.selectedGroup.unreadCount=0; v9ChatState.mode = 'group'; v9LoadCurrentMessages(); }
 function v9SelectThread(id) { v9ChatState.selectedThread = v9ChatState.threads.find(t => Number(t.id) === Number(id)); v9ChatState.studyDetailTab = 'thread'; v9RenderTeacherShell(); }
 function v9FilterConversations(value) { const q=(value||'').toLowerCase(); document.querySelectorAll('#v9-conversation-list .tm6-list-item').forEach(el => { el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none'; }); }
 function v9FilterThreads(value) { const q=(value||'').toLowerCase(); document.querySelectorAll('#v9-thread-list .tm6-thread-card').forEach(el => { el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none'; }); }
@@ -433,48 +448,19 @@ async function v9UploadAttachment(file) {
   } catch (err) { v9Toast(err.message || 'Upload failed', 'error'); }
 }
 async function v9SendMessage() {
-  const input = document.getElementById('v9-message-input');
-  const content = input?.value?.trim() || (v9ChatState.attachment ? 'Shared an attachment' : '');
-  if (!content) return;
-  const attachment = v9ChatState.attachment;
-  const attachmentUrl = attachment?.url || null;
-  const previousValue = input?.value || '';
-  const editing = v9ChatState.editingMessage;
-  const replyTo = v9ChatState.replyToMessage;
-  try {
-    if (input) input.value = '';
-    v9ChatState.attachment = null;
-    v9ChatState.replyToMessage = null;
-    v9ChatState.editingMessage = null;
-    const attachmentBox = document.getElementById('v9-selected-attachment');
-    if (attachmentBox) attachmentBox.innerHTML = '';
-    if (editing) {
-      const res = await chatV9API.editMessage(editing.id, content);
-      const index = v9ChatState.messages.findIndex(m => Number(m.id) === Number(editing.id));
-      if (index >= 0 && res?.data) v9ChatState.messages[index] = res.data;
-      v9RenderMessageListOnly();
-      return;
-    }
-    let res = null;
-    if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) res = await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id, content, attachmentUrl, attachment, replyTo?.id || null);
-    if (v9ChatState.mode === 'parent' && v9ChatState.selectedParent && window.api?.teacher?.replyToParent) {
-      res = await window.api.teacher.replyToParent({
-        parentId: v9ChatState.selectedParent.userId,
-        message: content,
-        originalMessageId: replyTo?.id || v9ChatState.messages[v9ChatState.messages.length - 1]?.id || null,
-        conversationKey: v9ChatState.selectedParent.conversationKey || null
-      });
-    }
-    if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) res = await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id, content, attachmentUrl, attachment, replyTo?.id || null);
-    if (res?.data) v9AppendMessageToState(res.data);
-    else await v9LoadCurrentMessages();
-  } catch (err) {
-    if (input) input.value = previousValue;
-    v9ChatState.attachment = attachment;
-    v9ChatState.replyToMessage = replyTo;
-    v9ChatState.editingMessage = editing;
-    v9Toast(err.message || 'Message failed', 'error');
-  }
+  const input=document.getElementById('v9-message-input'); const content=input?.value?.trim()||(v9ChatState.attachment?'Shared an attachment':''); if(!content)return;
+  const attachment=v9ChatState.attachment, attachmentUrl=attachment?.url||null, previousValue=input?.value||'', editing=v9ChatState.editingMessage, replyTo=v9ChatState.replyToMessage;
+  try{
+    if(input)input.value='';v9ChatState.attachment=null;v9ChatState.replyToMessage=null;v9ChatState.editingMessage=null;const attachmentBox=document.getElementById('v9-selected-attachment');if(attachmentBox)attachmentBox.innerHTML='';
+    if(editing){const res=await chatV9API.editMessage(editing.id,content);const index=v9ChatState.messages.findIndex(m=>Number(m.id)===Number(editing.id));if(index>=0&&res?.data)v9ChatState.messages[index]=res.data;v9RenderMessageListOnly();return;}
+    const clientMessageId=v9ClientMessageId(); const me=v9CurrentUser();
+    const temp={id:`temp-${clientMessageId}`,clientMessageId,senderId:me?.id,content,attachmentUrl,messageType:attachmentUrl?'file':'text',deliveryStatus:'sending',createdAt:new Date().toISOString(),Sender:{id:me?.id,name:me?.name,role:me?.role},metadata:{replyTo:replyTo?{id:replyTo.id,senderName:replyTo.Sender?.name||'User',content:replyTo.content}:null}};
+    v9ChatState.messages.push(temp);v9RenderMessageListOnly();let res=null;
+    if(v9ChatState.mode==='direct'&&v9ChatState.selectedTeacher)res=await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id,content,attachmentUrl,attachment,replyTo?.id||null,clientMessageId);
+    if(v9ChatState.mode==='parent'&&v9ChatState.selectedParent&&window.api?.teacher?.replyToParent)res=await window.api.teacher.replyToParent({parentId:v9ChatState.selectedParent.userId,message:content,originalMessageId:replyTo?.id||v9ChatState.messages.filter(m=>!String(m.id).startsWith('temp-')).at(-1)?.id||null,conversationKey:v9ChatState.selectedParent.conversationKey||null,clientMessageId});
+    if(v9ChatState.mode==='group'&&v9ChatState.selectedGroup)res=await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id,content,attachmentUrl,attachment,replyTo?.id||null,clientMessageId);
+    const i=v9ChatState.messages.findIndex(m=>m.clientMessageId===clientMessageId);if(res?.data&&i>=0)v9ChatState.messages[i]=res.data;else if(!res?.data&&i>=0)v9ChatState.messages[i].deliveryStatus='sent';v9RenderMessageListOnly();
+  }catch(err){const temp=v9ChatState.messages.find(m=>String(m.id).startsWith('temp-')&&m.content===content);if(temp)temp.deliveryStatus='failed';if(input)input.value=previousValue;v9ChatState.attachment=attachment;v9ChatState.replyToMessage=replyTo;v9ChatState.editingMessage=editing;v9RenderMessageListOnly();v9Toast(err.message||'Message failed','error');}
 }
 function v9StartReplyMessage(messageId) {
   const msg = v9ChatState.messages.find(m => Number(m.id) === Number(messageId));
@@ -817,38 +803,17 @@ async function v9StudentSelectPeer(userId) {
 }
 async function v9LoadStudentPrivateMessages(userId, rerender = true) {
   if (!userId) return;
+  v9JoinConversation(v9DirectKey(v9CurrentUser()?.id, userId));
   try { const res = await chatV9API.getStudentDirectMessages(userId); v9StudentState.directMessages = res.data || []; }
   catch (err) { console.error('Student private messages failed:', err); v9StudentState.directMessages = []; }
   if (rerender) v9RenderStudentStudyRoom();
 }
 async function v9SendStudentPrivateMessage(userId) {
-  const input = document.getElementById(`v9-private-input-${Number(userId)}`);
-  const content = input?.value?.trim();
-  if (!content) return;
-  const previous = input.value;
-  const editing = v9StudentState.editingMessage;
-  const replyTo = v9StudentState.replyToMessage;
-  try {
-    input.value = '';
-    v9StudentState.editingMessage = null;
-    v9StudentState.replyToMessage = null;
-    if (editing) {
-      const res = await chatV9API.editMessage(editing.id, content);
-      const i = v9StudentState.directMessages.findIndex(m => Number(m.id) === Number(editing.id));
-      if (i >= 0 && res?.data) v9StudentState.directMessages[i] = res.data;
-      v9RenderStudentStudyRoom();
-      return;
-    }
-    const res = await chatV9API.sendStudentDirectMessage(userId, content, null, null, replyTo?.id || null);
-    if (res?.data) {
-      if (!Array.isArray(v9StudentState.directMessages)) v9StudentState.directMessages = [];
-      v9StudentState.directMessages.push(res.data);
-      v9RenderStudentStudyRoom();
-    } else {
-      await v9LoadStudentPrivateMessages(userId);
-    }
-  }
-  catch (err) { input.value = previous; v9StudentState.editingMessage = editing; v9StudentState.replyToMessage = replyTo; v9Toast(err.message || 'Private message failed', 'error'); }
+  const input=document.getElementById(`v9-private-input-${Number(userId)}`);const content=input?.value?.trim();if(!content)return;const previous=input.value,editing=v9StudentState.editingMessage,replyTo=v9StudentState.replyToMessage;
+  try{input.value='';v9StudentState.editingMessage=null;v9StudentState.replyToMessage=null;if(editing){const res=await chatV9API.editMessage(editing.id,content);const i=v9StudentState.directMessages.findIndex(m=>Number(m.id)===Number(editing.id));if(i>=0&&res?.data)v9StudentState.directMessages[i]=res.data;v9RenderStudentStudyRoom();return;}
+    const clientMessageId=v9ClientMessageId(),me=v9CurrentUser();const temp={id:`temp-${clientMessageId}`,clientMessageId,senderId:me?.id,receiverId:Number(userId),content,deliveryStatus:'sending',createdAt:new Date().toISOString(),Sender:{id:me?.id,name:me?.name,role:'student'},metadata:{replyTo:replyTo?{id:replyTo.id,senderName:replyTo.Sender?.name||'Classmate',content:replyTo.content}:null}};v9StudentState.directMessages.push(temp);v9RenderStudentStudyRoom();
+    const res=await chatV9API.sendStudentDirectMessage(userId,content,null,null,replyTo?.id||null,clientMessageId);const i=v9StudentState.directMessages.findIndex(m=>m.clientMessageId===clientMessageId);if(i>=0&&res?.data)v9StudentState.directMessages[i]=res.data;v9RenderStudentStudyRoom();
+  }catch(err){const temp=v9StudentState.directMessages.find(m=>String(m.id).startsWith('temp-')&&m.content===content);if(temp)temp.deliveryStatus='failed';input.value=previous;v9StudentState.editingMessage=editing;v9StudentState.replyToMessage=replyTo;v9RenderStudentStudyRoom();v9Toast(err.message||'Private message failed','error');}
 }
 function v9StartStudentReplyMessage(messageId) {
   const msg = v9StudentState.directMessages.find(m => Number(m.id) === Number(messageId));
@@ -872,7 +837,7 @@ async function v9StudentDeleteMessage(messageId, mode = 'me') {
   } catch (err) { v9Toast(err.message || 'Delete failed', 'error'); }
 }
 function v9SelectStudentGroup(groupId) { v9StudentState.mode = 'study'; v9StudentState.selectedGroupId = groupId; v9StudentState.selectedThreadId = null; v9RenderStudentStudyRoom(); }
-function v9SelectStudentThread(threadId) { v9StudentState.mode = 'study'; v9StudentState.selectedThreadId = threadId; v9RenderStudentStudyRoom(); }
+function v9SelectStudentThread(threadId) { v9StudentState.mode = 'study'; v9StudentState.selectedThreadId = threadId; v9JoinConversation(`thread:${Number(threadId)}`); v9RenderStudentStudyRoom(); }
 function v9StudentSetFilter(filter) { v9StudentState.filter = filter; v9RenderStudentStudyRoom(); }
 function v9StudentSearchThreads(query) { v9StudentState.query = query || ''; v9RenderStudentStudyRoom(); }
 function v9OpenTopicPicker() { v9StudentSetMode('study'); }
@@ -893,19 +858,60 @@ async function v9SubmitStudentTopic(classId) {
   try { await chatV9API.createClassroomThread({ classId, subject, topic, content, metadata:{ approvalStatus:'pending', source:'student-created-topic' } }); v9CloseModal(); await v9LoadStudentThreads(); v9Toast('Topic sent for teacher approval','success'); }
   catch(err){ v9Toast(err.message || 'Could not create topic','error'); }
 }
-async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; try{ await chatV9API.replyToThread(threadId, content); input.value=''; await v9LoadStudentThreads(); }catch(err){ v9Toast(err.message||'Reply failed','error'); } }
 async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; return `<div class="v9-wa-stats"><span>⭐ ${totals.points||0}</span><span>🔥 ${totals.streak||0}</span></div>`; }
 
 function v9RenderThreads(threads) { if(!threads.length) return `<div class="v9-empty"><h3 class="font-bold text-lg mb-2">No classroom threads yet</h3><p>Your teacher will post structured study questions here.</p></div>`; return threads.map(t=>`<article class="v9-thread-card"><div class="v9-thread-top"><div><span class="v9-subject-pill">${v9Safe(t.subject||'Subject')}</span><h3 class="text-xl font-bold mt-3">${v9Safe(t.topic||'Classroom Topic')}</h3><p class="text-muted-foreground">${v9Safe(t.content||'')}</p>${(t.metadata?.attachments||[]).map(a=>v9AttachmentLink(a.url,a.name)).join('')}</div>${t.isPinned?'<span class="v9-award-pill">📌 Pinned</span>':''}</div><div class="mt-4">${v9ThreadReplies(t).map(r=>v9RenderReply(r)).join('')}</div><div class="v9-reply-form"><input id="v9-reply-input-${Number(t.id)}" placeholder="Write your reply or question..." onkeydown="if(event.key==='Enter')v9ReplyToThread(${Number(t.id)})"><button class="v9-send" onclick="v9ReplyToThread(${Number(t.id)})">➤</button></div></article>`).join(''); }
 function v9RenderReply(r) { const author=r.Author||{}; const isTeacher=author.role==='teacher'; const mine=Number(author.id||r.userId)===Number(v9CurrentUser()?.id); const deleted=v9IsDeleted(r); return `<div class="v9-reply ${isTeacher?'teacher':''}"><div class="v9-reply-head"><div class="flex items-center gap-2"><div class="v9-avatar small">${v9Initials(author.name||'U')}</div><div><strong>${v9Safe(author.name||'User')}</strong>${isTeacher?'<span class="ml-2 v9-subject-pill">Teacher</span>':''}</div></div><small>${v9Time(r.createdAt)} ${r.metadata?.edited?'• edited':''}</small></div>${v9MessageReplyPreview(r.metadata||{})}<p>${v9Safe(r.content)}</p>${!deleted?v9AttachmentLink(r.metadata?.attachmentUrl, r.metadata?.attachmentName||'Attachment'):''}${!deleted?`<div class="flex gap-2 flex-wrap mt-2">${r.pointsAwarded?`<span class="v9-award-pill">⭐ +${r.pointsAwarded}</span>`:''}${r.streakAwarded?`<span class="v9-award-pill">🔥 +${r.streakAwarded}</span>`:''}<button class="v9-award-pill" onclick="v9StartReplyToThreadReply(${Number(r.id)})">↩ Reply</button>${mine?`<button class="v9-award-pill" onclick="v9StartEditThreadReply(${Number(r.id)})">✏️ Edit</button><button class="v9-award-pill" onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button><button class="v9-award-pill" onclick="v9DeleteThreadReply(${Number(r.id)}, 'everyone')">🚫 Everyone</button>`:`<button class="v9-award-pill" onclick="v9DeleteThreadReply(${Number(r.id)}, 'me')">🗑️ Me</button>`}<button class="v9-award-pill" onclick="v9HelpfulReply(${Number(r.id)})">👍 ${r.helpfulCount||0}</button></div>`:''}</div>`; }
-async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; const previous=input.value; const editing=v9StudentState.editingReply; const replyTo=v9StudentState.replyToReply; try{ let res=null; if(editing){ res=await chatV9API.editThreadReply(editing.id, content); const thread=(v9StudentState.threads||v9ChatState.threads||[]).find(t=>Number(t.id)===Number(threadId)); const replies=v9ThreadReplies(thread); const i=replies.findIndex(r=>Number(r.id)===Number(editing.id)); if(i>=0 && res?.data) replies[i]=res.data; } else { res=await chatV9API.replyToThread(threadId, content, replyTo?.id || null); if(res?.data) v9AppendReplyToThread(threadId, res.data); } input.value=''; v9StudentState.editingReply=null; v9StudentState.replyToReply=null; const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); }catch(err){ input.value=previous; v9StudentState.editingReply=editing; v9StudentState.replyToReply=replyTo; v9Toast(err.message||'Reply failed','error'); } }
+async function v9ReplyToThread(threadId) { const input=document.getElementById(`v9-reply-input-${Number(threadId)}`); const content=input?.value?.trim(); if(!content)return; const previous=input.value; const editing=v9StudentState.editingReply; const replyTo=v9StudentState.replyToReply; try{ let res=null; if(editing){ res=await chatV9API.editThreadReply(editing.id, content); const thread=(v9StudentState.threads||v9ChatState.threads||[]).find(t=>Number(t.id)===Number(threadId)); const replies=v9ThreadReplies(thread); const i=replies.findIndex(r=>Number(r.id)===Number(editing.id)); if(i>=0 && res?.data) replies[i]=res.data; } else { const clientMessageId=v9ClientMessageId(); res=await chatV9API.replyToThread(threadId, content, replyTo?.id || null, clientMessageId); if(res?.data) v9AppendReplyToThread(threadId, res.data); } input.value=''; v9StudentState.editingReply=null; v9StudentState.replyToReply=null; const studentRoot=document.getElementById('v9-student-study-root'); if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); }catch(err){ input.value=previous; v9StudentState.editingReply=editing; v9StudentState.replyToReply=replyTo; v9Toast(err.message||'Reply failed','error'); } }
 function v9StartReplyToThreadReply(replyId){ const studentRoot=document.getElementById('v9-student-study-root'); const thread=(studentRoot ? v9CurrentStudentThread() : null) || v9ChatState.selectedThread; const reply=v9ThreadReplies(thread).find(r=>Number(r.id)===Number(replyId)); if(!reply || v9IsDeleted(reply)) return; v9StudentState.replyToReply=reply; v9StudentState.editingReply=null; if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); }
 function v9StartEditThreadReply(replyId){ const studentRoot=document.getElementById('v9-student-study-root'); const thread=(studentRoot ? v9CurrentStudentThread() : null) || v9ChatState.selectedThread; const reply=v9ThreadReplies(thread).find(r=>Number(r.id)===Number(replyId)); if(!reply || v9IsDeleted(reply)) return; v9StudentState.editingReply=reply; v9StudentState.replyToReply=null; if(studentRoot) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); setTimeout(()=>{ const input=document.getElementById(`v9-reply-input-${Number(thread?.id)}`); if(input){ input.value=reply.content||''; input.focus(); }},50); }
 async function v9DeleteThreadReply(replyId, mode='me'){ const thread=v9CurrentStudentThread() || v9ChatState.selectedThread; if(!thread) return; const label=mode==='everyone'?'delete this reply for everyone':'delete this reply for you'; if(!confirm(`Are you sure you want to ${label}?`)) return; try{ const res=await chatV9API.deleteThreadReply(replyId, mode); const replies=v9ThreadReplies(thread); if(mode==='me') { const next=replies.filter(r=>Number(r.id)!==Number(replyId)); thread.ThreadReplies=next; thread.replies=next; } else { const i=replies.findIndex(r=>Number(r.id)===Number(replyId)); if(i>=0 && res?.data) replies[i]=res.data; } if(document.getElementById('v9-student-study-root')) v9RenderStudentStudyRoom(); else v9RenderTeacherShell(); }catch(err){ v9Toast(err.message||'Delete failed','error'); } }
 async function v9HelpfulReply(replyId) { v9Toast('Reaction saved for this reply', 'success'); }
 function v9RenderAchievements(data) { const totals=data.totals||{points:0,streak:0}; const events=data.events||[]; return `<div class="v9-achievements-card"><h3 class="font-bold text-xl">Achievements</h3><p class="text-muted-foreground text-sm">Stars and streaks awarded by teachers.</p><div class="v9-achievement-stat"><div><span class="text-muted-foreground text-sm">Points</span><strong>⭐ ${totals.points||0}</strong></div><div><span class="text-muted-foreground text-sm">Streak</span><strong>🔥 ${totals.streak||0}</strong></div></div><div class="space-y-3">${events.length?events.slice(0,5).map(e=>`<div class="v9-info-card"><div class="flex justify-between gap-2"><strong>${v9Safe(e.title||'Achievement')}</strong><span class="v9-award-pill">+${e.points||0} pts</span></div><small>${v9Safe(e.note||'Teacher awarded achievement')}</small></div>`).join(''):'<div class="v9-empty small">No achievements yet. Participate in threads to earn stars.</div>'}</div></div>`; }
 
+
+
+function v9ApplyRealtimeEvent(evt){
+  const type=String(evt?.type||''), raw=evt?.data||{}; if(!type.startsWith('chat:'))return false;
+  const data={...raw};
+  if(data.senderId&&!data.Sender){
+    data.Sender={
+      id:data.senderId,
+      name:data.senderName||data.fromName||data.metadata?.teacherName||data.metadata?.parentName||data.metadata?.adminName||'User',
+      role:data.senderRole||data.fromRole||data.metadata?.senderRole||data.metadata?.createdByRole||'user'
+    };
+  }
+  const conversation=String(data.conversationId||data.conversationKey||''); const active=window.ShuleRealtime?.activeConversation||'';
+  const messageId=data.messageId||data.id;
+  const updateStatus=(arr)=>{
+    const item=(arr||[]).find(x=>String(x.id)===String(messageId)); if(!item)return false;
+    if(type==='chat:message_delivered'){item.deliveryStatus=item.deliveryStatus==='read'?'read':'delivered';item.deliveredAt=data.deliveredAt||item.deliveredAt;}
+    if(type==='chat:message_read'){item.deliveryStatus='read';item.isRead=true;item.readAt=data.readAt||item.readAt;item.metadata={...(item.metadata||{}),readBy:data.readBy||item.metadata?.readBy||[]};}
+    return true;
+  };
+  if(type==='chat:message_delivered'||type==='chat:message_read'){
+    const changed=updateStatus(v9ChatState.messages)|updateStatus(v9StudentState.directMessages);
+    if(changed){document.getElementById('v9-student-study-root')?v9RenderStudentStudyRoom():v9RenderMessageListOnly();return true;}
+  }
+  const upsert=(arr,item)=>{if(!item)return false;let i=arr.findIndex(x=>(item.clientMessageId&&x.clientMessageId===item.clientMessageId)||String(x.id)===String(item.id));if(type==='chat:message_deleted'&&data.mode==='me'&&i>=0){arr.splice(i,1);return true;}if(i>=0)arr[i]={...arr[i],...item};else if(type==='chat:message_created')arr.push(item);return true;};
+  if(conversation&&active&&conversation===active){
+    if(conversation.startsWith('thread:')){const threadId=Number(data.threadId||conversation.split(':')[1]);const thread=(v9StudentState.threads||v9ChatState.threads||[]).find(t=>Number(t.id)===threadId);if(thread){if(!Array.isArray(thread.ThreadReplies))thread.ThreadReplies=thread.replies||[];upsert(thread.ThreadReplies,data);document.getElementById('v9-student-study-root')?v9RenderStudentStudyRoom():v9RenderTeacherShell();return true;}}
+    const me=v9CurrentUser();if(me?.role==='student'){upsert(v9StudentState.directMessages,data);v9RenderStudentStudyRoom();}else{upsert(v9ChatState.messages,data);v9RenderMessageListOnly();}
+    if(type==='chat:message_created'&&Number(data.senderId)!==Number(me?.id)&&data.id){window.socket?.emit('chat:message_delivered',{messageId:data.id});window.socket?.emit('chat:message_read',{messageId:data.id});}return true;
+  }
+  // Parent conversations use a server-generated ownership key and arrive through the personal room.
+  if(v9ChatState.mode==='parent'&&v9ChatState.selectedParent&&data.metadata?.conversationKey===v9ChatState.selectedParent.conversationKey){upsert(v9ChatState.messages,data);v9RenderMessageListOnly();if(type==='chat:message_created'&&Number(data.senderId)!==Number(v9CurrentUser()?.id)&&data.id)window.socket?.emit('chat:message_read',{messageId:data.id});return true;}
+  if(type==='chat:message_created'){
+    const me=v9CurrentUser(); const sender=Number(data.senderId), receiver=Number(data.receiverId);
+    if(conversation.startsWith('group:')){const id=Number(conversation.split(':')[1]);const row=v9ChatState.groups.find(g=>Number(g.id)===id);if(row){row.lastMessage=data.content;row.unreadCount=Number(row.unreadCount||0)+(sender===Number(me?.id)?0:1);}}
+    else if(data.metadata?.conversationKey){const row=v9ChatState.parents.find(p=>String(p.conversationKey||'')===String(data.metadata.conversationKey));if(row){row.lastMessage=data.content;row.unreadCount=Number(row.unreadCount||0)+(sender===Number(me?.id)?0:1);}}
+    else {const other=sender===Number(me?.id)?receiver:sender;const row=v9ChatState.teachers.find(t=>Number(t.id)===other);if(row){row.lastMessage=data.content;row.unreadCount=Number(row.unreadCount||0)+(sender===Number(me?.id)?0:1);}}
+    v9RenderConversationListOnly();
+  }
+  return false;
+}
+window.ShuleChatV9Realtime={applyEvent:v9ApplyRealtimeEvent,getTeacherState:()=>v9ChatState,getStudentState:()=>v9StudentState};
 
 window.v9RenderStudentStudyRoom = v9RenderStudentStudyRoom;
 window.v9SelectStudentGroup = v9SelectStudentGroup;

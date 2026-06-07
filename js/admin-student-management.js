@@ -340,6 +340,7 @@ function adminGetStudentDetailsHTML(student) {
             <div class="border-t pt-4">
                 <p class="text-sm"><span class="font-medium">Gender:</span> ${student.gender || 'Not specified'}</p>
                 <p class="text-sm"><span class="font-medium">DOB:</span> ${student.dateOfBirth ? formatDate(student.dateOfBirth) : 'N/A'}</p>
+                <p class="text-sm"><span class="font-medium">Age:</span> ${formatStudentAge(student)}</p>
                 <p class="text-sm"><span class="font-medium">Status:</span> ${displayStatus}</p>
             </div>
             <div class="flex justify-end gap-2 pt-4 border-t">

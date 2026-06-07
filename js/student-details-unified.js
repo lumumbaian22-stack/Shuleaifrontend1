@@ -82,6 +82,7 @@ function generateStudentModalHTML(data) {
                     <div><span class="font-medium">Status:</span> <span class="capitalize ${student.status === 'active' ? 'text-green-600' : 'text-yellow-600'}">${student.status}</span></div>
                     <div><span class="font-medium">Enrolled:</span> ${formatDate(student.enrollmentDate)}</div>
                     <div><span class="font-medium">DOB:</span> ${student.dateOfBirth ? formatDate(student.dateOfBirth) : 'N/A'}</div>
+                    <div><span class="font-medium">Age:</span> ${formatStudentAge(student)}</div>
                     <div><span class="font-medium">Gender:</span> ${escapeHtml(student.gender || 'N/A')}</div>
                 </div>
             </div>

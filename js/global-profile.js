@@ -6,7 +6,8 @@
   }
 
   const brokenProfileImages = new Set();
-  const brokenProfileFilenames = new Set();
+  const brokenProfileFilenames = window.__brokenProfileImageFiles || new Set();
+  window.__brokenProfileImageFiles = brokenProfileFilenames;
   function media(url) {
     if (!url) return '';
     let resolved = '';
@@ -37,7 +38,30 @@
   }
 
   function markBrokenProfileImage(src, el, name) {
-    if (src) { brokenProfileImages.add(src); try { brokenProfileFilenames.add(String(src).split('/').pop()); } catch (_) {} }
+    if (src) {
+      brokenProfileImages.add(src);
+      try {
+        const file = String(src).split('/').pop();
+        brokenProfileFilenames.add(file);
+        // Remove stale Render /uploads image paths from localStorage so every section does not retry them.
+        ['user','shule_user','currentUser'].forEach((key) => {
+          try {
+            const raw = localStorage.getItem(key);
+            if (!raw || !file || !raw.includes(file)) return;
+            const obj = JSON.parse(raw);
+            ['profileImage','profilePicture','avatar','photoUrl','signature','signatureUrl'].forEach((field) => {
+              if (String(obj[field] || '').includes(file)) obj[field] = '';
+            });
+            if (obj.preferences && typeof obj.preferences === 'object') {
+              ['profileImage','profilePicture','avatar','profileImageUrl','signatureUrl','signatureFileUrl'].forEach((field) => {
+                if (String(obj.preferences[field] || '').includes(file)) obj.preferences[field] = '';
+              });
+            }
+            localStorage.setItem(key, JSON.stringify(obj));
+          } catch (_) {}
+        });
+      } catch (_) {}
+    }
     if (!el) return;
     if (el.tagName === 'IMG') {
       const span = document.createElement('span');

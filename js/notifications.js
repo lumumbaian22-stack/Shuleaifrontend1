@@ -334,21 +334,8 @@
   async function clearAllNotifications() {}
 
   function initNotificationWebSocket() {
-    if (window.socket && !window.socket.__alertsV82Attached) {
-      window.socket.__alertsV82Attached = true;
-      window.socket.on('alert', (alert) => {
-        const normalized = normalizeAlert(alert);
-        const activeChild = activeChildIdForAlerts();
-        if (activeChild && normalized.studentId && String(normalized.studentId) !== String(activeChild)) return;
-        notifications.unshift(normalized);
-        updateUnreadCount();
-        if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
-        if (typeof showToast === 'function') showToast(alert.title || 'New alert', 'info');
-      });
-      window.socket.on('alerts:updated', () => loadNotifications({ silent: true }).then(() => {
-        if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
-      }));
-    }
+    // v143: the single authenticated realtime client owns socket listeners.
+    // Alerts are refreshed through realtime-handlers.js to prevent duplicate rows/toasts.
   }
 
   document.addEventListener('DOMContentLoaded', () => {

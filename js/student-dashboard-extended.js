@@ -369,9 +369,7 @@ async function renderStudentGrades() {
                         <h2 class="text-2xl font-bold">My Grades</h2>
                         <p class="text-sm text-muted-foreground">Choose academic year, term, and test type to view the exact results for that period.</p>
                     </div>
-                    <button onclick="openReportCard && openReportCard()" class="px-3 py-2 bg-primary text-white text-sm rounded-lg inline-flex items-center gap-2 w-fit">
-                        <i data-lucide="file-text" class="h-4 w-4"></i> View Report Card
-                    </button>
+                    <div class="flex flex-wrap gap-2"><button onclick="openReportCard && openReportCard()" class="px-3 py-2 bg-primary text-white text-sm rounded-lg inline-flex items-center gap-2 w-fit"><i data-lucide="file-text" class="h-4 w-4"></i> View Latest Report</button><button onclick="openReportHistory(window.dashboardData?.student?.id || '')" class="px-3 py-2 border text-sm rounded-lg inline-flex items-center gap-2 w-fit"><i data-lucide="history" class="h-4 w-4"></i> Report History</button></div>
                 </div>
 
                 <div class="grid gap-3 md:grid-cols-3 rounded-xl border bg-card p-4">

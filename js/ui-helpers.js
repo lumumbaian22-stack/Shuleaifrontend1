@@ -90,6 +90,7 @@ function toggleTheme() {
   } catch (_) {}
   updateThemeToggleUI();
   if (typeof updateChartTheme === 'function') updateChartTheme();
+  try { window.dispatchEvent(new CustomEvent('themechange', { detail: { theme: nextDark ? 'dark' : 'light' } })); } catch (_) {}
 }
 
 applySavedTheme();

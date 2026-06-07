@@ -89,7 +89,7 @@ function renderAdminAnalytics(data) {
 
     let html = `
     <div class="space-y-6 animate-fade-in analytics-container">
-        <div class="flex items-center justify-between gap-3 flex-wrap"><h2 class="text-2xl font-bold">School Analytics</h2><span class="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700">Live data • ${formatDateTime(data.__loadedAt)}</span></div>
+        <div class="flex items-center justify-between gap-3 flex-wrap"><div><h2 class="text-2xl font-bold">School Analytics</h2><p class="text-sm text-muted-foreground">Student, class, stream, subject and gender performance.</p></div><div class="flex gap-2 flex-wrap"><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('pdf').catch(e=>showToast(e.message,'error'))">Download PDF Summary</button><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('xlsx').catch(e=>showToast(e.message,'error'))">Download Excel Workbook</button><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('csv').catch(e=>showToast(e.message,'error'))">Download CSV Table</button><button class="px-3 py-2 rounded-lg border" onclick="window.print()">Print Report</button><span class="text-xs px-3 py-2 rounded-full bg-green-100 text-green-700">Live • ${formatDateTime(data.__loadedAt)}</span></div></div>
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">Students</p><h3 class="text-xl font-bold">${ov.totalStudents||0}</h3></div>
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">Teachers</p><h3 class="text-xl font-bold">${ov.totalTeachers||0}</h3></div>
@@ -136,7 +136,7 @@ function renderTeacherAnalytics(data) {
 
     let html = `
     <div class="space-y-6 animate-fade-in analytics-container">
-        <div class="flex items-center justify-between gap-3 flex-wrap"><h2 class="text-2xl font-bold">My Class Analytics</h2><span class="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700">Live data • ${formatDateTime(data.__loadedAt)}</span></div>
+        <div class="flex items-center justify-between gap-3 flex-wrap"><h2 class="text-2xl font-bold">My Class Analytics</h2><div class="flex gap-2 flex-wrap"><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('pdf').catch(e=>showToast(e.message,'error'))">PDF Summary</button><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('xlsx').catch(e=>showToast(e.message,'error'))">Excel Workbook</button><span class="text-xs px-3 py-2 rounded-full bg-green-100 text-green-700">Live • ${formatDateTime(data.__loadedAt)}</span></div></div>
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">My Students</p><h3 class="text-xl font-bold">${ov.studentCount||0}</h3></div>
             <div class="rounded-xl border bg-card p-4"><p class="text-sm">Class Average</p><h3 class="text-xl font-bold">${ov.classAverage||0}%</h3></div>
@@ -327,3 +327,18 @@ function initDoughnutChart(canvasId, labels, values) {
 }
 
 window.renderAnalyticsSection = renderAnalyticsSection;
+
+async function downloadAdvancedAnalytics(format) {
+    const ext = String(format || 'pdf').toLowerCase();
+    const endpoint = ext === 'excel' || ext === 'xlsx' ? 'export.xlsx' : ext === 'csv' ? 'export.csv' : 'export.pdf';
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const base = (localStorage.getItem('SHULE_API_BASE_URL') || window.SHULE_API_BASE_URL || 'https://shuleaibackend-32h1.onrender.com').replace(/\/$/, '');
+    const response = await fetch(`${base}/api/analytics/advanced/${endpoint}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) { let message = 'Analytics export failed'; try { message = (await response.json()).message || message; } catch (_) {} throw new Error(message); }
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    const filename = match?.[1] || `Shule_AI_Academic_Analytics.${endpoint.split('.').pop()}`;
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+window.downloadAdvancedAnalytics = downloadAdvancedAnalytics;

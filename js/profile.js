@@ -283,14 +283,7 @@ async function downloadMyData() {
     showLoading();
     try {
         const response = await api.user.exportMyData();
-        const data = response.data;
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `shuleai_my_data_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadStructuredCsv(response.data, `Shule_AI_My_Data_${new Date().toISOString().split('T')[0]}.csv`);
         showToast('✅ Data exported successfully', 'success');
     } catch (error) {
         showToast('Failed to export data', 'error');

@@ -7,8 +7,8 @@
   'use strict';
 
   const PLATFORM_SHORT_NAME = 'Shule AI';
-  const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png';
-  const PLATFORM_LOGO_DARK = 'assets/logo-light.png'; // keep visible in dark mode; old dark asset can disappear on some dashboards
+  const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png?v=141';
+  const PLATFORM_LOGO_DARK = 'assets/logo-light.png?v=141'; // keep visible in dark mode; old dark asset can disappear on some dashboards
   const BRAND_COLOR_PRESETS = {
     'Shule Blue': { primaryColor: '#083A85', accentColor: '#11B5B1' },
     'Royal Blue': { primaryColor: '#0B2F6B', accentColor: '#3B82F6' },
@@ -180,7 +180,7 @@
     if (!light) {
       light = document.createElement('img');
       light.id = 'sidebar-logo-light';
-      light.className = 'h-10 w-10 object-contain block dark:hidden school-sidebar-logo'; light.style.maxWidth = '40px'; light.style.maxHeight = '40px'; light.style.backgroundColor = 'transparent';
+      light.className = 'h-10 w-10 object-contain school-sidebar-logo'; light.style.maxWidth = '40px'; light.style.maxHeight = '40px'; light.style.backgroundColor = 'transparent';
       light.setAttribute('data-school-logo', 'true');
       light.setAttribute('data-brand-logo-light', 'true');
       container.insertBefore(light, container.firstChild);
@@ -188,7 +188,7 @@
     if (!dark) {
       dark = document.createElement('img');
       dark.id = 'sidebar-logo-dark';
-      dark.className = 'h-10 w-10 object-contain hidden dark:block school-sidebar-logo'; dark.style.maxWidth = '40px'; dark.style.maxHeight = '40px'; dark.style.backgroundColor = 'transparent';
+      dark.className = 'h-10 w-10 object-contain school-sidebar-logo'; dark.style.maxWidth = '40px'; dark.style.maxHeight = '40px'; dark.style.backgroundColor = 'transparent';
       dark.setAttribute('data-school-logo', 'true');
       dark.setAttribute('data-brand-logo-dark', 'true');
       container.insertBefore(dark, light.nextSibling);
@@ -216,8 +216,22 @@
   function applyLogos() {
     const [light, dark] = ensureSidebarLogoElements();
     const modeIsDark = currentMode() === 'dark';
-    if (light) light.style.display = modeIsDark ? 'none' : 'block';
-    if (dark) dark.style.display = modeIsDark ? 'block' : 'none';
+    if (light) {
+      light.classList.remove('hidden','block','dark:hidden','dark:block');
+      light.style.setProperty('display', modeIsDark ? 'none' : 'block', 'important');
+      light.style.setProperty('visibility', modeIsDark ? 'hidden' : 'visible', 'important');
+      light.style.setProperty('opacity', modeIsDark ? '0' : '1', 'important');
+      light.style.setProperty('width', '40px', 'important');
+      light.style.setProperty('height', '40px', 'important');
+    }
+    if (dark) {
+      dark.classList.remove('hidden','block','dark:hidden','dark:block');
+      dark.style.setProperty('display', modeIsDark ? 'block' : 'none', 'important');
+      dark.style.setProperty('visibility', modeIsDark ? 'visible' : 'hidden', 'important');
+      dark.style.setProperty('opacity', modeIsDark ? '1' : '0', 'important');
+      dark.style.setProperty('width', '40px', 'important');
+      dark.style.setProperty('height', '40px', 'important');
+    }
     const name = `${getDisplayName()} Logo`;
     const schoolLogo = getLogoSource();
     const lightSrc = schoolLogo && !isSuperAdmin() ? schoolLogo : PLATFORM_LOGO_LIGHT;

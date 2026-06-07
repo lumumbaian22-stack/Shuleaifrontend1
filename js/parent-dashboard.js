@@ -306,12 +306,15 @@ async function renderParentDashboard() {
                 </div>
 
                 <div class="rounded-xl border bg-card p-4">
-                    <div class="grid gap-2 sm:grid-cols-2">
+                    <div class="grid gap-2 sm:grid-cols-3">
                         <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
-                            <i data-lucide="file-text" class="h-4 w-4"></i> View Report Card
+                            <i data-lucide="file-text" class="h-4 w-4"></i> View Latest
                         </button>
                         <button onclick="downloadReportCard(${selectedChildId})" class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent">
-                            <i data-lucide="download" class="h-4 w-4"></i> Download Report Card
+                            <i data-lucide="download" class="h-4 w-4"></i> Download PDF
+                        </button>
+                        <button onclick="openReportHistory(${selectedChildId})" class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent">
+                            <i data-lucide="history" class="h-4 w-4"></i> Report History
                         </button>
                     </div>
                 </div>
@@ -542,7 +545,9 @@ async function renderParentPayments() {
         const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
         const historyFilter = localStorage.getItem('parent_payment_history_filter') || 'all';
         const subPhone = escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : '') || '');
-        const childSubHtml = renderParentChildSubscriptionCards ? renderParentChildSubscriptionCards(selectedChildId, selectedChild, subPhone) : '';
+        let platformChildPlans = [];
+        try { platformChildPlans = (await api.subscription.getPlans('child')).data || []; } catch (_) { platformChildPlans = []; }
+        const childSubHtml = renderParentChildSubscriptionCards ? renderParentChildSubscriptionCards(selectedChildId, selectedChild, subPhone, platformChildPlans) : '';
 
         let finance = { accounts: [], totals: { totalExpected:0, parentPaidAmount:0, creditAmount:0, balance:0 } };
         let payments = [];
@@ -804,13 +809,21 @@ async function reportAbsence() {
 
 
 
-function renderParentChildSubscriptionCards(selectedChildId, selectedChild, phone='') {
-    const plans = [
-        { code:'basic', name:'Basic', amount:150, features:['Report cards','Attendance','Progress'], ai:'No AI Tutor' },
-        { code:'premium', name:'Premium', amount:300, features:['Everything in Basic','AI Tutor: 6 messages/day','Child timetable if school has timetable'], ai:'6 AI messages/day' },
-        { code:'ultimate', name:'Ultimate', amount:800, features:['Everything in Premium','Extended AI Tutor','Live child analytics','Stronger child alerts','Child recommendations'], ai:'Extended AI access' }
+function renderParentChildSubscriptionCards(selectedChildId, selectedChild, phone='', livePlans=null) {
+    const fallbackPlans = [
+        { code:'child_basic', name:'Basic', amount:100, features:['Report cards','Attendance','Progress'], ai:'No AI Tutor' },
+        { code:'child_premium', name:'Premium', amount:250, features:['Everything in Basic','AI Tutor: 6 messages/day','Child timetable if school has timetable'], ai:'6 AI messages/day' },
+        { code:'child_ultimate', name:'Ultimate', amount:500, features:['Everything in Premium','Extended AI Tutor','Live child analytics','Stronger child alerts','Child recommendations'], ai:'Extended AI access' }
     ];
-    return `<div class="rounded-xl border bg-card p-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4"><div><h3 class="font-semibold text-lg">Shule AI Child Subscription</h3><p class="text-sm text-muted-foreground">Per-child subscription. Selected child: <b>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || selectedChildId || 'Child')}</b></p></div><input id="parent-sub-phone" type="tel" value="${phone}" placeholder="2547XXXXXXXX" class="rounded-lg border bg-background px-3 py-2 text-sm md:w-56"></div><div class="grid gap-4 md:grid-cols-3">${plans.map(p => `<div class="rounded-xl border p-4 bg-background"><div class="flex justify-between items-start"><div><h4 class="font-bold">${p.name}</h4><p class="text-sm text-muted-foreground">KES ${p.amount.toLocaleString()} / month</p></div><span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(p.ai)}</span></div><ul class="mt-3 text-sm space-y-1">${p.features.map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}</ul><button onclick="payChildSubscription('${p.code}', ${p.amount})" class="mt-4 w-full rounded-lg bg-primary text-primary-foreground py-2">Try STK / Pay ${p.name}</button><div class="mt-3"><input id="parent-sub-code-${p.code}" class="w-full rounded-lg border bg-background px-3 py-2 text-sm uppercase" placeholder="Manual M-Pesa code/reference"><button onclick="submitManualChildSubscription('${p.code}', ${p.amount})" class="mt-2 w-full rounded-lg border py-2 text-sm">Submit Code for Approval</button></div></div>`).join('')}</div></div>`;
+    const plans = (Array.isArray(livePlans) && livePlans.length ? livePlans : fallbackPlans).map(p => {
+        const code = p.code || p.planCode || p.name || 'child_basic';
+        const name = p.displayName || p.name || code.replace(/^child_/, '');
+        const amount = Number(p.monthlyPriceKes ?? p.price_kes ?? p.amount ?? p.price ?? 0) || 0;
+        const features = Array.isArray(p.features) && p.features.length ? p.features : fallbackPlans.find(x => String(x.code) === String(code))?.features || [];
+        const ai = String(code).includes('ultimate') ? 'Extended AI access' : String(code).includes('premium') ? '6 AI messages/day' : 'No AI Tutor';
+        return { code, name, amount, features, ai };
+    });
+    return `<div class="rounded-xl border bg-card p-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4"><div><h3 class="font-semibold text-lg">Shule AI Child Subscription</h3><p class="text-sm text-muted-foreground">Per-child subscription. Selected child: <b>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || selectedChildId || 'Child')}</b></p></div><input id="parent-sub-phone" type="tel" value="${phone}" placeholder="2547XXXXXXXX" class="rounded-lg border bg-background px-3 py-2 text-sm md:w-56"></div><div class="grid gap-4 md:grid-cols-3">${plans.map(p => `<div class="rounded-xl border p-4 bg-background"><div class="flex justify-between items-start"><div><h4 class="font-bold">${escapeHtml(p.name)}</h4><p class="text-sm text-muted-foreground">KES ${Number(p.amount).toLocaleString()} / month</p></div><span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(p.ai)}</span></div><ul class="mt-3 text-sm space-y-1">${p.features.map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}</ul><button onclick="payChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-4 w-full rounded-lg bg-primary text-primary-foreground py-2">Try STK / Pay ${escapeHtml(p.name)}</button><div class="mt-3"><input id="parent-sub-code-${escapeHtml(p.code)}" class="w-full rounded-lg border bg-background px-3 py-2 text-sm uppercase" placeholder="Manual M-Pesa code/reference"><button onclick="submitManualChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-2 w-full rounded-lg border py-2 text-sm">Submit Code for Approval</button></div></div>`).join('')}</div></div>`;
 }
 async function payChildSubscription(planCode, amount) {
     const studentId = dashboardData?.selectedChildId || document.getElementById('payment-child')?.value;

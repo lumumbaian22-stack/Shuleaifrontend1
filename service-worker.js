@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-v139-no-old-runtime-patches';
+const CACHE_NAME = 'shule-ai-v143-locked-realtime-lifecycle';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 
@@ -25,7 +25,7 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return event.respondWith(fetch(req));
   const url = new URL(req.url);
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/')) return event.respondWith(fetch(req));
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/') || url.pathname.startsWith('/uploads/') || req.headers.get('authorization')) return event.respondWith(fetch(req));
 
   if (req.mode === 'navigate' || DYNAMIC_FILE_RE.test(url.pathname)) {
     return event.respondWith(

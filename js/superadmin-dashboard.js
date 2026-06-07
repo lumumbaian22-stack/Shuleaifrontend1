@@ -36,6 +36,56 @@ async function renderSuperAdminSection(section) {
 }
 
 
+
+function renderPlatformPlanInputs(ownerType, plans) {
+    const defaults = ownerType === 'parent'
+        ? [
+            { code:'child_basic', name:'Basic', amount:100, days:30, features:['Report cards','Attendance','Progress'] },
+            { code:'child_premium', name:'Premium', amount:250, days:30, features:['Everything in Basic','AI Tutor: 6 messages/day','Child timetable if school has timetable'] },
+            { code:'child_ultimate', name:'Ultimate', amount:500, days:30, features:['Everything in Premium','Extended AI Tutor','Live child analytics','Stronger alerts','Child recommendations'] }
+          ]
+        : [
+            { code:'school_starter', name:'Starter', amount:0, days:30, features:['Core dashboards','Fees','Report cards'] },
+            { code:'school_growth', name:'Growth', amount:100000, days:30, features:['Calendar','Branding','Timetable','Homework'] },
+            { code:'school_enterprise', name:'Enterprise', amount:180000, days:30, features:['Duty','Bulk SMS','Departments','Fairness report'] }
+          ];
+    const list = Array.isArray(plans) && plans.length ? plans : defaults;
+    return list.map((p, i) => {
+        const code = p.code || (ownerType === 'parent' ? `child_plan_${i+1}` : `school_plan_${i+1}`);
+        const features = Array.isArray(p.features) ? p.features.join(' | ') : String(p.features || '');
+        return `<div class="rounded-xl border bg-background p-3" data-platform-plan="${ownerType}" data-plan-index="${i}">
+          <div class="grid gap-2 md:grid-cols-3">
+            <label class="text-xs">Code<input data-plan-field="code" value="${escapeHtml(code)}" class="mt-1 w-full rounded-lg border bg-card px-2 py-2 text-sm"></label>
+            <label class="text-xs">Name<input data-plan-field="name" value="${escapeHtml(p.displayName || p.name || code)}" class="mt-1 w-full rounded-lg border bg-card px-2 py-2 text-sm"></label>
+            <label class="text-xs">Monthly KES<input data-plan-field="amount" type="number" min="0" value="${Number(p.amount ?? p.monthlyPriceKes ?? p.price_kes ?? 0)}" class="mt-1 w-full rounded-lg border bg-card px-2 py-2 text-sm"></label>
+            <label class="text-xs">Days<input data-plan-field="days" type="number" min="1" value="${Number(p.days || p.limits?.days || 30)}" class="mt-1 w-full rounded-lg border bg-card px-2 py-2 text-sm"></label>
+            <label class="text-xs md:col-span-2">Features, separated with |<input data-plan-field="features" value="${escapeHtml(features)}" class="mt-1 w-full rounded-lg border bg-card px-2 py-2 text-sm"></label>
+          </div>
+        </div>`;
+    }).join('');
+}
+
+function collectPlatformPlanInputs(ownerType) {
+    return Array.from(document.querySelectorAll(`[data-platform-plan="${ownerType}"]`)).map((card, idx) => {
+        const field = (name) => card.querySelector(`[data-plan-field="${name}"]`)?.value?.trim() || '';
+        const amount = Number(field('amount') || 0);
+        const days = Number(field('days') || 30);
+        return {
+            code: field('code'),
+            name: field('name'),
+            displayName: field('name'),
+            amount,
+            monthlyPriceKes: amount,
+            price_kes: amount,
+            days,
+            limits: { days },
+            features: field('features').split('|').map(x => x.trim()).filter(Boolean),
+            sortOrder: idx + 1,
+            isActive: true
+        };
+    }).filter(p => p.code && p.name);
+}
+
 async function renderSuperAdminPlatformPayments() {
     let settings = {}, queue = [], error = '';
     try {
@@ -76,6 +126,25 @@ async function renderSuperAdminPlatformPayments() {
           </div>
         </div>
       </div>
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold mb-2">Subscription Amounts Shule AI Collects</h3>
+        <p class="text-xs text-muted-foreground mb-4">These prices sync to parent dashboards, school/admin billing screens, STK amounts and manual approval requests after saving.</p>
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div>
+            <h4 class="font-semibold mb-3">Parent / Child Subscription Plans</h4>
+            <div class="grid gap-3">
+              ${renderPlatformPlanInputs('parent', settings.parentPlans || [])}
+            </div>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-3">School / Admin Subscription Plans</h4>
+            <div class="grid gap-3">
+              ${renderPlatformPlanInputs('school', settings.schoolPlans || [])}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="rounded-xl border bg-card p-6">
         <h3 class="font-semibold mb-4">Daraja STK Credentials</h3>
         <div class="grid gap-3 md:grid-cols-3">
@@ -431,7 +500,9 @@ window.savePlatformPaymentSettings = async function() {
                 passkey: document.getElementById('platform-daraja-passkey')?.value || '',
                 callbackUrl: document.getElementById('platform-daraja-callback')?.value || '',
                 transactionType: document.getElementById('platform-daraja-transaction-type')?.value || 'CustomerPayBillOnline'
-            }
+            },
+            parentPlans: collectPlatformPlanInputs('parent'),
+            schoolPlans: collectPlatformPlanInputs('school')
         };
         await api.payments.updatePlatformSettings(payload);
         showToast?.('Platform payment settings saved', 'success');
@@ -516,13 +587,7 @@ window.exportPlatformData = async function() {
     showLoading();
     try {
         const response = await api.superAdmin.exportData();
-        const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `shuleai_export_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadStructuredCsv(response.data, `Shule_AI_Platform_Export_${new Date().toISOString().split('T')[0]}.csv`);
         showToast('✅ Data exported successfully', 'success');
     } catch (error) { showToast('Failed to export data', 'error'); }
     finally { hideLoading(); }

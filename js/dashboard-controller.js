@@ -253,13 +253,24 @@ function updateUserInfo() {
     const dropdownEmail = document.getElementById('dropdown-user-email');
 
     if (avatarWrap) {
-        if (profileUrl) {
-            const src = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(profileUrl) : profileUrl;
-            avatarWrap.classList.add('overflow-hidden');
-            avatarWrap.innerHTML = `<img src="${escapeHtml(src)}" class="h-full w-full rounded-full object-cover" data-current-user-avatar alt="${escapeHtml(name)}">`;
-        } else {
+        const fallback = () => {
             avatarWrap.innerHTML = `<span id="user-initials">${initials}</span>`;
             avatarWrap.className = 'h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-medium text-sm overflow-hidden';
+        };
+        if (profileUrl) {
+            const src = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(profileUrl) : profileUrl;
+            const fileKey = String(src || '').split('/').pop();
+            window.__brokenProfileImageFiles = window.__brokenProfileImageFiles || new Set();
+            if (!src || window.__brokenProfileImageFiles.has(fileKey)) {
+                fallback();
+            } else {
+                avatarWrap.classList.add('overflow-hidden');
+                avatarWrap.innerHTML = `<img src="${escapeHtml(src)}" class="h-full w-full rounded-full object-cover" data-current-user-avatar alt="${escapeHtml(name)}">`;
+                const img = avatarWrap.querySelector('img');
+                if (img) img.onerror = function(){ window.__brokenProfileImageFiles.add(fileKey); fallback(); };
+            }
+        } else {
+            fallback();
         }
     }
 
