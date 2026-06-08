@@ -539,6 +539,7 @@ async function renderAdminSection(section) {
             case 'timetable':
                  return await (window.v12RenderAdminTimetable || window.renderAdminTimetable)();
             case 'calendar':
+                await refreshCalendarEvents();
                 return renderAdminCalendar();
             case 'teachers':
                 return await renderAdminTeachers();
@@ -923,10 +924,10 @@ async function renderAdminStudents() {
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Student Management</h2>
-                    <button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                    <div class="flex flex-wrap gap-2"><button onclick="showStudentCsvUploadModal()" class="px-4 py-2 border rounded-lg hover:bg-accent flex items-center gap-2"><i data-lucide="file-up" class="h-4 w-4"></i>Upload CSV</button><button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
                         <i data-lucide="plus" class="h-4 w-4"></i>
                         Add Student
-                    </button>
+                    </button></div>
                 </div>
 
                 <!-- Overall Stats -->
@@ -1057,20 +1058,21 @@ async function loadAdminCalendarPreviewEvents() {
     if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('calendar')) return;
     const container = document.getElementById('admin-calendar-events');
     if (!container) return;
+    container.innerHTML = '<p class="text-sm text-muted-foreground">Loading calendar events…</p>';
     try {
         const res = await apiRequest('/api/calendar');
         const events = Array.isArray(res.data) ? res.data : (Array.isArray(res.events) ? res.events : (Array.isArray(res.data?.events) ? res.data.events : []));
-        container.innerHTML = events.length ? events.slice(0,4).map(e => `
-            <div class="flex items-center justify-between gap-3 border rounded-lg p-3 mb-2">
-                <div><p class="font-medium text-sm">${escapeHtml(e.eventName || e.title || 'Event')}</p><p class="text-xs text-muted-foreground">${formatDate(e.startDate || e.date)} ${e.eventType ? '• '+escapeHtml(e.eventType) : ''}</p></div>
-                <button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs shrink-0">Delete</button>
-            </div>`).join('') : '<p class="text-sm text-muted-foreground">No calendar events yet.</p>';
+        const now = new Date(); now.setHours(0,0,0,0);
+        const sorted = events.slice().sort((a,b)=>new Date(a.startDate||a.date)-new Date(b.startDate||b.date));
+        const upcoming = sorted.filter(e=>new Date(e.endDate||e.startDate||e.date)>=now).slice(0,5);
+        const recent = sorted.filter(e=>new Date(e.endDate||e.startDate||e.date)<now).sort((a,b)=>new Date(b.startDate||b.date)-new Date(a.startDate||a.date)).slice(0,4);
+        const rows = list => list.map(e => `<div class="flex items-center justify-between gap-3 border rounded-lg p-3"><div><p class="font-medium text-sm">${escapeHtml(e.eventName || e.title || 'Event')}</p><p class="text-xs text-muted-foreground">${formatDate(e.startDate || e.date)}${e.endDate&&e.endDate!==e.startDate?` – ${formatDate(e.endDate)}`:''} ${e.eventType ? '• '+escapeHtml(e.eventType) : ''}</p></div><button onclick="deleteCalendarEvent(${e.id})" class="text-red-600 text-xs shrink-0">Delete</button></div>`).join('');
+        container.innerHTML = `<div><div class="flex items-center justify-between"><strong class="text-sm">Upcoming</strong><button onclick="showDashboardSection('calendar')" class="text-xs text-primary">Open calendar</button></div><div class="mt-2 space-y-2">${upcoming.length?rows(upcoming):'<p class="text-sm text-muted-foreground">No upcoming events.</p>'}</div></div><div class="mt-5"><strong class="text-sm">Recent events</strong><div class="mt-2 space-y-2">${recent.length?rows(recent):'<p class="text-sm text-muted-foreground">No recent events.</p>'}</div></div>`;
     } catch (e) {
-        if (container) container.innerHTML = '<p class="text-sm text-muted-foreground">Calendar is included for every active school. Refresh the school session if it does not load.</p>';
-        console.warn('Calendar preview skipped:', e.message);
+        container.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(e.message || 'Calendar events could not load.')}</p>`;
+        console.warn('Calendar preview failed:', e.message);
     }
 }
-
 function showAddCalendarEventModal() {
     if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('calendar')) return showToast('Calendar is included for every active school. Refresh the school session if it does not load.', 'warning');
     const name = prompt('Event name:');
@@ -2123,7 +2125,7 @@ window.renderAdminCustomSubjects = async function() {
         }, {});
         return `
             <div class="space-y-6 animate-fade-in">
-                <div class="flex justify-between items-center"><div><h2 class="text-2xl font-bold">Add Subjects</h2><p class="text-sm text-muted-foreground">Choose subjects the school offers from the selected curriculum. This updates class subjects, teacher assignment, grading, reports and Career Compass.</p></div><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Save Subjects</button></div>
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"><div><h2 class="text-2xl font-bold">Add Subjects</h2><p class="text-sm text-muted-foreground">Choose curriculum subjects or add a subject that is unique to this school.</p></div><div class="flex flex-wrap gap-2"><button onclick="showDashboardSection('custom-subjects')" class="px-4 py-2 border rounded-lg">+ Add Custom Subject</button><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Save Curriculum Subjects</button></div></div>
                 <div class="rounded-xl border bg-card p-6">
                     <h3 class="font-semibold mb-3">Curriculum Source</h3>
                     <div class="grid md:grid-cols-3 gap-3 text-sm">
@@ -2346,8 +2348,14 @@ async function renderAdminParentMessages() {
     return `<div class="max-w-4xl mx-auto space-y-6 animate-fade-in"><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Parent Messages to Admin</h3><p class="text-sm text-muted-foreground">Only parent-admin conversations for this school appear here.</p></div><div class="divide-y">${conversations.length ? conversations.map(c => `<div class="p-4 hover:bg-accent cursor-pointer" onclick="openAdminParentConversation('${adminEsc(c.userId)}')"><div class="flex justify-between"><div><p class="font-medium">${adminEsc(c.userName)}</p><p class="text-xs text-muted-foreground">${c.studentName ? `about ${adminEsc(c.studentName)}` : 'Parent-admin conversation'}</p><p class="text-sm mt-1">${adminEsc((c.lastMessage || '').substring(0, 80))}</p></div><div class="text-right"><p class="text-xs">${typeof timeAgo === 'function' ? timeAgo(c.lastMessageTime) : ''}</p>${c.unreadCount ? `<span class="bg-red-500 text-white text-xs rounded-full px-2 py-1">${c.unreadCount}</span>` : ''}</div></div></div>`).join('') : '<div class="p-8 text-center text-muted-foreground">No parent-admin messages yet.</div>'}</div></div></div>`;
 }
 async function openAdminParentConversation(parentId) {
+    window.__activeAdminParentId = String(parentId);
     let messages = [];
     try { messages = (await api.admin.getParentMessages(parentId)).data || []; } catch (e) { showToast(e.message || 'Failed to load messages', 'error'); }
+    const conversationKey = messages.find(m => m.metadata?.conversationKey)?.metadata?.conversationKey || '';
+    if (conversationKey) window.ShuleRealtime?.joinConversation?.(conversationKey);
+    const me = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
+    messages.filter(m => Number(m.receiverId)===Number(me?.id) && !m.isRead && m.id).forEach(m => window.socket?.emit('chat:message_read',{messageId:m.id}));
+    window.__activeAdminParentConversationKey = conversationKey;
     let modal = document.getElementById('admin-parent-chat-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -2357,10 +2365,10 @@ async function openAdminParentConversation(parentId) {
         document.body.appendChild(modal);
     }
     const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : JSON.parse(localStorage.getItem('user') || '{}');
-    modal.querySelector('.modal-content').innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeAdminParentConversation()" class="p-1">×</button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="admin-parent-chat-msgs">${messages.map(m => `<div class="flex ${Number(m.senderId) === Number(currentUser.id) ? 'justify-end' : 'justify-start'}"><div class="${Number(m.senderId) === Number(currentUser.id) ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${adminEsc(m.content)}</p><p class="text-xs mt-1">${typeof timeAgo === 'function' ? timeAgo(m.createdAt) : ''}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="admin-parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2 bg-background"><button onclick="sendAdminParentReply('${adminEsc(parentId)}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
+    modal.querySelector('.modal-content').innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeAdminParentConversation()" class="p-1">×</button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="admin-parent-chat-msgs">${messages.map(m => `<div class="flex ${Number(m.senderId) === Number(currentUser.id) ? 'justify-end' : 'justify-start'}"><div class="${Number(m.senderId) === Number(currentUser.id) ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${adminEsc(m.content)}</p><p class="text-xs mt-1">${typeof timeAgo === 'function' ? timeAgo(m.createdAt) : ''}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="admin-parent-reply-input" placeholder="Type reply..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendAdminParentReply('${adminEsc(parentId)}');}" class="flex-1 rounded-lg border p-2 bg-background"><button onclick="sendAdminParentReply('${adminEsc(parentId)}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
     modal.classList.remove('hidden');
 }
-function closeAdminParentConversation() { document.getElementById('admin-parent-chat-modal')?.classList.add('hidden'); }
+function closeAdminParentConversation() { document.getElementById('admin-parent-chat-modal')?.classList.add('hidden'); window.__activeAdminParentId=null; window.__activeAdminParentConversationKey=null; window.ShuleRealtime?.leaveConversation?.(); }
 async function sendAdminParentReply(parentId) {
     const input = document.getElementById('admin-parent-reply-input');
     const message = input?.value?.trim();

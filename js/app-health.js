@@ -10,7 +10,7 @@ window.addEventListener('load', () => {
 });
 
 
-// Shule AI v145 service-worker registration
+// Shule AI v146 service-worker registration
 (function () {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {

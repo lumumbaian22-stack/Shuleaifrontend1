@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-v145-seamless-final';
+const CACHE_NAME = 'shule-ai-v146-grounded-consolidation';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

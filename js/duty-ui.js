@@ -1,7 +1,7 @@
-// Shule AI v145 - simplified, role-safe Duty UI
+// Shule AI v146 - simplified, role-safe Duty UI
 (function (w) {
   'use strict';
-  const state = { today:null, week:[], config:null, report:null, gps:null };
+  const state = { today:null, week:[], config:null, report:null, gps:null, points:[], slots:[], scanner:null };
   const e = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const val = id => document.getElementById(id)?.value || '';
   const checked = id => !!document.getElementById(id)?.checked;
@@ -39,17 +39,23 @@
           <h3 class="font-bold text-lg">Generate roster</h3>
           <label class="block text-sm">From<input id="duty-start-v145" type="date" class="mt-1 w-full rounded-lg border p-2" value="${todayIso()}"></label>
           <label class="block text-sm">To<input id="duty-end-v145" type="date" class="mt-1 w-full rounded-lg border p-2"></label>
-          <button class="w-full rounded-lg bg-primary px-4 py-2 text-white" onclick="v145GenerateDuty()">Generate duty roster</button>
+          <details open class="rounded-lg border p-3"><summary class="cursor-pointer font-medium">Duty points and times</summary>
+            <div class="pt-3 space-y-4 text-sm">
+              <div><div class="flex items-center justify-between"><strong>Duty points</strong><button onclick="v146AddDutyPoint()" class="rounded border px-2 py-1">+ Point</button></div><div id="duty-points-v146" class="mt-2 space-y-2"></div></div>
+              <div><div class="flex items-center justify-between"><strong>Duty schedules</strong><button onclick="v146AddDutySlot()" class="rounded border px-2 py-1">+ Time</button></div><div id="duty-slots-v146" class="mt-2 space-y-2"></div></div>
+              <button class="w-full rounded-lg border px-3 py-2" onclick="v145SaveDutyConfig()">Save points and times</button>
+            </div>
+          </details>
           <details class="rounded-lg border p-3">
-            <summary class="cursor-pointer font-medium">Optional check-in verification</summary>
+            <summary class="cursor-pointer font-medium">Arrival verification</summary>
             <div class="space-y-3 pt-3 text-sm">
               <label class="flex items-center justify-between gap-3"><span>Require GPS</span><input id="duty-gps-v145" type="checkbox"></label>
-              <label class="flex items-center justify-between gap-3"><span>Require daily QR token</span><input id="duty-qr-v145" type="checkbox"></label>
+              <label class="flex items-center justify-between gap-3"><span>Require QR scan</span><input id="duty-qr-v145" type="checkbox"></label>
               <label class="block">Allowed radius (metres)<input id="duty-radius-v145" type="number" min="20" class="mt-1 w-full rounded-lg border p-2" value="150"></label>
               <div class="grid grid-cols-2 gap-2"><input id="duty-lat-v145" type="number" step="any" class="rounded-lg border p-2" placeholder="Latitude"><input id="duty-lng-v145" type="number" step="any" class="rounded-lg border p-2" placeholder="Longitude"></div>
               <button class="w-full rounded-lg border px-3 py-2" onclick="v145UseSchoolLocation()">Use my current location</button>
               <button class="w-full rounded-lg border px-3 py-2" onclick="v145SaveDutyConfig()">Save verification settings</button>
-              <div id="duty-token-v145" class="break-all rounded-lg bg-muted p-2 text-xs"></div>
+              <div id="duty-token-v145" class="rounded-lg bg-muted p-3 text-center text-xs"></div>
             </div>
           </details>
         </div>
@@ -67,10 +73,14 @@
       const [todayR,weekR,configR,reportR] = await Promise.allSettled([api.duty.getTodayDuty(),api.duty.getWeeklyDuty(),api.duty.getVerificationConfig(),api.duty.getComplianceReport(todayIso())]);
       state.today=unwrap(todayR.value)||{}; state.week=unwrap(weekR.value)||[]; state.config=unwrap(configR.value)||{}; state.report=unwrap(reportR.value)||{};
       const settings=state.config.settings||{};
+      state.points=Array.isArray(settings.dutyPoints)?settings.dutyPoints.slice():[];
+      state.slots=Array.isArray(settings.dutySlots)?settings.dutySlots.slice():[];
+      if(!state.points.length) state.points=[{id:'main-gate',name:'Main Gate',description:'',active:true}];
+      if(!state.slots.length) state.slots=[{id:'morning',label:'Morning Duty',pointId:state.points[0].id,start:'07:00',end:'08:00',teachersPerSlot:2,active:true}];
       const set=(id,v)=>{const x=document.getElementById(id);if(x&&v!==undefined&&v!==null)x.value=v}; const chk=(id,v)=>{const x=document.getElementById(id);if(x)x.checked=!!v};
       chk('duty-gps-v145',settings.requireGps); chk('duty-qr-v145',settings.requireQr); set('duty-radius-v145',settings.radiusMeters||150); set('duty-lat-v145',settings.schoolLat||''); set('duty-lng-v145',settings.schoolLng||'');
-      const token=document.getElementById('duty-token-v145'); if(token) token.textContent=state.config.todayQrToken ? `Today’s token: ${state.config.todayQrToken}` : '';
-      renderAdminData();
+      const token=document.getElementById('duty-token-v145'); if(token) token.innerHTML=state.config.todayQrDataUrl ? `<img src="${e(state.config.todayQrDataUrl)}" alt="Duty QR" class="mx-auto h-56 w-56 rounded-lg bg-white p-2"><p class="mt-2">Display this QR at the duty point on a separate device.</p>` : (settings.requireQr?'<p>QR unavailable. Save settings and refresh.</p>':'<p>QR verification is off.</p>');
+      renderDutyConfigRows(); renderAdminData();
     } catch(err){ toast(err.message||'Could not load Duty','error'); }
   };
 
@@ -88,7 +98,7 @@
     try{busy(true);const res=await api.duty.generate(start,end);toast(res.message||'Duty roster generated','success');await w.v145LoadAdminDuty();}catch(err){toast(err.message||'Duty generation failed','error')}finally{busy(false)}
   };
   w.v145UseSchoolLocation = async function(){try{busy(true);state.gps=await gps();const lat=document.getElementById('duty-lat-v145'),lng=document.getElementById('duty-lng-v145');if(lat)lat.value=state.gps.latitude;if(lng)lng.value=state.gps.longitude;toast('School location captured','success')}catch(err){toast(err.message,'error')}finally{busy(false)}};
-  w.v145SaveDutyConfig = async function(){try{busy(true);await api.duty.updateVerificationConfig({requireGps:checked('duty-gps-v145'),requireQr:checked('duty-qr-v145'),radiusMeters:Number(val('duty-radius-v145')||150),schoolLat:Number(val('duty-lat-v145')||0),schoolLng:Number(val('duty-lng-v145')||0)});toast('Duty verification settings saved','success');await w.v145LoadAdminDuty()}catch(err){toast(err.message||'Could not save settings','error')}finally{busy(false)}};
+  w.v145SaveDutyConfig = async function(){try{busy(true);await api.duty.updateVerificationConfig({requireGps:checked('duty-gps-v145'),requireQr:checked('duty-qr-v145'),radiusMeters:Number(val('duty-radius-v145')||150),schoolLat:Number(val('duty-lat-v145')||0),schoolLng:Number(val('duty-lng-v145')||0),dutyPoints:readDutyPoints(),dutySlots:readDutySlots()});toast('Duty verification settings saved','success');await w.v145LoadAdminDuty()}catch(err){toast(err.message||'Could not save settings','error')}finally{busy(false)}};
 
   w.renderTeacherSmartDuty = async function(){
     return `<div class="space-y-5 animate-fade-in" id="duty-teacher-v145">
@@ -108,7 +118,7 @@
       const title=document.getElementById('teacher-duty-title-v145');if(title)title.textContent=d?dutyLabel(d):'No duty assigned today';
       const time=document.getElementById('teacher-duty-time-v145');if(time)time.textContent=d?`${state.today.date||todayIso()} • ${d.teacherName||''}`:'You do not need to check in.';
       const status=document.getElementById('teacher-duty-status-v145');if(status){status.textContent=st.text;status.className=`rounded-full px-3 py-1 text-sm ${st.cls}`}
-      const verification=state.config.settings||{}; const vr=document.getElementById('teacher-duty-verification-v145');if(vr)vr.innerHTML=[verification.requireGps?'<div class="rounded-lg bg-muted/50 p-3 text-sm">Location verification is required.</div>':'',verification.requireQr?'<label class="block text-sm">Daily QR token<input id="teacher-duty-qr-v145" class="mt-1 w-full rounded-lg border p-2" placeholder="Enter token"></label>':''].filter(Boolean).join('') || '<div class="rounded-lg bg-muted/50 p-3 text-sm">No extra verification is required.</div>';
+      const verification=state.config.settings||{}; const vr=document.getElementById('teacher-duty-verification-v145');if(vr)vr.innerHTML=[verification.requireGps?'<div class="rounded-lg bg-muted/50 p-3 text-sm">Location verification is required.</div>':'',verification.requireQr?'<div class="space-y-2"><button onclick="v146StartDutyScanner()" class="w-full rounded-lg border px-3 py-2">Scan duty QR with camera</button><label class="block text-sm">Or enter token manually<input id="teacher-duty-qr-v145" class="mt-1 w-full rounded-lg border p-2" placeholder="QR token"></label><div id="duty-scanner-v146"></div></div>':''].filter(Boolean).join('') || '<div class="rounded-lg bg-muted/50 p-3 text-sm">No extra verification is required.</div>';
       const inBtn=document.getElementById('teacher-duty-in-v145'),outBtn=document.getElementById('teacher-duty-out-v145');if(inBtn)inBtn.disabled=!d||!!d.checkedIn;if(outBtn)outBtn.disabled=!d||!d.checkedIn||!!d.checkedOut;
       const wr=document.getElementById('teacher-duty-week-v145');if(wr)wr.innerHTML=(state.week||[]).filter(x=>(x.duties||[]).length).map(x=>`<div class="rounded-lg border p-3"><strong>${e(x.dayName)}</strong><div>${(x.duties||[]).map(d=>e(dutyLabel(d))).join('<br>')}</div></div>`).join('')||'<p class="text-muted-foreground">No duties this week.</p>';
     }catch(err){toast(err.message||'Could not load your duty','error')}
@@ -121,6 +131,20 @@
       let res;if(settings.requireGps||settings.requireQr)res=action==='in'?await api.duty.verifiedCheckIn(payload):await api.duty.verifiedCheckOut(payload);else res=action==='in'?await api.duty.checkIn({location:'School',notes:payload.notes}):await api.duty.checkOut({location:'School',notes:payload.notes});toast(res.message||`Checked ${action==='in'?'in':'out'}`,'success');await w.v145LoadTeacherDuty();
     }catch(err){toast(err.message||'Duty action failed','error')}finally{busy(false)}
   };
+
+
+  function renderDutyConfigRows(){
+    const points=document.getElementById('duty-points-v146');if(points)points.innerHTML=state.points.map((p,i)=>`<div class="rounded-lg border p-2 grid gap-2"><div class="flex gap-2"><input data-duty-point-name="${i}" class="min-w-0 flex-1 rounded border p-2" value="${e(p.name||'')}" placeholder="Point name"><button onclick="v146RemoveDutyPoint(${i})" class="text-red-600">Remove</button></div><input data-duty-point-description="${i}" class="rounded border p-2" value="${e(p.description||'')}" placeholder="Description (optional)"></div>`).join('');
+    const slots=document.getElementById('duty-slots-v146');if(slots)slots.innerHTML=state.slots.map((slot,i)=>`<div class="rounded-lg border p-2 space-y-2"><div class="flex gap-2"><input data-duty-slot-label="${i}" class="min-w-0 flex-1 rounded border p-2" value="${e(slot.label||'')}" placeholder="Schedule name"><button onclick="v146RemoveDutySlot(${i})" class="text-red-600">Remove</button></div><select data-duty-slot-point="${i}" class="w-full rounded border p-2">${state.points.map(p=>`<option value="${e(p.id)}" ${String(p.id)===String(slot.pointId)?'selected':''}>${e(p.name)}</option>`).join('')}</select><div class="grid grid-cols-3 gap-2"><input data-duty-slot-start="${i}" type="time" class="rounded border p-2" value="${e(slot.start||'07:00')}"><input data-duty-slot-end="${i}" type="time" class="rounded border p-2" value="${e(slot.end||'08:00')}"><input data-duty-slot-teachers="${i}" type="number" min="1" class="rounded border p-2" value="${Number(slot.teachersPerSlot||1)}" title="Teachers"></div></div>`).join('');
+  }
+  function readDutyPoints(){return state.points.map((p,i)=>({...p,id:p.id||`point-${i+1}`,name:document.querySelector(`[data-duty-point-name="${i}"]`)?.value?.trim()||'',description:document.querySelector(`[data-duty-point-description="${i}"]`)?.value?.trim()||''})).filter(p=>p.name);}
+  function readDutySlots(){const points=readDutyPoints();return state.slots.map((slot,i)=>({...slot,id:slot.id||`slot-${i+1}`,label:document.querySelector(`[data-duty-slot-label="${i}"]`)?.value?.trim()||'',pointId:document.querySelector(`[data-duty-slot-point="${i}"]`)?.value||points[0]?.id||'',start:document.querySelector(`[data-duty-slot-start="${i}"]`)?.value||'07:00',end:document.querySelector(`[data-duty-slot-end="${i}"]`)?.value||'08:00',teachersPerSlot:Number(document.querySelector(`[data-duty-slot-teachers="${i}"]`)?.value||1)})).filter(s=>s.label&&s.pointId);}
+  w.v146AddDutyPoint=function(){state.points=readDutyPoints();state.points.push({id:`point-${Date.now()}`,name:'New Duty Point',description:'',active:true});renderDutyConfigRows();};
+  w.v146RemoveDutyPoint=function(i){state.points=readDutyPoints();if(state.points.length<=1)return toast('Keep at least one duty point.','warning');const removed=state.points.splice(i,1)[0];state.slots=readDutySlots().map(s=>String(s.pointId)===String(removed.id)?{...s,pointId:state.points[0].id}:s);renderDutyConfigRows();};
+  w.v146AddDutySlot=function(){state.points=readDutyPoints();state.slots=readDutySlots();state.slots.push({id:`slot-${Date.now()}`,label:'New Duty Time',pointId:state.points[0]?.id||'',start:'07:00',end:'08:00',teachersPerSlot:1,active:true});renderDutyConfigRows();};
+  w.v146RemoveDutySlot=function(i){state.slots=readDutySlots();state.slots.splice(i,1);renderDutyConfigRows();};
+  w.v146StartDutyScanner=async function(){const host=document.getElementById('duty-scanner-v146');if(!host)return; if(!('BarcodeDetector' in window)){host.innerHTML='<p class="text-xs text-amber-700">Camera QR scanning is not supported by this browser. Enter the token manually.</p>';return;}try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});host.innerHTML='<video id="duty-scan-video-v146" class="mt-2 w-full rounded-lg" autoplay playsinline></video><button onclick="v146StopDutyScanner()" class="mt-2 rounded border px-3 py-1">Stop camera</button>';const video=document.getElementById('duty-scan-video-v146');video.srcObject=stream;state.scanner={stream,stopped:false};const detector=new BarcodeDetector({formats:['qr_code']});const scan=async()=>{if(state.scanner?.stopped)return;try{const codes=await detector.detect(video);if(codes[0]?.rawValue){const input=document.getElementById('teacher-duty-qr-v145');if(input)input.value=codes[0].rawValue;toast('Duty QR scanned.','success');w.v146StopDutyScanner();return;}}catch(_){}requestAnimationFrame(scan)};requestAnimationFrame(scan);}catch(err){host.innerHTML=`<p class="text-xs text-red-600">${e(err.message||'Camera could not start.')}</p>`;}};
+  w.v146StopDutyScanner=function(){if(state.scanner){state.scanner.stopped=true;state.scanner.stream?.getTracks?.().forEach(t=>t.stop());state.scanner=null;}const host=document.getElementById('duty-scanner-v146');if(host)host.innerHTML='';};
 
   // Make the simplified v145 screen the single visible Duty UI.
   w.renderTeacherDuty = w.renderTeacherSmartDuty;

@@ -809,7 +809,7 @@ async function sendStudentChatMessage() {
 function renderStudentAITutor() {
     const curriculum = (window.schoolSettings && window.schoolSettings.curriculum) || 'cbc';
     const context = v66GetStudentTutorContext();
-    if (v66IsAuthenticatedStudentContext()) setTimeout(() => v66LoadStudentTutorContext(), 0);
+    if (v66IsAuthenticatedStudentContext()) setTimeout(() => { v66LoadStudentTutorContext(); loadTutorSessionListV146(); }, 0);
 
     return `
         <div class="max-w-6xl mx-auto space-y-6 animate-fade-in">
@@ -823,7 +823,9 @@ function renderStudentAITutor() {
                 </div>
             </div>
 
-            <div class="rounded-xl border bg-card p-4 space-y-4">
+            <div class="grid gap-4 lg:grid-cols-[280px_1fr]">
+              <aside class="rounded-xl border bg-card p-4 h-fit lg:sticky lg:top-4"><div class="flex items-center justify-between gap-2"><h3 class="font-semibold">Chat History</h3><button onclick="startNewTutorChatV146()" class="rounded-lg bg-primary px-3 py-2 text-xs text-white">New Chat</button></div><div id="ai-tutor-history-v146" class="mt-4 space-y-2"><p class="text-sm text-muted-foreground">Loading chats…</p></div></aside>
+              <div class="rounded-xl border bg-card p-4 space-y-4">
                 <div class="flex items-center gap-3 pb-3 border-b">
                     <div class="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
                         <i data-lucide="bot" class="h-6 w-6 text-white"></i>
@@ -881,6 +883,7 @@ function renderStudentAITutor() {
                         </button>
                     </div>
                 </div>
+              </div>
             </div>
         </div>
     `;
@@ -1509,10 +1512,13 @@ window.askAITutor = async function() {
             grade: tutorContext.grade || 'Grade 5',
             gradeLevel: tutorContext.gradeLevel || tutorContext.grade || 'Grade 5',
             studentId: tutorContext.studentId || undefined,
-            curriculum: tutorContext.curriculum || undefined
+            curriculum: tutorContext.curriculum || undefined,
+            sessionId: window.__activeTutorSessionId || undefined
         });
         typingDiv.remove();
         const data = res.data || {};
+        if (data.sessionId) window.__activeTutorSessionId = data.sessionId;
+        loadTutorSessionListV146();
         container.innerHTML += `
             <div class="flex justify-start">
                 <div class="chat-bubble-received max-w-[82%]">
@@ -1557,6 +1563,19 @@ window.renderStudentGrades = renderStudentGrades;
 window.renderStudentAttendance = renderStudentAttendance;
 window.renderStudentChat = renderStudentChat;
 window.v66JoinHomeworkDiscussion = v66JoinHomeworkDiscussion;
+
+window.loadTutorSessionListV146 = async function(){
+    const host=document.getElementById('ai-tutor-history-v146');if(!host)return;
+    try{const res=await api.tutor.listSessions();const rows=res.data||[];host.innerHTML=rows.length?rows.map(row=>`<button onclick="openTutorSessionV146(${row.id})" class="w-full text-left rounded-lg border p-3 hover:bg-accent ${String(window.__activeTutorSessionId||'')===String(row.id)?'bg-primary/5 border-primary':''}"><strong class="block truncate text-sm">${escapeHtml(row.title||'Tutor chat')}</strong><span class="text-xs text-muted-foreground">${escapeHtml(row.subject||'General')} • ${row.messageCount||0} messages</span></button>`).join(''):'<p class="text-sm text-muted-foreground">No previous chats. Start a new one.</p>';}catch(e){host.innerHTML=`<p class="text-sm text-red-600">${escapeHtml(e.message||'History failed to load')}</p>`;}
+};
+window.startNewTutorChatV146 = async function(){
+    try{const ctx=v66GetStudentTutorContext();const res=await api.tutor.createSession({grade:ctx.grade,level:ctx.level,subject:document.getElementById('ai-subject-select')?.value||'General'});window.__activeTutorSessionId=res.data?.id||null;const container=document.getElementById('ai-chat-container');if(container)container.innerHTML='<div class="flex justify-start"><div class="chat-bubble-received max-w-[80%]"><p class="text-sm">New chat started. What would you like to learn?</p></div></div>';await loadTutorSessionListV146();}catch(e){showToast(e.message||'Could not start a new chat','error');}
+};
+window.openTutorSessionV146 = async function(id){
+    const container=document.getElementById('ai-chat-container');if(container)container.innerHTML='<p class="text-sm text-muted-foreground">Loading chat…</p>';
+    try{const res=await api.tutor.getSessionById(id);const data=res.data||{};window.__activeTutorSessionId=id;const rows=data.messages||[];if(container)container.innerHTML=rows.length?rows.map(m=>`<div class="flex ${m.role==='student'?'justify-end':'justify-start'}"><div class="${m.role==='student'?'chat-bubble-sent':'chat-bubble-received'} max-w-[82%]"><p class="text-xs font-semibold">${m.role==='student'?'You':'Shule AI Tutor'}</p><p class="text-sm whitespace-pre-line">${escapeHtml(m.message||m.content||'')}</p></div></div>`).join(''):'<div class="text-sm text-muted-foreground">This chat is empty.</div>';if(container)container.scrollTop=container.scrollHeight;await loadTutorSessionListV146();}catch(e){if(container)container.innerHTML=`<p class="text-red-600">${escapeHtml(e.message)}</p>`;}
+};
+
 window.renderStudentAITutor = renderStudentAITutor;
 window.renderStudentSchedule = renderStudentSchedule;
 window.renderStudentLeaderboard = renderStudentLeaderboard;

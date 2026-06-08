@@ -1,1 +1,1 @@
-Shule AI v145 — size-based school plans, deduplicated alerts, simplified Duty and Timetable, and connected lifecycle dashboards
+Shule AI v146 — size-based school plans, deduplicated alerts, simplified Duty and Timetable, and connected lifecycle dashboards

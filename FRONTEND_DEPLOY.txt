@@ -1,4 +1,4 @@
-Shule AI v145 FRONTEND ONLY
+Shule AI v146 FRONTEND ONLY
 
 Upload the CONTENTS of this ZIP to your GitHub Pages repository root.
 The repository root should show index.html at the first level.

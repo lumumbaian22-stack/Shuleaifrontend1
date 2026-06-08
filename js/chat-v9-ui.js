@@ -182,7 +182,7 @@ function v9SetChatMode(mode) { v9ChatState.mode = mode; v9LoadCurrentMessages();
 
 async function v9LoadCurrentMessages() {
   try {
-    if (v9ChatState.activeTab === 'study') return v9RenderTeacherShell();
+    if (v9ChatState.activeTab === 'study') { if(v9ChatState.selectedThread?.id) v9JoinConversation(`thread:${Number(v9ChatState.selectedThread.id)}`); return v9RenderTeacherShell(); }
     if (v9ChatState.activeTab === 'announcements') return v9RenderTeacherShell();
     let res = { data: [] };
     const me = v9CurrentUser();
@@ -432,7 +432,7 @@ function v9SelectParent(id, conversationKey = '') {
   v9LoadCurrentMessages();
 }
 function v9SelectGroup(id) { v9ChatState.selectedGroup = v9ChatState.groups.find(g => Number(g.id) === Number(id)); if(v9ChatState.selectedGroup)v9ChatState.selectedGroup.unreadCount=0; v9ChatState.mode = 'group'; v9LoadCurrentMessages(); }
-function v9SelectThread(id) { v9ChatState.selectedThread = v9ChatState.threads.find(t => Number(t.id) === Number(id)); v9ChatState.studyDetailTab = 'thread'; v9RenderTeacherShell(); }
+function v9SelectThread(id) { v9ChatState.selectedThread = v9ChatState.threads.find(t => Number(t.id) === Number(id)); v9ChatState.studyDetailTab = 'thread'; v9JoinConversation(`thread:${Number(id)}`); v9RenderTeacherShell(); }
 function v9FilterConversations(value) { const q=(value||'').toLowerCase(); document.querySelectorAll('#v9-conversation-list .tm6-list-item').forEach(el => { el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none'; }); }
 function v9FilterThreads(value) { const q=(value||'').toLowerCase(); document.querySelectorAll('#v9-thread-list .tm6-thread-card').forEach(el => { el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none'; }); }
 function v9PickAttachment() { document.getElementById('v9-file-input')?.click(); }

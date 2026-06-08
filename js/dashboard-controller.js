@@ -38,7 +38,23 @@ function isSeniorSubjectChoiceVisible() {
     const school = currentSchoolPayload() || {};
     const cfg = school.curriculumSetup || school.settings?.curriculumEngine || {};
     const levels = (cfg.enabledLevels || school.enabledLevels || []).join(' ').toLowerCase();
-    return hasSchoolFeature('senior_subject_choice') && /grade_1[0-2]|grade\s*1[0-2]|senior/.test(levels);
+    const schoolHasSenior = /grade_1[0-2]|grade\s*1[0-2]|senior/.test(levels);
+    if (!hasSchoolFeature('senior_subject_choice') || !schoolHasSenior) return false;
+    let user = {}; try { user = typeof getCurrentUser === 'function' ? (getCurrentUser() || {}) : JSON.parse(localStorage.getItem('user') || '{}'); } catch (_) {}
+    const role = String(user.role || '').toLowerCase();
+    if (role === 'admin' || role === 'super_admin' || role === 'superadmin') return true;
+    const senior = value => /grade\s*1[0-2]|form\s*[1-4]|senior/i.test(String(value || ''));
+    if (role === 'student') return senior(user.grade || user.className || window.dashboardData?.student?.grade || window.dashboardData?.student?.className);
+    if (role === 'parent') {
+        const id = String(window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '');
+        const child = (window.dashboardData?.children || []).find(c => String(c.id) === id) || window.dashboardData?.children?.[0];
+        return senior(child?.grade || child?.className || child?.Class?.name);
+    }
+    if (role === 'teacher') {
+        const assignments = window.dashboardData?.assignments || window.dashboardData?.classes || user.assignments || [];
+        return (Array.isArray(assignments) ? assignments : []).some(a => senior(a.grade || a.className || a.name || a.Class?.name));
+    }
+    return false;
 }
 function sectionAllowedByRulebook(section) {
     const feature = RULEBOOK_SECTION_FEATURE[section];
@@ -98,11 +114,7 @@ function updateSidebar(role) {
                 { icon: 'building-2', label: 'Departments', section: 'departments' },
                 { icon: 'user-plus', label: 'Teacher Approvals', section: 'teacher-approvals' },
                 { icon: 'graduation-cap', label: 'Students', section: 'students' },
-                { icon: 'route', label: 'Student Lifecycle', section: 'student-lifecycle' },
-                { icon: 'arrow-up-right', label: 'Academic Year Transition', section: 'academic-year-transition' },
-                { icon: 'clipboard-check', label: 'Attendance Corrections', section: 'attendance-corrections' },
-                { icon: 'file-clock', label: 'Report History', section: 'report-history' },
-                { icon: 'cake', label: 'Birthdays & Ages', section: 'birthdays' },
+                { icon: 'route', label: 'Student School Cycle', section: 'student-lifecycle' },
                 { icon: 'list-checks', label: 'Student Subjects', section: 'student-subject-selection' },
                 { icon: 'calendar', label: 'Calendar', section: 'calendar' },
                 { icon: 'clock', label: 'Duty', section: 'duty' },
@@ -113,7 +125,7 @@ function updateSidebar(role) {
                 { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
                 { icon: 'message-square', label: 'Bulk SMS', section: 'sms' },
                 { icon: 'message-circle', label: 'Parent Messages', section: 'parent-messages' },
-                { icon: 'wallet', label: 'Finance & Fees', section: 'finance-fees' }
+                { icon: 'wallet', label: 'Finance Workspace', section: 'finance-fees' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
@@ -131,16 +143,13 @@ function updateSidebar(role) {
                         const u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
                         const t = u?.teacher || {};
                         const isClassTeacher = !!(u?.classTeacher || u?.classId || t.classTeacher || t.classId || t.isClassTeacher || t.role === 'class_teacher');
-                        return isClassTeacher ? [{ icon: 'users', label: 'My Students', section: 'students' }] : [];
+                        return isClassTeacher ? [{ icon: 'users', label: 'My Students', section: 'students' }, { icon: 'file-clock', label: 'Report Cards', section: 'report-history' }, { icon: 'cake', label: 'Class Birthdays', section: 'birthdays' }] : [];
                     } catch (_) { return []; }
                 })(),
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'trending-up', label: 'Grades', section: 'grades' },
-                { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
-                { icon: 'cake', label: 'Class Birthdays', section: 'birthdays' },
                 { icon: 'check-square', label: 'Tasks', section: 'tasks' },
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
-                { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
                 { icon: 'message-circle', label: 'Messages', section: 'staff-chat' },
                 { icon: 'list-checks', label: 'Subject Requests', section: 'subject-requests' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
@@ -159,7 +168,6 @@ function updateSidebar(role) {
                 { icon: 'trending-up', label: 'Progress', section: 'progress' },
                 { icon: 'calendar-check', label: 'Attendance', section: 'child-attendance' },
                 { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
-                { icon: 'badge-dollar-sign', label: 'Child Subscription', section: 'child-subscription' },
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
                 { icon: 'calendar', label: 'Child Timetable', section: 'timetable' },
                 { icon: 'message-circle', label: 'Messages', section: 'chat' },
@@ -696,17 +704,25 @@ async function showDashboardSection(section) {
             alerts: 'Alerts Center',
             'parent-messages': 'Parent Messages',
             'career-path': 'Career Path',
-            'student-lifecycle': 'Student Lifecycle',
+            'student-lifecycle': 'Student School Cycle',
             'academic-year-transition': 'Academic Year Transition',
             'attendance-corrections': 'Attendance Corrections',
             'report-history': 'Report Card History',
             birthdays: 'Birthdays & Ages',
             'child-attendance': 'Child Attendance',
-            'child-subscription': 'Child Subscription'
+            'child-subscription': 'Payments'
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';
 
         content.innerHTML = await renderDashboardSection(currentRole, section);
+
+        if (section === 'dashboard' && typeof window.renderRecentAlertsPreview === 'function') {
+            const panel = document.createElement('section');
+            panel.className = 'mt-6 rounded-xl border bg-card p-5';
+            panel.innerHTML = '<div class="mb-3 flex items-center justify-between"><div><h3 class="font-semibold">Recent Alerts</h3><p class="text-xs text-muted-foreground">Latest updates for this account</p></div><button onclick="showDashboardSection(\'alerts\')" class="text-sm text-primary">View all</button></div><div id="dashboard-recent-alerts-v146"></div>';
+            content.appendChild(panel);
+            setTimeout(() => window.renderRecentAlertsPreview(), 40);
+        }
 
         setTimeout(() => { if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures(); }, 80);
 

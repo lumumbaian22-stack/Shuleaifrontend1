@@ -686,7 +686,7 @@ async function renderParentChat() {
             <div class="rounded-xl border bg-card p-4 h-[600px] flex flex-col">
                 <div class="flex justify-between items-center mb-4 pb-2 border-b">
                     <div>
-                        <h3 class="font-semibold">Message School Staff</h3>
+                        <h3 id="parent-chat-current-title" class="font-semibold">Message School Staff</h3>
                         <p class="text-xs text-muted-foreground">Chat with class teacher or admin about ${escapeHtml(childName)}</p>
                     </div>
                 </div>
@@ -706,7 +706,7 @@ async function renderParentChat() {
                 </div>
                 
                 <div class="flex gap-2">
-                    <input type="text" id="parent-chat-input" placeholder="Type your message..." 
+                    <input type="text" id="parent-chat-input" placeholder="Type your message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendParentMessage();}" 
                            class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                     <button onclick="sendParentMessage()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
                         <i data-lucide="send" class="h-4 w-4"></i>

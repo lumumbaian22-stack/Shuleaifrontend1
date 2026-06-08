@@ -326,9 +326,11 @@ async function loadUserStats(role) {
 // Profile picture upload function
 async function uploadProfilePicture(file) {
     if (!file) return;
+    if (!/^image\//i.test(file.type || '')) return showToast('Choose an image file.', 'error');
+    if (file.size > 5 * 1024 * 1024) return showToast('Image must be 5 MB or smaller.', 'error');
     const formData = new FormData();
     formData.append('picture', file);
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     showLoading();
     try {
         const response = await fetch(`${API_BASE_URL}/api/user/profile-picture`, {
@@ -406,9 +408,11 @@ function safeSetUserStorage(user) {
 // Signature upload function
 async function uploadSignature(file) {
     if (!file) return;
+    if (!/^image\//i.test(file.type || '')) return showToast('Choose an image file.', 'error');
+    if (file.size > 2 * 1024 * 1024) return showToast('Signature must be 2 MB or smaller.', 'error');
     const formData = new FormData();
     formData.append('signature', file);
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     showLoading();
     try {
         const response = await fetch(`${API_BASE_URL}/api/user/signature`, {

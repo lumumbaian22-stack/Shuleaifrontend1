@@ -62,14 +62,12 @@ async function refreshCalendarEvents() {
         const res = await api.calendar.getEvents();
         calendarEventsCache = normalizeCalendarEventsResponse(res).map(normalizeCalendarEvent);
         calendarEventsLoaded = true;
-        localStorage.setItem('calendarEventsFallback', JSON.stringify(calendarEventsCache));
         return calendarEventsCache;
     } catch (error) {
         console.error('Error loading school calendar from backend:', error);
-        try {
-            calendarEventsCache = normalizeCalendarEventsResponse(JSON.parse(localStorage.getItem('calendarEventsFallback') || '[]')).map(normalizeCalendarEvent);
-        } catch (_) { calendarEventsCache = []; }
-        return calendarEventsCache;
+        calendarEventsCache = [];
+        calendarEventsLoaded = false;
+        throw error;
     } finally {
         calendarEventsLoading = false;
     }
@@ -88,7 +86,6 @@ function loadCalendarEvents() {
 
 async function saveCalendarEvents(events) {
     calendarEventsCache = normalizeCalendarEventsResponse(events).map(normalizeCalendarEvent);
-    localStorage.setItem('calendarEventsFallback', JSON.stringify(calendarEventsCache));
     return calendarEventsCache;
 }
 

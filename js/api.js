@@ -778,6 +778,9 @@ const tutorAPI = {
     ask: (data) => apiRequest('/api/tutor/ask', { method: 'POST', body: JSON.stringify(data) }),
     getProgress: (studentId = '') => apiRequest(`/api/tutor/progress/${studentId}`),
     getSession: (studentId = '') => apiRequest(`/api/tutor/session/${studentId}`),
+    listSessions: () => apiRequest('/api/tutor/sessions'),
+    createSession: (data = {}) => apiRequest('/api/tutor/sessions', { method:'POST', body:JSON.stringify(data) }),
+    getSessionById: (id) => apiRequest(`/api/tutor/sessions/${id}`),
     submitPracticeAnswer: (data) => apiRequest('/api/tutor/practice/answer', { method: 'POST', body: JSON.stringify(data) }),
     getParentReport: (parentId = '') => apiRequest(`/api/tutor/reports/parent/${parentId}`),
     getTeacherReport: (classId = '') => apiRequest(`/api/tutor/reports/teacher/${classId}`)
