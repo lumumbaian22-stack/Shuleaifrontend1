@@ -1,0 +1,493 @@
+
+/* Shule AI V8 Production Dashboard Design System
+   Clean SaaS for Admin/Teacher/Parent/Super Admin.
+   Gamified styling for Student.
+   Fully theme-aware using existing Tailwind variables + extra tokens.
+*/
+
+:root {
+  --dash-bg: #f6f8fb;
+  --dash-surface: #ffffff;
+  --dash-surface-2: #f1f5f9;
+  --dash-text: #0f172a;
+  --dash-muted: #64748b;
+  --dash-border: rgba(15, 23, 42, .10);
+  --dash-shadow: 0 18px 60px rgba(15, 23, 42, .08);
+  --dash-radius: 24px;
+  --dash-blue: #2563eb;
+  --dash-purple: #7c3aed;
+  --dash-green: #10b981;
+  --dash-orange: #f97316;
+}
+
+.dark {
+  --dash-bg: #08111f;
+  --dash-surface: #101a2d;
+  --dash-surface-2: #152239;
+  --dash-text: #e5eefc;
+  --dash-muted: #94a3b8;
+  --dash-border: rgba(226, 232, 240, .12);
+  --dash-shadow: 0 18px 70px rgba(0, 0, 0, .35);
+}
+
+body {
+  background: var(--dash-bg) !important;
+}
+
+/* Dashboard shell */
+#dashboard-container {
+  background: var(--dash-bg);
+  color: var(--dash-text);
+}
+
+#sidebar {
+  width: 18rem !important;
+  background: var(--dash-surface) !important;
+  border-right: 1px solid var(--dash-border) !important;
+  box-shadow: 12px 0 40px rgba(15,23,42,.035);
+}
+
+.dark #sidebar {
+  box-shadow: 12px 0 40px rgba(0,0,0,.18);
+}
+
+#sidebar > div {
+  padding: 1rem;
+}
+
+#sidebar .h-16 {
+  height: auto !important;
+  min-height: 72px;
+  border-bottom-color: var(--dash-border) !important;
+  padding: 0.75rem 0.75rem !important;
+}
+
+#sidebar .h-10.w-10 {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(37,99,235,.18);
+}
+
+#sidebar-school-name {
+  font-size: 1.08rem !important;
+  letter-spacing: -0.04em;
+}
+
+#sidebar-nav,
+#settings-nav {
+  display: grid;
+  gap: .45rem;
+}
+
+#sidebar-nav .sidebar-link,
+#settings-nav .sidebar-link {
+  min-height: 48px;
+  border-radius: 16px !important;
+  padding: 0 14px !important;
+  color: var(--dash-muted) !important;
+  font-weight: 750;
+  transition: all .18s ease;
+}
+
+#sidebar-nav .sidebar-link:hover,
+#settings-nav .sidebar-link:hover {
+  background: var(--dash-surface-2) !important;
+  color: var(--dash-text) !important;
+  transform: translateX(2px);
+}
+
+#sidebar-nav .sidebar-link-active,
+#settings-nav .sidebar-link-active,
+#sidebar-nav .sidebar-link.active,
+#settings-nav .sidebar-link.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--dash-blue), var(--dash-purple)) !important;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, .24);
+}
+
+#sidebar .border-t {
+  border-color: var(--dash-border) !important;
+}
+
+/* Collapsible sidebar production behavior */
+body.sidebar-collapsed #sidebar {
+  width: 5.75rem !important;
+}
+
+body.sidebar-collapsed #sidebar-school-name,
+body.sidebar-collapsed #sidebar .sidebar-link span,
+body.sidebar-collapsed #settings-nav .sidebar-link span,
+body.sidebar-collapsed #sidebar h3,
+body.sidebar-collapsed #sidebar button span {
+  display: none !important;
+}
+
+body.sidebar-collapsed #sidebar .sidebar-link {
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+body.sidebar-collapsed #sidebar + div {
+  margin-left: 5.75rem !important;
+}
+
+@media (min-width: 1024px) {
+  #sidebar + div {
+    margin-left: 18rem !important;
+    transition: margin-left .25s ease;
+  }
+}
+
+/* Topbar */
+#dashboard-container header.sticky {
+  height: 76px !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  border-bottom: 1px solid var(--dash-border) !important;
+  background: color-mix(in srgb, var(--dash-bg) 88%, transparent) !important;
+  backdrop-filter: blur(18px);
+}
+
+#page-title {
+  font-size: 1.75rem !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.05em;
+}
+
+#global-search {
+  height: 44px !important;
+  border-radius: 999px !important;
+  border-color: var(--dash-border) !important;
+  background: var(--dash-surface) !important;
+  color: var(--dash-text) !important;
+}
+
+#dashboard-container header button {
+  border-radius: 14px !important;
+}
+
+/* Main content spaciousness */
+#dashboard-container main {
+  padding: 2rem !important;
+}
+
+#dashboard-content {
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+/* Universal cards */
+#dashboard-content .rounded-xl,
+#dashboard-content .rounded-lg,
+#auth-modal .rounded-xl {
+  border-radius: 24px !important;
+}
+
+#dashboard-content .border,
+#auth-modal .border {
+  border-color: var(--dash-border) !important;
+}
+
+#dashboard-content .bg-card,
+#auth-modal .bg-card {
+  background: var(--dash-surface) !important;
+}
+
+#dashboard-content .card-hover,
+#dashboard-content .bg-card,
+#dashboard-content .rounded-xl.border,
+#dashboard-content .rounded-lg.border {
+  box-shadow: 0 8px 30px rgba(15,23,42,.045);
+}
+
+.dark #dashboard-content .card-hover,
+.dark #dashboard-content .bg-card,
+.dark #dashboard-content .rounded-xl.border,
+.dark #dashboard-content .rounded-lg.border {
+  box-shadow: 0 8px 30px rgba(0,0,0,.20);
+}
+
+#dashboard-content .p-6 {
+  padding: 1.65rem !important;
+}
+
+#dashboard-content .p-4 {
+  padding: 1.25rem !important;
+}
+
+/* Hero/header cards */
+#dashboard-content .bg-gradient-to-r.from-blue-50,
+#dashboard-content .bg-gradient-to-r.from-green-50,
+#dashboard-content .bg-gradient-to-r.from-purple-50,
+#dashboard-content .bg-gradient-to-r.from-indigo-50 {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(37, 99, 235, .12), transparent 35%),
+    var(--dash-surface) !important;
+  border: 1px solid var(--dash-border) !important;
+  box-shadow: var(--dash-shadow);
+}
+
+.dark #dashboard-content .dark\:from-gray-800,
+.dark #dashboard-content .dark\:to-gray-700 {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(37, 99, 235, .18), transparent 35%),
+    var(--dash-surface) !important;
+}
+
+/* Stats cards */
+#dashboard-content .grid .rounded-xl.border.bg-card {
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+#dashboard-content .grid .rounded-xl.border.bg-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--dash-shadow);
+}
+
+#dashboard-content h2,
+#dashboard-content h3 {
+  letter-spacing: -0.04em;
+}
+
+#dashboard-content .text-muted-foreground {
+  color: var(--dash-muted) !important;
+}
+
+/* Tables */
+#dashboard-content table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#dashboard-content th {
+  color: var(--dash-muted) !important;
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 800;
+}
+
+#dashboard-content td,
+#dashboard-content th {
+  border-color: var(--dash-border) !important;
+}
+
+#dashboard-content tbody tr {
+  transition: background .16s ease;
+}
+
+#dashboard-content tbody tr:hover {
+  background: var(--dash-surface-2);
+}
+
+/* Buttons */
+#dashboard-content button,
+#dashboard-content .btn,
+#auth-modal button {
+  border-radius: 999px !important;
+  font-weight: 750;
+}
+
+/* Inputs */
+#dashboard-content input,
+#dashboard-content select,
+#dashboard-content textarea,
+#auth-modal input,
+#auth-modal select,
+#auth-modal textarea {
+  border-radius: 16px !important;
+  border-color: var(--dash-border) !important;
+  background: var(--dash-surface) !important;
+  color: var(--dash-text) !important;
+}
+
+/* Mobile bottom nav */
+.mobile-bottom-nav {
+  left: 12px !important;
+  right: 12px !important;
+  bottom: 12px !important;
+  width: auto !important;
+  border: 1px solid var(--dash-border) !important;
+  border-radius: 24px !important;
+  background: color-mix(in srgb, var(--dash-surface) 92%, transparent) !important;
+  backdrop-filter: blur(18px);
+  box-shadow: var(--dash-shadow);
+  overflow: hidden;
+}
+
+.mobile-nav-item {
+  border-radius: 18px !important;
+  margin: 4px !important;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.mobile-nav-item.active,
+.mobile-nav-item.sidebar-link-active {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--dash-blue), var(--dash-purple)) !important;
+}
+
+/* Student gamified dashboard */
+body.role-student #dashboard-container {
+  background:
+    radial-gradient(circle at 8% 4%, rgba(251,146,60,.20), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(124,58,237,.18), transparent 30%),
+    var(--dash-bg);
+}
+
+body.role-student #sidebar-nav .sidebar-link-active,
+body.role-student #settings-nav .sidebar-link-active {
+  background: linear-gradient(135deg, #fb923c, #ec4899, #7c3aed) !important;
+  box-shadow: 0 14px 34px rgba(236,72,153,.25);
+}
+
+body.role-student #page-title::after {
+  content: " ✨";
+}
+
+body.role-student #dashboard-content > .space-y-6 > .rounded-xl.border.bg-card:first-child {
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(255,255,255,.22), transparent 28%),
+    linear-gradient(135deg, #fb923c, #ec4899, #7c3aed) !important;
+  box-shadow: 0 28px 80px rgba(236,72,153,.25);
+}
+
+body.role-student #dashboard-content > .space-y-6 > .rounded-xl.border.bg-card:first-child .text-muted-foreground,
+body.role-student #dashboard-content > .space-y-6 > .rounded-xl.border.bg-card:first-child p {
+  color: rgba(255,255,255,.78) !important;
+}
+
+body.role-student #dashboard-content .grid .rounded-xl.border.bg-card {
+  border-radius: 30px !important;
+}
+
+body.role-student #dashboard-content .bg-blue-100,
+body.role-student #dashboard-content .bg-green-100,
+body.role-student #dashboard-content .bg-yellow-100,
+body.role-student #dashboard-content .bg-purple-100 {
+  background: #fff7ed !important;
+}
+
+body.role-student #dashboard-content .text-blue-600,
+body.role-student #dashboard-content .text-green-600,
+body.role-student #dashboard-content .text-yellow-600,
+body.role-student #dashboard-content .text-purple-600 {
+  color: #f97316 !important;
+}
+
+/* Student XP helper if injected */
+.student-xp-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  color: #fff;
+  border-radius: 34px;
+  padding: 1.75rem;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(255,255,255,.22), transparent 28%),
+    linear-gradient(135deg, #fb923c, #ec4899, #7c3aed);
+  box-shadow: 0 28px 80px rgba(236,72,153,.25);
+}
+
+.student-xp-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.22);
+  border: 1px solid rgba(255,255,255,.24);
+  font-weight: 900;
+  font-size: 1.5rem;
+}
+
+.student-xp-bar {
+  min-width: 280px;
+  padding: 1rem;
+  border-radius: 22px;
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.24);
+}
+
+.student-xp-bar-track {
+  height: 13px;
+  margin-top: .6rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,.22);
+}
+
+.student-xp-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fde047;
+}
+
+/* Role accents */
+body.role-teacher {
+  --dash-blue: #7c3aed;
+}
+
+body.role-parent {
+  --dash-blue: #10b981;
+}
+
+body.role-super_admin,
+body.role-superadmin {
+  --dash-blue: #4f46e5;
+}
+
+/* Responsive polish */
+@media (max-width: 1023px) {
+  #sidebar {
+    width: 18rem !important;
+  }
+
+  body.sidebar-collapsed #sidebar {
+    width: 18rem !important;
+  }
+
+  body.sidebar-collapsed #sidebar + div,
+  #sidebar + div {
+    margin-left: 0 !important;
+  }
+
+  #dashboard-container main {
+    padding: 1.25rem 1rem 6.8rem !important;
+  }
+
+  #dashboard-container header.sticky {
+    height: auto !important;
+    min-height: 72px;
+  }
+
+  #page-title {
+    font-size: 1.35rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  #dashboard-content .grid {
+    gap: 1rem !important;
+  }
+
+  #dashboard-content .p-6,
+  #dashboard-content .p-4 {
+    padding: 1rem !important;
+  }
+
+  .student-xp-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .student-xp-bar {
+    min-width: 0;
+  }
+}
