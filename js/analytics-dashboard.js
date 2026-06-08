@@ -6,12 +6,12 @@ async function renderAnalyticsSection(role) {
         if (role === 'superadmin') {
             const res = await api.superAdmin.getAnalytics();
             data = res.data;
-        } else if (role === 'admin') {
-            const res = await api.admin.getAnalytics();
+        } else if (role === 'admin' || role === 'teacher') {
+            const query = window.__advancedAnalyticsQuery || '';
+            const res = await apiRequest(`/api/analytics/advanced/summary${query ? `?${query}` : ''}`);
             data = res.data;
-        } else if (role === 'teacher') {
-            const res = await api.teacher.getAnalytics();
-            data = res.data;
+            hideLoading();
+            return renderAdvancedAcademicAnalytics(role, { ...(data || {}), __loadedAt: new Date().toISOString() });
         } else if (role === 'parent') {
             const childId = dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || dashboardData?.selectedChild?.id || dashboardData?.children?.[0]?.id;
             if (!childId) { hideLoading(); return '<div class="text-center py-12">Please select a child first</div>'; }
@@ -25,6 +25,48 @@ async function renderAnalyticsSection(role) {
         return generateAnalyticsHTML(role, { ...(data || {}), __loadedAt: new Date().toISOString() });
     } catch (error) { hideLoading(); return `<div class="text-red-500 py-12">Error loading analytics: ${error.message}</div>`; }
 }
+
+
+function analyticsValue(value, suffix='') { return value === null || value === undefined || value === '' ? '—' : `${value}${suffix}`; }
+function advancedRows(rows, nameKey='name') {
+    rows = Array.isArray(rows) ? rows : [];
+    if (!rows.length) return '<div class="p-5 text-sm text-muted-foreground">No matching records for the selected filters.</div>';
+    return `<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="p-3 text-left">Name</th><th class="p-3 text-left">Learners</th><th class="p-3 text-left">Mean Score</th><th class="p-3 text-left">Mean Grade</th></tr></thead><tbody class="divide-y">${rows.map(row=>`<tr><td class="p-3 font-medium">${escapeHtml(row[nameKey] || row.name || '—')}</td><td class="p-3">${analyticsValue(row.learnerCount)}</td><td class="p-3">${analyticsValue(row.meanScore,'%')}</td><td class="p-3">${escapeHtml(row.meanGrade || '—')}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function currentAdvancedAnalyticsQuery() {
+    const params = new URLSearchParams();
+    const fields = { year:'analytics-year', term:'analytics-term', assessmentType:'analytics-assessment-type', assessmentName:'analytics-assessment-name', classId:'analytics-class-id', stream:'analytics-stream', subject:'analytics-subject', studentId:'analytics-student-id', gender:'analytics-gender' };
+    Object.entries(fields).forEach(([key,id])=>{ const value=document.getElementById(id)?.value?.trim(); if(value) params.set(key,value); });
+    if (document.getElementById('analytics-published-only')?.checked) params.set('publishedOnly','true');
+    return params.toString();
+}
+async function applyAdvancedAnalyticsFilters() {
+    window.__advancedAnalyticsQuery = currentAdvancedAnalyticsQuery();
+    await showDashboardSection('analytics');
+}
+function clearAdvancedAnalyticsFilters() {
+    window.__advancedAnalyticsQuery = '';
+    showDashboardSection('analytics');
+}
+function renderAdvancedAcademicAnalytics(role,data) {
+    const ov=data.overview||{}, filters=data.filters||{};
+    const rankings=Array.isArray(data.studentRankings)?data.studentRankings:[];
+    const gender=Array.isArray(data.genderAnalysis)?data.genderAnalysis:[];
+    const improvements=Array.isArray(data.improvementTrends)?data.improvementTrends:[];
+    const risks=Array.isArray(data.riskIndicators)?data.riskIndicators:[];
+    window.__advancedAnalyticsData=data;
+    return `<div class="space-y-6 animate-fade-in analytics-container">
+      <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">Curriculum-aware academic intelligence</p><h2 class="text-2xl font-bold">${role==='teacher'?'Assigned Class & Subject Analytics':'Advanced Academic Analytics'}</h2><p class="text-sm text-muted-foreground">Mean scores and grades use the school’s active curriculum scale. Subjects not taken are excluded from learner means.</p></div><div class="flex flex-wrap gap-2"><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('pdf').catch(e=>showToast(e.message,'error'))">PDF Summary</button><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('xlsx').catch(e=>showToast(e.message,'error'))">Excel Workbook</button><button class="px-3 py-2 rounded-lg border" onclick="downloadAdvancedAnalytics('csv').catch(e=>showToast(e.message,'error'))">CSV Table</button><button class="px-3 py-2 rounded-lg border" onclick="window.print()">Print</button></div></div>
+      <section class="rounded-2xl border bg-card p-5"><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5"><input id="analytics-year" type="number" value="${escapeHtml(filters.year||'')}" class="rounded-lg border bg-background px-3 py-2" placeholder="Academic year"><input id="analytics-term" value="${escapeHtml(filters.term||'')}" class="rounded-lg border bg-background px-3 py-2" placeholder="Term"><input id="analytics-assessment-name" value="${escapeHtml(filters.assessmentName||'')}" class="rounded-lg border bg-background px-3 py-2" placeholder="Assessment"><input id="analytics-class-id" value="${escapeHtml(filters.classId||'')}" class="rounded-lg border bg-background px-3 py-2" placeholder="Class ID"><input id="analytics-stream" value="${escapeHtml(filters.stream||'')}" class="rounded-lg border bg-background px-3 py-2" placeholder="Stream"><input id="analytics-subject" value="${escapeHtml(filters.subject||'')}" class="rounded-lg border bg-background px-3 py-2" placeholder="Subject"><input id="analytics-student-id" value="${escapeHtml(filters.studentId||'')}" class="rounded-lg border bg-background px-3 py-2" placeholder="Student ID"><select id="analytics-gender" class="rounded-lg border bg-background px-3 py-2"><option value="">All genders</option><option value="male" ${filters.gender==='male'?'selected':''}>Male</option><option value="female" ${filters.gender==='female'?'selected':''}>Female</option></select><select id="analytics-assessment-type" class="rounded-lg border bg-background px-3 py-2"><option value="">All assessment types</option>${['CAT','Midterm','End Term','SBA','Project','Practical'].map(x=>`<option value="${x}" ${filters.assessmentType===x?'selected':''}>${x}</option>`).join('')}</select><label class="rounded-lg border px-3 py-2 flex items-center gap-2 text-sm"><input id="analytics-published-only" type="checkbox" ${filters.publishedOnly?'checked':''}> Published only</label></div><div class="mt-4 flex justify-end gap-2"><button onclick="clearAdvancedAnalyticsFilters()" class="px-4 py-2 rounded-lg border">Clear</button><button onclick="applyAdvancedAnalyticsFilters()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Apply Filters</button></div></section>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5"><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Learners</p><p class="text-2xl font-bold">${analyticsValue(ov.learnerCount)}</p></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Records</p><p class="text-2xl font-bold">${analyticsValue(ov.recordCount)}</p></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">School Mean</p><p class="text-2xl font-bold">${analyticsValue(ov.schoolMeanScore,'%')}</p></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Mean Grade</p><p class="text-2xl font-bold">${escapeHtml(ov.schoolMeanGrade||'—')}</p></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Top Learner</p><p class="font-bold mt-1">${escapeHtml(ov.topLearner?.name||'—')}</p><p class="text-sm text-muted-foreground">${analyticsValue(ov.topLearner?.meanScore,'%')} · ${escapeHtml(ov.topLearner?.meanGrade||'—')}</p></div></div>
+      <section class="rounded-2xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Student Leaderboard</h3><p class="text-xs text-muted-foreground">Position, mean, grade, improvement and attendance</p></div>${rankings.length?`<div class="overflow-x-auto"><table class="w-full text-sm min-w-[900px]"><thead class="bg-muted/50"><tr><th class="p-3 text-left">Pos.</th><th class="p-3 text-left">Learner</th><th class="p-3 text-left">Class</th><th class="p-3 text-left">Mean</th><th class="p-3 text-left">Grade</th><th class="p-3 text-left">Subjects</th><th class="p-3 text-left">Improvement</th><th class="p-3 text-left">Attendance</th></tr></thead><tbody class="divide-y">${rankings.slice(0,100).map(row=>`<tr><td class="p-3 font-bold">${row.position}</td><td class="p-3 font-medium">${escapeHtml(row.name)}</td><td class="p-3">${escapeHtml(row.className||'—')}${row.stream?` · ${escapeHtml(row.stream)}`:''}</td><td class="p-3">${analyticsValue(row.meanScore,'%')}</td><td class="p-3">${escapeHtml(row.meanGrade||'—')}</td><td class="p-3">${analyticsValue(row.countedSubjects)}</td><td class="p-3 ${Number(row.improvement||0)>=0?'text-green-600':'text-red-600'}">${row.improvement===null||row.improvement===undefined?'—':`${row.improvement>=0?'+':''}${row.improvement}`}</td><td class="p-3">${analyticsValue(row.attendanceRate,'%')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="p-5 text-sm text-muted-foreground">No published academic results match the filters.</div>'}</section>
+      <div class="grid gap-4 xl:grid-cols-3"><section class="rounded-2xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Class / Grade Means</h3></div>${advancedRows(data.classMeans)}</section><section class="rounded-2xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Stream Means</h3></div>${advancedRows(data.streamMeans)}</section><section class="rounded-2xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Subject Means</h3></div>${advancedRows(data.subjectMeans)}</section></div>
+      <div class="grid gap-4 lg:grid-cols-2"><section class="rounded-2xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Gender Analysis</h3></div>${gender.length?`<div class="divide-y">${gender.map(row=>`<div class="p-4"><div class="flex justify-between gap-3"><strong class="capitalize">${escapeHtml(row.gender)}</strong><span>${analyticsValue(row.meanScore,'%')} · ${escapeHtml(row.meanGrade||'—')}</span></div><p class="text-sm text-muted-foreground mt-1">Leading learner: ${escapeHtml(row.leadingLearner?.name||'—')} · competency/pass ${analyticsValue(row.competencyPercentage,'%')} · attendance ${analyticsValue(row.attendanceRate,'%')}</p></div>`).join('')}</div>`:'<div class="p-5 text-sm text-muted-foreground">Gender comparison is hidden when valid gender data is unavailable.</div>'}</section><section class="rounded-2xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Most Improved Learners</h3></div>${improvements.length?`<div class="divide-y">${improvements.slice(0,15).map(row=>`<div class="p-4 flex justify-between gap-3"><span><strong>${escapeHtml(row.name)}</strong><span class="block text-xs text-muted-foreground">${escapeHtml(row.previousAssessment||'Previous')} → ${escapeHtml(row.currentAssessment||'Current')}</span></span><strong class="text-green-600">${row.improvement>=0?'+':''}${row.improvement}</strong></div>`).join('')}</div>`:'<div class="p-5 text-sm text-muted-foreground">At least two assessments are required for improvement trends.</div>'}</section></div>
+      <section class="rounded-2xl border ${risks.length?'border-amber-300 bg-amber-50/40 dark:bg-amber-950/10':'bg-card'} overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Learners Requiring Support</h3></div>${risks.length?`<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th class="p-3 text-left">Learner</th><th class="p-3 text-left">Class</th><th class="p-3 text-left">Mean</th><th class="p-3 text-left">Grade</th><th class="p-3 text-left">Attendance</th><th class="p-3 text-left">Risk</th></tr></thead><tbody class="divide-y">${risks.map(row=>`<tr><td class="p-3 font-medium">${escapeHtml(row.name)}</td><td class="p-3">${escapeHtml(row.className||'—')}</td><td class="p-3">${analyticsValue(row.meanScore,'%')}</td><td class="p-3">${escapeHtml(row.meanGrade||'—')}</td><td class="p-3">${analyticsValue(row.attendanceRate,'%')}</td><td class="p-3 capitalize">${escapeHtml(String(row.risk||'').replace(/_/g,' '))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="p-5 text-sm text-muted-foreground">No learners are below the configured support threshold.</div>'}</section>
+    </div>`;
+}
+window.applyAdvancedAnalyticsFilters=applyAdvancedAnalyticsFilters;
+window.clearAdvancedAnalyticsFilters=clearAdvancedAnalyticsFilters;
 
 function formatDateTime(value) {
     if (!value) return 'just now';
@@ -333,7 +375,8 @@ async function downloadAdvancedAnalytics(format) {
     const endpoint = ext === 'excel' || ext === 'xlsx' ? 'export.xlsx' : ext === 'csv' ? 'export.csv' : 'export.pdf';
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     const base = (localStorage.getItem('SHULE_API_BASE_URL') || window.SHULE_API_BASE_URL || 'https://shuleaibackend-32h1.onrender.com').replace(/\/$/, '');
-    const response = await fetch(`${base}/api/analytics/advanced/${endpoint}`, { headers: { Authorization: `Bearer ${token}` } });
+    const query = window.__advancedAnalyticsQuery || '';
+    const response = await fetch(`${base}/api/analytics/advanced/${endpoint}${query ? `?${query}` : ''}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) { let message = 'Analytics export failed'; try { message = (await response.json()).message || message; } catch (_) {} throw new Error(message); }
     const blob = await response.blob();
     const disposition = response.headers.get('content-disposition') || '';

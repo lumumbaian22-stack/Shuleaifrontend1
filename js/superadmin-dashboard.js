@@ -433,7 +433,7 @@ function renderSuperAdminSettings() {
                     <h3 class="font-semibold mb-4">Data Management</h3>
                     <div class="space-y-4">
                         <button onclick="exportPlatformData()" class="w-full py-2 border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-2">
-                            <i data-lucide="download" class="h-4 w-4"></i> Export All Platform Data (JSON)
+                            <i data-lucide="download" class="h-4 w-4"></i> Download Platform Data CSV
                         </button>
                         <button onclick="clearPlatformCache()" class="w-full py-2 border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-2 text-yellow-600">
                             <i data-lucide="trash-2" class="h-4 w-4"></i> Clear Platform Cache

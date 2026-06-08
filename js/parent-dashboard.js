@@ -91,6 +91,12 @@ async function renderParentSection(section) {
             return await renderParentDashboard();
         case 'progress':
             return await renderParentProgress();
+        case 'child-attendance':
+            return await window.renderParentAttendanceCentre();
+        case 'report-history':
+            return await window.renderReportHistoryCentre('parent');
+        case 'child-subscription':
+            return await window.renderParentSubscriptionCentre();
         case 'competency':
             return await renderParentCompetency();    
         case 'payments':
@@ -101,6 +107,8 @@ async function renderParentSection(section) {
             return renderHelpSection();
         case 'chat':
             return await renderParentChat();
+        case 'subject-choice':
+            return await window.renderSeniorSubjectChoice('parent');
         case 'profile':
         case 'settings':
             return await renderProfileSection();

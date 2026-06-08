@@ -41,15 +41,15 @@
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=143">
-    <link rel="stylesheet" href="css/landing-premium.css?v=143">
-    <link rel="stylesheet" href="css/dashboard-production.css?v=143">
-    <link rel="stylesheet" href="css/approved-visuals.css?v=143">
-    <link rel="stylesheet" href="css/theme-stability.css?v=143">
-    <link rel="stylesheet" href="css/approved-student-teacher-ui.css?v=143">
-    <link rel="stylesheet" href="css/chat-v9.css?v=143">
-    <link rel="stylesheet" href="css/theme-system.css?v=143">
-    <link rel="stylesheet" href="css/help-support.css?v=143">
+    <link rel="stylesheet" href="css/style.css?v=144">
+    <link rel="stylesheet" href="css/landing-premium.css?v=144">
+    <link rel="stylesheet" href="css/dashboard-production.css?v=144">
+    <link rel="stylesheet" href="css/approved-visuals.css?v=144">
+    <link rel="stylesheet" href="css/theme-stability.css?v=144">
+    <link rel="stylesheet" href="css/approved-student-teacher-ui.css?v=144">
+    <link rel="stylesheet" href="css/chat-v9.css?v=144">
+    <link rel="stylesheet" href="css/theme-system.css?v=144">
+    <link rel="stylesheet" href="css/help-support.css?v=144">
     
     <script>
         tailwind.config = {
@@ -680,19 +680,19 @@
 
             <div class="lp-pricing-grid">
                 <article class="lp-price-card lp-reveal">
-                    <h3>Free Trial</h3><p>Test the core dashboard and onboarding flow.</p><strong>KES 0</strong><span>limited trial</span>
-                    <ul><li>Full admin, teacher, parent and student demo</li><li>Demo marks, attendance, calendar and analytics</li><li>No real money collection</li></ul>
-                    <button type="button" class="lp-btn lp-btn-outline" onclick="openFullSystemDemo()">Try Full Demo</button>
+                    <h3>Starter</h3><p>Core school operations for schools building a reliable digital foundation.</p><strong>Custom</strong><span>school subscription</span>
+                    <ul><li>Students, teachers, classes and analytics</li><li>Alerts, fees and parent messages</li><li>School settings and billing</li></ul>
+                    <button type="button" class="lp-btn lp-btn-outline" onclick="openAuthModal('admin','signup')">Get Started</button>
                 </article>
                 <article class="lp-price-card featured lp-reveal lp-delay-1">
-                    <i>Most Practical</i><h3>Starter School</h3><p>For schools ready to manage real users and records.</p><strong>Custom</strong><span>per school / term</span>
-                    <ul><li>Admin, teacher, parent, student portals</li><li>Marks, attendance, messaging</li><li>Calendar and school settings</li></ul>
+                    <i>Most Practical</i><h3>Growth</h3><p>Everything in Starter, with the tools needed for an expanding school.</p><strong>Custom</strong><span>school subscription</span>
+                    <ul><li>Academic calendar and timetable</li><li>School branding</li><li>Homework management</li></ul>
                     <button type="button" class="lp-btn lp-btn-primary" onclick="openAuthModal('admin','signup')">Get Started</button>
                 </article>
                 <article class="lp-price-card lp-reveal lp-delay-2">
-                    <h3>Pro School</h3><p>Advanced automation, AI tutor, analytics, and gamification.</p><strong>Custom</strong><span>premium plan</span>
-                    <ul><li>AI tutor and insights</li><li>Advanced timetable tools</li><li>Gamification and reward system</li></ul>
-                    <a class="lp-btn lp-btn-outline" href="mailto:hello@shuleai.app?subject=Shule%20AI%20Pro%20School%20Inquiry">Contact Sales</a>
+                    <h3>Enterprise</h3><p>Complete school operations for larger institutions and multi-department teams.</p><strong>Custom</strong><span>school subscription</span>
+                    <ul><li>Duty and fairness reports</li><li>Departments and bulk SMS</li><li>Everything in Starter and Growth</li></ul>
+                    <a class="lp-btn lp-btn-outline" href="mailto:hello@shuleai.app?subject=Shule%20AI%20Enterprise%20Inquiry">Contact Sales</a>
                 </article>
             </div>
         </section>
@@ -787,8 +787,8 @@
                 <!-- Sidebar Header -->
                 <div class="flex h-16 items-center border-b border-sidebar-border px-6">
                     <div class="flex items-center gap-3">
-                        <img id="sidebar-logo-light" data-school-logo="true" data-brand-logo-light="true" src="assets/logo-light.png?v=143" alt="Shule AI Logo" class="h-10 w-10 object-contain school-sidebar-logo" style="display:block;visibility:visible">
-                        <img id="sidebar-logo-dark" data-school-logo="true" data-brand-logo-dark="true" src="assets/logo-light.png?v=143" alt="Shule AI Logo" class="h-10 w-10 object-contain school-sidebar-logo" style="display:none;visibility:hidden">
+                        <img id="sidebar-logo-light" data-school-logo="true" data-brand-logo-light="true" src="assets/logo-light.png?v=144" alt="Shule AI Logo" class="h-10 w-10 object-contain school-sidebar-logo" style="display:block;visibility:visible">
+                        <img id="sidebar-logo-dark" data-school-logo="true" data-brand-logo-dark="true" src="assets/logo-light.png?v=144" alt="Shule AI Logo" class="h-10 w-10 object-contain school-sidebar-logo" style="display:none;visibility:hidden">
                         <span id="sidebar-school-name" class="text-lg font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent truncate max-w-[160px]" data-school-name>ShuleAI</span>
                     </div>
                 </div>
@@ -884,57 +884,58 @@
 <!-- JavaScript Modules -->
     <!-- Clean v34 app loader -->
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js" defer></script>
-    <script src="js/api.js?v=143" defer></script>
-    <script src="js/auth.js?v=143" defer></script>
-    <script src="js/realtime-store.js?v=143" defer></script>
-    <script src="js/realtime-client.js?v=143" defer></script>
-    <script src="js/realtime-handlers.js?v=143" defer></script>
-    <script src="js/websocket.js?v=143" defer></script>
-    <script src="js/helpers.js?v=143" defer></script>
-    <script src="js/ui-helpers.js?v=143" defer></script>
-    <script src="js/branding-manager.js?v=143" defer></script>
-    <script src="js/curriculum.js?v=143" defer></script>
-    <script src="js/duty.js?v=143" defer></script>
-    <script src="js/super-admin-approvals.js?v=143" defer></script>
-    <script src="js/admin-approval.js?v=143" defer></script>
-    <script src="js/class-management.js?v=143" defer></script>
-    <script src="js/admin-student-management.js?v=143" defer></script>
-    <script src="js/teacher-student-management.js?v=143" defer></script>
-    <script src="js/csv-upload.js?v=143" defer></script>
-    <script src="js/analytics.js?v=143" defer></script>
-    <script src="js/upload.js?v=143" defer></script>
-    <script src="js/calendar.js?v=143" defer></script>
-    <script src="js/messaging.js?v=143" defer></script>
-    <script src="js/teacher-dashboard.js?v=143" defer></script>
-    <script src="js/superadmin-dashboard.js?v=143" defer></script>
-    <script src="js/attendance-admin-ui.js?v=143" defer></script>
-    <script src="js/student-lifecycle-ui.js?v=143" defer></script>
-    <script src="js/admin-dashboard.js?v=143" defer></script>
-    <script src="js/approved-visuals.js?v=143" defer></script>
-    <script src="js/parent-dashboard.js?v=143" defer></script>
-    <script src="js/student-dashboard.js?v=143" defer></script>
-    <script src="js/student-dashboard-extended.js?v=143" defer></script>
-    <script src="js/auth-modal.js?v=143" defer></script>
-    <script src="js/auth-self-test.js?v=143" defer></script>
-    <script src="js/global-profile.js?v=143" defer></script>
-    <script src="js/chat-v9-ui.js?v=143" defer></script>
-    <script src="js/admin-departments.js?v=143" defer></script>
-    <script src="js/duty-ui.js?v=143" defer></script>
-    <script src="js/name-change.js?v=143" defer></script>
-    <script src="js/notifications.js?v=143" defer></script>
-    <script src="js/duty-points.js?v=143" defer></script>
-    <script src="js/chat.js?v=143" defer></script>
-    <script src="js/profile.js?v=143" defer></script>
-    <script src="js/tasks.js?v=143" defer></script>
-    <script src="js/analytics-dashboard.js?v=143" defer></script>
-    <script src="js/student-details-unified.js?v=143" defer></script>
-    <script src="js/approved-student-teacher-ui.js?v=143" defer></script>
-    <script src="js/finance-fees.js?v=143" defer></script>
-    <script src="js/timetable.js?v=143" defer></script>
-    <script src="js/help-support.js?v=143" defer></script>
-    <script src="js/dashboard-controller.js?v=143" defer></script>
-    <script src="js/landing-premium.js?v=143" defer></script>
-    <script src="js/main.js?v=143" defer></script>
-    <script src="js/app-health.js?v=143" defer></script>
+    <script src="js/api.js?v=144" defer></script>
+    <script src="js/auth.js?v=144" defer></script>
+    <script src="js/realtime-store.js?v=144" defer></script>
+    <script src="js/realtime-client.js?v=144" defer></script>
+    <script src="js/realtime-handlers.js?v=144" defer></script>
+    <script src="js/websocket.js?v=144" defer></script>
+    <script src="js/helpers.js?v=144" defer></script>
+    <script src="js/ui-helpers.js?v=144" defer></script>
+    <script src="js/branding-manager.js?v=144" defer></script>
+    <script src="js/curriculum.js?v=144" defer></script>
+    <script src="js/duty.js?v=144" defer></script>
+    <script src="js/super-admin-approvals.js?v=144" defer></script>
+    <script src="js/admin-approval.js?v=144" defer></script>
+    <script src="js/class-management.js?v=144" defer></script>
+    <script src="js/admin-student-management.js?v=144" defer></script>
+    <script src="js/teacher-student-management.js?v=144" defer></script>
+    <script src="js/csv-upload.js?v=144" defer></script>
+    <script src="js/analytics.js?v=144" defer></script>
+    <script src="js/upload.js?v=144" defer></script>
+    <script src="js/calendar.js?v=144" defer></script>
+    <script src="js/messaging.js?v=144" defer></script>
+    <script src="js/teacher-dashboard.js?v=144" defer></script>
+    <script src="js/superadmin-dashboard.js?v=144" defer></script>
+    <script src="js/attendance-admin-ui.js?v=144" defer></script>
+    <script src="js/student-lifecycle-ui.js?v=144" defer></script>
+    <script src="js/locked-features-ui.js?v=144" defer></script>
+    <script src="js/admin-dashboard.js?v=144" defer></script>
+    <script src="js/approved-visuals.js?v=144" defer></script>
+    <script src="js/parent-dashboard.js?v=144" defer></script>
+    <script src="js/student-dashboard.js?v=144" defer></script>
+    <script src="js/student-dashboard-extended.js?v=144" defer></script>
+    <script src="js/auth-modal.js?v=144" defer></script>
+    <script src="js/auth-self-test.js?v=144" defer></script>
+    <script src="js/global-profile.js?v=144" defer></script>
+    <script src="js/chat-v9-ui.js?v=144" defer></script>
+    <script src="js/admin-departments.js?v=144" defer></script>
+    <script src="js/duty-ui.js?v=144" defer></script>
+    <script src="js/name-change.js?v=144" defer></script>
+    <script src="js/notifications.js?v=144" defer></script>
+    <script src="js/duty-points.js?v=144" defer></script>
+    <script src="js/chat.js?v=144" defer></script>
+    <script src="js/profile.js?v=144" defer></script>
+    <script src="js/tasks.js?v=144" defer></script>
+    <script src="js/analytics-dashboard.js?v=144" defer></script>
+    <script src="js/student-details-unified.js?v=144" defer></script>
+    <script src="js/approved-student-teacher-ui.js?v=144" defer></script>
+    <script src="js/finance-fees.js?v=144" defer></script>
+    <script src="js/timetable.js?v=144" defer></script>
+    <script src="js/help-support.js?v=144" defer></script>
+    <script src="js/dashboard-controller.js?v=144" defer></script>
+    <script src="js/landing-premium.js?v=144" defer></script>
+    <script src="js/main.js?v=144" defer></script>
+    <script src="js/app-health.js?v=144" defer></script>
 </body>
 </html>

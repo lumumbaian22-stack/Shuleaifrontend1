@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-v143-locked-realtime-lifecycle';
+const CACHE_NAME = 'shule-ai-v144-visible-integrated-features';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

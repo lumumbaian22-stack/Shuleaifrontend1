@@ -29,6 +29,8 @@ async function renderStudentSection(section) {
             return await renderStudentLeaderboard();
         case 'grades':
             return await renderStudentGrades();
+        case 'report-history':
+            return await window.renderReportHistoryCentre('student');
         case 'badges':
             return await renderStudentBadges();
         case 'rewards':
@@ -42,7 +44,7 @@ async function renderStudentSection(section) {
         case 'ai-tutor':
             return renderStudentAITutor();
         case 'career-path':
-            return renderStudentCareerPathSection();
+            return await window.renderSeniorSubjectChoice('student');
         case 'schedule':
             return await (window.v12RenderStudentTimetable || window.renderStudentTimetable || window.renderAdminTimetable)();
         case 'help':

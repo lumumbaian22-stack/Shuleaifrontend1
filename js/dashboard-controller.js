@@ -111,6 +111,10 @@ function updateSidebar(role) {
                 { icon: 'building-2', label: 'Departments', section: 'departments' },
                 { icon: 'user-plus', label: 'Teacher Approvals', section: 'teacher-approvals' },
                 { icon: 'graduation-cap', label: 'Students', section: 'students' },
+                { icon: 'route', label: 'Student Lifecycle', section: 'student-lifecycle' },
+                { icon: 'clipboard-check', label: 'Attendance Corrections', section: 'attendance-corrections' },
+                { icon: 'file-clock', label: 'Report History', section: 'report-history' },
+                { icon: 'cake', label: 'Birthdays & Ages', section: 'birthdays' },
                 { icon: 'list-checks', label: 'Student Subjects', section: 'student-subject-selection' },
                 { icon: 'calendar', label: 'Calendar', section: 'calendar' },
                 { icon: 'clock', label: 'Duty', section: 'duty' },
@@ -144,6 +148,8 @@ function updateSidebar(role) {
                 })(),
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'trending-up', label: 'Grades', section: 'grades' },
+                { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
+                { icon: 'cake', label: 'Class Birthdays', section: 'birthdays' },
                 { icon: 'check-square', label: 'Tasks', section: 'tasks' },
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
                 { icon: 'settings', label: 'Duty Preferences', section: 'duty-preferences' },
@@ -163,6 +169,9 @@ function updateSidebar(role) {
             main: [
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'trending-up', label: 'Progress', section: 'progress' },
+                { icon: 'calendar-check', label: 'Attendance', section: 'child-attendance' },
+                { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
+                { icon: 'badge-dollar-sign', label: 'Child Subscription', section: 'child-subscription' },
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
                 { icon: 'calendar', label: 'Child Timetable', section: 'timetable' },
                 { icon: 'message-circle', label: 'Messages', section: 'chat' },
@@ -179,6 +188,7 @@ function updateSidebar(role) {
             main: [
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'trending-up', label: 'My Grades', section: 'grades' },
+                { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
                 { icon: 'bot', label: 'AI Tutor', section: 'ai-tutor' },
@@ -695,7 +705,14 @@ async function showDashboardSection(section) {
             'teacher-workload': 'Teacher Workload',
             alerts: 'Alerts Center',
             'parent-messages': 'Parent Messages',
-            'career-path': 'Career Path'
+            'career-path': 'Career Path',
+            'student-lifecycle': 'Student Lifecycle',
+            'academic-year-transition': 'Academic Year Transition',
+            'attendance-corrections': 'Attendance Corrections',
+            'report-history': 'Report Card History',
+            birthdays: 'Birthdays & Ages',
+            'child-attendance': 'Child Attendance',
+            'child-subscription': 'Child Subscription'
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';
 

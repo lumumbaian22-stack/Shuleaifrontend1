@@ -432,7 +432,7 @@ const teacherAPI = {
     getMyClass: () => apiRequest('/api/teacher/my-class'),
     getMySubjects: () => apiRequest('/api/teacher/my-subjects'),
     getTeacherStats: () => apiRequest('/api/teacher/stats'),
-    uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/teacher/students/upload', formData, onProgress),
+    uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/upload/students', formData, onProgress),
     publishMarks: (data) => apiRequest('/api/teacher/marks/publish', { method: 'POST', body: JSON.stringify(data) }),
     updateMark: (recordId, data) => apiRequest(`/api/teacher/marks/${recordId}`, { method: 'PUT', body: JSON.stringify(data) }),
     getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
@@ -497,7 +497,9 @@ const parentAPI = {
     getFees: (studentId) => apiRequest(`/api/parent/fees/${studentId}`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
     getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
-    getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`)
+    getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`),
+    getChildSubjectSelection: (childId) => apiRequest(`/api/parent/child/${childId}/subject-selection`),
+    saveChildSubjectSelection: (childId, data) => apiRequest(`/api/parent/child/${childId}/subject-selection`, { method:'PUT', body:JSON.stringify(data || {}) })
 };
 
 // ============ STUDENT ENDPOINTS ============
@@ -535,7 +537,9 @@ const studentAPI = {
     getClassPerformance: () => apiRequest('/api/student/class-performance'),
     getSubjectPerformance: () => apiRequest('/api/student/subject-performance'),
     getGPA: () => apiRequest('/api/student/gpa'),
-    getAnalytics: () => apiRequest(`/api/student/analytics?_=${Date.now()}`)
+    getAnalytics: () => apiRequest(`/api/student/analytics?_=${Date.now()}`),
+    getSubjectSelection: () => apiRequest('/api/student/subject-selection'),
+    saveSubjectSelection: (data) => apiRequest('/api/student/subject-selection', { method:'PUT', body:JSON.stringify(data || {}) })
 };
 
 // ============ DUTY ENDPOINTS ============
@@ -827,6 +831,20 @@ const paymentAPI = {
     querySTKStatus: (checkoutRequestId) => apiRequest(`/api/payments/stk/${checkoutRequestId}/status`)
 };
 
+
+// ============ LOCKED LIFECYCLE / REPORT HISTORY ENDPOINTS ============
+const lifecycleAPI = {
+    getUpcomingBirthdays: (days = 60) => apiRequest(`/api/lifecycle/birthdays/upcoming?days=${encodeURIComponent(days)}`),
+    getBirthdaySettings: () => apiRequest('/api/lifecycle/birthdays/settings'),
+    saveBirthdaySettings: (data) => apiRequest('/api/lifecycle/birthdays/settings', { method:'PUT', body:JSON.stringify(data || {}) }),
+    updateBirthdayPrivacy: (studentId, data) => apiRequest(`/api/lifecycle/birthdays/students/${studentId}/privacy`, { method:'PATCH', body:JSON.stringify(data || {}) }),
+    processBirthdayReminders: () => apiRequest('/api/lifecycle/birthdays/process', { method:'POST', body:JSON.stringify({}) }),
+    getReportHistory: (params = {}) => apiRequest(`/api/report-cards/history${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
+    getReportSnapshot: (id) => apiRequest(`/api/report-cards/history/${id}`),
+    correctReportSnapshot: (id, data) => apiRequest(`/api/report-cards/history/${id}/correct`, { method:'POST', body:JSON.stringify(data || {}) }),
+    shareReportSnapshot: (id, data) => apiRequest(`/api/report-cards/history/${id}/share`, { method:'POST', body:JSON.stringify(data || {}) })
+};
+
 // ============ ASSEMBLE API OBJECT ============
 const api = {
     auth: authAPI,
@@ -836,6 +854,7 @@ const api = {
     teacher: teacherAPI,
     parent: parentAPI,
     student: studentAPI,
+    lifecycle: lifecycleAPI,
     duty: dutyAPI,
     analytics: analyticsAPI,
     upload: uploadAPI,
@@ -870,6 +889,7 @@ const api = {
         getSchoolStatus: () => apiRequest('/api/subscription/school/status'),
         getSchoolBillingHistory: () => apiRequest('/api/subscription/school/billing-history'),
         requestSchool: (data) => apiRequest('/api/subscription/school/request', { method: 'POST', body: JSON.stringify(data) }),
+        getChildStatus: (studentId) => apiRequest(`/api/subscription/child/${encodeURIComponent(studentId)}/status`),
         requestChild: (data) => apiRequest('/api/subscription/child/request', { method: 'POST', body: JSON.stringify(data) }),
         upgrade: (data) => apiRequest('/api/subscription/upgrade', { method: 'POST', body: JSON.stringify(data) })
     }
