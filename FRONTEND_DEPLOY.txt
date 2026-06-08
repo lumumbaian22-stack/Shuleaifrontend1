@@ -1,0 +1,9 @@
+Shule AI v145 FRONTEND ONLY
+
+Upload the CONTENTS of this ZIP to your GitHub Pages repository root.
+The repository root should show index.html at the first level.
+
+GitHub Pages settings:
+Source: Deploy from a branch
+Branch: main
+Folder: / (root)

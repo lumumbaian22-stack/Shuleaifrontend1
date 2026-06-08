@@ -1,0 +1,14 @@
+SHULE AI v145 — DEPLOYMENT
+
+FRONTEND (GitHub Pages)
+Upload the root frontend files from this package so index.html is at the repository root.
+GitHub Pages: main branch, / (root).
+
+BACKEND (Render)
+Root Directory: backend
+Build Command: npm ci --omit=dev
+Pre-Deploy Command: npm run migrate
+Start Command: npm start
+
+Do not run npm start manually in the Render shell while the service is already live.
+After deploying the frontend, perform one Ctrl+Shift+R refresh.
