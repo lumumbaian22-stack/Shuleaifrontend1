@@ -583,8 +583,7 @@ async function renderAdminSection(section) {
             case 'fee-structures':
             case 'payment-settings':
                 if (typeof window.v31RenderFinanceFees === 'function') {
-                    await window.v31RenderFinanceFees();
-                    return document.getElementById('dashboard-content')?.innerHTML || '<div class="text-center py-12">Finance & Fees loaded.</div>';
+                    return await window.v31RenderFinanceFees();
                 }
                 return '<div class="text-center py-12 text-red-500">Finance & Fees module not loaded. Please refresh the page.</div>';
             default:
@@ -924,7 +923,7 @@ async function renderAdminStudents() {
             <div class="space-y-6 animate-fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold">Student Management</h2>
-                    <div class="flex flex-wrap gap-2"><button onclick="showStudentCsvUploadModal()" class="px-4 py-2 border rounded-lg hover:bg-accent flex items-center gap-2"><i data-lucide="file-up" class="h-4 w-4"></i>Upload CSV</button><button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
+                    <div class="flex flex-wrap gap-2"><button onclick="showCSVUploadModal()" class="px-4 py-2 border rounded-lg hover:bg-accent flex items-center gap-2"><i data-lucide="file-up" class="h-4 w-4"></i>Upload CSV</button><button onclick="showAddStudentModal()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
                         <i data-lucide="plus" class="h-4 w-4"></i>
                         Add Student
                     </button></div>

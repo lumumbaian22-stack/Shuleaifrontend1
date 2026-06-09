@@ -1,1 +1,2 @@
-Shule AI v146 — size-based school plans, deduplicated alerts, simplified Duty and Timetable, and connected lifecycle dashboards
+Shule AI v147 — approved theme recovery
+Frontend and backend must be deployed together.

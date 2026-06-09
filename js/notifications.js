@@ -372,6 +372,28 @@
     });
   }
 
+
+  async function renderRecentAlertsPreview() {
+    const host = document.getElementById('dashboard-recent-alerts-v146');
+    if (!host) return;
+    host.innerHTML = '<div class="text-sm text-muted-foreground">Loading alerts…</div>';
+    await loadNotifications({ silent: true });
+    const rows = notifications.slice(0, 5);
+    host.innerHTML = rows.length ? rows.map(alert => `
+      <button type="button" class="w-full rounded-xl border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-accent/40 ${alert.isRead ? '' : 'ring-1 ring-primary/10'}" onclick="showDashboardSection('alerts')">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0"><p class="truncate text-sm font-semibold">${esc(alert.title)}</p><p class="mt-1 line-clamp-2 text-xs text-muted-foreground">${esc(alert.sourceLabel)} • ${esc(alert.message)}</p></div>
+          <time class="shrink-0 text-[11px] text-muted-foreground">${esc(timeLabel(alert.createdAt))}</time>
+        </div>
+      </button>`).join('') : '<div class="rounded-xl border border-dashed bg-muted/20 p-5 text-center text-sm text-muted-foreground">No recent alerts.</div>';
+  }
+
+  window.addEventListener('shule:child-switched', () => setTimeout(renderRecentAlertsPreview, 80));
+  window.addEventListener('shule:realtime-event', (event) => {
+    const type = String(event.detail?.type || '');
+    if (type.startsWith('alert:') || type === 'class:released') setTimeout(renderRecentAlertsPreview, 40);
+  });
+
   window.loadNotifications = loadNotifications;
   window.loadAlerts = loadNotifications;
   window.v94LoadAlerts = loadNotifications;
@@ -390,5 +412,6 @@
   window.toggleAlertDateGroup = toggleAlertDateGroup;
   window.openAlertAction = openAlertAction;
   window.resetAlertsForChildSwitch = resetAlertsForChildSwitch;
+  window.renderRecentAlertsPreview = renderRecentAlertsPreview;
   window.ShuleAlerts = { load: loadNotifications, open: openAlertsFromBell, render: renderAlertsCenter, resetForChild: resetAlertsForChildSwitch };
 })();

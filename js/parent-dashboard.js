@@ -1109,91 +1109,82 @@ window.completeTask = async function(taskId, difficulty) {
 };
 
 
+const parentChatState = window.__parentChatState || { conversationKey:null, messages:[], target:'teacher', childId:null };
+window.__parentChatState = parentChatState;
+
+function parentChatMessageId(message){ return String(message?.id || message?.messageId || message?.clientMessageId || message?.metadata?.clientMessageId || ''); }
+function parentChatNormalize(message={}){
+    const metadata=message.metadata||{};
+    return { ...message, id:message.id||message.messageId||null, content:message.content||message.body||'', clientMessageId:message.clientMessageId||metadata.clientMessageId||null, conversationKey:message.conversationKey||message.conversationId||metadata.conversationKey||null, senderName:message.senderName||message.Sender?.name||metadata.senderName||'', createdAt:message.createdAt||message.sentAt||new Date().toISOString() };
+}
+function parentChatUpsert(raw){
+    const message=parentChatNormalize(raw); const key=parentChatMessageId(message); if(!key)return;
+    const index=parentChatState.messages.findIndex(row => (message.clientMessageId && (row.clientMessageId===message.clientMessageId || row.metadata?.clientMessageId===message.clientMessageId)) || (message.id && String(row.id)===String(message.id)));
+    if(index>=0) parentChatState.messages[index]={...parentChatState.messages[index],...message,status:message.status||message.deliveryStatus||'sent'};
+    else parentChatState.messages.push(message);
+    parentChatState.messages.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+}
+function parentChatRender({forceBottom=false}={}){
+    const container=document.getElementById('parent-chat-messages'); if(!container)return;
+    const me=typeof getCurrentUser==='function'?(getCurrentUser()||{}):JSON.parse(localStorage.getItem('user')||'{}');
+    const wasNearBottom=container.scrollHeight-container.scrollTop-container.clientHeight<100;
+    if(!parentChatState.messages.length){container.innerHTML='<div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-10 w-10 mx-auto mb-2 opacity-50"></i><p>No messages yet. Start the conversation below.</p></div>';return;}
+    container.innerHTML=parentChatState.messages.map(msg=>{const mine=Number(msg.senderId)===Number(me.id);const status=msg.status==='sending'?'Sending…':msg.status==='failed'?'Failed — tap Retry':(msg.isRead||msg.deliveryStatus==='read'?'Read':msg.deliveryStatus==='delivered'?'Delivered':'Sent');return `<div class="flex ${mine?'justify-end':'justify-start'}" data-parent-message="${escapeHtml(parentChatMessageId(msg))}"><button type="button" ${msg.status==='failed'?`onclick="retryParentMessage('${escapeHtml(msg.clientMessageId)}')"`:''} class="${mine?'chat-bubble-sent':'chat-bubble-received'} max-w-[78%] text-left"><p class="text-sm font-medium">${mine?'You':escapeHtml(msg.senderName||(parentChatState.target==='admin'?'School Administrator':'Class Teacher'))}</p><p class="text-sm whitespace-pre-wrap">${escapeHtml(msg.content||'')}</p><p class="text-[11px] mt-1 ${msg.status==='failed'?'text-red-500':'text-muted-foreground'}">${escapeHtml(status)} • ${timeAgo(msg.createdAt)}</p></button></div>`;}).join('');
+    if(forceBottom||wasNearBottom)container.scrollTop=container.scrollHeight;
+    if(window.lucide)lucide.createIcons();
+}
+
 window.loadParentRecipientConversation = async function() {
-    const container = document.getElementById('parent-chat-messages');
-    if (!container) return;
-    const target = document.getElementById('parent-recipient-type')?.value || 'teacher';
-    container.innerHTML = `<div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-10 w-10 mx-auto mb-2 opacity-50"></i><p>${target === 'admin' ? 'School Admin' : 'Class Teacher'} chat is separate. Start or continue this conversation.</p></div>`;
-    try {
-        const conversations = await api.parent.getConversations();
-        const rows = Array.isArray(conversations?.data) ? conversations.data : [];
-        const selectedChildId = String(dashboardData?.selectedChildId || '');
-        const wantedType = target === 'admin' ? 'parent_admin' : 'parent_class_teacher';
-        const match = rows.find(c => String(c.conversationType || '').toLowerCase() === wantedType && (!selectedChildId || !c.studentId || String(c.studentId) === selectedChildId))
-            || rows.find(c => String(c.userRole || '').toLowerCase() === (target === 'admin' ? 'admin' : 'teacher') && (!selectedChildId || !c.studentId || String(c.studentId) === selectedChildId))
-            || null;
-        const messages = match?.messages || [];
-        if (messages.length) {
-            container.innerHTML = messages.slice().reverse().map(msg => {
-                const mine = Number(msg.senderId) === Number((typeof getCurrentUser === 'function' ? getCurrentUser()?.id : JSON.parse(localStorage.getItem('user')||'{}').id));
-                const senderName = mine ? 'You' : (msg.Sender?.name || msg.senderName || match.userName || (target === 'admin' ? 'School Admin' : 'Class Teacher'));
-                return `<div class="flex ${mine ? 'justify-end' : 'justify-start'}"><div class="${mine ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm font-medium">${escapeHtml(senderName)}</p><p class="text-sm">${escapeHtml(msg.content || '')}</p><p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt || msg.timestamp)}</p></div></div>`;
-            }).join('');
-            container.scrollTop = container.scrollHeight;
-        }
-    } catch (e) { console.warn('Could not load selected recipient conversation:', e.message); }
-    if (window.lucide) lucide.createIcons();
+    const container=document.getElementById('parent-chat-messages'); if(!container)return;
+    parentChatState.target=document.getElementById('parent-recipient-type')?.value||'teacher';
+    parentChatState.childId=String(dashboardData?.selectedChildId||'');
+    parentChatState.messages=[]; parentChatState.conversationKey=null;
+    container.innerHTML='<div class="py-8 text-center text-muted-foreground">Loading conversation…</div>';
+    try{
+        const response=await api.parent.getConversations({studentId:parentChatState.childId});
+        const rows=Array.isArray(response?.data)?response.data:[];
+        const wanted=parentChatState.target==='admin'?'parent_admin':'parent_class_teacher';
+        const match=rows.find(row=>String(row.conversationType||'').toLowerCase()===wanted&&(!parentChatState.childId||String(row.studentId||'')===parentChatState.childId));
+        if(match){parentChatState.conversationKey=match.conversationKey||null;parentChatState.messages=(match.messages||[]).map(parentChatNormalize);}
+        if(parentChatState.conversationKey)window.ShuleRealtime?.joinConversation?.(parentChatState.conversationKey);
+        parentChatRender({forceBottom:true});
+    }catch(error){container.innerHTML=`<div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">${escapeHtml(error.message||'Conversation could not load.')}</div>`;}
 };
 
 async function sendParentMessage() {
-    const selectedChildId = dashboardData?.selectedChildId;
-
-    if (!selectedChildId) {
-        showToast('Please select a child first', 'error');
-        return;
-    }
-
-    const recipientType = document.getElementById('parent-recipient-type')?.value;
-    const message = document.getElementById('parent-chat-input')?.value.trim();
-
-    if (!message) {
-        showToast('Please enter a message', 'error');
-        return;
-    }
-
-    showLoading();
-    try {
-        const response = await api.parent.sendMessage({
-            studentId: parseInt(selectedChildId),
-            message: message,
-            recipientType: recipientType
-        });
-
-        if (response.success) {
-            document.getElementById('parent-chat-input').value = '';
-
-            const container = document.getElementById('parent-chat-messages');
-            const newMessageHtml = `
-                <div class="flex justify-end">
-                    <div class="chat-bubble-sent max-w-[70%]">
-                        <p class="text-sm font-medium">You</p>
-                        <p class="text-sm">${escapeHtml(message)}</p>
-                        <p class="text-xs text-muted-foreground mt-1">just now</p>
-                    </div>
-                </div>
-            `;
-            container.insertAdjacentHTML('beforeend', newMessageHtml);
-            container.scrollTop = container.scrollHeight;
-            setTimeout(() => window.loadParentRecipientConversation && window.loadParentRecipientConversation(), 250);
-
-            showToast(response.data?.recipientType === 'admin' ? '✅ Message sent to school admin' : '✅ Message sent to class teacher', 'success');
-        } else {
-            throw new Error(response.message || 'Failed to send message');
-        }
-    } catch (error) {
-        console.error('Send message error:', error);
-        const msg = error.message || 'Failed to send message';
-        if (/class teacher/i.test(msg)) {
-            const selector = document.getElementById('parent-recipient-type');
-            if (selector) selector.value = 'admin';
-            showToast('Class teacher has not been assigned yet. Switch recipient to School Admin and send again.', 'warning');
-        } else {
-            showToast(msg, 'error');
-        }
-    } finally {
-        hideLoading();
+    const childId=String(dashboardData?.selectedChildId||'');
+    const input=document.getElementById('parent-chat-input');
+    const message=input?.value?.trim();
+    if(!childId)return showToast('Please select a child first','error');
+    if(!message)return showToast('Please enter a message','error');
+    const clientMessageId=(crypto.randomUUID?.()||`parent-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const me=typeof getCurrentUser==='function'?(getCurrentUser()||{}):JSON.parse(localStorage.getItem('user')||'{}');
+    parentChatUpsert({clientMessageId,senderId:me.id,senderName:'You',content:message,createdAt:new Date().toISOString(),status:'sending',conversationKey:parentChatState.conversationKey});
+    input.value=''; parentChatRender({forceBottom:true});
+    try{
+        const response=await api.parent.sendMessage({studentId:Number(childId),message,recipientType:parentChatState.target,clientMessageId});
+        const saved=parentChatNormalize(response.data||{}); parentChatState.conversationKey=saved.conversationKey||parentChatState.conversationKey; parentChatUpsert({...saved,clientMessageId,status:'sent'});
+        if(parentChatState.conversationKey)window.ShuleRealtime?.joinConversation?.(parentChatState.conversationKey);
+        parentChatRender({forceBottom:true});
+    }catch(error){
+        const failed=parentChatState.messages.find(row=>row.clientMessageId===clientMessageId);if(failed)failed.status='failed';parentChatRender({forceBottom:true});
+        if(/class teacher/i.test(error.message||'')){const selector=document.getElementById('parent-recipient-type');if(selector)selector.value='admin';showToast('No class teacher is assigned. Switch to School Administrator and resend.','warning');}else showToast(error.message||'Message failed to send','error');
     }
 }
+
+window.retryParentMessage=async function(clientMessageId){
+    const row=parentChatState.messages.find(item=>item.clientMessageId===clientMessageId);if(!row)return;
+    parentChatState.messages=parentChatState.messages.filter(item=>item!==row);const input=document.getElementById('parent-chat-input');if(input)input.value=row.content||'';parentChatRender();await sendParentMessage();
+};
+
+window.addEventListener('shule:realtime-event',event=>{
+    const envelope=event.detail||{}; if(String(envelope.type||'')!=='chat:message_created')return;
+    const message=parentChatNormalize(envelope.data||{}); if(!document.getElementById('parent-chat-messages'))return;
+    if(parentChatState.conversationKey&&message.conversationKey&&String(message.conversationKey)!==String(parentChatState.conversationKey))return;
+    if(!parentChatState.conversationKey&&String(message.metadata?.studentId||'')!==String(parentChatState.childId||''))return;
+    parentChatState.conversationKey=message.conversationKey||parentChatState.conversationKey;parentChatUpsert(message);parentChatRender();
+    if(message.id&&Number(message.senderId)!==Number((typeof getCurrentUser==='function'?getCurrentUser()?.id:0)))window.socket?.emit('chat:message_read',{messageId:message.id});
+});
 
 function escapeHtml(text) {
     if (!text) return '';

@@ -155,3 +155,10 @@
   w.v93LoadTeacherDuty=w.v145LoadTeacherDuty; w.v93TeacherCheckIn=()=>w.v145TeacherDutyAction('in'); w.v93TeacherCheckOut=()=>w.v145TeacherDutyAction('out');
   w.v93CaptureTeacherGps=async()=>{try{state.gps=await gps();toast('Location captured','success')}catch(err){toast(err.message,'error')}};
 })(window);
+
+// Compatibility alias for the original admin Duty button. The visible Duty module
+// has one owner; old dashboard buttons delegate to it instead of throwing.
+window.handleGenerateDutyRoster = function(){
+  if (typeof window.v145GenerateDuty === 'function') return window.v145GenerateDuty();
+  if (typeof showToast === 'function') showToast('Duty module is still loading.', 'warning');
+};

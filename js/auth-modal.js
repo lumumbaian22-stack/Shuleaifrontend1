@@ -9,7 +9,7 @@ function openAuthModal(role, mode) {
 
     if (!modal || !titleEl || !contentEl) return;
 
-    const roleLabel = role === 'superadmin' ? 'Super Admin' : role.charAt(0).toUpperCase() + role.slice(1);
+    const roleLabel = role === 'superadmin' ? 'Super Admin' : role === 'finance_officer' ? 'Finance Staff' : role.charAt(0).toUpperCase() + role.slice(1);
     titleEl.textContent = mode === 'signin' ? `Sign In as ${roleLabel}` : `Sign Up as ${roleLabel}`;
     contentEl.innerHTML = getAuthForm(role, mode);
     modal.classList.remove('hidden');

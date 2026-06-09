@@ -4,10 +4,11 @@
   const w = window;
   const money = (n) => 'KES ' + Number(n || 0).toLocaleString();
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const state = { tab:'overview', structures:[], classes:[], students:[], settings:{}, accounts:[], paymentRecords:[], manualQueue:[], loading:false, filters:{ className:'', term:'', year:String(new Date().getFullYear()) } };
+  const state = { tab:'overview', structures:[], classes:[], students:[], financeStaff:[], settings:{}, accounts:[], paymentRecords:[], manualQueue:[], loading:false, filters:{ className:'', term:'', year:String(new Date().getFullYear()) } };
   function currentUser(){ try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch(_) { return {}; } }
   function currentRole(){ return String(currentUser().role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_'); }
-  function isAdminFinanceRole(){ const r=currentRole(); return r==='admin' || r==='super_admin' || r==='superadmin'; }
+  function isAdminFinanceRole(){ const r=currentRole(); return r==='admin' || r==='finance_officer' || r==='super_admin' || r==='superadmin'; }
+  function canManageFinanceStaff(){ return currentRole()==='admin' || currentRole()==='super_admin' || currentRole()==='superadmin'; }
   function blockNonAdminFinance(){ if(isAdminFinanceRole()) return false; console.warn('[Finance & Fees] Blocked admin finance render/refresh for role:', currentRole() || 'unknown'); return true; }
 
   function apiSafe(){ return w.api || {}; }
@@ -67,15 +68,25 @@
   }
 
 
-  async function loadClasses(){
+  async function loadFinanceContext(){
     const api = apiSafe();
-    const res = await call(() => api.admin?.getClasses ? api.admin.getClasses() : apiRequest('/api/classes'), []);
-    state.classes = Array.isArray(res) ? res : (res.classes || res.items || res.data || []);
+    if (currentRole()==='finance_officer') {
+      const ctx = await call(() => api.payments?.getFinanceContext ? api.payments.getFinanceContext() : apiRequest('/api/payments/admin/context'), {});
+      state.classes = Array.isArray(ctx.classes) ? ctx.classes : [];
+      state.students = Array.isArray(ctx.students) ? ctx.students : [];
+      return;
+    }
+    const [classesRes, studentsRes] = await Promise.all([
+      call(() => api.admin?.getClasses ? api.admin.getClasses() : apiRequest('/api/admin/classes'), []),
+      call(() => api.admin?.getStudents ? api.admin.getStudents() : apiRequest('/api/admin/students'), [])
+    ]);
+    state.classes = Array.isArray(classesRes) ? classesRes : (classesRes.classes || classesRes.items || classesRes.data || []);
+    state.students = Array.isArray(studentsRes) ? studentsRes : (studentsRes.students || studentsRes.items || studentsRes.data || []);
   }
-  async function loadStudents(){
-    const api = apiSafe();
-    const res = await call(() => api.admin?.getStudents ? api.admin.getStudents() : apiRequest('/api/admin/students'), []);
-    state.students = Array.isArray(res) ? res : (res.students || res.items || res.data || []);
+  async function loadFinanceStaff(){
+    if(!canManageFinanceStaff()){ state.financeStaff=[]; return; }
+    const rows = await call(() => apiSafe().admin?.getFinanceStaff ? apiSafe().admin.getFinanceStaff() : [], []);
+    state.financeStaff = Array.isArray(rows) ? rows : (rows.data || rows.items || []);
   }
   async function loadStructures(){
     const api = apiSafe();
@@ -94,7 +105,7 @@
     state.paymentRecords = Array.isArray(recordsRes) ? recordsRes : (recordsRes.records || recordsRes.items || recordsRes.data || []);
   }
   async function loadManualQueue(){ const api = apiSafe(); state.manualQueue = await call(() => api.payments?.getManualQueue ? api.payments.getManualQueue() : apiRequest('/api/payments/admin/manual-queue'), []); }
-  async function loadAll(){ if(blockNonAdminFinance()){ state.loading=false; return; } state.loading=true; await Promise.all([loadClasses(), loadStudents(), loadStructures(), loadSettings(), loadPayments(), loadManualQueue()]); state.loading=false; }
+  async function loadAll(){ if(blockNonAdminFinance()){ state.loading=false; return; } state.loading=true; await Promise.all([loadFinanceContext(), loadFinanceStaff(), loadStructures(), loadSettings(), loadPayments(), loadManualQueue()]); state.loading=false; }
 
   function totals(){
     const structures = state.structures || [];
@@ -136,6 +147,7 @@
     <div class="finance-v31-tab ${state.tab==='defaulters'?'active':''}" onclick="financeV31SetTab('defaulters')">! Defaulters</div>
     <div class="finance-v31-tab ${state.tab==='verification'?'active':''}" onclick="financeV31SetTab('verification')">✓ Verification</div>
     <div class="finance-v31-tab ${state.tab==='settings'?'active':''}" onclick="financeV31SetTab('settings')">⚙ Settings</div>
+    ${canManageFinanceStaff()?`<div class="finance-v31-tab ${state.tab==='team'?'active':''}" onclick="financeV31SetTab('team')">👥 Finance Team</div>`:''}
   </div>`; }
 
   function structureItems(s){
@@ -279,19 +291,29 @@
 
   function renderFinanceOverview(){ const t=totals(); const classes=visibleClasses(); return `<div class="space-y-4"><div class="rounded-xl border bg-card p-5"><h3 class="font-semibold">Finance Overview</h3><p class="text-sm text-muted-foreground">The daily school-admin view. Open the detailed tabs only when you need to manage records.</p><div class="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4"><button onclick="financeV31SetTab('records')" class="rounded-lg border p-4 text-left"><strong>Record or review payments</strong><span class="block text-xs text-muted-foreground">${(state.paymentRecords||[]).length} records</span></button><button onclick="financeV31SetTab('structures')" class="rounded-lg border p-4 text-left"><strong>Fee structures</strong><span class="block text-xs text-muted-foreground">${(state.structures||[]).length} structures</span></button><button onclick="financeV31SetTab('defaulters')" class="rounded-lg border p-4 text-left"><strong>Outstanding balances</strong><span class="block text-xs text-muted-foreground">${money(t.outstanding)}</span></button><button onclick="financeV31SetTab('verification')" class="rounded-lg border p-4 text-left"><strong>Verification queue</strong><span class="block text-xs text-muted-foreground">${(state.manualQueue||[]).length} pending items</span></button></div></div><div class="rounded-xl border bg-card p-5"><h3 class="font-semibold">Class summaries</h3><div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">${classes.map(name=>{const x=classFinancialSummary(name);return `<button onclick="financeV31SetRecordClass('${esc(name)}');financeV31SetTab('records')" class="rounded-lg border p-4 text-left"><strong>${esc(name)}</strong><span class="mt-1 block text-xs text-muted-foreground">Expected ${money(x.expected)} • Paid ${money(x.paid)} • Outstanding ${money(x.outstanding)}</span></button>`}).join('')||'<p class="text-sm text-muted-foreground">No class finance data yet.</p>'}</div></div></div>`; }
   function renderDefaulters(){ const rows=classStudentBalanceRows('').filter(a=>Number(a.balance ?? Math.max(0,Number(a.totalAmount||0)-Number(a.paidAmount||0)))>0).sort((a,b)=>Number(b.balance||0)-Number(a.balance||0)); return `<div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Outstanding Balances</h3><p class="text-sm text-muted-foreground">Students with active unpaid balances. Select a student to view their history.</p></div><div class="overflow-x-auto"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Expected</th><th>Paid</th><th>Balance</th><th></th></tr></thead><tbody>${rows.length?rows.map(a=>`<tr><td>${esc(accountStudentName(a)||a.studentName)}</td><td>${esc(accountClassName(a)||a.className)}</td><td>${money(a.totalAmount||0)}</td><td>${money(a.paidAmount||a.parentPaidAmount||0)}</td><td><strong>${money(a.balance||0)}</strong></td><td><button class="finance-v31-btn" onclick="financeV31ViewStudentHistory('${a.studentId}')">History</button></td></tr>`).join(''):'<tr><td colspan="6"><div class="finance-v31-empty">No outstanding balances.</div></td></tr>'}</tbody></table></div></div>`; }
-  function body(){ if(state.tab==='overview') return renderFinanceOverview(); if(state.tab==='settings') return renderSettings(); if(state.tab==='records') return renderRecords(); if(state.tab==='defaulters') return renderDefaulters(); if(state.tab==='verification') return renderVerification(); return renderStructures(); }
-  async function render(){
-    if(blockNonAdminFinance()) return '';
-    const root=document.getElementById('dashboard-content');
-    if(!root) return '';
-    if(!document.querySelector('.finance-v31')) root.innerHTML='<div class="finance-v31"><div class="finance-v31-empty">Loading Finance & Fees...</div></div>';
-    await loadAll();
-    const html = `<section class="finance-v31"><div class="finance-v31-header"><div class="finance-v31-title"><h1>Finance & Fees</h1><p>Manage grouped fee structures, payment settings, and student-specific payment records.</p></div><div class="finance-v31-actions"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh</button><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div></div><div id="finance-v31-summary-wrap">${renderSummary()}</div><div class="finance-v31-shell">${renderTabs()}<div id="finance-v31-tab-body">${body()}</div></div></section>`;
-    root.innerHTML = html;
-    return html;
+  function renderFinanceTeam(){
+    if(!canManageFinanceStaff()) return '<div class="rounded-xl border bg-card p-5 text-muted-foreground">Only the school administrator can manage finance staff accounts.</div>';
+    const rows=state.financeStaff||[];
+    return `<div class="grid gap-5 xl:grid-cols-[1fr_360px]"><div class="rounded-2xl border bg-card overflow-hidden"><div class="p-5 border-b"><h3 class="font-semibold">Finance Staff Accounts</h3><p class="text-sm text-muted-foreground">Bursars and accountants sign in to a finance-only dashboard.</p></div><div class="divide-y">${rows.length?rows.map(u=>`<div class="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><strong>${esc(u.name)}</strong><p class="text-sm text-muted-foreground">${esc(u.email)}${u.phone?` • ${esc(u.phone)}`:''}</p><p class="text-xs ${u.isActive?'text-green-600':'text-red-600'}">${u.isActive?'Active':'Suspended'}</p></div><button onclick="financeV31ToggleStaff(${u.id},${u.isActive?'false':'true'})" class="finance-v31-btn">${u.isActive?'Suspend':'Reactivate'}</button></div>`).join(''):'<div class="p-8 text-center text-muted-foreground">No finance staff account has been created.</div>'}</div></div><form onsubmit="financeV31CreateStaff(event)" class="rounded-2xl border bg-card p-5 space-y-3"><div><h3 class="font-semibold">Add Finance Officer</h3><p class="text-sm text-muted-foreground">Create a finance-only login for a bursar or accountant.</p></div><label class="block text-sm">Full name<input id="finance-staff-name" required class="mt-1 w-full rounded-lg border bg-background p-2"></label><label class="block text-sm">Email<input id="finance-staff-email" type="email" required class="mt-1 w-full rounded-lg border bg-background p-2"></label><label class="block text-sm">Phone<input id="finance-staff-phone" class="mt-1 w-full rounded-lg border bg-background p-2"></label><label class="block text-sm">Temporary password<input id="finance-staff-password" type="password" minlength="8" required class="mt-1 w-full rounded-lg border bg-background p-2"><span class="text-xs text-muted-foreground">They will be required to change it after login.</span></label><button class="finance-v31-btn primary w-full" type="submit">Create Finance Account</button></form></div>`;
   }
 
-  w.financeV31Refresh = async function(){ if(blockNonAdminFinance()) return; if(isAdminFinanceRole() && document.querySelector('.finance-v31')) { await loadAll(); renderBodyOnly(); } else { await render(); } };
+  function body(){ if(state.tab==='overview') return renderFinanceOverview(); if(state.tab==='team') return renderFinanceTeam(); if(state.tab==='settings') return renderSettings(); if(state.tab==='records') return renderRecords(); if(state.tab==='defaulters') return renderDefaulters(); if(state.tab==='verification') return renderVerification(); return renderStructures(); }
+  async function render(){
+    if(blockNonAdminFinance()) return '<div class="rounded-xl border bg-card p-6 text-red-600">Finance access is not assigned to this account.</div>';
+    await loadAll();
+    return `<section class="finance-v31 space-y-5"><div class="flex flex-col gap-3 rounded-2xl border bg-card p-6 md:flex-row md:items-center md:justify-between"><div><p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">School Finance</p><h1 class="mt-1 text-2xl font-bold">Finance Workspace</h1><p class="mt-1 text-sm text-muted-foreground">Fees, payments, balances and verification in one school-scoped workspace.</p></div><div class="flex flex-wrap gap-2"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh</button><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div></div><div id="finance-v31-summary-wrap">${renderSummary()}</div><div class="finance-v31-shell">${renderTabs()}<div id="finance-v31-tab-body">${body()}</div></div></section>`;
+  }
+
+  w.financeV31Refresh = async function(){
+    if(blockNonAdminFinance()) return;
+    await loadAll();
+    const root=document.querySelector('.finance-v31');
+    if(root){
+      const wrapper=document.createElement('div');
+      wrapper.innerHTML=await render();
+      root.replaceWith(wrapper.firstElementChild);
+    }
+  };
   w.financeV31SetTab = function(tab){ state.tab=tab; const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=body(); document.querySelectorAll('.finance-v31-tab').forEach(x=>x.classList.toggle('active', x.getAttribute('onclick')?.includes(tab))); if(tab==='settings') setTimeout(()=>{ w.financeV31TogglePaymentMode&&w.financeV31TogglePaymentMode(); w.financeV31ToggleMpesaType&&w.financeV31ToggleMpesaType(); },0); };
   w.financeV31ApplyFilter = function(){ state.filters.className=document.getElementById('finance-v31-class-filter')?.value||''; state.filters.term=document.getElementById('finance-v31-term-filter')?.value||''; state.filters.year=document.getElementById('finance-v31-year-filter')?.value||''; const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderStructures(); };
   w.financeV31OpenStructureModal = function(id){
@@ -446,6 +468,15 @@
     }catch(e){ setMessage('error', e.message||'Could not load student history.'); }
   };
 
+  w.financeV31CreateStaff = async function(event){
+    event.preventDefault();
+    const data={ name:document.getElementById('finance-staff-name')?.value?.trim(), email:document.getElementById('finance-staff-email')?.value?.trim(), phone:document.getElementById('finance-staff-phone')?.value?.trim(), password:document.getElementById('finance-staff-password')?.value||'' };
+    try{ await apiSafe().admin.createFinanceStaff(data); await loadFinanceStaff(); document.getElementById('finance-v31-tab-body').innerHTML=renderFinanceTeam(); toast('Finance account created','success'); }catch(e){ toast(e.message||'Could not create finance account','error'); }
+  };
+  w.financeV31ToggleStaff = async function(userId,isActive){
+    try{ await apiSafe().admin.updateFinanceStaff(userId,{isActive:!!isActive}); await loadFinanceStaff(); document.getElementById('finance-v31-tab-body').innerHTML=renderFinanceTeam(); toast('Finance staff account updated','success'); }catch(e){ toast(e.message||'Could not update finance account','error'); }
+  };
+
   w.renderFinanceFeesV31 = render;
   w.v31RenderFinanceFees = render;
   window.addEventListener('shule:finance-updated', async function(){
@@ -484,7 +515,7 @@
   const style=document.createElement('style');
   style.id='finance-v66-polish-style';
   style.textContent=`
-    .finance-v31-modal{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.finance-v31-modal-inner{width:min(980px,96vw);max-height:92vh;overflow:auto;background:var(--ff-panel);color:var(--ff-text);border:1px solid var(--ff-border);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.3)}.finance-v31-modal-inner.wide{width:min(1120px,98vw)}.finance-v31-modal-body{padding:18px;overflow:visible}.finance-v31-form-grid.wide{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}.finance-v31-form-card.full{min-width:0}.finance-v31-form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}.finance-v31-target-box{border:1px solid var(--ff-border);border-radius:16px;padding:12px;margin:12px 0;background:var(--ff-card-2)}.finance-v31-class-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;max-height:240px;overflow:auto;padding-right:4px}.finance-v31-check{display:flex;gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--ff-border);border-radius:12px;background:var(--ff-card);font-size:13px;line-height:1.2}.finance-v31-mini-actions{display:flex;gap:8px;margin-top:10px}.finance-v31-total-box.sticky{position:sticky;top:12px}.finance-v31-class-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.finance-v31-class-tab{border:1px solid var(--ff-border);background:var(--ff-card);color:var(--ff-text);border-radius:999px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer}.finance-v31-class-tab.active{background:#0f766e;color:white;border-color:#0f766e}.finance-v31-summary.compact{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:10px 0 14px}.finance-v31-two-col{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,.8fr);gap:14px}.finance-v31-card.wide{min-width:0}.finance-v31-defaulter-list{display:grid;gap:8px;max-height:520px;overflow:auto}.finance-v31-defaulter{display:flex;justify-content:space-between;gap:12px;padding:10px;border-radius:12px;border:1px solid var(--ff-border);background:var(--ff-card-2)}.finance-v31-defaulter small{display:block;color:var(--ff-muted);font-size:11px}.finance-v31-defaulter.owing{border-left:4px solid #f97316}.finance-v31-defaulter.paid{border-left:4px solid #22c55e}.finance-v31-btn,.finance-v31-tab,.finance-v31-select,.finance-v31-input{color:var(--ff-text)!important;background-color:var(--ff-card-2)!important;border-color:var(--ff-border)!important}.finance-v31-btn.primary,.finance-v31-btn.blue,.finance-v31-btn.danger,.finance-v31-class-tab.active{color:#fff!important}@media(max-width:860px){.finance-v31-form-grid.wide,.finance-v31-two-col{grid-template-columns:1fr}.finance-v31-total-box.sticky{position:static}.finance-v31-modal{align-items:flex-start;padding:10px}.finance-v31-modal-inner{max-height:96vh}.finance-v31-class-checks{grid-template-columns:1fr}.finance-v31-table-wrap{overflow-x:auto}}
+    .finance-v31-modal{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}.finance-v31-modal-inner{width:min(980px,96vw);max-height:92vh;overflow:auto;background:var(--ff-panel);color:var(--ff-text);border:1px solid var(--ff-border);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.3)}.finance-v31-modal-inner.wide{width:min(1120px,98vw)}.finance-v31-modal-body{padding:18px;overflow:visible}.finance-v31-form-grid.wide{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}.finance-v31-form-card.full{min-width:0}.finance-v31-form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}.finance-v31-target-box{border:1px solid var(--ff-border);border-radius:16px;padding:12px;margin:12px 0;background:var(--ff-card-2)}.finance-v31-class-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;max-height:240px;overflow:auto;padding-right:4px}.finance-v31-check{display:flex;gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--ff-border);border-radius:12px;background:var(--ff-card);font-size:13px;line-height:1.2}.finance-v31-mini-actions{display:flex;gap:8px;margin-top:10px}.finance-v31-total-box.sticky{position:sticky;top:12px}.finance-v31-class-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.finance-v31-class-tab{border:1px solid var(--ff-border);background:var(--ff-card);color:var(--ff-text);border-radius:999px;padding:8px 12px;font-weight:800;font-size:13px;cursor:pointer}.finance-v31-class-tab.active{background:#083A85;color:white;border-color:#083A85}.finance-v31-summary.compact{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:10px 0 14px}.finance-v31-two-col{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,.8fr);gap:14px}.finance-v31-card.wide{min-width:0}.finance-v31-defaulter-list{display:grid;gap:8px;max-height:520px;overflow:auto}.finance-v31-defaulter{display:flex;justify-content:space-between;gap:12px;padding:10px;border-radius:12px;border:1px solid var(--ff-border);background:var(--ff-card-2)}.finance-v31-defaulter small{display:block;color:var(--ff-muted);font-size:11px}.finance-v31-defaulter.owing{border-left:4px solid #f97316}.finance-v31-defaulter.paid{border-left:4px solid #22c55e}.finance-v31-btn,.finance-v31-tab,.finance-v31-select,.finance-v31-input{color:var(--ff-text)!important;background-color:var(--ff-card-2)!important;border-color:var(--ff-border)!important}.finance-v31-btn.primary,.finance-v31-btn.blue,.finance-v31-btn.danger,.finance-v31-class-tab.active{color:#fff!important}@media(max-width:860px){.finance-v31-form-grid.wide,.finance-v31-two-col{grid-template-columns:1fr}.finance-v31-total-box.sticky{position:static}.finance-v31-modal{align-items:flex-start;padding:10px}.finance-v31-modal-inner{max-height:96vh}.finance-v31-class-checks{grid-template-columns:1fr}.finance-v31-table-wrap{overflow-x:auto}}
   `;
   document.head.appendChild(style);
 })();
@@ -508,10 +539,10 @@
   const style = document.createElement('style');
   style.id = 'finance-v77-theme-style';
   style.textContent = `
-    .finance-v31,.finance-v31-modal{--ff-bg:#07111f;--ff-panel:#0f1b2d;--ff-card:#122139;--ff-card-2:#0b1624;--ff-border:rgba(148,163,184,.24);--ff-text:#e5eef8;--ff-muted:#9fb0c8;color-scheme:dark;color:var(--ff-text)!important}
-    html:not(.dark) .finance-v31,html:not(.dark) .finance-v31-modal,[data-theme="light"] .finance-v31,[data-theme="light"] .finance-v31-modal{--ff-bg:#f8fafc;--ff-panel:#fff;--ff-card:#fff;--ff-card-2:#f1f5f9;--ff-border:#e2e8f0;--ff-text:#0f172a;--ff-muted:#64748b;color-scheme:light}
+    .finance-v31,.finance-v31-modal{--ff-bg:transparent;--ff-panel:#0B1628;--ff-card:#12213A;--ff-card-2:#0F1B2D;--ff-border:rgba(148,163,184,.24);--ff-text:#F5F7FA;--ff-muted:#A7B4C6;color-scheme:dark;color:var(--ff-text)!important}
+    html:not(.dark) .finance-v31,html:not(.dark) .finance-v31-modal,[data-theme="light"] .finance-v31,[data-theme="light"] .finance-v31-modal{--ff-bg:transparent;--ff-panel:#FFFFFF;--ff-card:#FFFFFF;--ff-card-2:#F5F7FA;--ff-border:#E2E8F0;--ff-text:#2D3748;--ff-muted:#64748B;color-scheme:light}
     html.dark .finance-v31,html.dark .finance-v31-modal,body.dark .finance-v31,body.dark .finance-v31-modal,.dark .finance-v31,.dark .finance-v31-modal,[data-theme="dark"] .finance-v31,[data-theme="dark"] .finance-v31-modal{--ff-bg:#07111f;--ff-panel:#0f1b2d;--ff-card:#122139;--ff-card-2:#0b1624;--ff-border:rgba(148,163,184,.24);--ff-text:#e5eef8;--ff-muted:#9fb0c8;color-scheme:dark}
-    .finance-v31{background:radial-gradient(circle at top left,rgba(34,197,94,.11),transparent 28%),var(--ff-bg)!important;color:var(--ff-text)!important}
+    .finance-v31{background:transparent!important;color:var(--ff-text)!important}
     html:not(.dark) .finance-v31,[data-theme="light"] .finance-v31{background:var(--ff-bg)!important}
     .finance-v31-modal{background:rgba(2,6,23,.72)!important;color:var(--ff-text)!important}
     .finance-v31-modal-inner,.finance-v31-shell,.finance-v31-card,.finance-v31-card.grouped,.finance-v31-metric,.finance-v31-form-card,.finance-v31-total-box,.finance-v31-empty,.finance-v31-table-wrap,.finance-v31-target-box,.finance-v31-check,.finance-v31-chip,.finance-v31-defaulter,.finance-v31-notice,.finance-v31-message{background-color:var(--ff-card)!important;color:var(--ff-text)!important;border-color:var(--ff-border)!important}

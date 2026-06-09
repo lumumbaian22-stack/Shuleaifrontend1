@@ -771,3 +771,12 @@ window.addTeacherTask = addTeacherTask;
 window.loadTeacherMessages = loadTeacherMessages;
 window.uploadMarksCSV = uploadMarksCSV;
 window.getStatusColor = getStatusColor;
+
+// Open an existing parent conversation in the consolidated teacher Messages UI.
+window.openTeacherConversation = async function(parentUserId, conversationKey=''){
+  if (typeof showDashboardSection === 'function') await showDashboardSection('chat');
+  setTimeout(() => {
+    if (typeof window.v9SetChatMode === 'function') window.v9SetChatMode('parent');
+    if (typeof window.v9SelectParent === 'function') window.v9SelectParent(Number(parentUserId), conversationKey || '');
+  }, 120);
+};

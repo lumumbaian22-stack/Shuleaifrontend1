@@ -135,6 +135,17 @@ function updateSidebar(role) {
                 { icon: 'users', label: 'Classes', section: 'classes' }
             ]
         },
+        finance_officer: {
+            main: [
+                { icon: 'layout-dashboard', label: 'Finance Dashboard', section: 'dashboard' },
+                { icon: 'wallet', label: 'Finance Workspace', section: 'finance-fees' },
+                { icon: 'bell', label: 'Alerts', section: 'alerts' }
+            ],
+            settings: [
+                { icon: 'user', label: 'Profile', section: 'profile' },
+                { icon: 'help-circle', label: 'Help', section: 'help' }
+            ]
+        },
         teacher: {
             main: [
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
@@ -547,7 +558,7 @@ async function showDashboard(role) {
         dashboardContainer.setAttribute('data-current-role', role);
     }
 
-    if (role === 'admin' || role === 'superadmin' || role === 'teacher') {
+    if (role === 'admin' || role === 'finance_officer' || role === 'superadmin' || role === 'teacher') {
         await loadSchoolSettings();
     } else {
         const cached = localStorage.getItem('schoolSettings');
@@ -579,6 +590,8 @@ async function showDashboard(role) {
                 api.admin.getPendingApprovals().catch(err => ({ data: { teachers: [] } }))
             ]);
             dashboardData = { teachers: teachers.data, students: students.data, pendingTeachers: pendingTeachers.data?.teachers || [] };
+        } else if (role === 'finance_officer') {
+            dashboardData = { financeOnly: true };
         } else if (role === 'teacher') {
             const [students, subjects, todayDuty] = await Promise.all([
                 api.teacher.getMyStudents().catch(err => ({ data: [] })),
@@ -683,7 +696,7 @@ async function showDashboardSection(section) {
             chat: 'Study Group Chat',
             'ai-tutor': 'AI Tutor',
             payments: 'Payments',
-            'finance-fees': 'Finance & Fees',
+            'finance-fees': 'Finance Workspace',
             'fee-structures': 'Finance & Fees',
             'payment-settings': 'Finance & Fees',
             'subscription-billing': 'Subscription & Billing',
@@ -819,6 +832,15 @@ async function renderDashboardSection(role, section) {
                 return '<div class="text-center py-12 text-red-500">Error: Admin module not loaded</div>';
             }
             return await renderAdminSection(section);
+        case 'finance_officer':
+            if (section === 'dashboard' || section === 'finance-fees' || section === 'payments') {
+                return typeof window.v31RenderFinanceFees === 'function'
+                    ? await window.v31RenderFinanceFees()
+                    : '<div class="rounded-xl border bg-card p-6 text-red-600">Finance Workspace failed to load.</div>';
+            }
+            if (section === 'profile') return await renderProfileSection();
+            if (section === 'help') return typeof renderHelpSupport === 'function' ? await renderHelpSupport() : '<div class="rounded-xl border bg-card p-6">Help is loading.</div>';
+            return '<div class="rounded-xl border bg-card p-6">This finance section is unavailable.</div>';
         case 'teacher':
             if (section === 'analytics') {
                 return await renderAnalyticsSection('teacher');

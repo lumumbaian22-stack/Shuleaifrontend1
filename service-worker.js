@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-v146-grounded-consolidation';
+const CACHE_NAME = 'shule-ai-v147-approved-theme-recovery';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

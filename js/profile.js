@@ -5,14 +5,16 @@ async function renderProfileSection() {
     const school = getCurrentSchool();
 
     const stats = await loadUserStats(user.role);
+    const roleLabel = user.role === 'finance_officer' ? 'Finance Officer / Bursar' : String(user.role || 'User').replace(/_/g, ' ');
 
     // Profile picture preview URL
-    const profileImageUrl = user.profileImage ? resolveMediaUrl(user.profileImage) : '';
+    const profileImageRaw = user.preferences?.profileImageDataUrl || user.profileImage || user.profilePicture || '';
+    const profileImageUrl = profileImageRaw ? resolveMediaUrl(profileImageRaw) : '';
 
     return `
         <div class="space-y-6 animate-fade-in max-w-4xl mx-auto">
             <!-- Profile Header with Picture Upload -->
-            <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
+            <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#083A85] via-[#0B2F6B] to-[#11B5B1] p-8 text-white">
                 <div class="absolute right-0 top-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10"></div>
                 <div class="absolute bottom-0 left-0 -mb-10 -ml-10 h-40 w-40 rounded-full bg-black/10"></div>
                 <div class="relative z-10 flex items-center gap-6">
@@ -28,7 +30,7 @@ async function renderProfileSection() {
                     </div>
                     <div>
                         <h2 class="text-3xl font-bold">${user.name}</h2>
-                        <p class="text-white/80 capitalize">${user.role} • ${user.email}</p>
+                        <p class="text-white/80 capitalize">${roleLabel} • ${user.email}</p>
                         <div class="flex gap-2 mt-2">
                             <span class="px-2 py-1 bg-white/20 rounded-full text-xs">ID: ${user.id}</span>
                             ${school?.shortCode ? `<span class="px-2 py-1 bg-white/20 rounded-full text-xs">School: ${school.shortCode}</span>` : ''}
@@ -77,7 +79,7 @@ async function renderProfileSection() {
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Role</label>
-                            <input type="text" value="${user.role}" disabled 
+                            <input type="text" value="${roleLabel}" disabled 
                                    class="w-full rounded-lg border border-input bg-muted px-4 py-2 text-sm text-muted-foreground">
                         </div>
                     </div>
@@ -123,7 +125,7 @@ async function renderProfileSection() {
             <div class="mt-4">
                 <label class="block text-sm font-medium mb-1">Signature</label>
                 <div class="flex items-center gap-4">
-                    <img id="signature-preview" src="${v116ResolveUploadedMediaUrl(user.signature || user.signatureUrl || '')}" class="h-16 border rounded" onerror="this.removeAttribute('src')">
+                    <img id="signature-preview" src="${v116ResolveUploadedMediaUrl(user.preferences?.signatureDataUrl || user.signature || user.signatureUrl || user.preferences?.signatureUrl || '')}" class="h-16 border rounded" onerror="this.removeAttribute('src')">
                     <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer">
                         Upload Signature
                         <input type="file" id="signature-upload" accept="image/*" class="hidden" onchange="uploadSignature(this.files[0])">
@@ -323,55 +325,92 @@ async function loadUserStats(role) {
     }
 }
 
-// Profile picture upload function
+// Image preparation keeps uploads small enough to persist safely in PostgreSQL.
+async function prepareProfileMedia(file, { signature = false } = {}) {
+    if (!file || !/^image\/(png|jpe?g|webp|gif)$/i.test(file.type || '')) throw new Error('Choose a PNG, JPG, WEBP or GIF image.');
+    const maxOriginal = signature ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (file.size > maxOriginal) throw new Error(signature ? 'Signature must be 2 MB or smaller.' : 'Profile image must be 5 MB or smaller.');
+    if (file.type === 'image/gif' || typeof createImageBitmap !== 'function') return file;
+    const bitmap = await createImageBitmap(file);
+    const maxSide = signature ? 1200 : 900;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!signature) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const mime = signature ? 'image/png' : 'image/jpeg';
+    const quality = signature ? undefined : 0.86;
+    const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Could not prepare image.')), mime, quality));
+    return new File([blob], signature ? 'signature.png' : 'profile.jpg', { type: mime });
+}
+
+function persistUploadedUserMedia(user, { displayUrl, fileUrl, signature = false }) {
+    const memoryUser = { ...user, preferences: { ...(user.preferences || {}) } };
+    const storageUser = { ...memoryUser, preferences: { ...memoryUser.preferences } };
+    if (signature) {
+        memoryUser.signature = displayUrl;
+        memoryUser.signatureUrl = displayUrl;
+        memoryUser.preferences.signatureDataUrl = String(displayUrl).startsWith('data:') ? displayUrl : null;
+        memoryUser.preferences.signatureUrl = displayUrl;
+        memoryUser.preferences.signatureFileUrl = fileUrl || memoryUser.preferences.signatureFileUrl || '';
+        storageUser.signature = fileUrl || displayUrl;
+        storageUser.signatureUrl = fileUrl || displayUrl;
+        storageUser.preferences.signatureDataUrl = null;
+        storageUser.preferences.signatureUrl = fileUrl || displayUrl;
+        storageUser.preferences.signatureFileUrl = fileUrl || '';
+    } else {
+        memoryUser.profileImage = displayUrl;
+        memoryUser.profilePicture = displayUrl;
+        memoryUser.preferences.profileImageDataUrl = String(displayUrl).startsWith('data:') ? displayUrl : null;
+        memoryUser.preferences.profileImageFileUrl = fileUrl || memoryUser.preferences.profileImageFileUrl || '';
+        storageUser.profileImage = fileUrl || displayUrl;
+        storageUser.profilePicture = fileUrl || displayUrl;
+        storageUser.preferences.profileImageDataUrl = null;
+        storageUser.preferences.profileImageFileUrl = fileUrl || '';
+    }
+    const activeUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    if (activeUser && typeof activeUser === 'object') {
+        Object.keys(activeUser).forEach(key => { if (!(key in memoryUser)) delete activeUser[key]; });
+        Object.assign(activeUser, memoryUser);
+        window.currentUser = activeUser;
+    } else {
+        window.currentUser = memoryUser;
+    }
+    if (window.dashboardData) {
+        window.dashboardData.user = { ...(window.dashboardData.user || {}), ...memoryUser };
+        window.dashboardData.profile = { ...(window.dashboardData.profile || {}), ...(signature ? { signature: displayUrl, signatureUrl: displayUrl } : { profileImage: displayUrl, profilePicture: displayUrl }) };
+    }
+    try { localStorage.setItem('user', JSON.stringify(storageUser)); } catch (_) {}
+    try { localStorage.setItem('currentUser', JSON.stringify(storageUser)); } catch (_) {}
+    try { localStorage.setItem('shule_user', JSON.stringify(storageUser)); } catch (_) {}
+    return memoryUser;
+}
+
 async function uploadProfilePicture(file) {
     if (!file) return;
-    if (!/^image\//i.test(file.type || '')) return showToast('Choose an image file.', 'error');
-    if (file.size > 5 * 1024 * 1024) return showToast('Image must be 5 MB or smaller.', 'error');
-    const formData = new FormData();
-    formData.append('picture', file);
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     showLoading();
     try {
-        const response = await fetch(`${API_BASE_URL}/api/user/profile-picture`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-            const currentStoredUser = getCurrentUser() || {};
-            const returnedProfileImage = data?.data?.profileImage || data?.profileImage || data?.data?.url || '';
-            if (!returnedProfileImage) throw new Error('Upload succeeded but no profile image URL was returned');
-
-            const mergedUser = {
-                ...currentStoredUser,
-                profileImage: returnedProfileImage,
-                profilePicture: returnedProfileImage
-            };
-            safeSetUserStorage(mergedUser);
-
-            const preview = document.getElementById('profile-preview');
-            const resolvedUrl = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(returnedProfileImage) : returnedProfileImage;
-            if (preview) {
-                preview.src = resolvedUrl;
-                preview.setAttribute('data-current-user-avatar', '');
-            }
-
-            if (typeof updateUserInfo === 'function') updateUserInfo();
-            if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
-            showToast('Profile picture updated successfully', 'success');
-        } else {
-            throw new Error(data.message || 'Upload failed');
-        }
+        const prepared = await prepareProfileMedia(file);
+        const formData = new FormData();
+        formData.append('picture', prepared);
+        const data = await api.user.uploadProfilePicture(formData);
+        const displayUrl = data?.data?.displayUrl || data?.data?.profileImage || data?.profileImage || '';
+        const fileUrl = data?.data?.fileUrl || data?.data?.profileImagePath || '';
+        if (!displayUrl) throw new Error('Upload completed but the server returned no profile image.');
+        persistUploadedUserMedia(getCurrentUser() || {}, { displayUrl, fileUrl, signature: false });
+        const preview = document.getElementById('profile-preview');
+        if (preview) { preview.src = v116ResolveUploadedMediaUrl(displayUrl); preview.setAttribute('data-current-user-avatar', ''); }
+        if (typeof updateUserInfo === 'function') updateUserInfo();
+        if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures();
+        showToast('Profile picture saved successfully', 'success');
     } catch (error) {
         console.error('Profile picture upload error:', error);
         showToast(error.message || 'Failed to upload profile picture', 'error');
-    } finally {
-        hideLoading();
-    }
+    } finally { hideLoading(); }
 }
-
 
 function v116ResolveUploadedMediaUrl(value) {
     const raw = String(value || '').trim();
@@ -379,73 +418,28 @@ function v116ResolveUploadedMediaUrl(value) {
     if (/^(data:|blob:|https?:\/\/)/i.test(raw)) return raw;
     if (typeof resolveMediaUrl === 'function') return resolveMediaUrl(raw);
     const base = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '').replace(/\/$/, '');
-    if (raw.startsWith('/')) return `${base}${raw}`;
     return `${base}/${raw.replace(/^\/+/, '')}`;
 }
 
-
-function stripLargeMediaForStorage(obj) {
-    try {
-        const clone = JSON.parse(JSON.stringify(obj || {}));
-        if (clone.preferences) {
-            // Keep durable metadata in localStorage, but never store large base64 blobs there.
-            if (String(clone.preferences.signatureDataUrl || '').startsWith('data:')) clone.preferences.signatureDataUrl = null;
-            if (String(clone.preferences.profileImageDataUrl || '').startsWith('data:')) clone.preferences.profileImageDataUrl = null;
-        }
-        if (String(clone.signature || '').startsWith('data:')) clone.signature = clone.preferences?.signatureFileUrl || clone.signatureUrl || '';
-        if (String(clone.signatureUrl || '').startsWith('data:')) clone.signatureUrl = clone.preferences?.signatureFileUrl || clone.signature || '';
-        if (String(clone.profileImage || '').startsWith('data:')) clone.profileImage = clone.preferences?.profileImageFileUrl || '';
-        return clone;
-    } catch (_) { return obj || {}; }
-}
-function safeSetUserStorage(user) {
-    const safe = stripLargeMediaForStorage(user);
-    try { localStorage.setItem('user', JSON.stringify(safe)); } catch (_) {}
-    try { localStorage.setItem('currentUser', JSON.stringify(safe)); } catch (_) {}
-    try { localStorage.setItem('shule_user', JSON.stringify(safe)); } catch (_) {}
-}
-
-// Signature upload function
 async function uploadSignature(file) {
     if (!file) return;
-    if (!/^image\//i.test(file.type || '')) return showToast('Choose an image file.', 'error');
-    if (file.size > 2 * 1024 * 1024) return showToast('Signature must be 2 MB or smaller.', 'error');
-    const formData = new FormData();
-    formData.append('signature', file);
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     showLoading();
     try {
-        const response = await fetch(`${API_BASE_URL}/api/user/signature`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-            const user = getCurrentUser() || {};
-            const rawSignature = data.data?.signatureUrl || data.data?.signature || data.signatureUrl || data.signature || '';
-            const signatureUrl = v116ResolveUploadedMediaUrl(rawSignature);
-            if (!signatureUrl) throw new Error('Upload succeeded but no signature URL was returned');
-            const preferences = { ...(user.preferences || {}), signatureUrl, signatureDataUrl: rawSignature.startsWith('data:') ? rawSignature : (user.preferences?.signatureDataUrl || null), signatureFileUrl: data.data?.signatureFileUrl || user.preferences?.signatureFileUrl || null, signatureUpdatedAt: new Date().toISOString() };
-            const updatedUser = { ...user, signature: signatureUrl, signatureUrl, preferences };
-            safeSetUserStorage(updatedUser);
-            window.currentUser = updatedUser;
-            if (window.dashboardData) {
-              window.dashboardData.user = { ...(window.dashboardData.user || {}), signature: signatureUrl, signatureUrl, preferences };
-              window.dashboardData.profile = { ...(window.dashboardData.profile || {}), signature: signatureUrl, signatureUrl };
-            }
-            const preview = document.getElementById('signature-preview');
-            if (preview) { preview.src = signatureUrl; preview.dataset.savedSignature = 'true'; }
-            showToast('Signature uploaded successfully', 'success');
-        } else {
-            throw new Error(data.message || 'Upload failed');
-        }
+        const prepared = await prepareProfileMedia(file, { signature: true });
+        const formData = new FormData();
+        formData.append('signature', prepared);
+        const data = await api.user.uploadSignature(formData);
+        const displayUrl = data?.data?.displayUrl || data?.data?.signatureUrl || data?.data?.signature || '';
+        const fileUrl = data?.data?.fileUrl || data?.data?.signatureFileUrl || '';
+        if (!displayUrl) throw new Error('Upload completed but the server returned no signature.');
+        persistUploadedUserMedia(getCurrentUser() || {}, { displayUrl, fileUrl, signature: true });
+        const preview = document.getElementById('signature-preview');
+        if (preview) { preview.src = v116ResolveUploadedMediaUrl(displayUrl); preview.dataset.savedSignature = 'true'; }
+        showToast('Signature saved successfully', 'success');
     } catch (error) {
         console.error('Signature upload error:', error);
         showToast(error.message || 'Failed to upload signature', 'error');
-    } finally {
-        hideLoading();
-    }
+    } finally { hideLoading(); }
 }
 
 // Export all functions

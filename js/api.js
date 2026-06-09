@@ -382,7 +382,10 @@ const adminAPI = {
     submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) }),
     getParentConversations: () => apiRequest('/api/admin/parent-conversations'),
     getParentMessages: (parentId) => apiRequest(`/api/admin/messages/${parentId}`),
-    replyToParent: (data) => apiRequest('/api/admin/reply-parent', { method: 'POST', body: JSON.stringify(data) })
+    replyToParent: (data) => apiRequest('/api/admin/reply-parent', { method: 'POST', body: JSON.stringify(data) }),
+    getFinanceStaff: () => apiRequest('/api/admin/finance-staff'),
+    createFinanceStaff: (data) => apiRequest('/api/admin/finance-staff', { method:'POST', body:JSON.stringify(data) }),
+    updateFinanceStaff: (userId, data) => apiRequest(`/api/admin/finance-staff/${userId}`, { method:'PATCH', body:JSON.stringify(data) })
 };
 
 // ============ TEACHER ENDPOINTS ============
@@ -643,7 +646,9 @@ const userAPI = {
             method: 'POST',
             body: JSON.stringify({ reason })
         }),
-    getAlerts: () => apiRequest('/api/user/alerts')
+    getAlerts: () => apiRequest('/api/user/alerts'),
+    uploadProfilePicture: (formData, onProgress) => uploadFile('/api/user/profile-picture', formData, onProgress),
+    uploadSignature: (formData, onProgress) => uploadFile('/api/user/signature', formData, onProgress)
 };
 
 
@@ -819,6 +824,7 @@ const paymentAPI = {
     parentFeeManual: (data) => apiRequest('/api/payments/parent/fee/manual', { method: 'POST', body: JSON.stringify(data) }),
     getManualQueue: () => apiRequest('/api/payments/admin/manual-queue'),
     getAdminRecords: () => apiRequest('/api/payments/admin/records'),
+    getFinanceContext: () => apiRequest('/api/payments/admin/context'),
     getAdminFinanceSummary: () => apiRequest('/api/payments/admin/finance-summary'),
     getStudentFinance: (studentId) => apiRequest(`/api/payments/admin/students/${studentId}/finance`),
     getStudentHistory: (studentId, params = {}) => apiRequest(`/api/payments/admin/students/${studentId}/history${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
