@@ -1,0 +1,7 @@
+SHULE AI V148 FRONTEND — GITHUB PAGES
+
+Upload every file in this ZIP directly to the GitHub Pages repository root.
+The repository root must show index.html, assets, css, js and pages.
+
+This frontend must be deployed with the matching v148 backend.
+After deployment, perform one Ctrl+Shift+R refresh to replace old service-worker files.

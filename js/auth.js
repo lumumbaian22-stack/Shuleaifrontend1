@@ -3,19 +3,12 @@ let currentUser = null;
 let currentSchool = null;
 
 
-function stripLargeMediaForStorage(obj) {
-    try {
-        const clone = JSON.parse(JSON.stringify(obj || {}));
-        if (clone.preferences) {
-            if (String(clone.preferences.signatureDataUrl || '').startsWith('data:')) clone.preferences.signatureDataUrl = null;
-            if (String(clone.preferences.profileImageDataUrl || '').startsWith('data:')) clone.preferences.profileImageDataUrl = null;
-        }
-        if (String(clone.signature || '').startsWith('data:')) clone.signature = clone.preferences?.signatureFileUrl || clone.signatureUrl || '';
-        if (String(clone.signatureUrl || '').startsWith('data:')) clone.signatureUrl = clone.preferences?.signatureFileUrl || clone.signature || '';
-        if (String(clone.profileImage || '').startsWith('data:')) clone.profileImage = clone.preferences?.profileImageFileUrl || '';
-        return clone;
-    } catch (_) { return obj || {}; }
-}
+function canonicalSmallMedia(value){const raw=String(value||'').trim();if(!raw||raw.startsWith('data:')||raw.startsWith('blob:')||raw.includes('/uploads/'))return'';return raw;}
+function stripLargeMediaForStorage(obj){const x=obj||{},t=x.teacher||{},img=canonicalSmallMedia(x.profileImage||x.profilePicture||x.preferences?.profileImageUrl),sig=canonicalSmallMedia(x.signatureUrl||x.signature||x.preferences?.signatureUrl);return{id:x.id,name:x.name||'',email:x.email||'',phone:x.phone||'',role:x.role||'',primaryRole:x.primaryRole||x.role||'',schoolCode:x.schoolCode||'',isActive:x.isActive!==false,firstLogin:!!x.firstLogin,mustChangePassword:!!x.mustChangePassword,financeTitle:x.financeTitle||x.preferences?.finance?.title||'',financePermissions:x.financePermissions||x.preferences?.finance?.permissions||[],profileImage:img,profilePicture:img,signature:sig,signatureUrl:sig,classId:x.classId||t.classId||null,classTeacher:x.classTeacher||t.classTeacher||null,teacher:x.role==='teacher'?{id:t.id||null,classId:t.classId||null,className:t.className||t.classTeacher||'',classTeacher:t.classTeacher||null,approvalStatus:t.approvalStatus||null,subjects:Array.isArray(t.subjects)?t.subjects.slice(0,30):[]}:undefined};}
+function minimalBrandingForStorage(b={}){const logo=canonicalSmallMedia(b.logoUrl||b.logo||'');return{schoolName:b.schoolName||b.displayName||'',displayName:b.displayName||b.schoolName||'',primaryColor:b.primaryColor||'',accentColor:b.accentColor||'',logoUrl:logo,logo};}
+function minimalSchoolForStorage(school,user){if(!school)return null;const b=school.settings?.branding||school.branding||{};return{schoolId:school.schoolId||school.schoolCode||user?.schoolCode||'',schoolCode:school.schoolCode||school.schoolId||user?.schoolCode||'',name:school.name||school.schoolName||'',schoolName:school.schoolName||school.name||'',status:school.status||'',system:school.system||school.curriculum||'',schoolStructure:school.schoolStructure||'',subscriptionPlan:school.subscriptionPlan||school.planCode||'',subscriptionStatus:school.subscriptionStatus||'',logo:canonicalSmallMedia(b.logoUrl||b.logo||school.logo||'')};}
+function cleanupOversizedSessionStorage(){['schoolSettings','schoolBranding','sidebarBrand','dashboardData','parentDashboardData','studentDashboardData','currentUser','shule_user','student'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i)||'';if(/^(schoolSettings:|dashboardData:|schoolBranding:)/.test(k))localStorage.removeItem(k);}}catch(_){}}
+function safeSessionSet(key,value){try{localStorage.setItem(key,value);return true}catch(e){if(e?.name!=='QuotaExceededError')throw e;cleanupOversizedSessionStorage();try{localStorage.setItem(key,value);return true}catch(_){return false}}}
 
 // Helper: Merge teacher profile into user object
 function mergeTeacherProfile(userData, profile) {
@@ -46,23 +39,9 @@ function parentSelectedChildKey(userId = null) {
     return `selectedChild:${id}`;
 }
 
-function clearSessionScopedDashboardState() {
-    ['schoolSettings','schoolBranding','sidebarBrand','selectedChild','shule_selected_child_id','dashboardData','parentDashboardData','studentDashboardData'].forEach(k => localStorage.removeItem(k));
-}
+function clearSessionScopedDashboardState(){['selectedChild','shule_selected_child_id'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});cleanupOversizedSessionStorage();}
 
-function persistSessionPayload(userData, schoolData) {
-    currentUser = userData || null;
-    currentSchool = schoolData || null;
-    if (currentUser) {
-        localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(currentUser)));
-        localStorage.setItem('userRole', currentUser.role || '');
-    }
-    if (currentSchool) {
-        const schoolCode = currentSchool.schoolId || currentSchool.schoolCode || currentUser?.schoolCode;
-        localStorage.setItem('school', JSON.stringify(currentSchool));
-        if (schoolCode) localStorage.setItem(schoolScopedKey('schoolSettings', schoolCode), JSON.stringify(currentSchool));
-    }
-}
+function persistSessionPayload(userData,schoolData){currentUser=userData||null;currentSchool=schoolData||null;cleanupOversizedSessionStorage();if(currentUser){safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(currentUser)));safeSessionSet('userRole',currentUser.role||'');}if(currentSchool)safeSessionSet('school',JSON.stringify(minimalSchoolForStorage(currentSchool,currentUser)));}
 
 function syncProfileAvatarUI() {
     setTimeout(() => {
@@ -111,7 +90,7 @@ async function superAdminLogin(email, password, secretKey) {
         currentUser = response.data.user;
         
         clearSessionScopedDashboardState();
-        localStorage.setItem('authToken', authToken);
+        safeSessionSet('authToken',authToken);
         persistSessionPayload(currentUser, null);
         
         return response;
@@ -150,8 +129,8 @@ async function checkAdminStatusAfterApproval() {
                 if (response.success) {
                     const refreshedUser = response.data.user;
                     if (refreshedUser.isActive === true) {
-                        localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(refreshedUser)));
-                        localStorage.setItem('userRole', refreshedUser.role);
+                        safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(refreshedUser)));
+                        safeSessionSet('userRole',refreshedUser.role);
                         syncProfileAvatarUI();
                         currentUser = refreshedUser;
                         console.log('✅ Admin account activated successfully');
@@ -202,9 +181,9 @@ async function studentLogin(elimuid, password) {
         authToken = response.data.token;
         currentUser = response.data.user;
         
-        localStorage.setItem('authToken', authToken);
-        localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(currentUser)));
-        localStorage.setItem('userRole', currentUser.role);
+        safeSessionSet('authToken',authToken);
+        safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(currentUser)));
+        safeSessionSet('userRole',currentUser.role);
         
         return response;
     } catch (error) {
@@ -253,7 +232,7 @@ async function login(emailOrPhone, password, role) {
         }
 
         clearSessionScopedDashboardState();
-        localStorage.setItem('authToken', authToken);
+        safeSessionSet('authToken',authToken);
         persistSessionPayload(currentUser, currentSchool);
 
         console.log('✅ Login successful, redirecting to dashboard');

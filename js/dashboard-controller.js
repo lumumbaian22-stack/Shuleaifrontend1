@@ -154,10 +154,9 @@ function updateSidebar(role) {
                         const u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
                         const t = u?.teacher || {};
                         const isClassTeacher = !!(u?.classTeacher || u?.classId || t.classTeacher || t.classId || t.isClassTeacher || t.role === 'class_teacher');
-                        return isClassTeacher ? [{ icon: 'users', label: 'My Students', section: 'students' }, { icon: 'file-clock', label: 'Report Cards', section: 'report-history' }, { icon: 'cake', label: 'Class Birthdays', section: 'birthdays' }] : [];
+                        return isClassTeacher ? [{icon:'users',label:'My Students',section:'students'},{icon:'file-clock',label:'Report Cards',section:'report-history'},{icon:'cake',label:'Class Birthdays',section:'birthdays'},{icon:'calendar-check',label:'Attendance',section:'attendance'},{icon:'log-out',label:'Release Class',section:'release-class'}] : [];
                     } catch (_) { return []; }
                 })(),
-                { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'trending-up', label: 'Grades', section: 'grades' },
                 { icon: 'check-square', label: 'Tasks', section: 'tasks' },
                 { icon: 'clock', label: 'My Duty', section: 'duty' },
@@ -361,7 +360,7 @@ async function loadSchoolSettings() {
                 // Extract schoolLevel from nested settings
                 window.schoolSettings.schoolLevel = response.data.settings?.schoolLevel || 'both';
                 window.customSubjects = response.data.settings?.customSubjects || [];
-                localStorage.setItem(cacheKey, JSON.stringify(window.schoolSettings));
+                try{localStorage.removeItem(cacheKey)}catch(_){}
                 console.log('✅ School settings loaded from API');
                 return window.schoolSettings;
             }
@@ -389,7 +388,7 @@ async function saveSchoolSettings(settings) {
             customSubjects = response.data.customSubjects || [];
             const school = currentSchoolPayload();
             const cacheKey = window.schoolScopedKey ? window.schoolScopedKey('schoolSettings', school?.schoolId || school?.schoolCode) : `schoolSettings:${school?.schoolId || school?.schoolCode || 'unknown'}`;
-            localStorage.setItem(cacheKey, JSON.stringify(response.data));
+            try{localStorage.removeItem(cacheKey)}catch(_){}
             showToast('Settings saved successfully!', 'success');
             await showDashboardSection(currentSection);
         }
@@ -528,7 +527,7 @@ async function showDashboard(role) {
                 if (response && response.data && response.data.user) {
                     role = response.data.user.role;
                     localStorage.setItem('userRole', role);
-                    localStorage.setItem('user', JSON.stringify(response.data.user));
+                    if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(response.data.user):response.data.user));
                 }
             } catch (error) {
                 console.error('Failed to fetch user from API:', error);
@@ -627,8 +626,7 @@ async function showDashboard(role) {
                 const logo = dashboardData.school.logo || branding.logoDataUrl || branding.logoUrl || branding.logo;
                 try {
                     const storedSchool = JSON.parse(localStorage.getItem('school') || '{}') || {};
-                    localStorage.setItem('school', JSON.stringify({ ...storedSchool, name: schoolName || storedSchool.name, schoolName: schoolName || storedSchool.schoolName, schoolId: dashboardData.school.schoolCode || storedSchool.schoolId, schoolCode: dashboardData.school.schoolCode || storedSchool.schoolCode, settings: { ...(storedSchool.settings || {}), branding: { ...(storedSchool.settings?.branding || {}), ...branding } } }));
-                    localStorage.setItem('schoolBranding', JSON.stringify({ ...(JSON.parse(localStorage.getItem('schoolBranding') || '{}') || {}), ...branding, schoolName, displayName: schoolName, logo: logo || branding.logo || null, logoDataUrl: branding.logoDataUrl || (String(logo || '').startsWith('data:') ? logo : null), logoUrl: branding.logoUrl || (!String(logo || '').startsWith('data:') ? logo : null) }));
+                    const nextSchool={...storedSchool,name:schoolName||storedSchool.name,schoolName:schoolName||storedSchool.schoolName,schoolId:dashboardData.school.schoolCode||storedSchool.schoolId,schoolCode:dashboardData.school.schoolCode||storedSchool.schoolCode,logo:typeof canonicalSmallMedia==='function'?canonicalSmallMedia(logo||branding.logoUrl||branding.logo):''};if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(nextSchool,typeof getCurrentUser==='function'?getCurrentUser():null):nextSchool));const small=typeof minimalBrandingForStorage==='function'?minimalBrandingForStorage({...branding,schoolName,logoUrl:logo||branding.logoUrl||branding.logo}):{schoolName,logoUrl:logo};if(typeof safeSessionSet==='function')safeSessionSet('schoolBranding',JSON.stringify(small));
                     if (window.BrandingManager && typeof window.BrandingManager.forceApply === 'function') window.BrandingManager.forceApply(schoolName);
                 } catch (_) {}
             }

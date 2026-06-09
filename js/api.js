@@ -372,7 +372,10 @@ const adminAPI = {
     getCurriculumLevels: () => apiRequest('/api/admin/curriculum/levels'),
     getCurriculumSubjectBank: () => apiRequest('/api/admin/curriculum/subject-bank'),
     getSchoolSubjects: () => apiRequest('/api/admin/curriculum/school-subjects'),
-    saveSchoolSubjects: (subjects) => apiRequest('/api/admin/curriculum/school-subjects', { method: 'PUT', body: JSON.stringify({ subjects }) }),
+    saveSchoolSubjects:(subjects)=>apiRequest('/api/admin/curriculum/school-subjects',{method:'PUT',body:JSON.stringify({subjects})}),
+    getCustomSubjects:()=>apiRequest('/api/admin/curriculum/custom-subjects'),
+    createCustomSubject:(data)=>apiRequest('/api/admin/curriculum/custom-subjects',{method:'POST',body:JSON.stringify(data||{})}),
+    deleteCustomSubject:(id)=>apiRequest(`/api/admin/curriculum/custom-subjects/${encodeURIComponent(id)}`,{method:'DELETE'}),
     getAssessmentSettings: () => apiRequest('/api/admin/assessment-settings'),
     saveAssessmentSettings: (assessmentSettings) => apiRequest('/api/admin/assessment-settings', { method: 'PUT', body: JSON.stringify({ assessmentSettings }) }),
     getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
@@ -857,6 +860,9 @@ const lifecycleAPI = {
     shareReportSnapshot: (id, data) => apiRequest(`/api/report-cards/history/${id}/share`, { method:'POST', body:JSON.stringify(data || {}) })
 };
 
+// ============ FINANCE WORKSPACE ============
+const financeAPI={getOverview:(params={})=>apiRequest(`/api/finance/overview${Object.keys(params).length?`?${new URLSearchParams(params).toString()}`:''}`),getAlerts:(limit=200)=>apiRequest(`/api/finance/alerts?limit=${encodeURIComponent(limit)}`),getExpenses:(params={})=>apiRequest(`/api/finance/expenses${Object.keys(params).length?`?${new URLSearchParams(params).toString()}`:''}`),createExpense:(data)=>apiRequest('/api/finance/expenses',{method:'POST',body:JSON.stringify(data||{})}),updateExpense:(id,data)=>apiRequest(`/api/finance/expenses/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(data||{})}),deleteExpense:(id)=>apiRequest(`/api/finance/expenses/${encodeURIComponent(id)}`,{method:'DELETE'}),getReport:(params={})=>apiRequest(`/api/finance/report${Object.keys(params).length?`?${new URLSearchParams(params).toString()}`:''}`)};
+
 // ============ ASSEMBLE API OBJECT ============
 const api = {
     auth: authAPI,
@@ -867,6 +873,7 @@ const api = {
     parent: parentAPI,
     student: studentAPI,
     lifecycle: lifecycleAPI,
+    finance: financeAPI,
     duty: dutyAPI,
     analytics: analyticsAPI,
     upload: uploadAPI,

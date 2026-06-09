@@ -1,2 +1,1 @@
-Shule AI v147 — approved theme recovery
-Frontend and backend must be deployed together.
+Shule AI v148 — locked finance, media, session, teacher-role and school-scope repair

@@ -383,9 +383,7 @@ function persistUploadedUserMedia(user, { displayUrl, fileUrl, signature = false
         window.dashboardData.user = { ...(window.dashboardData.user || {}), ...memoryUser };
         window.dashboardData.profile = { ...(window.dashboardData.profile || {}), ...(signature ? { signature: displayUrl, signatureUrl: displayUrl } : { profileImage: displayUrl, profilePicture: displayUrl }) };
     }
-    try { localStorage.setItem('user', JSON.stringify(storageUser)); } catch (_) {}
-    try { localStorage.setItem('currentUser', JSON.stringify(storageUser)); } catch (_) {}
-    try { localStorage.setItem('shule_user', JSON.stringify(storageUser)); } catch (_) {}
+    const minimal=typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(storageUser):storageUser;try{if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(minimal));else localStorage.setItem('user',JSON.stringify(minimal));}catch(_){}try{localStorage.removeItem('currentUser');localStorage.removeItem('shule_user');}catch(_){}
     return memoryUser;
 }
 

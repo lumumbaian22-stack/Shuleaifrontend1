@@ -1384,7 +1384,7 @@ async function updateProfile(event) {
   try {
     await api.user.updateProfile(data);
     const user = getCurrentUser(); user.name = data.name; user.email = data.email; user.phone = data.phone;
-    localStorage.setItem('user', JSON.stringify(user));
+    if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
     showToast('Profile updated', 'success');
     await showDashboardSection('profile');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
@@ -1407,7 +1407,7 @@ async function uploadProfilePicture(file) {
       // Update local user object
       const user = getCurrentUser();
       user.profileImage = resolveMediaUrl(data.data.profileImage);
-      localStorage.setItem('user', JSON.stringify(user));
+      if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
       showToast('Profile picture updated', 'success');
     } else {
       throw new Error(data.message);
@@ -1452,7 +1452,6 @@ window.addCustomSubject = async function() {
             customSubjects = updatedSubjects;
             window.customSubjects = updatedSubjects;
             window.schoolSettings = response.data;
-            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             await showDashboardSection('custom-subjects');
             showToast(`Subject "${newSubject}" added`, 'success');
             await refreshClassManagementIfVisible();
@@ -1473,7 +1472,6 @@ window.removeCustomSubject = async function(subject) {
             customSubjects = updatedSubjects;
             window.customSubjects = updatedSubjects;
             window.schoolSettings = response.data;
-            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             await showDashboardSection('custom-subjects');
             showToast(`Subject "${subject}" removed`, 'info');
             await refreshClassManagementIfVisible();
@@ -1495,7 +1493,6 @@ window.saveAllSettings = async function() {
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];
-            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             
             // === ADD THIS BLOCK ===
             const freshSettings = await api.admin.getSchoolSettings();
@@ -1503,7 +1500,6 @@ window.saveAllSettings = async function() {
                 window.schoolSettings = freshSettings.data;
                 window.schoolSettings.curriculum = freshSettings.data.system;
                 window.customSubjects = freshSettings.data.settings?.customSubjects || [];
-                localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(freshSettings.data));
             }
             // === END ADD ===
             
@@ -1511,7 +1507,7 @@ window.saveAllSettings = async function() {
             school.name = schoolName;
             school.system = curriculum;
             school.settings = response.data.settings;
-            localStorage.setItem('school', JSON.stringify(school));
+            if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(school,typeof getCurrentUser==='function'?getCurrentUser():null):school));
             updateAllSchoolNameElements(schoolName);
             showToast('✅ Settings saved!', 'success');
             if (api.admin?.syncCurriculumClasses) await api.admin.syncCurriculumClasses().catch(e => console.warn('Class sync skipped', e.message));
@@ -1930,7 +1926,7 @@ async function saveAdminBranding() {
     const payload = { schoolName: document.getElementById('branding-school-name')?.value?.trim(), colorName: document.getElementById('branding-color-name')?.value, primaryColor: document.getElementById('branding-primary-color')?.value, accentColor: document.getElementById('branding-accent-color')?.value, logoUrl: document.getElementById('branding-logo-url')?.value?.trim(), reportFooter: document.getElementById('branding-report-footer')?.value?.trim(), paymentInstructions: document.getElementById('branding-payment-instructions')?.value?.trim() };
     if (file) payload.logoDataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); });
     showLoading();
-    try { const res = await apiRequest('/api/owner/branding', { method:'PUT', body: JSON.stringify(payload) }); window.schoolBranding = res.data || payload; localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); try { if (window.schoolScopedKey) localStorage.setItem(window.schoolScopedKey('schoolBranding'), JSON.stringify(window.schoolBranding)); } catch (_) {} window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding })); showToast('Branding saved', 'success'); await showDashboardSection('school-branding'); } catch (e) { showToast(e.message || 'Could not save branding', 'error'); } finally { hideLoading(); }
+    try { const res = await apiRequest('/api/owner/branding', { method:'PUT', body: JSON.stringify(payload) }); window.schoolBranding=res.data||payload;if(typeof safeSessionSet==='function')safeSessionSet('schoolBranding',JSON.stringify(typeof minimalBrandingForStorage==='function'?minimalBrandingForStorage(window.schoolBranding):window.schoolBranding));try{if(window.schoolScopedKey)localStorage.removeItem(window.schoolScopedKey('schoolBranding'))}catch(_){} window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding })); showToast('Branding saved', 'success'); await showDashboardSection('school-branding'); } catch (e) { showToast(e.message || 'Could not save branding', 'error'); } finally { hideLoading(); }
 }
 window.renderAdminBrandingSection = renderAdminBrandingSection;
 window.applyBrandingPresetPreview = applyBrandingPresetPreview;
@@ -2109,40 +2105,7 @@ window.loadAdminCalendarPreviewEvents = loadAdminCalendarPreviewEvents;
 
 // ============ V102 CURRICULUM + CUSTOM STRUCTURE + SUBJECT CHECKBOX UI ============
 const v102OriginalRenderAdminCustomSubjects = window.renderAdminCustomSubjects || renderAdminCustomSubjects;
-window.renderAdminCustomSubjects = async function() {
-    try {
-        const setup = await api.admin.getCurriculumSetup();
-        const data = setup.data || {};
-        const cfg = data.config || {};
-        const subjects = data.subjectBank || [];
-        const saved = new Set((cfg.schoolSubjects || []).filter(s => s.isOffered !== false).map(s => s.subjectId || s.id || s.name));
-        const grouped = subjects.reduce((acc, s) => {
-            const group = (s.levelLabels && s.levelLabels[0]) || (s.levelCodes && s.levelCodes[0]) || 'Subjects';
-            acc[group] = acc[group] || [];
-            acc[group].push(s);
-            return acc;
-        }, {});
-        return `
-            <div class="space-y-6 animate-fade-in">
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"><div><h2 class="text-2xl font-bold">Add Subjects</h2><p class="text-sm text-muted-foreground">Choose curriculum subjects or add a subject that is unique to this school.</p></div><div class="flex flex-wrap gap-2"><button onclick="showDashboardSection('custom-subjects')" class="px-4 py-2 border rounded-lg">+ Add Custom Subject</button><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Save Curriculum Subjects</button></div></div>
-                <div class="rounded-xl border bg-card p-6">
-                    <h3 class="font-semibold mb-3">Curriculum Source</h3>
-                    <div class="grid md:grid-cols-3 gap-3 text-sm">
-                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Curriculum</p><p class="font-bold">${cfg.curriculum || 'cbc'}</p></div>
-                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Structure</p><p class="font-bold">${cfg.structureType || 'mixed'}</p></div>
-                        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-muted-foreground">Enabled Levels</p><p class="font-bold">${(data.levels || []).length}</p></div>
-                    </div>
-                </div>
-                <div class="space-y-4">
-                    ${Object.entries(grouped).map(([group, items]) => `<div class="rounded-xl border bg-card p-5"><div class="flex items-center justify-between mb-3"><h3 class="font-semibold">${group}</h3><button type="button" onclick="v102ToggleSubjectGroup('${group.replace(/'/g,"\\'")}', true)" class="text-xs px-2 py-1 rounded bg-primary/10 text-primary">Check all</button></div><div class="grid md:grid-cols-3 gap-3">${items.map(s => `<label data-v102-group="${group}" class="flex items-start gap-2 p-3 rounded-lg border bg-muted/20"><input type="checkbox" class="v102-school-subject mt-1" data-subject='${JSON.stringify(s).replace(/'/g, '&#39;')}' ${saved.has(s.id) || saved.has(s.name) ? 'checked' : ''}><span><span class="font-medium text-sm">${s.name}</span><span class="block text-xs text-muted-foreground">${s.category || 'subject'}${s.pathway ? ` • ${s.pathway}` : ''}${s.track ? ` • ${s.track}` : ''}</span></span></label>`).join('')}</div></div>`).join('')}
-                </div>
-                <div class="flex justify-end"><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg">Save Curriculum Subjects</button></div>
-            </div>`;
-    } catch (error) {
-        console.error('V102 subject UI error:', error);
-        return `<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700"><h3 class="font-semibold mb-2">Curriculum subject setup failed</h3><p>${error.message}</p><p class="text-sm mt-2">Fix the curriculum/structure setup first; the system will not fall back to old manual subjects because the new engine is the source of truth.</p></div>`;
-    }
-};
+window.renderAdminCustomSubjects=async function(){try{const[setup,classesRes]=await Promise.all([api.admin.getCurriculumSetup(),api.admin.getClasses().catch(()=>({data:[]}))]),data=setup.data||{},cfg=data.config||{},subjects=data.subjectBank||[],classes=classesRes?.data||[],allSaved=Array.isArray(cfg.schoolSubjects)?cfg.schoolSubjects:[],custom=allSaved.filter(x=>x.isCustom),saved=new Set(allSaved.filter(x=>x.isOffered!==false).map(x=>x.subjectId||x.id||x.name));window.__v148CustomSubjects=custom;const grouped=subjects.reduce((a,x)=>{const g=x.levelLabels?.[0]||x.levelCodes?.[0]||'Subjects';(a[g]||=[]).push(x);return a;},{});return`<div class="space-y-6"><div><h2 class="text-2xl font-bold">Subjects</h2><p class="text-sm text-muted-foreground">Select curriculum subjects and add school-specific subjects.</p></div><section class="rounded-xl border bg-card p-6"><h3 class="font-semibold text-lg">Add Custom Subject</h3><div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4"><label class="text-sm">Name<input id="custom-subject-name" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Robotics"></label><label class="text-sm">Code<input id="custom-subject-code" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="ROB"></label><label class="text-sm">Scope<select id="custom-subject-scope" onchange="v148ToggleCustomSubjectClasses()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school">Whole school</option><option value="class">Selected classes</option></select></label><label class="text-sm">Grading<select id="custom-subject-grading" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school_default">School default</option><option value="numeric">Numeric marks</option><option value="competency">Competency</option><option value="pass_fail">Pass / Fail</option></select></label></div><div id="custom-subject-class-box" class="hidden mt-4"><p class="text-sm font-medium">Classes</p><div class="grid gap-2 sm:grid-cols-2 md:grid-cols-3 mt-2">${classes.map(c=>`<label class="flex items-center gap-2 rounded-lg border p-3 text-sm"><input type="checkbox" class="custom-subject-class" value="${c.id}">${escapeHtml(c.name||c.grade||`Class ${c.id}`)}</label>`).join('')}</div></div><button onclick="v148CreateCustomSubject()" class="mt-4 px-4 py-2 rounded-lg bg-primary text-white">Add Custom Subject</button></section><section><h3 class="font-semibold text-lg mb-3">Custom Subjects</h3><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${custom.length?custom.map(x=>`<div class="rounded-xl border bg-card p-4"><div class="flex justify-between gap-3"><div><strong>${escapeHtml(x.name)}</strong><p class="text-xs text-muted-foreground">${escapeHtml(x.code||'CUSTOM')} • ${x.scope==='class'?'Selected classes':'Whole school'}</p></div><button onclick="v148DeleteCustomSubject('${escapeHtml(x.subjectId)}')" class="text-red-600 text-xs">Remove</button></div></div>`).join(''):'<div class="rounded-xl border border-dashed p-5 text-muted-foreground">No custom subjects yet.</div>'}</div></section><section class="rounded-xl border bg-card p-6"><div class="flex justify-between"><div><h3 class="font-semibold text-lg">Curriculum Subjects</h3><p class="text-sm text-muted-foreground">${escapeHtml(cfg.curriculum||'CBC')}</p></div><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-4 py-2 bg-primary text-white rounded-lg">Save Curriculum Subjects</button></div></section><div class="space-y-4">${Object.entries(grouped).map(([g,items])=>`<div class="rounded-xl border bg-card p-5"><h3 class="font-semibold mb-3">${escapeHtml(g)}</h3><div class="grid md:grid-cols-3 gap-3">${items.map(item=>`<label class="flex gap-2 p-3 rounded-lg border"><input type="checkbox" class="v102-school-subject mt-1" data-subject='${JSON.stringify(item).replace(/'/g,'&#39;')}' ${saved.has(item.id)||saved.has(item.name)?'checked':''}><span>${escapeHtml(item.name)}</span></label>`).join('')}</div></div>`).join('')}</div></div>`;}catch(e){return`<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">${escapeHtml(e.message||'Subjects could not be loaded')}</div>`;}};
 
 const v102OriginalRenderAdminSettings = window.renderAdminSettings || renderAdminSettings;
 window.renderAdminSettings = function() {
@@ -2177,13 +2140,14 @@ window.v102ToggleSubjectGroup = function(group, checked) {
 window.v102SaveSchoolSubjectCheckboxes = async function() {
     showLoading();
     try {
-        const subjects = Array.from(document.querySelectorAll('.v102-school-subject:checked')).map(cb => JSON.parse(cb.dataset.subject.replace(/&#39;/g, "'")));
-        await api.admin.saveSchoolSubjects(subjects);
+        const subjects=Array.from(document.querySelectorAll('.v102-school-subject:checked')).map(cb=>JSON.parse(cb.dataset.subject.replace(/&#39;/g,"'")));const custom=Array.isArray(window.__v148CustomSubjects)?window.__v148CustomSubjects:[];await api.admin.saveSchoolSubjects([...subjects,...custom]);
         showToast(`✅ ${subjects.length} subjects saved and synced to classes/grading`, 'success');
         await showDashboardSection('custom-subjects');
     } catch(error) { showToast(error.message || 'Failed to save subjects', 'error'); }
     finally { hideLoading(); }
 };
+
+window.v148ToggleCustomSubjectClasses=function(){document.getElementById('custom-subject-class-box')?.classList.toggle('hidden',document.getElementById('custom-subject-scope')?.value!=='class');};window.v148CreateCustomSubject=async function(){const name=document.getElementById('custom-subject-name')?.value?.trim(),code=document.getElementById('custom-subject-code')?.value?.trim(),scope=document.getElementById('custom-subject-scope')?.value||'school',gradingMethod=document.getElementById('custom-subject-grading')?.value||'school_default',classIds=Array.from(document.querySelectorAll('.custom-subject-class:checked')).map(x=>Number(x.value)).filter(Boolean);if(!name)return showToast('Enter the subject name','error');if(scope==='class'&&!classIds.length)return showToast('Select at least one class','error');try{const r=await api.admin.createCustomSubject({name,code,scope,classIds,gradingMethod});showToast(r.message||'Custom subject added','success');await showDashboardSection('custom-subjects');}catch(e){showToast(e.message||'Could not add subject','error');}};window.v148DeleteCustomSubject=async function(id){if(!confirm('Remove this custom subject?'))return;try{const r=await api.admin.deleteCustomSubject(id);showToast(r.message||'Subject removed','success');await showDashboardSection('custom-subjects');}catch(e){showToast(e.message||'Could not remove subject','error');}};
 
 window.v102LoadStructureBuilder = async function() {
     showLoading();
@@ -2224,10 +2188,9 @@ window.saveAllSettings = async function() {
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];
-            localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(response.data));
             const school = JSON.parse(localStorage.getItem('school') || '{}');
             school.name = schoolName; school.system = curriculum; school.settings = response.data.settings;
-            localStorage.setItem('school', JSON.stringify(school));
+            if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(school,typeof getCurrentUser==='function'?getCurrentUser():null):school));
             updateAllSchoolNameElements(schoolName);
             showToast('✅ Curriculum and structure saved safely', 'success');
             if (api.admin?.syncCurriculumClasses) await api.admin.syncCurriculumClasses().catch(e => console.warn('Class sync skipped', e.message));

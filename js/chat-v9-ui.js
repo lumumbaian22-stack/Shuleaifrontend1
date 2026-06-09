@@ -33,6 +33,7 @@ function v9ClientMessageId(){ return (window.crypto?.randomUUID?.() || `msg-${Da
 function v9DirectKey(a,b){ return `direct:${[Number(a),Number(b)].sort((x,y)=>x-y).join(':')}`; }
 function v9JoinConversation(key){ window.ShuleRealtime?.joinConversation?.(key || null); }
 function v9Initials(name) { return String(name || 'U').split(' ').filter(Boolean).map(x => x[0]).join('').slice(0,2).toUpperCase(); }
+function v9ProfileUrl(user={}){const raw=String(user.profileImage||user.profilePicture||'').trim();if(!raw||raw.includes('/uploads/')||raw==='undefined'||raw==='null')return'';return typeof resolveMediaUrl==='function'?resolveMediaUrl(raw):raw;}function v9Avatar(userOrName,cls='tm6-avatar',extra=''){const u=typeof userOrName==='object'&&userOrName?userOrName:{name:String(userOrName||'User')},name=u.name||u.userName||u.parentName||'User',url=v9ProfileUrl(u);return`<span class="${cls} ${extra}" title="${v9Safe(name)}">${url?`<img src="${v9Safe(url)}" alt="${v9Safe(name)}" class="h-full w-full rounded-full object-cover" onerror="this.remove();this.parentElement.textContent='${v9Initials(name)}'">`:v9Initials(name)}</span>`;}
 function v9Time(value) { if (!value) return ''; try { return new Date(value).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }); } catch { return ''; } }
 function v9AttachmentLabel(file) { if (!file) return ''; return file.name || file.originalname || 'Attachment'; }
 function v9AttachmentLink(url, label = 'Attachment') {
@@ -247,7 +248,7 @@ function v9RenderDirectList() {
   if (!v9ChatState.teachers.length) return '<div class="tm6-empty small">No approved private-chat contacts found.</div>';
   return v9ChatState.teachers.map(t => `
     <button class="tm6-list-item ${Number(v9ChatState.selectedTeacher?.id) === Number(t.id) ? 'active' : ''}" onclick="v9SelectTeacher(${Number(t.id)})">
-      <span class="tm6-avatar">${v9Initials(t.name)}</span>
+      ${v9Avatar(t,'tm6-avatar')}
       <span><strong>${v9Safe(t.name)}</strong><small>${v9Safe(t.role === 'student' ? (t.Student?.grade || t.className || 'Student') : (t.email || 'Teacher'))}${t.unreadCount ? ` • ${t.unreadCount} unread` : ''}</small></span>
     </button>`).join('');
 }
@@ -257,7 +258,7 @@ function v9RenderParentList() {
   return v9ChatState.parents.map(p => {
     const active = Number(v9ChatState.selectedParent?.userId) === Number(p.userId) && String(v9ChatState.selectedParent?.conversationKey || '') === String(p.conversationKey || '');
     return `<button class="tm6-list-item ${active ? 'active' : ''}" onclick="v9SelectParent(${Number(p.userId)}, '${v9Safe(p.conversationKey || '')}')">
-      <span class="tm6-avatar parent">${v9Initials(v9ParentDisplayName(p))}</span>
+      ${v9Avatar({...p,name:v9ParentDisplayName(p)},'tm6-avatar','parent')}
       <span><strong>${v9Safe(v9ParentDisplayName(p))}</strong><small>${v9Safe(p.studentName ? `Parent of ${p.studentName}` : 'Parent')} ${p.unreadCount ? `• ${p.unreadCount} unread` : ''}</small></span>
     </button>`;
   }).join('');
@@ -722,7 +723,7 @@ function v9RenderStudentPrivateList() {
   if (!peers.length) return '<div class="v9-wa-empty-small">Your classmates will appear here.</div>';
   return peers.slice(0, 8).map(p => {
     const active = v9StudentState.mode === 'private' && Number(v9StudentState.selectedPeerId) === Number(p.id);
-    return `<button class="v9-wa-list-item ${active?'active':''}" onclick="v9StudentSelectPeer(${Number(p.id)})"><span class="v9-wa-avatar">${v9Initials(p.name)}</span><span><strong>${v9Safe(p.name)}</strong><small>Classmate</small><em>Private study chat</em></span></button>`;
+    return `<button class="v9-wa-list-item ${active?'active':''}" onclick="v9StudentSelectPeer(${Number(p.id)})">${v9Avatar(p,'v9-wa-avatar')}<span><strong>${v9Safe(p.name)}</strong><small>Classmate</small><em>Private study chat</em></span></button>`;
   }).join('');
 }
 function v9RenderStudentGroupChat(group, selected, threads) {
@@ -751,7 +752,7 @@ function v9RenderStudentPrivateChat(peer) {
   if (!peer) return '<div class="v9-wa-chat-card"><div class="v9-wa-day">Choose a classmate to start a private study chat.</div></div>';
   const me = v9CurrentUser();
   return `<div class="v9-wa-chat-card">
-    <header class="v9-wa-chat-head"><button onclick="v9StudentSetMode('private')">←</button><span class="v9-wa-avatar">${v9Initials(peer.name)}</span><div><h3>${v9Safe(peer.name)}</h3><p>Private study message</p></div><button onclick="v9LoadStudentPrivateMessages(${Number(peer.id)})">↻</button></header>
+    <header class="v9-wa-chat-head"><button onclick="v9StudentSetMode('private')">←</button>${v9Avatar(peer,'v9-wa-avatar')}<div><h3>${v9Safe(peer.name)}</h3><p>Private study message</p></div><button onclick="v9LoadStudentPrivateMessages(${Number(peer.id)})">↻</button></header>
     <div class="v9-wa-feed">${v9StudentState.directMessages.length ? v9StudentState.directMessages.map(m => v9RenderWhatsAppMessage(m, Number(m.senderId || m.Sender?.id) === Number(me?.id))).join('') : '<div class="v9-wa-day">No messages yet. Say hello 👋</div>'}</div>
     ${(v9StudentState.replyToMessage || v9StudentState.editingMessage) ? `<div class="v9-wa-action-bar"><span>${v9StudentState.editingMessage ? '✏️ Editing' : '↪ Replying to'} ${v9Safe((v9StudentState.editingMessage || v9StudentState.replyToMessage)?.content || '')}</span><button onclick="v9CancelStudentAction()">×</button></div>` : ''}
     <div class="v9-wa-composer"><button type="button">😊</button><input id="v9-private-input-${Number(peer.id)}" placeholder="${v9StudentState.editingMessage ? 'Edit message...' : 'Type a private message...'}" onkeydown="if(event.key==='Enter')v9SendStudentPrivateMessage(${Number(peer.id)})"><button type="button" onclick="v9SendStudentPrivateMessage(${Number(peer.id)})">${v9StudentState.editingMessage ? 'Save' : '➤'}</button></div>
@@ -785,7 +786,7 @@ function v9RenderStudentPrivateInfo(peer) {
 }
 function v9RenderParticipants(participants = []) {
   if (!participants.length) return '<div class="v9-wa-empty-small">Members will appear once students are linked to this class.</div>';
-  return `<div class="v9-wa-member-grid">${participants.slice(0,80).map(p => `<button onclick="v9StudentSelectPeer(${Number(p.id)})"><span class="v9-wa-avatar sm">${v9Initials(p.name)}</span><strong>${v9Safe(p.name)}</strong></button>`).join('')}</div>`;
+  return `<div class="v9-wa-member-grid">${participants.slice(0,80).map(p => `<button onclick="v9StudentSelectPeer(${Number(p.id)})">${v9Avatar(p,'v9-wa-avatar sm')}<strong>${v9Safe(p.name)}</strong></button>`).join('')}</div>`;
 }
 async function v9StudentSetMode(mode) {
   v9StudentState.mode = mode;

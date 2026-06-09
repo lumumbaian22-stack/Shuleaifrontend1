@@ -571,10 +571,7 @@ async function handleStudentLogin() {
 
         if (response.success) {
             authToken = response.data.token;        // Update global authToken
-            localStorage.setItem('authToken', authToken);
-            localStorage.setItem('user', JSON.stringify(stripLargeMediaForStorage(response.data.user)));
-            localStorage.setItem('student', JSON.stringify(response.data.student));
-            localStorage.setItem('userRole', 'student');
+            if(typeof safeSessionSet==='function'){safeSessionSet('authToken',authToken);safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));safeSessionSet('userRole','student');}else{localStorage.setItem('authToken',authToken);localStorage.setItem('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));localStorage.setItem('userRole','student');}
 
             if (response.data.user.firstLogin) {
                 closeAuthModal();

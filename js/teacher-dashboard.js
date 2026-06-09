@@ -49,8 +49,8 @@ function getTeacherAssignedClass() {
 }
 
 // ============ RENDER TEACHER SECTIONS ============
-async function renderTeacherSection(section) {
-  try {
+async function renderTeacherSection(section){
+  try{const classOnly=new Set(['students','attendance','report-history','birthdays','release-class']);if(classOnly.has(section)&&!isClassTeacher())return '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">This section appears automatically when the school assigns you as a class teacher.</p></div>';
     switch(section) {
       case 'dashboard': return await renderTeacherDashboard();
       case 'competency': return await renderTeacherCompetency();
@@ -58,6 +58,7 @@ async function renderTeacherSection(section) {
       case 'homework': return await (window.v12RenderTeacherHomework || window.renderTeacherHomework)();
       case 'students': return await renderTeacherStudents();
       case 'attendance': return await renderTeacherAttendance();
+      case 'release-class': return await renderTeacherReleaseClass();
       case 'grades': return await renderTeacherMarksEntry();
       case 'report-history': return await window.renderReportHistoryCentre('teacher');
       case 'birthdays': return await window.renderBirthdayCentre('teacher');
@@ -130,7 +131,7 @@ async function renderTeacherDashboard() {
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         ${isClassTeacher() ? `<div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">My Students</p><h3 class="text-2xl font-bold mt-1">${stats.studentCount || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><i data-lucide="users" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i></div></div></div>` : ''}
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">${isClassTeacher() ? 'Class Average' : 'Subject Average'}</p><h3 class="text-2xl font-bold mt-1">${stats.classAverage || 0}%</h3></div><div class="h-12 w-12 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><i data-lucide="trending-up" class="h-6 w-6 text-violet-600 dark:text-violet-400"></i></div></div></div>
-        <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Attendance Today</p><h3 class="text-2xl font-bold mt-1">${stats.attendanceToday || '0/0'}</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 dark:text-amber-400"></i></div></div></div>
+        ${isClassTeacher()?`<div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Attendance Today</p><h3 class="text-2xl font-bold mt-1">${stats.attendanceToday||'0/0'}</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 dark:text-amber-400"></i></div></div></div>`:''}
         <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Pending Tasks</p><h3 class="text-2xl font-bold mt-1">${stats.pendingTasks || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><i data-lucide="check-square" class="h-6 w-6 text-red-600 dark:text-red-400"></i></div></div></div>
       </div>
       <div class="grid gap-4 lg:grid-cols-2">
@@ -157,13 +158,11 @@ async function renderTeacherDashboard() {
           </div>
         </div>
       </div>
-      ${typeof hasSchoolFeature === 'function' && hasSchoolFeature('duty') ? `<div class="rounded-xl border bg-card p-6" id="duty-card"><div class="flex justify-between items-start"><div><h3 class="font-semibold">Today's Duty</h3><p class="text-sm text-muted-foreground" id="duty-location">Loading...</p></div><span class="duty-status px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-full" id="duty-status">Not Checked In</span></div><div class="mt-4 flex gap-3"><button onclick="handleCheckIn()" class="flex-1 bg-primary text-primary-foreground py-2 rounded-lg" id="check-in-btn">Check In</button><button onclick="handleCheckOut()" class="flex-1 border bg-background py-2 rounded-lg" id="check-out-btn" disabled>Check Out</button></div><div class="mt-3 text-xs text-muted-foreground">Duty is included for every active school.</div></div>` : ''}
+      ${`<div class="rounded-xl border bg-card p-6" id="duty-card"><div class="flex justify-between items-start"><div><h3 class="font-semibold">Today's Duty</h3><p class="text-sm text-muted-foreground" id="duty-location">Loading...</p></div><span class="duty-status px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-full" id="duty-status">Not Checked In</span></div><div class="mt-4 flex gap-3"><button onclick="handleCheckIn()" class="flex-1 bg-primary text-primary-foreground py-2 rounded-lg" id="check-in-btn">Check In</button><button onclick="handleCheckOut()" class="flex-1 border bg-background py-2 rounded-lg" id="check-out-btn" disabled>Check Out</button></div><div class="mt-3 text-xs text-muted-foreground">Duty is included for every active school.</div></div>`}
     </div>
   `;
 
-  if (typeof hasSchoolFeature === 'function' && hasSchoolFeature('duty')) {
-    setTimeout(() => { loadTodayDuty(); }, 100);
-  }
+  setTimeout(()=>{loadTodayDuty();},100);
 
   return html;
 }
@@ -547,6 +546,10 @@ async function renderTeacherAttendance() {
     </div>
   </div>`;
 }
+
+async function renderTeacherReleaseClass(){if(!isClassTeacher())return'<div class="text-center py-12"><h3 class="font-semibold">Class Teacher Only</h3></div>';let assigned=getTeacherAssignedClass();if(!assigned?.id)try{const a=await api.teacher.getMyAssignments();assigned=a?.data?.classTeacher||assigned}catch(_){}const classId=assigned?.id;if(!classId)return'<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Release Class</h2><p class="mt-2 text-muted-foreground">No active class-teacher assignment was found.</p></div>';const today=shuleAttendanceToday();try{const session=attendanceSessionPayload(await api.teacher.getAttendanceSession(classId,today));window.__teacherAttendanceSession=session;if(!session||session.status!=='locked')return`<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Release Class</h2><p class="mt-2 text-muted-foreground">Submit and lock today’s attendance before releasing the class.</p><button onclick="showDashboardSection('attendance')" class="mt-4 px-4 py-2 rounded-lg bg-primary text-white">Open Attendance</button></div>`;const latest=session.latestRelease;return`<div class="space-y-5"><section class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold">Release Class</h2><p class="text-sm text-muted-foreground">${escapeHtml(session.class?.name||assigned?.name||'My Class')} • ${today}</p>${latest?`<div class="mt-4 rounded-lg bg-muted/40 p-4 text-sm"><strong>Latest notice:</strong> ${escapeHtml(latest.message||latest.releaseType||'Released')}<br><span class="text-muted-foreground">${escapeHtml(new Date(latest.releasedAt||latest.createdAt).toLocaleString())} • ${latest.parentTargetCount||0} parent(s) targeted</span></div>`:''}</section><section class="rounded-xl border bg-card p-6"><div class="grid gap-4 md:grid-cols-2"><label class="text-sm">Release type<select id="release-type-standalone" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="normal">Released normally</option><option value="early">Released early</option><option value="delayed">Release delayed</option><option value="transport_delayed">School transport delayed</option><option value="custom">Custom notice</option></select></label><label class="text-sm">Channel<select id="release-channel-standalone" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="platform">Platform alert</option><option value="both">Platform + SMS</option></select></label></div><label class="block text-sm mt-4">Message<textarea id="release-message-standalone" rows="4" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></textarea></label><button onclick="submitStandaloneClassRelease()" class="mt-4 px-4 py-2 rounded-lg bg-primary text-white">${latest?'Send Release Update':'Release Class'}</button></section></div>`;}catch(e){return`<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">${escapeHtml(e.message||'Release status could not be loaded.')}</div>`;}}
+async function submitStandaloneClassRelease(){const s=window.__teacherAttendanceSession;if(!s?.id)return showToast('Attendance session is not ready','error');try{const r=await api.teacher.releaseAttendanceClass(s.id,{releaseType:document.getElementById('release-type-standalone')?.value||'normal',channel:document.getElementById('release-channel-standalone')?.value||'platform',message:document.getElementById('release-message-standalone')?.value?.trim()||''});showToast(r?.message||'Class release notice sent','success');const c=document.getElementById('dashboard-content');if(c)c.innerHTML=await renderTeacherReleaseClass();if(typeof lucide!=='undefined')lucide.createIcons();}catch(e){showToast(e.message||'Class release failed','error');}}
+window.renderTeacherReleaseClass=renderTeacherReleaseClass;window.submitStandaloneClassRelease=submitStandaloneClassRelease;
 
 function collectAttendanceSessionRecords() {
   return [...document.querySelectorAll('#attendance-session-table [data-attendance-student-id]')].map(row => ({ studentId:Number(row.dataset.attendanceStudentId), status:row.querySelector('.attendance-status')?.value || 'present', reason:(row.querySelector('.attendance-note')?.value || '').trim() }));
@@ -1146,7 +1149,6 @@ async function renderTeacherDuty() {
   `;
 }
 async function submitSwapRequest() {
-  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is unavailable because the school account is suspended or school context is missing.', 'warning');
   const date = String(document.getElementById('swap-date')?.value || '').trim();
   const reason = String(document.getElementById('swap-reason')?.value || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
@@ -1179,7 +1181,6 @@ window.addBlackoutDate = function() {
   if (window.lucide) lucide.createIcons();
 };
 window.saveDutyPreferences = async function() {
-  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is unavailable because the school account is suspended or school context is missing.', 'warning');
   const preferredDays = Array.from(document.querySelectorAll('.pref-day:checked')).map(cb => cb.value);
   const preferredAreas = Array.from(document.querySelectorAll('.pref-area:checked')).map(cb => cb.value);
   const maxDutiesPerWeek = parseInt(document.getElementById('max-duties')?.value) || 3;
@@ -1523,7 +1524,7 @@ async function updateProfile(event) {
   try {
     await api.user.updateProfile(data);
     const user = getCurrentUser(); user.name = data.name; user.email = data.email; user.phone = data.phone;
-    localStorage.setItem('user', JSON.stringify(user));
+    if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
     showToast('Profile updated', 'success');
     await showDashboardSection('profile');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
@@ -1552,7 +1553,7 @@ async function togglePreference(key) {
   try {
     await api.user.updatePreferences(prefs);
     user.preferences = prefs;
-    localStorage.setItem('user', JSON.stringify(user));
+    if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
     const btn = document.getElementById(`pref-${key}`);
     if (btn) {
       const isOn = prefs[key];
@@ -1598,7 +1599,7 @@ async function uploadProfilePicture(file) {
       document.getElementById('profile-preview').src = resolveMediaUrl(data.data.profileImage);
       const user = getCurrentUser();
       user.profileImage = resolveMediaUrl(data.data.profileImage);
-      localStorage.setItem('user', JSON.stringify(user));
+      if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
       showToast('Profile picture updated', 'success');
     } else {
       throw new Error(data.message);
@@ -1612,20 +1613,19 @@ async function uploadProfilePicture(file) {
 
 // ============ DUTY CARD HELPERS ============
 async function loadTodayDuty() {
-  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return null;
   try {
     const res = await api.duty.getTodayDuty();
-    const duty = res.data?.duties?.find(d => d.teacherId === getCurrentUser()?.id);
+    const duty=res.data?.duty||res.data?.duties?.[0]||null;
 
     // Only update duty card elements if they exist (they're only on teacher dashboard)
     const dutyLocation = document.getElementById('duty-location');
     if (dutyLocation) {
-      dutyLocation.innerText = duty ? duty.area : 'No duty today';
+      dutyLocation.innerText = duty ? `${duty.area||duty.type||'Duty'}${duty.timeSlot?.start?` • ${duty.timeSlot.start}${duty.timeSlot?.end?'–'+duty.timeSlot.end:''}`:''}` : 'No duty assigned today';
     }
 
     const dutyStatus = document.getElementById('duty-status');
     if (dutyStatus) {
-      dutyStatus.innerText = duty?.checkedIn ? 'Checked In' : 'Not Checked In';
+      dutyStatus.innerText = duty?.checkedOut?'Checked Out':duty?.checkedIn?(duty.status==='late'?'Checked In Late':'Checked In'):duty?'Scheduled':'No Duty';
     }
 
     const checkInBtn = document.getElementById('check-in-btn');
@@ -1635,7 +1635,7 @@ async function loadTodayDuty() {
 
     const checkOutBtn = document.getElementById('check-out-btn');
     if (checkOutBtn) {
-      checkOutBtn.disabled = !duty?.checkedIn;
+      checkOutBtn.disabled=!duty?.checkedIn||!!duty?.checkedOut;
     }
 
     return duty;
@@ -1646,7 +1646,6 @@ async function loadTodayDuty() {
 }
 
 async function handleCheckIn() {
-  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is unavailable because the school account is suspended or school context is missing.', 'warning');
   showLoading();
   try {
     await api.duty.checkIn({ location: 'School', notes: '' });
@@ -1655,7 +1654,6 @@ async function handleCheckIn() {
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
 async function handleCheckOut() {
-  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return showToast('Duty is unavailable because the school account is suspended or school context is missing.', 'warning');
   showLoading();
   try {
     await api.duty.checkOut({ location: 'School', notes: '' });

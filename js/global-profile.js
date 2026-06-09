@@ -44,7 +44,7 @@
         const file = String(src).split('/').pop();
         brokenProfileFilenames.add(file);
         // Remove stale Render /uploads image paths from localStorage so every section does not retry them.
-        ['user','shule_user','currentUser'].forEach((key) => {
+        ['user'].forEach((key) => {
           try {
             const raw = localStorage.getItem(key);
             if (!raw || !file || !raw.includes(file)) return;
@@ -57,7 +57,7 @@
                 if (String(obj.preferences[field] || '').includes(file)) obj.preferences[field] = '';
               });
             }
-            localStorage.setItem(key, JSON.stringify(obj));
+            const minimal=typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(obj):obj;if(typeof safeSessionSet==='function')safeSessionSet(key,JSON.stringify(minimal));
           } catch (_) {}
         });
       } catch (_) {}

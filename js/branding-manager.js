@@ -154,13 +154,13 @@
       school.name = name;
       school.schoolName = name;
       school.settings = { ...(school.settings || {}), schoolName: name };
-      localStorage.setItem('school', JSON.stringify(school));
+      if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(school,typeof getCurrentUser==='function'?getCurrentUser():null):school));
       window.currentSchool = school;
     }
     const settings = safeParse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')), {}) || {};
     settings.schoolName = name;
     settings.name = settings.name || name;
-    localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(settings));
+    try{localStorage.removeItem(window.schoolScopedKey?window.schoolScopedKey('schoolSettings'):'schoolSettings')}catch(_){}
     window.schoolSettings = { ...(window.schoolSettings || {}), ...settings };
   }
 
@@ -355,8 +355,8 @@
       const branding = res?.data || {};
       loadedOnce = true;
       window.schoolBranding = branding;
-      localStorage.setItem('schoolBranding', JSON.stringify(branding));
-      try { if (window.schoolScopedKey) localStorage.setItem(window.schoolScopedKey('schoolBranding'), JSON.stringify(branding)); } catch (_) {}
+      if(typeof safeSessionSet==='function')safeSessionSet('schoolBranding',JSON.stringify(typeof minimalBrandingForStorage==='function'?minimalBrandingForStorage(branding):branding));
+      try{if(window.schoolScopedKey)localStorage.removeItem(window.schoolScopedKey('schoolBranding'))}catch(_){}
       apply(brandingAllowed() ? (branding.schoolName || branding.displayName || branding.name) : null, { force: true });
       return branding;
     } catch (_) {
@@ -399,7 +399,7 @@
   window.addEventListener('school-branding-updated', (event) => {
     const branding = event?.detail || {};
     window.schoolBranding = { ...(window.schoolBranding || {}), ...branding };
-    try { localStorage.setItem('schoolBranding', JSON.stringify(window.schoolBranding)); } catch (_) {}
+    try{if(typeof safeSessionSet==='function')safeSessionSet('schoolBranding',JSON.stringify(typeof minimalBrandingForStorage==='function'?minimalBrandingForStorage(window.schoolBranding):window.schoolBranding))}catch(_){}
     apply(brandingAllowed() ? (branding.schoolName || branding.displayName || branding.name) : null, { force: true });
   });
   window.addEventListener('school-name-changed', (event) => {

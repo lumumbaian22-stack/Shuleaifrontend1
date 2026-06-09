@@ -94,7 +94,7 @@ function saveUser(userData) {
     if (userData.role === 'admin') {
         userData.admin = userData.admin || {};
     }
-    localStorage.setItem('user', JSON.stringify(userData));
+    const minimal=typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(userData):userData;if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(minimal));else localStorage.setItem('user',JSON.stringify(minimal));
     return userData;
 }
 

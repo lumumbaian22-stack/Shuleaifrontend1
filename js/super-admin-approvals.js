@@ -828,12 +828,11 @@ async function approveNameChange(requestId) {
                     name: newSchoolName,
                     settings: { ...currentSchool.settings, schoolName: newSchoolName }
                 };
-                localStorage.setItem('school', JSON.stringify(updatedSchool));
+                if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(updatedSchool,typeof getCurrentUser==='function'?getCurrentUser():null):updatedSchool));
                 
                 // Update schoolSettings
                 const settings = JSON.parse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')) || '{}');
                 settings.schoolName = newSchoolName;
-                localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(settings));
                 
                 // Update global variables
                 if (typeof window.schoolSettings !== 'undefined') {

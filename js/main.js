@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (response && response.data && response.data.user) {
                     role = response.data.user.role;
                     localStorage.setItem('userRole', role);
-                    localStorage.setItem('user', JSON.stringify(response.data.user));
+                    if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(response.data.user):response.data.user));
                     console.log('✅ Role from API:', role);
                 }
             } catch (error) {
@@ -140,12 +140,11 @@ window.addEventListener('storage', function(e) {
                     name: nameChangeData.newName,
                     settings: { ...currentSchool.settings, schoolName: nameChangeData.newName }
                 };
-                localStorage.setItem('school', JSON.stringify(updatedSchool));
+                if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(updatedSchool,typeof getCurrentUser==='function'?getCurrentUser():null):updatedSchool));
                 
                 // Update schoolSettings
                 const settings = JSON.parse((localStorage.getItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings') || localStorage.getItem('schoolSettings')) || '{}');
                 settings.schoolName = nameChangeData.newName;
-                localStorage.setItem(window.schoolScopedKey ? window.schoolScopedKey('schoolSettings') : 'schoolSettings', JSON.stringify(settings));
                 
                 // Update global variables
                 if (typeof window.schoolSettings !== 'undefined') {
