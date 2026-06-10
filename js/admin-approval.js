@@ -146,60 +146,25 @@ function renderPendingTeachersTable(teachers) {
     `;
 }
 
-function renderTeachersTable(teachers) {
-    if (!teachers || teachers.length === 0) {
-        return '<div class="text-center py-8 text-muted-foreground">No teachers found</div>';
-    }
-
-    return `
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-muted/50">
-                    <tr>
-                        <th class="px-4 py-3 text-left font-medium">Teacher</th>
-                        <th class="px-4 py-3 text-left font-medium">Email</th>
-                        <th class="px-4 py-3 text-left font-medium">Subjects</th>
-                        <th class="px-4 py-3 text-left font-medium">Status</th>
-                        <th class="px-4 py-3 text-right font-medium">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    ${teachers.map(teacher => {
-                        const user = teacher.User || {};
-                        const isActive = teacher.isActive !== false;
-                        return `
-                            <tr class="hover:bg-accent/50 transition-colors">
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
-                                        <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                            <span class="font-medium text-blue-700 text-sm">${getInitials(user.name)}</span>
-                                        </div>
-                                        <span class="font-medium">${user.name || 'Unknown'}</span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">${user.email || 'N/A'}</td>
-                                <td class="px-4 py-3">${(teacher.subjects || []).join(', ')}</td>
-                                <td class="px-4 py-3">
-                                    <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                                        ${isActive ? 'Active' : 'Inactive'}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <button onclick="viewTeacherDetails('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button>
-                                    ${isActive ? 
-                                        `<button onclick="deactivateTeacher('${teacher.id}', '${user.name}')" class="p-2 hover:bg-yellow-100 rounded-lg text-yellow-600"><i data-lucide="pause-circle" class="h-4 w-4"></i></button>` : 
-                                        `<button onclick="activateTeacher('${teacher.id}', '${user.name}')" class="p-2 hover:bg-green-100 rounded-lg text-green-600"><i data-lucide="play-circle" class="h-4 w-4"></i></button>`
-                                    }
-                                    <button onclick="removeTeacher('${teacher.id}')" class="p-2 hover:bg-red-100 rounded-lg text-red-600"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+function teacherClassAssignmentName(teacher) {
+    const direct = teacher?.Classes?.find?.(c => c && c.isActive !== false) || teacher?.Class;
+    const marked = (teacher?.TeacherSubjectAssignments || []).find(a => a?.isClassTeacher && a?.Class?.isActive !== false)?.Class;
+    const cls = marked || direct;
+    return cls?.name || cls?.grade || 'Not assigned';
 }
+function teacherSubjectAssignmentText(teacher) {
+    const rows = teacher?.TeacherSubjectAssignments || [];
+    const values = rows.filter(a => !a?.isClassTeacher).map(a => `${a?.Class?.name || a?.Class?.grade || 'Class'} — ${a?.subject || 'Subject'}`);
+    return values.length ? values.join(', ') : 'Not assigned';
+}
+function renderTeachersTable(teachers) {
+    if (!teachers || teachers.length === 0) return '<div class="text-center py-8 text-muted-foreground">No teachers found</div>';
+    return `<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left font-medium">Teacher</th><th class="px-4 py-3 text-left font-medium">Contact</th><th class="px-4 py-3 text-left font-medium">Class Teacher</th><th class="px-4 py-3 text-left font-medium">Subject Assignments</th><th class="px-4 py-3 text-left font-medium">Status</th><th class="px-4 py-3 text-right font-medium">Actions</th></tr></thead><tbody class="divide-y">${teachers.map(teacher => { const user=teacher.User||{}; const isActive=teacher.isActive!==false && teacher.approvalStatus!=='suspended'; const safeName=String(user.name||'Teacher').replace(/'/g,"&#39;"); return `<tr class="hover:bg-accent/50 transition-colors"><td class="px-4 py-3"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><span class="font-medium text-blue-700 text-sm">${getInitials(user.name)}</span></div><div><div class="font-medium">${user.name||'Unknown'}</div><div class="text-xs text-muted-foreground">${teacher.employeeId||'No teacher ID'}</div></div></div></td><td class="px-4 py-3"><div>${user.email||'N/A'}</div><div class="text-xs text-muted-foreground">${user.phone||''}</div></td><td class="px-4 py-3">${teacherClassAssignmentName(teacher)}</td><td class="px-4 py-3 max-w-xs"><div class="line-clamp-2">${teacherSubjectAssignmentText(teacher)}</div></td><td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${isActive?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${isActive?'Active':'Inactive'}</span></td><td class="px-4 py-3 text-right whitespace-nowrap"><button title="View" onclick="viewTeacherDetails('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button><button title="Edit professional profile" onclick="editTeacher('${teacher.id}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="pencil" class="h-4 w-4"></i></button><button title="Manage class and subject assignments" onclick="openTeacherAssignments('${teacher.id}')" class="p-2 hover:bg-blue-100 rounded-lg text-blue-700"><i data-lucide="book-open-check" class="h-4 w-4"></i></button>${isActive?`<button title="Deactivate" onclick="deactivateTeacher('${teacher.id}', '${safeName}')" class="p-2 hover:bg-yellow-100 rounded-lg text-yellow-600"><i data-lucide="pause-circle" class="h-4 w-4"></i></button>`:`<button title="Activate" onclick="activateTeacher('${teacher.id}', '${safeName}')" class="p-2 hover:bg-green-100 rounded-lg text-green-600"><i data-lucide="play-circle" class="h-4 w-4"></i></button>`}<button title="Remove" onclick="removeTeacher('${teacher.id}')" class="p-2 hover:bg-red-100 rounded-lg text-red-600"><i data-lucide="trash-2" class="h-4 w-4"></i></button></td></tr>`; }).join('')}</tbody></table></div>`;
+}
+window.openTeacherAssignments = async function(teacherId) {
+    sessionStorage.setItem('shule:teacher-assignment-focus', String(teacherId || ''));
+    if (typeof showDashboardSection === 'function') await showDashboardSection('classes');
+};
 
 // Export all
 window.loadPendingTeachers = loadPendingTeachers;
@@ -226,8 +191,8 @@ window.activateTeacher = async function(teacherId) {
   finally { hideLoading?.(); }
 };
 window.removeTeacher = async function(teacherId) {
-  if (!confirm('Remove this teacher? Existing academic and audit history will be preserved where applicable.')) return;
-  try { showLoading?.(); await api.admin.deleteTeacher(teacherId); showToast?.('Teacher removed', 'success'); await refreshTeachersList(); }
+  if (!confirm('Deactivate this teacher? Their login will be disabled, but class, subject, academic and audit history will be preserved.')) return;
+  try { showLoading?.(); await api.admin.deleteTeacher(teacherId); showToast?.('Teacher deactivated safely', 'success'); await refreshTeachersList(); }
   catch (error) { showToast?.(error.message || 'Could not remove teacher', 'error'); }
   finally { hideLoading?.(); }
 };

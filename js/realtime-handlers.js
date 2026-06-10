@@ -23,7 +23,12 @@
     if(type.includes('calendar'))debounce('calendar',()=>Promise.allSettled([call('loadCalendarEvents'),section()==='calendar'?call('showDashboardSection','calendar'):null]));
     if(type.startsWith('duty:'))debounce('duty',()=>Promise.allSettled([call('v145LoadAdminDuty'),call('v145LoadTeacherDuty')]));
     if(type.includes('branding')||type.includes('school_settings'))debounce('branding',()=>call('loadAndApplySchoolBranding'));
-    if(type.includes('student:')||type.includes('class:updated')||type.includes('promotion:'))debounce('people',()=>Promise.allSettled([call('refreshStudentsList'),call('refreshClassesList'),call('refreshMyStudents')]));
+    if(type.includes('student:')||type.includes('class:updated')||type.includes('promotion:')){
+      debounce('people',()=>Promise.allSettled([call('refreshStudentsList'),call('refreshClassesList'),call('refreshMyStudents')]));
+      if(['class-transfers','student-lifecycle'].includes(section()))debounce('class-transfer-view',()=>{const role=String((typeof getCurrentUser==='function'?getCurrentUser()?.role:'')||'');return role==='teacher'?call('refreshClassTransferCentre','teacher'):role==='admin'?call('refreshClassTransferCentre','admin'):null;},500);
+      if(section()==='school-history')debounce('school-history',()=>call('showDashboardSection','school-history'),500);
+      if(type==='student:class_changed'&&['dashboard','students','attendance','grades','timetable','schedule','chat','parent-messages'].includes(section()))debounce('class-context',()=>call('showDashboardSection',section()),700);
+    }
     window.dispatchEvent(new CustomEvent('shule:realtime-update',{detail:evt}));
   }
   window.addEventListener('shule:realtime-event',e=>route(e.detail));

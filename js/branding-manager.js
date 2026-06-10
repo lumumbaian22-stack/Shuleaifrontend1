@@ -7,8 +7,8 @@
   'use strict';
 
   const PLATFORM_SHORT_NAME = 'Shule AI';
-  const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png?v=141';
-  const PLATFORM_LOGO_DARK = 'assets/logo-light.png?v=141'; // keep visible in dark mode; old dark asset can disappear on some dashboards
+  const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png?v=1484';
+  const PLATFORM_LOGO_DARK = 'assets/logo-light.png?v=1484'; // keep visible in dark mode; old dark asset can disappear on some dashboards
   const BRAND_COLOR_PRESETS = {
     'Shule Blue': { primaryColor: '#083A85', accentColor: '#11B5B1' },
     'Royal Blue': { primaryColor: '#0B2F6B', accentColor: '#3B82F6' },
@@ -54,7 +54,14 @@
   function getStoredBranding() {
     const school = getStoredSchool();
     const settings = getStoredSettings();
-    const direct = window.schoolBranding || safeParse(localStorage.getItem('schoolBranding'), {}) || {};
+    const currentSchoolId = clean(school?.schoolId || school?.schoolCode || getStoredUser()?.schoolCode);
+    const cached = safeParse(localStorage.getItem('schoolBranding'), {}) || {};
+    const cachedSchoolId = clean(cached.schoolId || cached.schoolCode);
+    const sameSchoolCache = !cachedSchoolId || !currentSchoolId || cachedSchoolId === currentSchoolId ? cached : {};
+    const memory = window.schoolBranding || {};
+    const memorySchoolId = clean(memory.schoolId || memory.schoolCode);
+    const sameSchoolMemory = !memorySchoolId || !currentSchoolId || memorySchoolId === currentSchoolId ? memory : {};
+    const direct = Object.keys(sameSchoolMemory).length ? sameSchoolMemory : sameSchoolCache;
     return { ...(school?.settings?.branding || {}), ...(settings?.branding || {}), ...direct };
   }
 
@@ -80,20 +87,13 @@
   function brandingAllowed() {
     if (isSuperAdmin()) return false;
     const dataSchool = (window.dashboardData && window.dashboardData.school) || (window.studentDashboardData && window.studentDashboardData.school) || {};
-    const school = { ...(dataSchool || {}), ...(getStoredSchool() || {}) };
-    const settings = { ...(dataSchool.settings || {}), ...(getStoredSettings() || {}) };
-    const access = school.access || settings.access || dataSchool.access || {};
-    if (school.suspended || access.suspended || String(school.accessMode || '').toLowerCase() === 'suspended') return false;
-    if (school.fullAccess || access.fullAccess || school.pilotFullAccess || school.demoMode || school.freeAccess || school.manualFullAccess || access.mode === 'pilot') return true;
-    const list = school.featureList || school.features || access.featureList || settings.featureList || [];
-    if (Array.isArray(list) && (list.includes('*') || list.includes('school_branding'))) return true;
-    if (list && typeof list === 'object' && (list['*'] || list.school_branding)) return true;
-    const plan = String(school.planCode || school.currentPlan || school.subscriptionPlan || school.plan || access.planCode || settings.planCode || '').toLowerCase();
-    return plan.includes('growth') || plan.includes('enterprise');
+    const school = { ...(getStoredSchool() || {}), ...(dataSchool || {}) };
+    const access = school.access || {};
+    return !(school.suspended || access.suspended || String(school.accessMode || '').toLowerCase() === 'suspended');
   }
 
   function isSchoolBranded() { return brandingAllowed() && !!getSchoolNameFromAnySource(); }
-  function getDisplayName() { return isSchoolBranded() ? getSchoolNameFromAnySource() : PLATFORM_SHORT_NAME; }
+  function getDisplayName() { return isSuperAdmin() ? PLATFORM_SHORT_NAME : (getSchoolNameFromAnySource() || PLATFORM_SHORT_NAME); }
 
   function getLogoSource() {
     if (!brandingAllowed()) return '';
@@ -357,7 +357,7 @@
       window.schoolBranding = branding;
       if(typeof safeSessionSet==='function')safeSessionSet('schoolBranding',JSON.stringify(typeof minimalBrandingForStorage==='function'?minimalBrandingForStorage(branding):branding));
       try{if(window.schoolScopedKey)localStorage.removeItem(window.schoolScopedKey('schoolBranding'))}catch(_){}
-      apply(brandingAllowed() ? (branding.schoolName || branding.displayName || branding.name) : null, { force: true });
+      apply(branding.schoolName || branding.displayName || branding.name || getSchoolNameFromAnySource(), { force: true });
       return branding;
     } catch (_) {
       loadedOnce = true;
@@ -400,7 +400,7 @@
     const branding = event?.detail || {};
     window.schoolBranding = { ...(window.schoolBranding || {}), ...branding };
     try{if(typeof safeSessionSet==='function')safeSessionSet('schoolBranding',JSON.stringify(typeof minimalBrandingForStorage==='function'?minimalBrandingForStorage(window.schoolBranding):window.schoolBranding))}catch(_){}
-    apply(brandingAllowed() ? (branding.schoolName || branding.displayName || branding.name) : null, { force: true });
+    apply(branding.schoolName || branding.displayName || branding.name || getSchoolNameFromAnySource(), { force: true });
   });
   window.addEventListener('school-name-changed', (event) => {
     const nextName = event?.detail?.newName || event?.detail?.schoolName || event?.detail?.name;

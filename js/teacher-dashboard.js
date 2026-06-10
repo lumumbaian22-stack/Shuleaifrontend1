@@ -8,14 +8,22 @@ let currentMarksCanPublish = false, currentMarksRole = 'subject_teacher', curren
 let currentMarksTerm = 'Term 1', currentMarksYear = new Date().getFullYear();
 
 // ============ ROLE DETECTION ============
+function getTeacherAssignmentSnapshot() {
+  const raw = window.__teacherAssignments || window.dashboardData?.assignments || {};
+  return raw?.data || raw || {};
+}
+
 function getTeacherRole() {
   const user = getCurrentUser();
   if (!user || user.role !== 'teacher') return 'subject_teacher';
-  if (user.teacher && user.teacher.classId) return 'class_teacher';
-  if (user.classId) return 'class_teacher';
-  if (user.classTeacher) return 'class_teacher';
-  if (user.teacher && user.teacher.classTeacher) return 'class_teacher';
-  return 'subject_teacher';
+  const assignment = getTeacherAssignmentSnapshot();
+  const hasClass = !!(assignment?.classTeacher?.id || assignment?.classTeacher?.classId);
+  const hasSubjects = Array.isArray(assignment?.subjects) && assignment.subjects.length > 0;
+  if (hasClass && hasSubjects) return 'both';
+  if (hasClass) return 'class_teacher';
+  if (hasSubjects) return 'subject_teacher';
+  const teacher = user.teacher || {};
+  return (teacher.classId || user.classId || teacher.isClassTeacher || teacher.role === 'class_teacher') ? 'class_teacher' : 'subject_teacher';
 }
 
 function isClassTeacher() {
@@ -30,33 +38,37 @@ function isSubjectTeacher() {
 
 function getTeacherRoleDescription() {
   const role = getTeacherRole();
+  if (role === 'both') return 'You are a Class Teacher and Subject Teacher. Class tools apply only to your assigned class; marks tools apply only to your assigned subjects.';
   if (role === 'class_teacher') return 'You are the Class Teacher. You review full-class marks, monitor attendance, and publish final report cards.';
-  if (role === 'subject_teacher') return 'You are a Subject Teacher. You can enter marks for your assigned subjects and classes.';
-  return 'Manage your classes, students, and grades.';
+  return 'You are a Subject Teacher. You can enter marks only for your assigned subjects and classes.';
 }
 
 function getTeacherAssignedClass() {
   const user = getCurrentUser();
   if (!user || user.role !== 'teacher') return null;
-  if (!user.teacher) user.teacher = {};
-  if (user.teacher.classId) {
-    return { id: user.teacher.classId, name: user.teacher.className || 'Assigned Class', studentCount: user.teacher.studentCount || 0 };
+  const assignment = getTeacherAssignmentSnapshot();
+  const cls = assignment?.classTeacher;
+  if (cls && (cls.id || cls.classId)) {
+    return { id: cls.id || cls.classId, name: cls.name || cls.className || 'Assigned Class', grade: cls.grade || '', stream: cls.stream || '', studentCount: cls.studentCount || 0 };
   }
-  if (user.classTeacher) {
-    return { id: null, name: user.classTeacher, studentCount: 0 };
+  const teacher = user.teacher || {};
+  if (teacher.classId || user.classId) {
+    return { id: teacher.classId || user.classId, name: teacher.className || user.className || 'Assigned Class', studentCount: teacher.studentCount || 0 };
   }
   return null;
 }
 
 // ============ RENDER TEACHER SECTIONS ============
 async function renderTeacherSection(section){
-  try{const classOnly=new Set(['students','attendance','report-history','birthdays','release-class']);if(classOnly.has(section)&&!isClassTeacher())return '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">This section appears automatically when the school assigns you as a class teacher.</p></div>';
+  try{const classOnly=new Set(['students','attendance','report-history','birthdays','release-class','student-lifecycle','class-transfers']);if(classOnly.has(section)&&!isClassTeacher())return '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">This section appears automatically when the school assigns you as a class teacher.</p></div>';
     switch(section) {
       case 'dashboard': return await renderTeacherDashboard();
       case 'competency': return await renderTeacherCompetency();
       case 'my-timetable': return await (window.v12RenderTeacherTimetable || window.renderTeacherTimetable)();
       case 'homework': return await (window.v12RenderTeacherHomework || window.renderTeacherHomework)();
       case 'students': return await renderTeacherStudents();
+      case 'student-lifecycle':
+      case 'class-transfers': return await window.renderClassTransferCentre('teacher');
       case 'attendance': return await renderTeacherAttendance();
       case 'release-class': return await renderTeacherReleaseClass();
       case 'grades': return await renderTeacherMarksEntry();
@@ -85,6 +97,8 @@ async function renderTeacherAssignmentLabelCard() {
   try {
     const res = await api.teacher.getMyAssignments();
     const data = res.data || {};
+    window.__teacherAssignments = data;
+    if (window.dashboardData) window.dashboardData.assignments = data;
     const classTeacher = data.classTeacher || null;
     const subjects = Array.isArray(data.subjects) ? data.subjects : [];
     const subjectPreview = subjects.slice(0, 4).map(s => `${s.className || 'Class'} — ${s.subject}`).join(' · ');
@@ -119,7 +133,7 @@ async function renderTeacherDashboard() {
           <div>
             <div class="flex items-center flex-wrap gap-2">
               <h2 class="text-2xl font-bold">Welcome, ${escapeHtml(user?.name || 'Teacher')}!</h2>
-              <span class="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded-full">${role === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}</span>
+              <span class="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded-full">${role === 'both' ? 'Class & Subject Teacher' : role === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}</span>
             </div>
             <p class="text-muted-foreground mt-1 text-sm">${getTeacherRoleDescription()}</p>
             ${hasClass ? `<div class="mt-3 p-3 bg-primary/10 rounded-lg inline-block"><span class="text-sm font-medium">📚 Your Class: </span><span class="text-sm font-bold text-primary">${escapeHtml(className)}</span> <span class="text-xs text-muted-foreground ml-2">(${stats.studentCount} students)</span></div>` : ''}

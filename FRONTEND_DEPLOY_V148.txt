@@ -1,7 +1,9 @@
-SHULE AI V148 FRONTEND — GITHUB PAGES
+SHULE AI V148.4 FRONTEND — COMPLETE REPLACEMENT
 
-Upload every file in this ZIP directly to the GitHub Pages repository root.
-The repository root must show index.html, assets, css, js and pages.
+Deploy the contents of this ZIP as one complete frontend build.
+Do not merge files from v148, v148.1, v148.2, or v148.3.
+Deploy only after the matching v148.4 backend and migration are live.
 
-This frontend must be deployed with the matching v148 backend.
-After deployment, perform one Ctrl+Shift+R refresh to replace old service-worker files.
+Verify /api/health reports: v148.4-enrollment-lifecycle-complete
+Verify browser assets load with: ?v=1484
+Perform one Ctrl+Shift+R after deployment to activate the new service worker immediately.

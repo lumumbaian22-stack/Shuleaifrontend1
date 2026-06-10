@@ -1,9 +1,0 @@
-SHULE AI V147 RECOVERY — FRONTEND
-
-1. Extract this ZIP.
-2. Upload everything inside it directly to the GitHub Pages repository root.
-3. The repository root must show index.html, CNAME, css/, js/, assets/ and pages/.
-4. GitHub Pages: main branch, /(root).
-5. After deployment, open the site once with Ctrl+Shift+R so the v147 service worker replaces older cached files.
-
-This frontend must be used with the matching v147 backend.

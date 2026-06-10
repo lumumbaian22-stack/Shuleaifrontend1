@@ -95,6 +95,8 @@ async function renderParentSection(section) {
             return await window.renderParentAttendanceCentre();
         case 'report-history':
             return await window.renderReportHistoryCentre('parent');
+        case 'school-history':
+            return await window.renderOwnEnrollmentHistory('parent');
         case 'child-subscription':
             return await window.renderParentSubscriptionCentre();
         case 'competency':

@@ -493,55 +493,38 @@ function saveStreamSettings() {
 async function autoGenerateClassesOnCurriculumChange() {
     showLoading();
     try {
-        // Final rulebook: class generation must come from the backend curriculum engine,
-        // not from a stale frontend guess. The backend reads the saved curriculum,
-        // enabled level groups, individual levels, and current schoolCode, then creates
-        // or reactivates the full class list that belongs to that school.
-        if (window.api?.admin?.syncCurriculumClasses) {
-            const res = await window.api.admin.syncCurriculumClasses();
-            const data = res?.data || res || {};
-            const touched = data.touchedClassIds || data.classes || data.created || [];
-            showToast(touched.length ? `Curriculum classes synced: ${touched.length} class(es) updated/created` : 'Curriculum classes are already synced from school settings', 'success');
-            if (typeof loadClasses === 'function') {
-                try { await loadClasses(); } catch (_) {}
-            }
-            if (typeof renderClassManagement === 'function' && document.getElementById('dashboard-content')) {
-                try { document.getElementById('dashboard-content').innerHTML = await renderClassManagement(); } catch (_) {}
-            }
+        if (!window.api?.admin?.previewClassGeneration || !window.api?.admin?.generateClassesFromSettings) {
+            throw new Error('Safe class generation is unavailable in this build.');
+        }
+        const previewRes = await window.api.admin.previewClassGeneration();
+        const preview = previewRes?.data || {};
+        const toCreate = Array.isArray(preview.toCreate) ? preview.toCreate : [];
+        const skipped = Array.isArray(preview.skippedExisting) ? preview.skippedExisting : [];
+        if (!toCreate.length) {
+            showToast(`No missing classes. ${skipped.length} existing class(es) were preserved.`, 'info');
             return;
         }
-
-        const classesToCreate = await generateClassesFromCurriculum(true);
-        const existingClasses = await loadAllClasses();
-        const existingNames = new Set(existingClasses.map(c => c.name));
-        const newClasses = classesToCreate.filter(c => !existingNames.has(c.name));
-
-        if (newClasses.length === 0) {
-            showToast('Curriculum classes are already synced from school settings', 'info');
+        const visible = toCreate.slice(0, 40).map(item => `• ${item.name}`).join('\n');
+        const more = toCreate.length > 40 ? `\n• …and ${toCreate.length - 40} more` : '';
+        const confirmed = confirm(
+            `Review class generation\n\nClasses to add (${toCreate.length}):\n${visible}${more}\n\n` +
+            `Existing classes skipped safely: ${skipped.length}\n\n` +
+            `No existing class, student, teacher assignment or history will be changed. Create these missing classes now?`
+        );
+        if (!confirmed) {
+            showToast('Class generation cancelled. Settings were saved and existing classes were untouched.', 'info');
             return;
         }
-
-        const confirmMessage = `This will create ${newClasses.length} new classes based on your curriculum:\n\n${newClasses.map(c => `• ${c.name}`).join('\n')}\n\nDo you want to proceed?`;
-        if (!confirm(confirmMessage)) {
-            showToast('Class generation cancelled', 'info');
-            return;
+        const result = await window.api.admin.generateClassesFromSettings(preview.previewToken);
+        showToast(result?.message || `${result?.data?.createdCount || 0} missing class(es) created safely.`, 'success');
+        if (typeof loadClasses === 'function') await loadClasses().catch(() => null);
+        if (typeof renderClassManagement === 'function' && document.getElementById('dashboard-content')) {
+            document.getElementById('dashboard-content').innerHTML = await renderClassManagement();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
-
-        let created = 0;
-        for (const classData of newClasses) {
-            try {
-                await api.admin.createClass(classData);
-                created++;
-            } catch (error) {
-                console.error('Error creating class:', classData.name, error);
-            }
-        }
-
-        showToast(`Created ${created} classes successfully`, 'success');
-        if (typeof loadClasses === 'function') await loadClasses();
     } catch (error) {
-        console.error('Error auto-generating classes:', error);
-        showToast(error.message || 'Failed to sync curriculum classes', 'error');
+        console.error('Safe class generation error:', error);
+        showToast(error.message || 'Failed to generate classes from the saved school setup', 'error');
     } finally {
         hideLoading();
     }

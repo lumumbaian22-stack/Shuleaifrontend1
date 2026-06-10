@@ -6,57 +6,53 @@ let authToken = localStorage.getItem('authToken');
 let refreshToken = localStorage.getItem('refreshToken');
 
 // API request wrapper with authentication
+function cleanQueryParams(params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        query.set(key, String(value));
+    });
+    return query.toString();
+}
+window.cleanQueryParams = cleanQueryParams;
+
 async function apiRequest(endpoint, options = {}) {
-    // v17: always read the latest token from localStorage. Some dashboard modules login/update
-    // localStorage after api.js has loaded, so the old cached authToken variable can go stale.
     authToken = localStorage.getItem('authToken') || localStorage.getItem('token') || authToken;
     const url = `${API_BASE_URL}${endpoint}`;
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers
-    };
-    if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-    }
+    const method = String(options.method || 'GET').toUpperCase();
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    const attempts = method === 'GET' ? 2 : 1;
 
-    try {
-        const response = await fetch(url, { ...options, headers });
-
-        if (response.status === 429) {
-            const retryAfter = response.headers.get('Retry-After') || 60;
-            throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
-        }
-
-        const contentType = response.headers.get('content-type');
-        let data;
-        
-        if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
-        } else {
-            const text = await response.text();
-            if (text.includes('<html')) {
-                console.error('Server returned HTML error page');
-                throw new Error(`Server error (${response.status}): Please check the server logs.`);
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        try {
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 429) {
+                const retryAfter = response.headers.get('Retry-After') || 60;
+                throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
             }
-            throw new Error(`Unexpected response: ${text.substring(0, 100)}`);
+            const contentType = response.headers.get('content-type') || '';
+            let data;
+            if (contentType.includes('application/json')) data = await response.json();
+            else {
+                const text = await response.text();
+                throw new Error(text.includes('<html') ? `Server error (${response.status}): Please check the server logs.` : `Unexpected response: ${text.substring(0, 100)}`);
+            }
+            if (!response.ok) {
+                const validationMessage = Array.isArray(data?.errors) ? data.errors.map(err => err.msg || err.message || `${err.path || err.param || 'Field'} is invalid`).join(', ') : null;
+                const message = validationMessage || data?.message || data?.error || `Request failed with status ${response.status}`;
+                const error = new Error(message); error.status = response.status; error.data = data;
+                const transient = [502,503,504].includes(response.status) || (response.status === 500 && /connection terminated|connection reset|econnreset|database.*unavailable/i.test(message));
+                if (attempt + 1 < attempts && transient) { await new Promise(r => setTimeout(r, 350)); continue; }
+                throw error;
+            }
+            return data;
+        } catch (error) {
+            const networkFailure = error instanceof TypeError || /failed to fetch|networkerror|connection terminated|connection reset|econnreset/i.test(String(error?.message || ''));
+            if (attempt + 1 < attempts && networkFailure) { await new Promise(r => setTimeout(r, 350)); continue; }
+            console.error('API Request failed:', error);
+            throw error?.message ? error : new Error('Network error');
         }
-
-        if (!response.ok) {
-            const validationMessage = Array.isArray(data?.errors)
-                ? data.errors.map(err => err.msg || err.message || `${err.path || err.param || 'Field'} is invalid`).join(', ')
-                : null;
-            const message = validationMessage || data?.message || data?.error || `Request failed with status ${response.status}`;
-            const error = new Error(message);
-            error.status = response.status;
-            error.data = data;
-            throw error;
-        }
-
-        return data;
-    } catch (error) {
-        console.error('API Request failed:', error);
-        if (error && error.message) throw error;
-        throw new Error(error.message || 'Network error');
     }
 }
 
@@ -269,6 +265,16 @@ const adminAPI = {
             body: JSON.stringify(data)
         }),
     getClasses: () => apiRequest('/api/admin/classes'),
+    getClassTransferOptions: () => apiRequest('/api/lifecycle/transfer-options'),
+    previewClassTransfer: (data) => apiRequest('/api/lifecycle/transfers/preview', { method:'POST', body:JSON.stringify(data) }),
+    createClassTransfer: (data) => apiRequest('/api/lifecycle/transfers', { method:'POST', body:JSON.stringify(data) }),
+    listClassTransfers: (params={}) => apiRequest(`/api/lifecycle/transfers${Object.keys(params).length?`?${cleanQueryParams(params)}`:''}`),
+    getClassTransfer: (id) => apiRequest(`/api/lifecycle/transfers/${id}`),
+    approveClassTransfer: (id,data={}) => apiRequest(`/api/lifecycle/transfers/${id}/approve`, { method:'POST', body:JSON.stringify(data) }),
+    rejectClassTransfer: (id,reason) => apiRequest(`/api/lifecycle/transfers/${id}/reject`, { method:'POST', body:JSON.stringify({reason}) }),
+    cancelClassTransfer: (id,reason='') => apiRequest(`/api/lifecycle/transfers/${id}/cancel`, { method:'POST', body:JSON.stringify({reason}) }),
+    rollbackClassTransfer: (id,reason) => apiRequest(`/api/lifecycle/transfers/${id}/rollback`, { method:'POST', body:JSON.stringify({reason}) }),
+    getStudentEnrollmentHistory: (studentId) => apiRequest(`/api/lifecycle/students/${studentId}/enrollments`),
     listPromotionBatches: () => apiRequest('/api/lifecycle/promotions'),
     createPromotionPreview: (data) => apiRequest('/api/lifecycle/promotions/preview', { method:'POST', body:JSON.stringify(data) }),
     getPromotionBatch: (id) => apiRequest(`/api/lifecycle/promotions/${id}`),
@@ -379,7 +385,9 @@ const adminAPI = {
     getAssessmentSettings: () => apiRequest('/api/admin/assessment-settings'),
     saveAssessmentSettings: (assessmentSettings) => apiRequest('/api/admin/assessment-settings', { method: 'PUT', body: JSON.stringify({ assessmentSettings }) }),
     getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
-    syncCurriculumClasses: () => apiRequest('/api/admin/curriculum/classes/sync', { method:'POST', body: JSON.stringify({}) }),
+    previewClassGeneration: () => apiRequest('/api/admin/curriculum/classes/generation-preview'),
+    generateClassesFromSettings: (previewToken) => apiRequest('/api/admin/curriculum/classes/generate', { method:'POST', body:JSON.stringify({ previewToken }) }),
+    syncCurriculumClasses: (data = {}) => apiRequest('/api/admin/curriculum/classes/sync', { method:'POST', body: JSON.stringify(data || {}) }),
     getStudentSubjectSelection: (studentId) => apiRequest(`/api/admin/students/${studentId}/subject-selection`),
     saveStudentSubjectSelection: (studentId, data) => apiRequest(`/api/admin/students/${studentId}/subject-selection`, { method: 'PUT', body: JSON.stringify(data) }),
     submitSchoolPaymentConfirmation: (data) => apiRequest('/api/admin/billing/payment-confirmation', { method: 'POST', body: JSON.stringify(data) }),
@@ -393,6 +401,12 @@ const adminAPI = {
 
 // ============ TEACHER ENDPOINTS ============
 const teacherAPI = {
+    getClassTransferOptions: () => apiRequest('/api/lifecycle/transfer-options'),
+    previewClassTransfer: (data) => apiRequest('/api/lifecycle/transfers/preview', { method:'POST', body:JSON.stringify(data) }),
+    requestClassTransfer: (data) => apiRequest('/api/lifecycle/transfer-requests', { method:'POST', body:JSON.stringify(data) }),
+    listClassTransfers: (params={}) => apiRequest(`/api/lifecycle/transfers${Object.keys(params).length?`?${cleanQueryParams(params)}`:''}`),
+    cancelClassTransfer: (id,reason='') => apiRequest(`/api/lifecycle/transfers/${id}/cancel`, { method:'POST', body:JSON.stringify({reason}) }),
+    getStudentEnrollmentHistory: (studentId) => apiRequest(`/api/lifecycle/students/${studentId}/enrollments`),
     getMyStudents: () => apiRequest('/api/teacher/students'),
     addStudent: (data) => 
         apiRequest('/api/teacher/students', {
@@ -495,18 +509,14 @@ const parentAPI = {
     getConversations: (params = {}) => apiRequest('/api/parent/conversations' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getMessages: (otherUserId, params = {}) => 
         apiRequest(`/api/parent/messages/${otherUserId}` + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
-    confirmPayment: (data) => 
-        apiRequest('/api/parent/payment-confirm', {
-            method: 'POST',
-            body: JSON.stringify(data)
-        }),
     getChildMarks: (studentId) => apiRequest(`/api/parent/child/${studentId}/marks`),
     getFees: (studentId) => apiRequest(`/api/parent/fees/${studentId}`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
     getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
     getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`),
     getChildSubjectSelection: (childId) => apiRequest(`/api/parent/child/${childId}/subject-selection`),
-    saveChildSubjectSelection: (childId, data) => apiRequest(`/api/parent/child/${childId}/subject-selection`, { method:'PUT', body:JSON.stringify(data || {}) })
+    saveChildSubjectSelection: (childId, data) => apiRequest(`/api/parent/child/${childId}/subject-selection`, { method:'PUT', body:JSON.stringify(data || {}) }),
+    getChildEnrollmentHistory: (childId) => apiRequest(`/api/lifecycle/children/${childId}/enrollments`)
 };
 
 // ============ STUDENT ENDPOINTS ============
@@ -546,7 +556,8 @@ const studentAPI = {
     getGPA: () => apiRequest('/api/student/gpa'),
     getAnalytics: () => apiRequest(`/api/student/analytics?_=${Date.now()}`),
     getSubjectSelection: () => apiRequest('/api/student/subject-selection'),
-    saveSubjectSelection: (data) => apiRequest('/api/student/subject-selection', { method:'PUT', body:JSON.stringify(data || {}) })
+    saveSubjectSelection: (data) => apiRequest('/api/student/subject-selection', { method:'PUT', body:JSON.stringify(data || {}) }),
+    getEnrollmentHistory: () => apiRequest('/api/lifecycle/me/enrollments')
 };
 
 // ============ DUTY ENDPOINTS ============
@@ -826,7 +837,7 @@ const paymentAPI = {
     parentFeeSTK: (data) => apiRequest('/api/payments/parent/fee/stk', { method: 'POST', body: JSON.stringify(data) }),
     parentFeeManual: (data) => apiRequest('/api/payments/parent/fee/manual', { method: 'POST', body: JSON.stringify(data) }),
     getManualQueue: () => apiRequest('/api/payments/admin/manual-queue'),
-    getAdminRecords: () => apiRequest('/api/payments/admin/records'),
+    getAdminRecords: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/payments/admin/records${q ? `?${q}` : ''}`); },
     getFinanceContext: () => apiRequest('/api/payments/admin/context'),
     getAdminFinanceSummary: () => apiRequest('/api/payments/admin/finance-summary'),
     getStudentFinance: (studentId) => apiRequest(`/api/payments/admin/students/${studentId}/finance`),
@@ -861,7 +872,7 @@ const lifecycleAPI = {
 };
 
 // ============ FINANCE WORKSPACE ============
-const financeAPI={getOverview:(params={})=>apiRequest(`/api/finance/overview${Object.keys(params).length?`?${new URLSearchParams(params).toString()}`:''}`),getAlerts:(limit=200)=>apiRequest(`/api/finance/alerts?limit=${encodeURIComponent(limit)}`),getExpenses:(params={})=>apiRequest(`/api/finance/expenses${Object.keys(params).length?`?${new URLSearchParams(params).toString()}`:''}`),createExpense:(data)=>apiRequest('/api/finance/expenses',{method:'POST',body:JSON.stringify(data||{})}),updateExpense:(id,data)=>apiRequest(`/api/finance/expenses/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(data||{})}),deleteExpense:(id)=>apiRequest(`/api/finance/expenses/${encodeURIComponent(id)}`,{method:'DELETE'}),getReport:(params={})=>apiRequest(`/api/finance/report${Object.keys(params).length?`?${new URLSearchParams(params).toString()}`:''}`)};
+const financeAPI={getOverview:(params={})=>{const q=cleanQueryParams(params);return apiRequest(`/api/finance/overview${q?`?${q}`:''}`);},getAlerts:(limit=200)=>apiRequest(`/api/finance/alerts?limit=${encodeURIComponent(limit)}`),getExpenses:(params={})=>{const q=cleanQueryParams(params);return apiRequest(`/api/finance/expenses${q?`?${q}`:''}`);},createExpense:(data)=>apiRequest('/api/finance/expenses',{method:'POST',body:JSON.stringify(data||{})}),updateExpense:(id,data)=>apiRequest(`/api/finance/expenses/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(data||{})}),deleteExpense:(id)=>apiRequest(`/api/finance/expenses/${encodeURIComponent(id)}`,{method:'DELETE'}),getReport:(params={})=>{const q=cleanQueryParams(params);return apiRequest(`/api/finance/report${q?`?${q}`:''}`);}};
 
 // ============ ASSEMBLE API OBJECT ============
 const api = {
@@ -936,6 +947,8 @@ function resolveMediaUrl(url) {
         return raw.slice(embeddedDataUrlIndex);
     }
     if (/^(data|blob):/i.test(raw)) return raw;
+    if (/\/uploads\/profiles\//i.test(raw)) return '';
+    if (/^http:\/\/shuleaibackend-32h1\.onrender\.com/i.test(raw)) raw = raw.replace(/^http:/i, 'https:');
     if (/^https?:\/\//i.test(raw)) return raw;
 
     // Some cached values may accidentally start with /data:image/ after earlier normalization.

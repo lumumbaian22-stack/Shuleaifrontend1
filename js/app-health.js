@@ -10,11 +10,11 @@ window.addEventListener('load', () => {
 });
 
 
-// Shule AI v146 service-worker registration
+// Shule AI v148.4 service-worker registration
 (function () {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js?v=145', { updateViaCache:'none' })
+    navigator.serviceWorker.register('/service-worker.js?v=1484', { updateViaCache:'none' })
       .then(async (registration) => {
         if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         try { await registration.update?.(); } catch (_) {}

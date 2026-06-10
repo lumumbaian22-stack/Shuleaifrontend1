@@ -313,8 +313,12 @@ async function renderClassManagement() {
             `;
         }
 
+        const focusedTeacherId = sessionStorage.getItem('shule:teacher-assignment-focus') || '';
+        const focusedTeacher = teachers.find(t => String(t.id) === String(focusedTeacherId));
+        const focusNotice = focusedTeacher ? `<div class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100"><div class="font-semibold">Managing assignments for ${escapeHtml(focusedTeacher.User?.name || 'teacher')}</div><div class="mt-1 text-sm">Use a class card to assign this person as class teacher, or open the book icon to assign subjects. Professional profile edits do not change these assignments.</div><button class="mt-2 text-sm underline" onclick="sessionStorage.removeItem('shule:teacher-assignment-focus'); showDashboardSection('classes')">Clear focus</button></div>` : '';
         return `
             <div class="space-y-6">
+                ${focusNotice}
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="text-2xl font-bold">Class Management</h2>
@@ -359,7 +363,7 @@ async function showAddClassModal() {
         if (response.success) {
             showToast('✅ Class created successfully', 'success');
             await refreshClassesList();
-            await showDashboardSection('classes');
+            window.dispatchEvent(new CustomEvent('shule:teacher-assignment-updated', { detail: { teacherId:Number(teacherId), classId:Number(classId), subject, type:'subject_teacher' } }));
         }
     } catch (error) {
         showToast(error.message || 'Failed to create class', 'error');
@@ -395,7 +399,7 @@ async function editClass(classId) {
         if (response.success) {
             showToast('✅ Class updated successfully', 'success');
             await refreshClassesList();
-            await showDashboardSection('classes');
+            window.dispatchEvent(new CustomEvent('shule:teacher-assignment-updated', { detail: { teacherId:Number(teacherId), classId:Number(classId), subject, type:'subject_teacher' } }));
         }
     } catch (error) {
         showToast(error.message || 'Failed to update class', 'error');
@@ -413,7 +417,7 @@ async function deleteClass(classId) {
         if (response.success) {
             showToast('✅ Class deleted successfully', 'success');
             await refreshClassesList();
-            await showDashboardSection('classes');
+            window.dispatchEvent(new CustomEvent('shule:teacher-assignment-updated', { detail: { teacherId:Number(teacherId), classId:Number(classId), subject, type:'subject_teacher' } }));
         }
     } catch (error) {
         showToast(error.message || 'Failed to delete class', 'error');
@@ -425,148 +429,20 @@ async function deleteClass(classId) {
 // Replace your assignClassTeacher function with this debug version
 async function assignClassTeacher(classId) {
     const select = document.getElementById(`teacher-${classId}`);
-    const teacherId = select?.value;
-    const teacherName = select?.options[select.selectedIndex]?.text || 'Unknown';
-
-    if (!teacherId) {
-        showToast('Please select a teacher', 'error');
-        console.log('❌ No teacher selected for class:', classId);
-        return;
-    }
-
-    console.log('📤 Assigning teacher to class:', {
-        classId: classId,
-        teacherId: teacherId,
-        teacherName: teacherName,
-        timestamp: new Date().toISOString()
-    });
-
+    const teacherId = Number(select?.value || 0);
+    const teacherName = select?.options?.[select.selectedIndex]?.text || 'teacher';
+    if (!teacherId) return showToast('Please select a teacher', 'error');
     showLoading();
     try {
         const response = await api.admin.assignTeacherToClass(classId, teacherId);
-        
-        console.log('📥 API Response:', response);
-        
-        if (response && response.success) {
-            showToast(`✅ Class teacher assigned successfully to ${teacherName}`, 'success');
-            
-            // Verify the assignment by fetching the class again
-            const updatedClass = await api.admin.getClassDetails(classId);
-            console.log('🔍 Verified class after assignment:', updatedClass);
-            
-            if (updatedClass.data && updatedClass.data.teacherId === parseInt(teacherId)) {
-                console.log('✅ Assignment verified in database! Teacher ID:', updatedClass.data.teacherId);
-                showToast(`✅ Verified: ${teacherName} is now the class teacher`, 'success', 5000);
-            } else {
-                console.warn('⚠️ Assignment may not have persisted. Expected teacher:', teacherId, 'Got:', updatedClass.data?.teacherId);
-            }
-            
-            // Refresh the UI
-            await refreshClassesList();
-            await showDashboardSection('classes');
-            
-            // Also refresh teacher's dashboard if they are the assigned teacher
-            const currentUser = getCurrentUser();
-            if (currentUser && currentUser.id == teacherId) {
-                console.log('🔄 Current user is the assigned teacher, refreshing their dashboard');
-                if (typeof showDashboardSection === 'function') {
-                    await showDashboardSection('dashboard');
-                }
-            }
-            
-            return response;
-        } else {
-            throw new Error(response?.message || 'Assignment failed - no success flag');
-        }
+        if (!response?.success) throw new Error(response?.message || 'Assignment failed');
+        showToast(`${teacherName} assigned as class teacher`, 'success');
+        await refreshClassesList();
+        window.dispatchEvent(new CustomEvent('shule:teacher-assignment-updated', { detail: { teacherId, classId, type:'class_teacher' } }));
     } catch (error) {
-        console.error('❌ Error assigning teacher:', {
-            error: error.message,
-            stack: error.stack,
-            classId: classId,
-            teacherId: teacherId
-        });
-        showToast(error.message || 'Failed to assign teacher', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// Add this function to debug teacher assignments
-async function checkTeacherAssignment(teacherId) {
-    console.log('🔍 Checking teacher assignment for teacher ID:', teacherId);
-    
-    showLoading();
-    try {
-        // Get teacher details
-        const teacherResponse = await api.admin.getTeachers();
-        const teacher = teacherResponse.data?.find(t => t.id == teacherId);
-        
-        if (teacher) {
-            console.log('👤 Teacher found:', {
-                id: teacher.id,
-                name: teacher.User?.name,
-                email: teacher.User?.email,
-                assignedClassId: teacher.classId,
-                assignedClass: teacher.Class?.name
-            });
-            
-            if (teacher.classId) {
-                // Get class details
-                const classResponse = await api.admin.getClassDetails(teacher.classId);
-                console.log('📚 Assigned class details:', classResponse.data);
-                
-                showToast(`✅ Teacher ${teacher.User?.name} is assigned to class: ${classResponse.data?.name || 'Unknown'}`, 'success');
-            } else {
-                console.warn('⚠️ Teacher has no class assigned');
-                showToast(`⚠️ Teacher ${teacher.User?.name} has no class assigned`, 'warning');
-            }
-        } else {
-            console.error('❌ Teacher not found with ID:', teacherId);
-            showToast('Teacher not found', 'error');
-        }
-    } catch (error) {
-        console.error('Error checking teacher assignment:', error);
-        showToast('Failed to check teacher assignment', 'error');
-    } finally {
-        hideLoading();
-    }
-}
-
-// Add this to debug all teachers in the school
-async function listAllTeachersAndClasses() {
-    console.log('📊 Fetching all teachers and their class assignments...');
-    
-    showLoading();
-    try {
-        const response = await api.admin.getTeachers();
-        const teachers = response.data || [];
-        
-        console.log('=' .repeat(60));
-        console.log('TEACHER ASSIGNMENTS REPORT');
-        console.log('=' .repeat(60));
-        
-        teachers.forEach(teacher => {
-            const userName = teacher.User?.name || 'Unknown';
-            const classId = teacher.classId;
-            const className = teacher.Class?.name || (classId ? 'Class ID: ' + classId : 'Not assigned');
-            
-            console.log(`📌 ${userName}:`);
-            console.log(`   - Teacher ID: ${teacher.id}`);
-            console.log(`   - Email: ${teacher.User?.email}`);
-            console.log(`   - Class: ${className}`);
-            console.log(`   - Status: ${teacher.isActive ? 'Active' : 'Inactive'}`);
-            console.log('-'.repeat(40));
-        });
-        
-        console.log('=' .repeat(60));
-        
-        showToast(`Found ${teachers.length} teachers. Check console for details.`, 'info');
-    } catch (error) {
-        console.error('Error listing teachers:', error);
-        showToast('Failed to fetch teacher list', 'error');
-    } finally {
-        hideLoading();
-    }
+        console.error('Class teacher assignment error:', error);
+        showToast(error.message || 'Failed to assign class teacher', 'error');
+    } finally { hideLoading(); }
 }
 
 
@@ -721,7 +597,7 @@ async function saveSubjectAssignment(classId, subject) {
             showToast(`✅ ${subject} assigned to teacher successfully`, 'success');
             closeSubjectAssignmentModal();
             await refreshClassesList();
-            await showDashboardSection('classes');
+            window.dispatchEvent(new CustomEvent('shule:teacher-assignment-updated', { detail: { teacherId:Number(teacherId), classId:Number(classId), subject, type:'subject_teacher' } }));
         } else {
             throw new Error(response.message || 'Assignment failed');
         }
@@ -777,7 +653,7 @@ async function removeSubjectAssignment(assignmentId, classId) {
         if (response.success) {
             showToast('✅ Teacher removed from subject', 'success');
             await refreshClassesList();
-            await showDashboardSection('classes');
+            window.dispatchEvent(new CustomEvent('shule:teacher-assignment-updated', { detail: { teacherId:Number(teacherId), classId:Number(classId), subject, type:'subject_teacher' } }));
         }
     } catch (error) {
         console.error('Error removing subject assignment:', error);

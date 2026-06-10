@@ -29,6 +29,7 @@ async function renderStudentSection(section) {
             return await renderStudentLeaderboard();
         case 'grades':
             return await renderStudentGrades();
+        case 'school-history': return await window.renderOwnEnrollmentHistory('student');
         case 'report-history':
             return await window.renderReportHistoryCentre('student');
         case 'badges':

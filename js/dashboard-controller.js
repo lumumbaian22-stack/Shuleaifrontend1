@@ -7,6 +7,16 @@ const RULEBOOK_SECTION_FEATURE = {
 function currentSchoolPayload() {
     try { return typeof getCurrentSchool === 'function' ? getCurrentSchool() : JSON.parse(localStorage.getItem('school') || 'null'); } catch (_) { return null; }
 }
+
+function subscriptionRestriction() {
+    const school = currentSchoolPayload() || {};
+    const billing = window.__schoolSubscriptionEnforcement || school.settings?.billing || school.billing || {};
+    const mode = String(school.accessMode || school.access?.accessMode || '').toLowerCase();
+    const state = String(billing.billingState || school.access?.billingState || '').toLowerCase();
+    return { restricted: mode === 'expired_subscription' || state === 'restricted', billing, mode, state };
+}
+const SUBSCRIPTION_RESTRICTED_SECTIONS = new Set(['dashboard','subscription-billing','settings','alerts','help','profile','user-settings']);
+
 function currentFeatureList() {
     const school = currentSchoolPayload() || {};
     const list = school.featureList || school.features || school.access?.featureList || school.plan?.features || [];
@@ -57,6 +67,8 @@ function isSeniorSubjectChoiceVisible() {
     return false;
 }
 function sectionAllowedByRulebook(section) {
+    const restriction = subscriptionRestriction();
+    if (restriction.restricted && !SUBSCRIPTION_RESTRICTED_SECTIONS.has(section)) return false;
     const feature = RULEBOOK_SECTION_FEATURE[section];
     if (!feature) return true;
     if (feature === 'senior_subject_choice') return isSeniorSubjectChoiceVisible();
@@ -80,11 +92,14 @@ function updateSidebar(role) {
     } else {
         const schoolNameSpan = document.getElementById('sidebar-school-name');
         const school = typeof getCurrentSchool === 'function' ? getCurrentSchool() : null;
-        if (schoolNameSpan && school && school.status === 'active' && school.name) {
-            schoolNameSpan.textContent = school.name;
-        } else if (schoolNameSpan) {
-            schoolNameSpan.textContent = 'Shule AI';
-        }
+        const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+        const settings = window.schoolSettings || {};
+        const knownSchoolName = String(
+            school?.name || school?.schoolName || settings.schoolName || settings.name ||
+            user?.schoolName || user?.school?.name || ''
+        ).trim();
+        // Do not erase a previously rendered school identity while the branding API is loading.
+        if (schoolNameSpan && knownSchoolName) schoolNameSpan.textContent = knownSchoolName;
     }
 
     if (!nav) return;
@@ -125,7 +140,7 @@ function updateSidebar(role) {
                 { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
                 { icon: 'message-square', label: 'Bulk SMS', section: 'sms' },
                 { icon: 'message-circle', label: 'Parent Messages', section: 'parent-messages' },
-                { icon: 'wallet', label: 'Finance Workspace', section: 'finance-fees' }
+                { icon: 'wallet', label: 'Finance Overview', section: 'finance-fees' }
             ],
             settings: [
                 { icon: 'settings', label: 'School Settings', section: 'settings' },
@@ -137,7 +152,6 @@ function updateSidebar(role) {
         },
         finance_officer: {
             main: [
-                { icon: 'layout-dashboard', label: 'Finance Dashboard', section: 'dashboard' },
                 { icon: 'wallet', label: 'Finance Workspace', section: 'finance-fees' },
                 { icon: 'bell', label: 'Alerts', section: 'alerts' }
             ],
@@ -151,10 +165,14 @@ function updateSidebar(role) {
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 ...(function(){
                     try {
+                        const snapshot = window.__teacherAssignments || window.dashboardData?.assignments || {};
+                        const assignment = snapshot?.data || snapshot;
+                        const canonicalClass = assignment?.classTeacher;
                         const u = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
                         const t = u?.teacher || {};
-                        const isClassTeacher = !!(u?.classTeacher || u?.classId || t.classTeacher || t.classId || t.isClassTeacher || t.role === 'class_teacher');
-                        return isClassTeacher ? [{icon:'users',label:'My Students',section:'students'},{icon:'file-clock',label:'Report Cards',section:'report-history'},{icon:'cake',label:'Class Birthdays',section:'birthdays'},{icon:'calendar-check',label:'Attendance',section:'attendance'},{icon:'log-out',label:'Release Class',section:'release-class'}] : [];
+                        const fallbackClass = u?.classId || t.classId || t.isClassTeacher || t.role === 'class_teacher';
+                        const isClassTeacher = !!(canonicalClass?.id || canonicalClass?.classId || fallbackClass);
+                        return isClassTeacher ? [{icon:'users',label:'My Students',section:'students'},{icon:'shuffle',label:'Student School Cycle',section:'student-lifecycle'},{icon:'file-clock',label:'Report Cards',section:'report-history'},{icon:'cake',label:'Class Birthdays',section:'birthdays'},{icon:'calendar-check',label:'Attendance',section:'attendance'},{icon:'log-out',label:'Release Class',section:'release-class'}] : [];
                     } catch (_) { return []; }
                 })(),
                 { icon: 'trending-up', label: 'Grades', section: 'grades' },
@@ -178,6 +196,7 @@ function updateSidebar(role) {
                 { icon: 'trending-up', label: 'Progress', section: 'progress' },
                 { icon: 'calendar-check', label: 'Attendance', section: 'child-attendance' },
                 { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
+                { icon: 'route', label: 'Child School History', section: 'school-history' },
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
                 { icon: 'calendar', label: 'Child Timetable', section: 'timetable' },
                 { icon: 'message-circle', label: 'Messages', section: 'chat' },
@@ -195,6 +214,7 @@ function updateSidebar(role) {
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'trending-up', label: 'My Grades', section: 'grades' },
                 { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
+                { icon: 'route', label: 'School History', section: 'school-history' },
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
                 { icon: 'bot', label: 'AI Tutor', section: 'ai-tutor' },
@@ -592,12 +612,15 @@ async function showDashboard(role) {
         } else if (role === 'finance_officer') {
             dashboardData = { financeOnly: true };
         } else if (role === 'teacher') {
-            const [students, subjects, todayDuty] = await Promise.all([
+            const [students, subjects, assignments, todayDuty] = await Promise.all([
                 api.teacher.getMyStudents().catch(err => ({ data: [] })),
                 api.teacher.getMySubjects().catch(err => ({ data: [] })),
+                api.teacher.getMyAssignments().catch(err => ({ data: { classTeacher: null, subjects: [] } })),
                 hasSchoolFeature('duty') ? api.duty.getTodayDuty().catch(err => ({ data: {} })) : Promise.resolve({ data: null })
             ]);
-            dashboardData = { students: students.data, subjects: subjects.data, todayDuty: todayDuty.data };
+            const assignmentData = assignments?.data || { classTeacher: null, subjects: [] };
+            window.__teacherAssignments = assignmentData;
+            dashboardData = { students: students.data, subjects: subjects.data, assignments: assignmentData, todayDuty: todayDuty.data };
         } else if (role === 'parent') {
             const children = await api.parent.getChildren().catch(err => ({ data: [] }));
             let childSummary = null;
@@ -639,7 +662,7 @@ async function showDashboard(role) {
 
         updateSidebar(role);
         updateUserInfo();
-        await showDashboardSection('dashboard');
+        await showDashboardSection(role === 'finance_officer' ? 'finance-fees' : 'dashboard');
 
         if (typeof connectWebSocket === 'function') {
             setTimeout(connectWebSocket, 500);
@@ -661,7 +684,7 @@ async function showDashboardSection(section) {
 
     if (!content) return;
     if (!sectionAllowedByRulebook(section)) {
-        content.innerHTML = '<div class="text-center py-12"><p class="text-muted-foreground">This section is unavailable because the account is suspended, the school context is missing, or the module does not apply to this school structure.</p></div>';
+        content.innerHTML = '<div class="text-center py-12"><p class="text-muted-foreground">This section is unavailable for the current school access state. When subscription payment is overdue, use Subscription & Billing to restore full access; no school data is deleted.</p></div>';
         updateSidebarActiveState(section);
         return;
     }
@@ -694,7 +717,7 @@ async function showDashboardSection(section) {
             chat: 'Study Group Chat',
             'ai-tutor': 'AI Tutor',
             payments: 'Payments',
-            'finance-fees': 'Finance Workspace',
+            'finance-fees': currentRole === 'admin' ? 'Finance Overview' : 'Finance Workspace',
             'fee-structures': 'Finance & Fees',
             'payment-settings': 'Finance & Fees',
             'subscription-billing': 'Subscription & Billing',
@@ -716,6 +739,8 @@ async function showDashboardSection(section) {
             'parent-messages': 'Parent Messages',
             'career-path': 'Career Path',
             'student-lifecycle': 'Student School Cycle',
+            'class-transfers': 'Class Transfers',
+            'school-history': 'School History',
             'academic-year-transition': 'Academic Year Transition',
             'attendance-corrections': 'Attendance Corrections',
             'report-history': 'Report Card History',

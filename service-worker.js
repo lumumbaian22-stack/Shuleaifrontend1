@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-v148-finance-media-session-repair';
+const CACHE_NAME = 'shule-ai-v1484-enrollment-lifecycle';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

@@ -1,6 +1,85 @@
 function stripLargeMediaForStorage(obj){try{const clone=JSON.parse(JSON.stringify(obj||{}));if(clone.preferences){if(String(clone.preferences.signatureDataUrl||'').startsWith('data:'))clone.preferences.signatureDataUrl=null;if(String(clone.preferences.profileImageDataUrl||'').startsWith('data:'))clone.preferences.profileImageDataUrl=null;}if(String(clone.signature||'').startsWith('data:'))clone.signature=clone.preferences?.signatureFileUrl||clone.signatureUrl||'';if(String(clone.signatureUrl||'').startsWith('data:'))clone.signatureUrl=clone.preferences?.signatureFileUrl||clone.signature||'';return clone;}catch(_){return obj||{};}}
 // auth-modal.js - Authentication modal handling
 
+
+const AUTH_LEVEL_BANKS = {
+  cbc: [
+    ['playgroup','Playgroup','Pre-primary'],['pp1','PP1','Pre-primary'],['pp2','PP2','Pre-primary'],
+    ...Array.from({length:6},(_,i)=>[`grade_${i+1}`,`Grade ${i+1}`,i<3?'Lower Primary':'Upper Primary']),
+    ...Array.from({length:3},(_,i)=>[`grade_${i+7}`,`Grade ${i+7}`,'Junior School']),
+    ...Array.from({length:3},(_,i)=>[`grade_${i+10}`,`Grade ${i+10}`,'Senior School'])
+  ],
+  '844': [
+    ...Array.from({length:8},(_,i)=>[`class_${i+1}`,`Class ${i+1}`,'Primary']),
+    ...Array.from({length:4},(_,i)=>[`form_${i+1}`,`Form ${i+1}`,'Secondary'])
+  ],
+  british: [['nursery','Nursery','Early Years'],['reception','Reception','Early Years'],...Array.from({length:13},(_,i)=>[`year_${i+1}`,`Year ${i+1}`,i<6?'Primary':i<9?'Lower Secondary':i<11?'IGCSE':'A Level'])],
+  american: [['pre_k','Pre-K','Early Years'],['kindergarten','Kindergarten','Early Years'],...Array.from({length:12},(_,i)=>[`grade_${i+1}`,`Grade ${i+1}`,i<5?'Elementary':i<8?'Middle School':'High School'])],
+  custom: []
+};
+const AUTH_STRUCTURE_PRESETS = {
+  cbc: {
+    primary_only:['playgroup','pp1','pp2',...Array.from({length:6},(_,i)=>`grade_${i+1}`)],
+    junior_only:['grade_7','grade_8','grade_9'], senior_only:['grade_10','grade_11','grade_12'],
+    secondary_only:[...Array.from({length:6},(_,i)=>`grade_${i+7}`)]
+  },
+  '844': { primary_only:Array.from({length:8},(_,i)=>`class_${i+1}`), secondary_only:Array.from({length:4},(_,i)=>`form_${i+1}`) },
+  british: { primary_only:['nursery','reception',...Array.from({length:6},(_,i)=>`year_${i+1}`)], secondary_only:Array.from({length:7},(_,i)=>`year_${i+7}`) },
+  american: { primary_only:['pre_k','kindergarten',...Array.from({length:5},(_,i)=>`grade_${i+1}`)], secondary_only:Array.from({length:7},(_,i)=>`grade_${i+6}`) }
+};
+function authDefaultLevels(curriculum, structure) {
+  const bank = AUTH_LEVEL_BANKS[curriculum] || [];
+  const presets = AUTH_STRUCTURE_PRESETS[curriculum] || {};
+  if (structure === 'mixed' || structure === 'full_school') return bank.map(x=>x[0]);
+  return presets[structure] || [];
+}
+function authRenderClassSetup(preserveSelection = false) {
+  const box = document.getElementById('auth-class-level-selector');
+  if (!box) return;
+  const curriculum = document.getElementById('auth-curriculum')?.value || 'cbc';
+  const structure = document.getElementById('auth-school-level')?.value || 'mixed';
+  const old = preserveSelection ? new Set(getAuthEnabledLevels()) : new Set(authDefaultLevels(curriculum, structure));
+  const bank = AUTH_LEVEL_BANKS[curriculum] || [];
+  box.innerHTML = bank.length ? `<div class="grid gap-2 md:grid-cols-3">${bank.map(([code,label,group])=>`<label class="flex items-center gap-2 rounded-lg border bg-background p-2 text-sm"><input type="checkbox" class="auth-enabled-level" value="${code}" ${old.has(code)?'checked':''} onchange="authUpdateClassPreview()"><span>${label}<small class="block text-muted-foreground">${group}</small></span></label>`).join('')}</div>` : `<p class="text-sm text-muted-foreground">Use custom class names below for a custom curriculum.</p>`;
+  authUpdateClassPreview();
+}
+function getAuthEnabledLevels() { return [...document.querySelectorAll('.auth-enabled-level:checked')].map(x=>x.value); }
+function getAuthEnabledLevelGroups() { return []; }
+function getAuthStreams() { return String(document.getElementById('auth-stream-names')?.value || '').split(',').map(x=>x.trim()).filter(Boolean); }
+function authLevelCode(value, curriculum) {
+  const raw = String(value || '').trim().toLowerCase().replace(/[-\s]+/g,'_');
+  const bank = AUTH_LEVEL_BANKS[curriculum] || [];
+  const found = bank.find(([code,label]) => code === raw || label.toLowerCase().replace(/[-\s]+/g,'_') === raw);
+  return found?.[0] || raw;
+}
+function getAuthPerLevelStreams() {
+  const curriculum = document.getElementById('auth-curriculum')?.value || 'cbc';
+  const out = {};
+  for (const line of String(document.getElementById('auth-level-streams')?.value || '').split(/\n+/)) {
+    const [left, ...right] = line.split(':');
+    if (!left || !right.length) continue;
+    const code = authLevelCode(left, curriculum);
+    const streams = right.join(':').split(',').map(x=>x.trim()).filter(Boolean);
+    if (code) out[code] = streams;
+  }
+  return out;
+}
+function getAuthCustomClasses() { return String(document.getElementById('auth-custom-class-names')?.value || '').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).map(name=>({name})); }
+function authUpdateClassPreview() {
+  const preview = document.getElementById('auth-class-preview');
+  if (!preview) return;
+  const curriculum = document.getElementById('auth-curriculum')?.value || 'cbc';
+  const labels = new Map((AUTH_LEVEL_BANKS[curriculum] || []).map(([code,label])=>[code,label]));
+  const streams = getAuthStreams();
+  const perLevel = getAuthPerLevelStreams();
+  const names = getAuthEnabledLevels().flatMap(code => {
+    const selectedStreams = Object.prototype.hasOwnProperty.call(perLevel, code) ? perLevel[code] : streams;
+    return selectedStreams.length ? selectedStreams.map(stream=>`${labels.get(code)||code} ${stream}`) : [labels.get(code)||code];
+  });
+  names.push(...getAuthCustomClasses().map(x=>x.name));
+  preview.textContent = names.length ? `${names.length} class(es) selected: ${names.slice(0,12).join(', ')}${names.length>12?'…':''}` : 'No classes selected yet.';
+}
+
 function openAuthModal(role, mode) {
     window.authModalRole = role;
     const modal = document.getElementById('auth-modal');
@@ -14,6 +93,7 @@ function openAuthModal(role, mode) {
     contentEl.innerHTML = getAuthForm(role, mode);
     modal.classList.remove('hidden');
     if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    if (role === 'admin' && mode !== 'signin') setTimeout(() => authRenderClassSetup(false), 0);
 }
 
 
@@ -136,7 +216,7 @@ function getAuthForm(role, mode) {
                         <div class="grid gap-3 md:grid-cols-2">
                             <div>
                                 <label class="block text-sm font-medium mb-1">Curriculum</label>
-                                <select id="auth-curriculum" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <select id="auth-curriculum" onchange="authRenderClassSetup(false)" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                     <option value="cbc">CBC / CBE</option>
                                     <option value="844">8-4-4 System</option>
                                     <option value="british">British / Cambridge</option>
@@ -146,7 +226,7 @@ function getAuthForm(role, mode) {
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-1">School Structure</label>
-                                <select id="auth-school-level" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
+                                <select id="auth-school-level" onchange="authRenderClassSetup(false)" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                                     <option value="primary_only">Primary only</option>
                                     <option value="junior_only">Junior only</option>
                                     <option value="senior_only">Senior secondary only</option>
@@ -157,20 +237,15 @@ function getAuthForm(role, mode) {
                             </div>
                         </div>
                         <div>
-                            <p class="text-sm font-semibold mb-2">Enabled CBC / CBE levels for class generation</p>
-                            <div class="grid gap-2 md:grid-cols-2">
-                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="early_learning" data-levels="playgroup,pp1,pp2" onchange="authApplyLevelGroup(this)" checked><span><b>Early Learning</b><small class="block text-muted-foreground">Playgroup, PP1–PP2</small></span></label>
-                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="primary_learning" data-levels="grade_1,grade_2,grade_3,grade_4,grade_5,grade_6" onchange="authApplyLevelGroup(this)" checked><span><b>Primary Learning</b><small class="block text-muted-foreground">Grade 1–6</small></span></label>
-                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="junior_school" data-levels="grade_7,grade_8,grade_9" onchange="authApplyLevelGroup(this)" checked><span><b>Junior School</b><small class="block text-muted-foreground">Grade 7–9</small></span></label>
-                                <label class="flex items-start gap-2 rounded-lg border bg-background p-3"><input type="checkbox" class="auth-level-group mt-1" value="senior_secondary" data-levels="grade_10,grade_11,grade_12" onchange="authApplyLevelGroup(this)"><span><b>Senior Secondary</b><small class="block text-muted-foreground">Grade 10–12</small></span></label>
-                            </div>
+                            <p class="text-sm font-semibold mb-2">Specific grades/classes offered by this school</p>
+                            <div id="auth-class-level-selector"></div>
                         </div>
-                        <details class="rounded-lg border bg-background p-3">
-                            <summary class="cursor-pointer text-sm font-medium">Advanced individual levels</summary>
-                            <div class="grid gap-2 md:grid-cols-3 mt-3 text-sm">
-                                ${['playgroup:Playgroup:Pre-primary','pp1:PP1:Pre-primary','pp2:PP2:Pre-primary','grade_1:Grade 1:Lower Primary','grade_2:Grade 2:Lower Primary','grade_3:Grade 3:Lower Primary','grade_4:Grade 4:Upper Primary','grade_5:Grade 5:Upper Primary','grade_6:Grade 6:Upper Primary','grade_7:Grade 7:Junior School','grade_8:Grade 8:Junior School','grade_9:Grade 9:Junior School','grade_10:Grade 10:Senior School','grade_11:Grade 11:Senior School','grade_12:Grade 12:Senior School'].map(item => { const [code,label,group]=item.split(':'); const checked=!['grade_10','grade_11','grade_12'].includes(code); return `<label class="flex items-center gap-2 rounded border p-2"><input type="checkbox" class="auth-enabled-level" value="${code}" ${checked?'checked':''}><span>${label}<small class="block text-muted-foreground">${group}</small></span></label>`; }).join('')}
-                            </div>
-                        </details>
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <div><label class="block text-sm font-medium mb-1">Default streams (optional)</label><input id="auth-stream-names" oninput="authUpdateClassPreview()" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="East, West"><p class="text-xs text-muted-foreground mt-1">Applied to selected grades unless overridden below.</p></div>
+                            <div><label class="block text-sm font-medium mb-1">Custom class names (optional)</label><textarea id="auth-custom-class-names" oninput="authUpdateClassPreview()" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" rows="2" placeholder="Form 3 Blue, Special Unit"></textarea></div>
+                        </div>
+                        <div><label class="block text-sm font-medium mb-1">Different streams for specific grades (optional)</label><textarea id="auth-level-streams" oninput="authUpdateClassPreview()" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" rows="3" placeholder="Grade 7: East, West&#10;Grade 8: North"></textarea><p class="text-xs text-muted-foreground mt-1">One grade per line. This overrides the default streams only for that grade.</p></div>
+                        <div id="auth-class-preview" class="rounded-lg border border-dashed bg-background p-3 text-xs text-muted-foreground"></div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Phone</label>
@@ -311,7 +386,7 @@ async function safeAcceptAuthConsent() {
     try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         if (!token || !window.api?.consent?.accept) return;
-        await safeAcceptAuthConsent();
+        await window.api.consent.accept(true, true);
     } catch (error) {
         // Signup flows can complete before a login token exists, especially pending teacher approval.
         // Do not fail account/request creation just because consent recording needs auth.
@@ -417,6 +492,9 @@ async function handleAuthSubmit() {
                     curriculum: document.getElementById('auth-curriculum')?.value,
                     enabledLevels: getAuthEnabledLevels(),
                     enabledLevelGroups: getAuthEnabledLevelGroups(),
+                    streams: getAuthStreams(),
+                    customClasses: getAuthCustomClasses(),
+                    classGeneration: { streams:getAuthStreams(), customClasses:getAuthCustomClasses(), perLevelStreams:getAuthPerLevelStreams() },
                     schoolType: document.querySelector('input[name="auth-school-type"]:checked')?.value || 'day',
                     termsAccepted: true,
                     privacyAccepted: true
@@ -708,18 +786,13 @@ window.showPrivacy = showPrivacy;
 window.showDPA = showDPA;
 window.openLegalDocument = openLegalDocument;
 
-// Keep grouped curriculum checkboxes and individual levels in sync.
+// Class setup helpers used by the admin signup form.
 window.authApplyLevelGroup = function(groupCheckbox) {
-  const levels = String(groupCheckbox?.dataset?.levels || '').split(',').map(x => x.trim()).filter(Boolean);
-  document.querySelectorAll('.auth-enabled-level').forEach(box => {
-    if (levels.includes(box.value)) box.checked = !!groupCheckbox.checked;
-  });
-  const select = document.getElementById('auth-school-level');
-  const groups = [...document.querySelectorAll('.auth-level-group:checked')].map(x => x.value);
-  if (select) {
-    if (groups.length === 1 && groups[0] === 'primary_learning') select.value = 'primary_only';
-    else if (groups.length === 1 && groups[0] === 'junior_school') select.value = 'junior_only';
-    else if (groups.length === 1 && groups[0] === 'senior_secondary') select.value = 'senior_only';
-    else select.value = groups.length ? 'mixed' : 'custom';
-  }
+  const levels = String(groupCheckbox?.dataset?.levels || '').split(',').map(x=>x.trim()).filter(Boolean);
+  document.querySelectorAll('.auth-enabled-level').forEach(box => { if (levels.includes(box.value)) box.checked = !!groupCheckbox.checked; });
+  authUpdateClassPreview();
 };
+window.authRenderClassSetup = authRenderClassSetup;
+window.authUpdateClassPreview = authUpdateClassPreview;
+window.getAuthEnabledLevels = getAuthEnabledLevels;
+window.getAuthEnabledLevelGroups = getAuthEnabledLevelGroups;

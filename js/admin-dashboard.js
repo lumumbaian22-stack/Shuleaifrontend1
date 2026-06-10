@@ -449,10 +449,10 @@ window.suspendTeacher = async function(teacherId, teacherName) {
 };
 
 window.deleteTeacher = async function(teacherId) {
-    if (!confirm('Delete this teacher? This action cannot be undone.')) return;
+    if (!confirm('Deactivate this teacher? Their history and assignments will be preserved.')) return;
     try {
         await api.admin.deleteTeacher(teacherId);
-        showToast('Teacher deleted', 'success');
+        showToast('Teacher deactivated safely', 'success');
         await renderAdminTeachers();
     } catch (error) {
         showToast(error.message, 'error');
@@ -528,6 +528,8 @@ async function renderAdminSection(section) {
                 return await renderAdminStudentSubjectSelection();
             case 'student-lifecycle':
                 return await window.renderStudentLifecycleHome();
+            case 'class-transfers':
+                return await window.renderClassTransferCentre('admin');
             case 'birthdays':
                 return await window.renderBirthdayCentre('admin');
             case 'report-history':
@@ -595,13 +597,63 @@ async function renderAdminSection(section) {
     }
 }
 
+function adminSubscriptionReminderHtml(enforcement = {}) {
+    if (!enforcement || enforcement.enforcementEnabled !== true) return '';
+    const state = String(enforcement.billingState || '').toLowerCase();
+    if (!['payment_required', 'due_soon', 'grace', 'restricted', 'overdue'].includes(state)) return '';
+
+    const restricted = enforcement.restricted === true || ['restricted', 'overdue'].includes(state);
+    const dueDate = enforcement.nextDueDate ? new Date(enforcement.nextDueDate) : null;
+    const graceDate = enforcement.graceEndsAt ? new Date(enforcement.graceEndsAt) : null;
+    const dueText = dueDate && !Number.isNaN(dueDate.getTime()) ? dueDate.toLocaleDateString() : 'now';
+    const graceText = graceDate && !Number.isNaN(graceDate.getTime()) ? graceDate.toLocaleString() : '';
+    const cycle = escapeHtml(String(enforcement.billingCycle || 'monthly').replace(/_/g, ' '));
+    const period = enforcement.academicPeriod?.term
+        ? `${escapeHtml(enforcement.academicPeriod.term)} ${escapeHtml(enforcement.academicPeriod.academicYear || '')}`
+        : (enforcement.academicPeriod?.academicYear ? `Academic year ${escapeHtml(enforcement.academicPeriod.academicYear)}` : '');
+
+    return `
+        <div class="rounded-xl border ${restricted ? 'border-red-300 bg-red-50 text-red-950 dark:border-red-700 dark:bg-red-950/30 dark:text-red-100' : 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100'} p-4 shadow-sm">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h3 class="font-semibold">${restricted ? 'Subscription payment overdue — access is restricted' : 'Shule AI subscription payment reminder'}</h3>
+                    <p class="mt-1 text-sm">Your ${cycle} payment is due ${dueText}.${restricted ? ' Pay to restore full access; no school data has been deleted.' : ' Reminders continue until payment is confirmed.'}</p>
+                    ${period ? `<p class="mt-1 text-xs">Billing period: ${period}</p>` : ''}
+                    ${graceText ? `<p class="mt-1 text-xs">Grace period ends: ${graceText}</p>` : ''}
+                </div>
+                <button type="button" onclick="showDashboardSection('subscription-billing')" class="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Open Subscription & Billing</button>
+            </div>
+        </div>`;
+}
+
+async function refreshAdminSubscriptionReminder() {
+    const target = document.getElementById('admin-subscription-reminder');
+    if (!target || !window.api?.subscription?.getSchoolStatus) return;
+    try {
+        const response = await api.subscription.getSchoolStatus();
+        const enforcement = response?.data?.enforcement || {};
+        window.__schoolSubscriptionEnforcement = enforcement;
+        target.innerHTML = adminSubscriptionReminderHtml(enforcement);
+        if (typeof lucide !== 'undefined' && lucide?.createIcons) lucide.createIcons();
+    } catch (error) {
+        console.warn('[Subscription] Could not refresh dashboard reminder:', error?.message || error);
+    }
+}
+
 function renderAdminDashboard() {
     const school = getCurrentSchool();
     const data = dashboardData || {};
     const calendarAllowed = typeof hasSchoolFeature === 'function' ? hasSchoolFeature('calendar') : true;
-    setTimeout(() => { if (calendarAllowed && typeof window.loadAdminCalendarPreviewEvents === 'function') window.loadAdminCalendarPreviewEvents(); if (typeof window.setupAnnouncementRecipientControls === 'function') window.setupAnnouncementRecipientControls(); if (typeof window.v130UpdateSmsEstimate === 'function') window.v130UpdateSmsEstimate(); }, 120);
+    const cachedEnforcement = window.__schoolSubscriptionEnforcement || school?.settings?.billing || {};
+    setTimeout(() => {
+        if (calendarAllowed && typeof window.loadAdminCalendarPreviewEvents === 'function') window.loadAdminCalendarPreviewEvents();
+        if (typeof window.setupAnnouncementRecipientControls === 'function') window.setupAnnouncementRecipientControls();
+        if (typeof window.v130UpdateSmsEstimate === 'function') window.v130UpdateSmsEstimate();
+        refreshAdminSubscriptionReminder();
+    }, 120);
     return `
         <div class="space-y-6 animate-fade-in">
+            <div id="admin-subscription-reminder">${adminSubscriptionReminderHtml(cachedEnforcement)}</div>
             <!-- School Profile Card -->
             <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 card-hover">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1482,46 +1534,7 @@ window.removeCustomSubject = async function(subject) {
     finally { hideLoading(); }
 };
 
-window.saveAllSettings = async function() {
-    const curriculum = document.getElementById('settings-curriculum')?.value;
-    const schoolName = document.getElementById('settings-school-name')?.value;
-    const schoolLevel = document.getElementById('settings-school-level')?.value;
-    if (!schoolName) { showToast('School name is required', 'error'); return; }
-    showLoading();
-    try {
-        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, schoolLevel, customSubjects: customSubjects || [] });
-        if (response && response.success) {
-            window.schoolSettings = response.data;
-            window.customSubjects = response.data.settings?.customSubjects || [];
-            
-            // === ADD THIS BLOCK ===
-            const freshSettings = await api.admin.getSchoolSettings();
-            if (freshSettings && freshSettings.success) {
-                window.schoolSettings = freshSettings.data;
-                window.schoolSettings.curriculum = freshSettings.data.system;
-                window.customSubjects = freshSettings.data.settings?.customSubjects || [];
-            }
-            // === END ADD ===
-            
-            const school = JSON.parse(localStorage.getItem('school') || '{}');
-            school.name = schoolName;
-            school.system = curriculum;
-            school.settings = response.data.settings;
-            if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(school,typeof getCurrentUser==='function'?getCurrentUser():null):school));
-            updateAllSchoolNameElements(schoolName);
-            showToast('✅ Settings saved!', 'success');
-            if (api.admin?.syncCurriculumClasses) await api.admin.syncCurriculumClasses().catch(e => console.warn('Class sync skipped', e.message));
-            await updateAdminStats();
-        } else {
-            throw new Error(response?.message || 'Save failed');
-        }
-    } catch (error) {
-        console.error('Save error:', error);
-        showToast(error.message || 'Failed to save settings', 'error');
-    } finally {
-        hideLoading();
-    }
-};
+// Canonical School Settings save handler is defined in the v148.4 curriculum section below.
 
 // ============ HELP SECTION ============
 function renderHelpSection() {
@@ -1923,7 +1936,9 @@ function applyBrandingPresetPreview() {
 
 async function saveAdminBranding() {
     const file = document.getElementById('branding-logo-file')?.files?.[0];
-    const payload = { schoolName: document.getElementById('branding-school-name')?.value?.trim(), colorName: document.getElementById('branding-color-name')?.value, primaryColor: document.getElementById('branding-primary-color')?.value, accentColor: document.getElementById('branding-accent-color')?.value, logoUrl: document.getElementById('branding-logo-url')?.value?.trim(), reportFooter: document.getElementById('branding-report-footer')?.value?.trim(), paymentInstructions: document.getElementById('branding-payment-instructions')?.value?.trim() };
+    const payload = { schoolName: document.getElementById('branding-school-name')?.value?.trim(), colorName: document.getElementById('branding-color-name')?.value, primaryColor: document.getElementById('branding-primary-color')?.value, accentColor: document.getElementById('branding-accent-color')?.value, reportFooter: document.getElementById('branding-report-footer')?.value?.trim(), paymentInstructions: document.getElementById('branding-payment-instructions')?.value?.trim() };
+    const logoUrl = document.getElementById('branding-logo-url')?.value?.trim();
+    if (logoUrl) payload.logoUrl = logoUrl;
     if (file) payload.logoDataUrl = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); });
     showLoading();
     try { const res = await apiRequest('/api/owner/branding', { method:'PUT', body: JSON.stringify(payload) }); window.schoolBranding=res.data||payload;if(typeof safeSessionSet==='function')safeSessionSet('schoolBranding',JSON.stringify(typeof minimalBrandingForStorage==='function'?minimalBrandingForStorage(window.schoolBranding):window.schoolBranding));try{if(window.schoolScopedKey)localStorage.removeItem(window.schoolScopedKey('schoolBranding'))}catch(_){} window.dispatchEvent(new CustomEvent('school-branding-updated', { detail: window.schoolBranding })); showToast('Branding saved', 'success'); await showDashboardSection('school-branding'); } catch (e) { showToast(e.message || 'Could not save branding', 'error'); } finally { hideLoading(); }
@@ -1947,7 +1962,6 @@ window.renderAdminSettings = renderAdminSettings;
 window.renderAdminCustomSubjects = renderAdminCustomSubjects;
 window.addCustomSubject = addCustomSubject;
 window.removeCustomSubject = removeCustomSubject;
-window.saveAllSettings = saveAllSettings;
 window.renderAdminTimetable = renderAdminTimetable;
 window.generateTimetable = generateTimetable;
 window.publishTimetable = publishTimetable;
@@ -1961,8 +1975,10 @@ function formatKes(value) {
 
 function subscriptionStatusBadge(status) {
     const value = String(status || 'pending').toLowerCase();
-    const cls = value === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : value === 'expired' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
-    return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${escapeHtml(value)}</span>`;
+    const red = ['expired','restricted','cancelled'].includes(value);
+    const green = ['active','paid_subscription','pilot_full_access'].includes(value);
+    const cls = green ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : red ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+    return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${escapeHtml(value.replace(/_/g,' '))}</span>`;
 }
 
 async function renderAdminSubscriptionBilling() {
@@ -1976,6 +1992,14 @@ async function renderAdminSubscriptionBilling() {
         const plans = plansRes.data || [];
         const history = historyRes.data || [];
         const activePlanCode = status.planCode || 'school_starter';
+        const enforcement = status.enforcement || {};
+        window.__schoolSubscriptionEnforcement = enforcement;
+        const schoolSnapshot = typeof getCurrentSchool === 'function' ? (getCurrentSchool() || {}) : {};
+        if (schoolSnapshot && typeof schoolSnapshot === 'object') {
+            schoolSnapshot.settings = { ...(schoolSnapshot.settings || {}), billing:{ ...(schoolSnapshot.settings?.billing || {}), ...enforcement } };
+            schoolSnapshot.accessMode = enforcement.restricted ? 'expired_subscription' : (schoolSnapshot.accessMode || status.accessMode);
+        }
+        const billingState = enforcement.billingState || 'not_enforced';
         return `
         <div class="space-y-6 animate-fade-in shule-billing-page">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1998,9 +2022,9 @@ async function renderAdminSubscriptionBilling() {
                     <p class="text-xs text-muted-foreground mt-2">Maintenance included</p>
                 </div>
                 <div class="rounded-xl border bg-card p-5">
-                    <p class="text-sm text-muted-foreground">Expires</p>
-                    <h3 class="text-xl font-bold mt-1">${status.expiresAt ? new Date(status.expiresAt).toLocaleDateString() : 'Not active'}</h3>
-                    <p class="text-xs text-muted-foreground mt-2">${Number(status.daysRemaining || 0)} days remaining</p>
+                    <p class="text-sm text-muted-foreground">Next Payment Due</p>
+                    <h3 class="text-xl font-bold mt-1">${enforcement.nextDueDate ? new Date(enforcement.nextDueDate).toLocaleDateString() : (status.expiresAt ? new Date(status.expiresAt).toLocaleDateString() : 'Not configured')}</h3>
+                    <div class="mt-2">${subscriptionStatusBadge(billingState)}</div>
                 </div>
                 <div class="rounded-xl border bg-card p-5">
                     <p class="text-sm text-muted-foreground">Students</p>
@@ -2009,12 +2033,14 @@ async function renderAdminSubscriptionBilling() {
                 </div>
             </div>
 
-            ${status.gracefulMode ? `
-                <div class="rounded-xl border border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-700 p-4">
-                    <h3 class="font-semibold">⚠ School subscription inactive or expired</h3>
-                    <p class="text-sm mt-1">Your school data remains safe. Renew the account to restore the complete Shule AI platform.</p>
+            ${enforcement.enforcementEnabled ? `
+                <div class="rounded-xl border ${enforcement.restricted ? 'border-red-300 bg-red-50 text-red-900 dark:bg-red-900/20 dark:text-red-200 dark:border-red-700' : 'border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-700'} p-4">
+                    <h3 class="font-semibold">${enforcement.restricted ? '⛔ Subscription payment overdue — access restricted' : '⚠ Subscription payment reminders are enforced'}</h3>
+                    <p class="text-sm mt-1">${enforcement.restricted ? 'Pay the outstanding subscription to restore full access. Your school information has not been deleted.' : `The ${escapeHtml(enforcement.billingCycle || status.billingCycle || 'monthly')} billing schedule remains active until payment is confirmed.`}</p>
+                    ${enforcement.graceEndsAt ? `<p class="text-xs mt-2">Grace period ends: ${new Date(enforcement.graceEndsAt).toLocaleString()}</p>` : ''}
+                    ${enforcement.academicPeriod?.term ? `<p class="text-xs mt-1">Academic period: ${escapeHtml(enforcement.academicPeriod.term)} ${escapeHtml(enforcement.academicPeriod.academicYear || '')}</p>` : ''}
                 </div>
-            ` : ''}
+            ` : `<div class="rounded-xl border border-blue-200 bg-blue-50 text-blue-900 dark:bg-blue-900/20 dark:text-blue-200 p-4"><h3 class="font-semibold">Choose a billing frequency</h3><p class="text-sm mt-1">Monthly, termly and yearly are payment schedules—not separate plans. Once chosen, reminders and payment due dates will be enforced.</p></div>`}
 
             <div class="grid gap-4 lg:grid-cols-3">
                 ${plans.map(plan => `
@@ -2028,7 +2054,7 @@ async function renderAdminSubscriptionBilling() {
                         </div>
                         <div class="mt-4 space-y-1">
                             <p class="text-2xl font-bold">${formatKes(plan.monthlyPriceKes || plan.price)}</p>
-                            <p class="text-sm text-muted-foreground">${plan.yearlyPriceKes ? `${formatKes(plan.yearlyPriceKes)} / year` : 'Custom yearly pricing'}</p>
+                            <p class="text-sm text-muted-foreground">${plan.termlyPriceKes ? `${formatKes(plan.termlyPriceKes)} / term` : 'Termly pricing available when configured'}</p><p class="text-sm text-muted-foreground">${plan.yearlyPriceKes ? `${formatKes(plan.yearlyPriceKes)} / year` : 'Custom yearly pricing'}</p>
                             <p class="text-xs text-muted-foreground">Complete core platform included. Plan price is based on active students.</p>
                         </div>
                         <div class="mt-4 flex-1">
@@ -2076,9 +2102,9 @@ window.openSchoolBillingModal = async function(defaultPlanCode = 'school_growth'
             </div>
             <div class="p-5 space-y-4">
                 <div><label class="text-sm font-medium">Select Plan</label><select id="school-sub-plan" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${options}</select></div>
-                <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+                <div><label class="text-sm font-medium">Billing Cycle</label><select id="school-sub-cycle" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="monthly">Monthly — reminder every month</option><option value="termly">Termly — follows published term dates</option><option value="yearly">Yearly — follows the academic year</option></select></div>
                 <div><label class="text-sm font-medium">M-PESA Phone Number</label><input id="school-sub-phone" placeholder="2547XXXXXXXX" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></div>
-                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This payment goes to the Shule AI platform account, not the school fee account.</div>
+                <div class="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">This payment goes to the Shule AI platform account, not the school fee account. The selected cycle will be saved and reminders will continue until payment is confirmed. Termly and yearly billing require published academic calendar dates.</div>
             </div>
             <div class="p-5 border-t flex justify-end gap-3"><button onclick="document.getElementById('school-billing-modal')?.remove()" class="px-4 py-2 rounded-lg border">Cancel</button><button onclick="submitSchoolSubscriptionSTK()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Pay via M-PESA</button></div>
         </div>`;
@@ -2103,6 +2129,28 @@ window.submitSchoolSubscriptionSTK = async function() {
 
 window.loadAdminCalendarPreviewEvents = loadAdminCalendarPreviewEvents;
 
+
+function normalizeClassLevelInputKey(value) {
+    const raw = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+    if (/^grade_?\d+$/.test(raw)) return `grade_${raw.match(/\d+/)[0]}`;
+    if (/^class_?\d+$/.test(raw)) return `class_${raw.match(/\d+/)[0]}`;
+    if (/^form_?\d+$/.test(raw)) return `form_${raw.match(/\d+/)[0]}`;
+    if (/^year_?\d+$/.test(raw)) return `year_${raw.match(/\d+/)[0]}`;
+    if (raw === 'pre_k' || raw === 'prek') return 'pre_k';
+    return raw;
+}
+function parsePerLevelStreamsText(value) {
+    const out = {};
+    for (const line of String(value || '').split(/\n+/)) {
+        const [left, ...right] = line.split(':');
+        if (!left || !right.length) continue;
+        const code = normalizeClassLevelInputKey(left);
+        const streams = right.join(':').split(',').map(x=>x.trim()).filter(Boolean);
+        if (code) out[code] = streams;
+    }
+    return out;
+}
+
 // ============ V102 CURRICULUM + CUSTOM STRUCTURE + SUBJECT CHECKBOX UI ============
 const v102OriginalRenderAdminCustomSubjects = window.renderAdminCustomSubjects || renderAdminCustomSubjects;
 window.renderAdminCustomSubjects=async function(){try{const[setup,classesRes]=await Promise.all([api.admin.getCurriculumSetup(),api.admin.getClasses().catch(()=>({data:[]}))]),data=setup.data||{},cfg=data.config||{},subjects=data.subjectBank||[],classes=classesRes?.data||[],allSaved=Array.isArray(cfg.schoolSubjects)?cfg.schoolSubjects:[],custom=allSaved.filter(x=>x.isCustom),saved=new Set(allSaved.filter(x=>x.isOffered!==false).map(x=>x.subjectId||x.id||x.name));window.__v148CustomSubjects=custom;const grouped=subjects.reduce((a,x)=>{const g=x.levelLabels?.[0]||x.levelCodes?.[0]||'Subjects';(a[g]||=[]).push(x);return a;},{});return`<div class="space-y-6"><div><h2 class="text-2xl font-bold">Subjects</h2><p class="text-sm text-muted-foreground">Select curriculum subjects and add school-specific subjects.</p></div><section class="rounded-xl border bg-card p-6"><h3 class="font-semibold text-lg">Add Custom Subject</h3><div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4"><label class="text-sm">Name<input id="custom-subject-name" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Robotics"></label><label class="text-sm">Code<input id="custom-subject-code" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="ROB"></label><label class="text-sm">Scope<select id="custom-subject-scope" onchange="v148ToggleCustomSubjectClasses()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school">Whole school</option><option value="class">Selected classes</option></select></label><label class="text-sm">Grading<select id="custom-subject-grading" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school_default">School default</option><option value="numeric">Numeric marks</option><option value="competency">Competency</option><option value="pass_fail">Pass / Fail</option></select></label></div><div id="custom-subject-class-box" class="hidden mt-4"><p class="text-sm font-medium">Classes</p><div class="grid gap-2 sm:grid-cols-2 md:grid-cols-3 mt-2">${classes.map(c=>`<label class="flex items-center gap-2 rounded-lg border p-3 text-sm"><input type="checkbox" class="custom-subject-class" value="${c.id}">${escapeHtml(c.name||c.grade||`Class ${c.id}`)}</label>`).join('')}</div></div><button onclick="v148CreateCustomSubject()" class="mt-4 px-4 py-2 rounded-lg bg-primary text-white">Add Custom Subject</button></section><section><h3 class="font-semibold text-lg mb-3">Custom Subjects</h3><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${custom.length?custom.map(x=>`<div class="rounded-xl border bg-card p-4"><div class="flex justify-between gap-3"><div><strong>${escapeHtml(x.name)}</strong><p class="text-xs text-muted-foreground">${escapeHtml(x.code||'CUSTOM')} • ${x.scope==='class'?'Selected classes':'Whole school'}</p></div><button onclick="v148DeleteCustomSubject('${escapeHtml(x.subjectId)}')" class="text-red-600 text-xs">Remove</button></div></div>`).join(''):'<div class="rounded-xl border border-dashed p-5 text-muted-foreground">No custom subjects yet.</div>'}</div></section><section class="rounded-xl border bg-card p-6"><div class="flex justify-between"><div><h3 class="font-semibold text-lg">Curriculum Subjects</h3><p class="text-sm text-muted-foreground">${escapeHtml(cfg.curriculum||'CBC')}</p></div><button onclick="v102SaveSchoolSubjectCheckboxes()" class="px-4 py-2 bg-primary text-white rounded-lg">Save Curriculum Subjects</button></div></section><div class="space-y-4">${Object.entries(grouped).map(([g,items])=>`<div class="rounded-xl border bg-card p-5"><h3 class="font-semibold mb-3">${escapeHtml(g)}</h3><div class="grid md:grid-cols-3 gap-3">${items.map(item=>`<label class="flex gap-2 p-3 rounded-lg border"><input type="checkbox" class="v102-school-subject mt-1" data-subject='${JSON.stringify(item).replace(/'/g,'&#39;')}' ${saved.has(item.id)||saved.has(item.name)?'checked':''}><span>${escapeHtml(item.name)}</span></label>`).join('')}</div></div>`).join('')}</div></div>`;}catch(e){return`<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">${escapeHtml(e.message||'Subjects could not be loaded')}</div>`;}};
@@ -2111,6 +2159,10 @@ const v102OriginalRenderAdminSettings = window.renderAdminSettings || renderAdmi
 window.renderAdminSettings = function() {
     const curriculum = schoolSettings.curriculum || schoolSettings.system || schoolSettings.settings?.curriculumEngine?.curriculum || 'cbc';
     const engine = schoolSettings.settings?.curriculumEngine || {};
+    const classGeneration = schoolSettings.settings?.classGeneration || schoolSettings.classGeneration || engine.classGeneration || {};
+    const configuredStreams = Array.isArray(classGeneration.streams) ? classGeneration.streams : [];
+    const configuredCustomClasses = Array.isArray(classGeneration.customClasses) ? classGeneration.customClasses : [];
+    const configuredPerLevelStreams = classGeneration.perLevelStreams && typeof classGeneration.perLevelStreams === 'object' ? classGeneration.perLevelStreams : {};
     const structureType = engine.structureType || schoolSettings.schoolStructure || schoolSettings.settings?.schoolStructure || 'mixed';
     const enabled = new Set(engine.enabledLevels || schoolSettings.enabledLevels || []);
     const levelList = (schoolSettings.curriculumSetup?.enabledLevels || []).map(l => l.label).join(', ');
@@ -2127,6 +2179,17 @@ window.renderAdminSettings = function() {
                         <div><label class="block text-sm font-medium mb-1">School Structure</label><select id="settings-school-structure" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"><option value="primary_only" ${structureType === 'primary_only' ? 'selected' : ''}>Primary only</option><option value="junior_only" ${structureType === 'junior_only' ? 'selected' : ''}>Junior only</option><option value="senior_only" ${structureType === 'senior_only' ? 'selected' : ''}>Senior only</option><option value="secondary_only" ${structureType === 'secondary_only' ? 'selected' : ''}>Secondary only</option><option value="mixed" ${structureType === 'mixed' ? 'selected' : ''}>Mixed / Full</option><option value="custom" ${structureType === 'custom' ? 'selected' : ''}>Custom enabled levels</option></select></div>
                     </div>
                     <div class="mt-4 p-4 bg-muted/30 rounded-lg"><p class="text-sm"><span class="font-medium">Currently enabled:</span> ${levelList || 'Use the structure builder below after saving curriculum.'}</p><button onclick="v102LoadStructureBuilder()" class="mt-3 px-3 py-2 rounded-lg border hover:bg-accent text-sm">Load / Edit Enabled Levels</button><div id="v102-structure-builder" class="mt-4"></div><button onclick="showDashboardSection('report-settings')" class="mt-3 px-3 py-2 rounded-lg border hover:bg-accent text-sm">Assessment & Report Settings</button></div>
+                </div>
+                <div class="rounded-xl border bg-card p-6">
+                    <h3 class="font-semibold mb-1">Class Generation Preferences</h3>
+                    <p class="text-sm text-muted-foreground mb-4">These settings define only the classes this school actually offers. Saving does not alter existing classes.</p>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div><label class="block text-sm font-medium mb-1">Default streams (comma separated)</label><input id="settings-class-streams" value="${escapeHtml(configuredStreams.join(', '))}" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="East, West"><p class="text-xs text-muted-foreground mt-1">Applied to every selected grade unless that grade has an override.</p></div>
+                        <div><label class="block text-sm font-medium mb-1">Custom class names</label><textarea id="settings-custom-class-names" rows="3" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Form 3 Blue, Special Unit">${escapeHtml(configuredCustomClasses.map(x=>typeof x==='string'?x:x.name).filter(Boolean).join('\n'))}</textarea></div>
+                    </div>
+                    <div class="mt-4"><label class="block text-sm font-medium mb-1">Different streams for specific grades</label><textarea id="settings-level-streams" rows="4" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Grade 7: East, West&#10;Grade 8: North">${escapeHtml(Object.entries(configuredPerLevelStreams).map(([code,values])=>`${code}: ${(Array.isArray(values)?values:[]).join(', ')}`).join('\n'))}</textarea><p class="text-xs text-muted-foreground mt-1">One level per line. These entries override the default streams only for that level.</p></div>
+                    <div id="class-generation-save-preview" class="mt-4 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">Save settings to calculate the safe missing-class preview.</div>
+                    <button type="button" onclick="autoGenerateClassesOnCurriculumChange()" class="mt-3 px-4 py-2 rounded-lg border hover:bg-accent text-sm">Review & Generate Missing Classes</button>
                 </div>
                 <div class="flex justify-end"><button onclick="saveAllSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save Settings</button></div>
             </div>
@@ -2181,10 +2244,13 @@ window.saveAllSettings = async function() {
     const structureType = document.getElementById('settings-school-structure')?.value || document.getElementById('settings-school-level')?.value;
     const enabledLevels = Array.from(document.querySelectorAll('.v102-enabled-level:checked')).map(x => x.value);
     const enabledLevelGroups = Array.from(document.querySelectorAll('.v130-enabled-group:checked')).map(x => x.value);
+    const streams = String(document.getElementById('settings-class-streams')?.value || '').split(',').map(x=>x.trim()).filter(Boolean);
+    const customClasses = String(document.getElementById('settings-custom-class-names')?.value || '').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).map(name=>({name}));
+    const perLevelStreams = parsePerLevelStreamsText(document.getElementById('settings-level-streams')?.value || '');
     if (!schoolName) { showToast('School name is required', 'error'); return; }
     showLoading();
     try {
-        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, enabledLevelGroups, customSubjects: customSubjects || [] });
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, enabledLevelGroups, customSubjects: customSubjects || [], classGeneration:{ streams, customClasses, perLevelStreams } });
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];
@@ -2192,8 +2258,10 @@ window.saveAllSettings = async function() {
             school.name = schoolName; school.system = curriculum; school.settings = response.data.settings;
             if(typeof safeSessionSet==='function')safeSessionSet('school',JSON.stringify(typeof minimalSchoolForStorage==='function'?minimalSchoolForStorage(school,typeof getCurrentUser==='function'?getCurrentUser():null):school));
             updateAllSchoolNameElements(schoolName);
-            showToast('✅ Curriculum and structure saved safely', 'success');
-            if (api.admin?.syncCurriculumClasses) await api.admin.syncCurriculumClasses().catch(e => console.warn('Class sync skipped', e.message));
+            const preview = response.data?.classGenerationPreview || {};
+            const previewBox = document.getElementById('class-generation-save-preview');
+            if (previewBox) previewBox.textContent = `${Number(preview.createCount || 0)} missing class(es) can be added; ${Number(preview.skipCount || 0)} existing class(es) will be preserved and skipped.`;
+            showToast(`✅ Settings saved. ${Number(preview.createCount || 0)} missing class(es) await your confirmation.`, 'success');
             await updateAdminStats();
         } else throw new Error(response?.message || 'Save failed');
     } catch(error) { console.error('V102 save settings error:', error); showToast(error.message || 'Failed to save settings', 'error'); }
