@@ -1,9 +1,0 @@
-SHULE AI V148.4 FRONTEND — COMPLETE REPLACEMENT
-
-Deploy the contents of this ZIP as one complete frontend build.
-Do not merge files from v148, v148.1, v148.2, or v148.3.
-Deploy only after the matching v148.4 backend and migration are live.
-
-Verify /api/health reports: v148.4-enrollment-lifecycle-complete
-Verify browser assets load with: ?v=1484
-Perform one Ctrl+Shift+R after deployment to activate the new service worker immediately.
