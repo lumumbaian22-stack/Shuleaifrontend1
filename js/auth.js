@@ -71,6 +71,7 @@ async function checkAuth() {
     } catch (error) {
         console.error('Auth check failed:', error);
         localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         localStorage.removeItem('school');
@@ -90,7 +91,7 @@ async function superAdminLogin(email, password, secretKey) {
         currentUser = response.data.user;
         
         clearSessionScopedDashboardState();
-        safeSessionSet('authToken',authToken);
+        safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}
         persistSessionPayload(currentUser, null);
         
         return response;
@@ -181,7 +182,7 @@ async function studentLogin(elimuid, password) {
         authToken = response.data.token;
         currentUser = response.data.user;
         
-        safeSessionSet('authToken',authToken);
+        safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}
         safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(currentUser)));
         safeSessionSet('userRole',currentUser.role);
         
@@ -232,7 +233,7 @@ async function login(emailOrPhone, password, role) {
         }
 
         clearSessionScopedDashboardState();
-        safeSessionSet('authToken',authToken);
+        safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}
         persistSessionPayload(currentUser, currentSchool);
 
         console.log('✅ Login successful, redirecting to dashboard');
@@ -268,6 +269,7 @@ async function changePassword(currentPassword, newPassword) {
 function logout() {
     clearSessionScopedDashboardState();
     localStorage.removeItem('authToken');
+    localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     localStorage.removeItem('school');

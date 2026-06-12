@@ -649,7 +649,7 @@ async function handleStudentLogin() {
 
         if (response.success) {
             authToken = response.data.token;        // Update global authToken
-            if(typeof safeSessionSet==='function'){safeSessionSet('authToken',authToken);safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));safeSessionSet('userRole','student');}else{localStorage.setItem('authToken',authToken);localStorage.setItem('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));localStorage.setItem('userRole','student');}
+            if(typeof safeSessionSet==='function'){safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));safeSessionSet('userRole','student');}else{localStorage.setItem('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}localStorage.setItem('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));localStorage.setItem('userRole','student');}
 
             if (response.data.user.firstLogin) {
                 closeAuthModal();

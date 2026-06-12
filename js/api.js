@@ -4,6 +4,12 @@ const API_BASE_URL = (localStorage.getItem('SHULE_API_BASE_URL') || 'https://shu
 // Token management
 let authToken = localStorage.getItem('authToken');
 let refreshToken = localStorage.getItem('refreshToken');
+function getStoredAuthToken(){
+    const primary = localStorage.getItem('authToken');
+    const legacy = localStorage.getItem('token');
+    if (primary && legacy && primary !== legacy) { try { localStorage.removeItem('token'); } catch (_) {} }
+    return primary || legacy || authToken;
+}
 
 // API request wrapper with authentication
 function cleanQueryParams(params = {}) {
@@ -17,12 +23,13 @@ function cleanQueryParams(params = {}) {
 window.cleanQueryParams = cleanQueryParams;
 
 async function apiRequest(endpoint, options = {}) {
-    authToken = localStorage.getItem('authToken') || localStorage.getItem('token') || authToken;
+    authToken = getStoredAuthToken();
     const url = `${API_BASE_URL}${endpoint}`;
     const method = String(options.method || 'GET').toUpperCase();
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     if (authToken) headers.Authorization = `Bearer ${authToken}`;
-    const attempts = method === 'GET' ? 2 : 1;
+    const retryableWrite = /^\/api\/timetable\b/i.test(endpoint);
+    const attempts = method === 'GET' || retryableWrite ? 2 : 1;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         try {
@@ -50,7 +57,7 @@ async function apiRequest(endpoint, options = {}) {
         } catch (error) {
             const networkFailure = error instanceof TypeError || /failed to fetch|networkerror|connection terminated|connection reset|econnreset/i.test(String(error?.message || ''));
             if (attempt + 1 < attempts && networkFailure) { await new Promise(r => setTimeout(r, 350)); continue; }
-            console.error('API Request failed:', error);
+            if (!(error?.status === 401 || /invalid token|not authorized|jwt/i.test(String(error?.message || '')))) console.error('API Request failed:', error);
             throw error?.message ? error : new Error('Network error');
         }
     }
