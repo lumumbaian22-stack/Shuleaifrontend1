@@ -215,104 +215,397 @@ async function renderTeacherStudents() {
 function renderClassTeacherReviewShell(classTeacher) {
   const currentYear = new Date().getFullYear();
   const years = [currentYear - 1, currentYear, currentYear + 1];
+  const className = escapeHtml(classTeacher.name || 'My Class');
   return `
-    <section class="rounded-2xl border bg-card p-5 shadow-sm">
-      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <p class="text-xs uppercase tracking-wide text-muted-foreground">Class Teacher Control Center</p>
-          <h2 class="text-xl font-bold">${escapeHtml(classTeacher.name || 'My Class')} Report Review</h2>
-          <p class="text-sm text-muted-foreground">Open the review only when you want to check, correct and publish the full class report.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <select id="class-report-term" class="rounded-lg border px-3 py-2 bg-background" onchange="refreshSavedClassReports('${classTeacher.id}')">${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}">${t}</option>`).join('')}</select>
-          <select id="class-report-year" class="rounded-lg border px-3 py-2 bg-background" onchange="refreshSavedClassReports('${classTeacher.id}')">${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}</select>
-          <select id="class-report-assessment" class="rounded-lg border px-3 py-2 bg-background">
-            <option value="">All assessments</option>
-            <option value="CAT 1">CAT 1</option>
-            <option value="CAT 2">CAT 2</option>
-            <option value="Midterm">Midterm</option>
-            <option value="Endterm">Endterm</option>
-            <option value="Final Exam">Final Exam</option>
-          </select>
-          <button onclick="toggleClassReportReview('${classTeacher.id}')" class="px-4 py-2 rounded-lg bg-primary text-white">Review Full Class Report</button>
+    <section class="rounded-2xl border bg-card shadow-sm overflow-hidden shule-report-review-v1499" data-class-id="${escapeHtml(String(classTeacher.id || ''))}">
+      <div class="p-5 border-b bg-gradient-to-r from-[#083A85]/5 via-white to-[#11B5B1]/5 dark:from-[#083A85]/20 dark:via-card dark:to-[#11B5B1]/10">
+        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-muted-foreground">Class Teacher Control Center</p>
+            <h2 class="text-2xl font-bold text-[#0B2F6B] dark:text-white">${className} • Report Review</h2>
+            <p class="text-sm text-muted-foreground max-w-2xl">Review the current draft, resolve data issues, preview reports, then publish the full class report. Published reports are kept separately in the archive.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <select id="class-report-term" class="rounded-lg border px-3 py-2 bg-background" onchange="classReportSelectionChanged('${classTeacher.id}')">${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+            <select id="class-report-year" class="rounded-lg border px-3 py-2 bg-background" onchange="classReportSelectionChanged('${classTeacher.id}')">${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}</select>
+            <select id="class-report-assessment" class="rounded-lg border px-3 py-2 bg-background" onchange="classReportSelectionChanged('${classTeacher.id}')">
+              <option value="">All assessments</option>
+              <option value="CAT 1">CAT 1</option>
+              <option value="CAT 2">CAT 2</option>
+              <option value="Midterm">Midterm</option>
+              <option value="Endterm">Endterm</option>
+              <option value="Final Exam">Final Exam</option>
+            </select>
+            <button onclick="toggleClassReportReview('${classTeacher.id}')" class="px-4 py-2 rounded-lg bg-primary text-white shadow-sm hover:opacity-90">Load / Refresh Review</button>
+            <button id="class-report-publish-top" onclick="publishClassReportFromStudents('${classTeacher.id}')" disabled class="px-4 py-2 rounded-lg bg-muted text-muted-foreground cursor-not-allowed">Load review first</button>
+          </div>
         </div>
       </div>
-      <div class="mt-4 rounded-xl border bg-muted/20 p-3">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <div><strong>Saved Term Reports</strong><p class="text-xs text-muted-foreground">Published reports are archived here for later analytics and review.</p></div>
-          <button class="px-3 py-2 rounded-lg border" onclick="refreshSavedClassReports('${classTeacher.id}')">Load Saved Reports</button>
+
+      <div class="px-5 pt-4 border-b bg-background/70">
+        <div class="flex flex-wrap gap-2" role="tablist" aria-label="Class report review tabs">
+          <button id="class-report-tab-draft" class="class-report-tab active px-4 py-2 rounded-t-lg border-b-2 border-primary text-primary font-semibold" onclick="switchClassReportTab('draft','${classTeacher.id}')">Current Draft Review</button>
+          <button id="class-report-tab-archive" class="class-report-tab px-4 py-2 rounded-t-lg border-b-2 border-transparent text-muted-foreground hover:text-foreground" onclick="switchClassReportTab('archive','${classTeacher.id}')">Published Archive</button>
+          <button id="class-report-tab-issues" class="class-report-tab px-4 py-2 rounded-t-lg border-b-2 border-transparent text-muted-foreground hover:text-foreground" onclick="switchClassReportTab('issues','${classTeacher.id}')">Data Issues <span id="class-report-issue-tab-count" class="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs">0</span></button>
         </div>
-        <div id="saved-class-reports-panel" class="mt-3 text-sm text-muted-foreground">Click “Load Saved Reports” after publishing.</div>
       </div>
-      <div id="class-report-review-panel" class="hidden mt-5"></div>
+
+      <div class="p-5">
+        <div id="class-report-review-panel" class="class-report-tab-panel"></div>
+        <div id="class-report-archive-panel" class="class-report-tab-panel hidden">
+          <div class="rounded-xl border bg-card p-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <div>
+                <h3 class="font-semibold text-lg">Published Archive</h3>
+                <p class="text-sm text-muted-foreground">Only official published report snapshots appear here. Current draft marks are not mixed with archived reports.</p>
+              </div>
+              <button class="px-3 py-2 rounded-lg border hover:bg-muted" onclick="refreshSavedClassReports('${classTeacher.id}')">Load Archive</button>
+            </div>
+            <div id="saved-class-reports-panel" class="text-sm text-muted-foreground">Click “Load Archive” to view published reports for the selected term and year.</div>
+          </div>
+        </div>
+        <div id="class-report-issues-panel" class="class-report-tab-panel hidden">
+          <div class="rounded-xl border bg-muted/20 p-5 text-sm text-muted-foreground">Load the current draft review first. Data issues will appear here automatically.</div>
+        </div>
+      </div>
     </section>`;
 }
 
+function classReportSelectionChanged(classId) {
+  const active = document.querySelector('.class-report-tab.active')?.id || '';
+  if (active.includes('archive')) {
+    refreshSavedClassReports(classId);
+  } else {
+    toggleClassReportReview(classId);
+  }
+}
+
+function switchClassReportTab(tab, classId) {
+  ['draft','archive','issues'].forEach(name => {
+    const btn = document.getElementById(`class-report-tab-${name}`);
+    const panelId = name === 'draft' ? 'class-report-review-panel' : `class-report-${name}-panel`;
+    const panel = document.getElementById(panelId);
+    if (btn) {
+      btn.className = name === tab
+        ? 'class-report-tab active px-4 py-2 rounded-t-lg border-b-2 border-primary text-primary font-semibold'
+        : 'class-report-tab px-4 py-2 rounded-t-lg border-b-2 border-transparent text-muted-foreground hover:text-foreground';
+    }
+    if (panel) panel.classList.toggle('hidden', name !== tab);
+  });
+  if (tab === 'archive') refreshSavedClassReports(classId);
+  if (tab === 'issues') {
+    const issuesPanel = document.getElementById('class-report-issues-panel');
+    if (issuesPanel && window.__lastClassReportGradebook) {
+      issuesPanel.innerHTML = renderClassReportDataIssues(window.__lastClassReportGradebook, window.__lastClassReportSummary || null);
+      refreshClassReportIcons();
+    }
+  }
+}
+
 async function toggleClassReportReview(classId) {
+  switchClassReportTab('draft', classId);
   const panel = document.getElementById('class-report-review-panel');
   if (!panel) return;
-  if (!panel.classList.contains('hidden') && panel.innerHTML.trim()) { panel.classList.add('hidden'); return; }
-  panel.classList.remove('hidden');
-  panel.innerHTML = `<div class="py-8 text-center text-muted-foreground">Loading full class report...</div>`;
+  panel.innerHTML = `<div class="py-10 text-center text-muted-foreground"><div class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 mb-3"><i data-lucide="loader-2" class="h-5 w-5 animate-spin text-primary"></i></div><p>Loading current draft review...</p></div>`;
+  refreshClassReportIcons();
   try {
     const term = document.getElementById('class-report-term')?.value || 'Term 1';
     const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
     const assessmentName = document.getElementById('class-report-assessment')?.value || '';
     const gradebook = await api.teacher.getGradebook({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
-    panel.innerHTML = renderClassTeacherReportReview(gradebook?.data || {}, term, year);
+    const data = gradebook?.data || {};
+    window.__lastClassReportGradebook = data;
+    window.__lastClassReportContext = { classId, term, year, assessmentName };
+    panel.innerHTML = renderClassTeacherReportReview(data, term, year);
+    const issuesPanel = document.getElementById('class-report-issues-panel');
+    if (issuesPanel) issuesPanel.innerHTML = renderClassReportDataIssues(data, window.__lastClassReportSummary || null);
+    updateClassReportPublishState();
+    refreshClassReportIcons();
   } catch (e) {
     panel.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-4 text-sm text-red-700 dark:text-red-200">Could not load full class report: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+    updateClassReportPublishState({ forceDisabled:true, label:'Could not load review' });
   }
 }
 
+function classReportStudentKey(student) {
+  return String(student?.id || student?.studentId || student?.elimuid || student?.admissionNumber || '').trim();
+}
+
+function normalizeClassReportName(name) {
+  return String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function buildClassReportReviewSummary(gradebook) {
+  const subjects = gradebook.subjects || [];
+  const students = gradebook.students || [];
+  const byName = new Map();
+  students.forEach(st => {
+    const key = normalizeClassReportName(st.name);
+    if (!key) return;
+    if (!byName.has(key)) byName.set(key, []);
+    byName.get(key).push(st);
+  });
+  const resolvedDuplicateNames = window.__classReportResolvedDuplicateNames || new Set();
+  const duplicateGroups = [...byName.entries()]
+    .map(([name, list]) => ({ name, students:list, ids:[...new Set(list.map(s => String(s.elimuid || s.admissionNumber || s.id || '')).filter(Boolean))] }))
+    .filter(g => g.students.length > 1 && g.ids.length > 1 && !resolvedDuplicateNames.has(g.name));
+  const duplicateIds = new Set(duplicateGroups.flatMap(g => g.students.map(s => String(s.id))));
+  const rows = students.map(st => {
+    const missingSubjects = subjects.filter(sub => st.scores?.[sub] === null || st.scores?.[sub] === undefined || st.scores?.[sub] === '');
+    const completed = Math.max(0, subjects.length - missingSubjects.length);
+    const completionPct = subjects.length ? Math.round((completed / subjects.length) * 100) : 0;
+    const attendance = Number(st.attendance ?? st.attendanceRate ?? st.attendanceSummary?.rate ?? 100);
+    const duplicate = duplicateIds.has(String(st.id));
+    const status = duplicate ? 'Possible Duplicate' : (missingSubjects.length ? 'Missing Marks' : 'Ready');
+    return { student:st, missingSubjects, completed, completionPct, attendance:Number.isFinite(attendance) ? attendance : 0, duplicate, status };
+  });
+  const readyRows = rows.filter(r => r.status === 'Ready');
+  const missingRows = rows.filter(r => r.missingSubjects.length);
+  const attendanceWithoutMarks = rows.filter(r => r.attendance > 0 && r.completed === 0);
+  const blockingCount = duplicateGroups.length;
+  const warningCount = missingRows.length + attendanceWithoutMarks.length;
+  return {
+    subjects,
+    students,
+    rows,
+    duplicateGroups,
+    duplicateIds,
+    readyRows,
+    missingRows,
+    attendanceWithoutMarks,
+    totalIssues: blockingCount + warningCount,
+    blockingCount,
+    warningCount,
+    canPublish: students.length > 0 && blockingCount === 0 && missingRows.length === 0
+  };
+}
+
 function renderClassTeacherReportReview(gradebook, term, year) {
-    window.__classReportPreviewedStudents = new Set();
-    const subjects = gradebook.subjects || [];
-    const students = gradebook.students || [];
-    const classId = gradebook.classId || '';
-    const readyStudents = students.filter(s => subjects.length && subjects.every(sub => s.scores && s.scores[sub] !== null && s.scores[sub] !== undefined));
-    const missingCount = students.length - readyStudents.length;
-    const publishedReady = students.length > 0 && missingCount === 0;
-    return `
-      <div class="space-y-4">
-        <div class="grid gap-3 md:grid-cols-4">
-          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Students</p><h3 class="text-2xl font-bold">${students.length}</h3></div>
-          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Subjects</p><h3 class="text-2xl font-bold">${subjects.length}</h3></div>
-          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Ready</p><h3 class="text-2xl font-bold text-green-600">${readyStudents.length}</h3></div>
-          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Missing</p><h3 class="text-2xl font-bold ${missingCount ? 'text-red-600' : 'text-green-600'}">${missingCount}</h3></div>
+  window.__classReportPreviewedStudents = new Set();
+  const summary = buildClassReportReviewSummary(gradebook || {});
+  window.__lastClassReportSummary = summary;
+  const subjects = summary.subjects;
+  const students = summary.students;
+  const classId = gradebook.classId || window.__lastClassReportContext?.classId || '';
+  const className = gradebook.className || 'Class';
+  const publishLabel = summary.canPublish ? 'Publish Full Class Report' : `Resolve ${summary.totalIssues || 0} issue${summary.totalIssues === 1 ? '' : 's'} before publishing`;
+  const issueCountEl = document.getElementById('class-report-issue-tab-count');
+  if (issueCountEl) issueCountEl.textContent = String(summary.totalIssues || 0);
+  return `
+    <div class="space-y-5">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-bold">Current Draft Review</h3>
+          <p class="text-sm text-muted-foreground">${escapeHtml(className)} • ${escapeHtml(term)} ${escapeHtml(String(year))}. This is the working draft before publishing.</p>
         </div>
-        <div class="overflow-x-auto border rounded-xl">
-          <table class="w-full text-xs min-w-[900px]" id="class-report-review-table">
-            <thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left sticky left-0 bg-muted/50">Student</th>${subjects.map(s => `<th class="px-2 py-2 text-center">${escapeHtml(s)}</th>`).join('')}<th class="px-2 py-2 text-center">Avg</th><th class="px-2 py-2 text-center">Grade</th><th class="px-2 py-2 text-center">Status</th><th class="px-2 py-2 text-center">Report Card</th></tr></thead>
-            <tbody class="divide-y">
-              ${students.map(st => {
-                const missing = subjects.filter(sub => st.scores?.[sub] === null || st.scores?.[sub] === undefined);
-                return `<tr data-student-id="${st.id}"><td class="px-3 py-2 font-medium sticky left-0 bg-card">${escapeHtml(st.name || 'Student')}<div class="text-[10px] text-muted-foreground">${escapeHtml(st.elimuid || st.admissionNumber || '')}</div></td>${subjects.map(sub => {
-                  const val = st.scores?.[sub]; const recordId = st.recordIds?.[sub] || '';
-                  return `<td class="px-2 py-2 text-center"><input class="class-review-score w-16 text-center rounded border px-1 py-1 bg-background ${val == null ? 'border-red-300' : ''}" data-record-id="${recordId}" data-student-id="${st.id}" data-subject="${escapeHtml(sub)}" value="${val == null ? '' : val}" type="number" min="0" max="100" ${recordId ? '' : 'disabled'} oninput="updateClassReviewRow('${st.id}')" onchange="saveClassReviewMark(this)"></td>`;
-                }).join('')}<td class="px-2 py-2 text-center font-semibold" id="class-review-avg-${st.id}">${st.overallAverage == null ? '—' : st.overallAverage + '%'}</td><td class="px-2 py-2 text-center" id="class-review-grade-${st.id}">${escapeHtml(st.finalGrade || '—')}</td><td class="px-2 py-2 text-center" id="class-review-status-${st.id}"><span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + escapeHtml(missing.join(', ')) : 'Ready'}</span></td><td class="px-2 py-2 text-center"><button type="button" class="px-2 py-1 rounded border bg-background hover:bg-muted" onclick="openClassTeacherReportCardPreview('${st.id}','${classId}')">Preview</button></td></tr>`;
-              }).join('') || `<tr><td colspan="${subjects.length + 5}" class="px-3 py-8 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
-            </tbody>
-          </table>
+        <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${summary.canPublish ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${summary.canPublish ? '' : 'disabled'}>${escapeHtml(publishLabel)}</button>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderClassReportMetricCard('Students', students.length, 'Total in class', 'users', 'bg-blue-50 text-blue-700')}
+        ${renderClassReportMetricCard('Ready', summary.readyRows.length, 'Students ready to publish', 'check-circle-2', 'bg-green-50 text-green-700')}
+        ${renderClassReportMetricCard('Missing Marks', summary.missingRows.length, 'Students with incomplete marks', 'alert-triangle', summary.missingRows.length ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700')}
+        ${renderClassReportMetricCard('Possible Duplicates', summary.duplicateGroups.length, 'Names/IDs needing review', 'copy-x', summary.duplicateGroups.length ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700')}
+      </div>
+
+      ${summary.totalIssues ? `
+        <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <div class="h-9 w-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"><i data-lucide="alert-triangle" class="h-5 w-5"></i></div>
+            <div><p class="font-semibold text-amber-900 dark:text-amber-100">Resolve issues before publishing</p><p class="text-sm text-amber-800 dark:text-amber-200">Open Data Issues to fix duplicates or missing marks. The final publish button stays locked until the class is clean.</p></div>
+          </div>
+          <button class="px-3 py-2 rounded-lg border border-amber-300 bg-white/80 text-amber-900" onclick="switchClassReportTab('issues','${classId}')">Open Data Issues</button>
+        </div>` : `
+        <div class="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 p-4 flex items-center gap-3">
+          <div class="h-9 w-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center"><i data-lucide="check" class="h-5 w-5"></i></div>
+          <div><p class="font-semibold text-green-900 dark:text-green-100">Class is ready to publish</p><p class="text-sm text-green-800 dark:text-green-200">All required marks are complete and no duplicate identity issues were detected.</p></div>
+        </div>`}
+
+      <div class="overflow-x-auto border rounded-xl bg-card">
+        <table class="w-full text-sm min-w-[980px]" id="class-report-review-table">
+          <thead class="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th class="px-3 py-3 text-left">#</th>
+              <th class="px-3 py-3 text-left">Student</th>
+              <th class="px-3 py-3 text-left">Elimu ID</th>
+              <th class="px-3 py-3 text-left">Completion</th>
+              <th class="px-3 py-3 text-center">Average</th>
+              <th class="px-3 py-3 text-center">Attendance</th>
+              <th class="px-3 py-3 text-center">Status</th>
+              <th class="px-3 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${summary.rows.map((row, index) => renderClassReportStudentRow(row, index, subjects, classId, className)).join('') || `<tr><td colspan="8" class="px-3 py-10 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 rounded-xl border p-4 bg-muted/10">
+        <div class="space-y-2">
+          <p class="text-sm text-muted-foreground">Preview student reports before publishing. The report becomes the official immutable snapshot after publishing.</p>
+          <label class="flex items-center gap-2 text-sm font-medium"><input id="class-report-reviewed-checkbox" type="checkbox" class="rounded"> I have previewed and verified the class report cards.</label>
         </div>
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border p-4">
-          <div class="space-y-2"><p class="text-sm text-muted-foreground">You can correct unpublished marks here before publishing. Preview each student report card first so you can verify marks, comments, signatures, and layout before parents/students see it.</p><label class="flex items-center gap-2 text-sm font-medium"><input id="class-report-reviewed-checkbox" type="checkbox" class="rounded"> I have previewed and verified the class report cards.</label></div>
-          <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${publishedReady ? 'bg-primary text-white' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${publishedReady ? '' : 'disabled'}>Publish Full Class Report</button>
+        <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${summary.canPublish ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${summary.canPublish ? '' : 'disabled'}>${escapeHtml(publishLabel)}</button>
+      </div>
+    </div>`;
+}
+
+function renderClassReportMetricCard(title, value, subtitle, icon, tone) {
+  return `<div class="rounded-xl border bg-card p-4 flex items-center gap-4">
+    <div class="h-12 w-12 rounded-full ${tone} flex items-center justify-center"><i data-lucide="${icon}" class="h-6 w-6"></i></div>
+    <div><p class="text-xs text-muted-foreground">${escapeHtml(title)}</p><h4 class="text-2xl font-bold">${escapeHtml(String(value))}</h4><p class="text-xs text-muted-foreground">${escapeHtml(subtitle)}</p></div>
+  </div>`;
+}
+
+function renderClassReportStudentRow(row, index, subjects, classId, className) {
+  const st = row.student;
+  const id = String(st.id || '');
+  const avg = st.overallAverage == null ? '—' : `${st.overallAverage}%`;
+  const grade = escapeHtml(st.finalGrade || '—');
+  const statusTone = row.duplicate ? 'bg-red-100 text-red-700' : (row.missingSubjects.length ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700');
+  const statusIcon = row.duplicate ? 'copy-x' : (row.missingSubjects.length ? 'alert-triangle' : 'check-circle-2');
+  const progressTone = row.completionPct === 100 ? 'bg-green-500' : (row.completionPct > 0 ? 'bg-amber-500' : 'bg-red-500');
+  const subjectDetails = subjects.map(sub => {
+    const val = st.scores?.[sub];
+    const recordId = st.recordIds?.[sub] || '';
+    const gradeVal = val == null ? '—' : (st.grades?.[sub] || getGradeFromScore(Number(val), window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null));
+    return `<div class="rounded-lg border bg-background p-3">
+      <div class="flex items-center justify-between gap-2"><span class="font-medium">${escapeHtml(sub)}</span><span class="text-xs rounded-full px-2 py-0.5 ${val == null ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}">${val == null ? 'Missing' : escapeHtml(String(gradeVal))}</span></div>
+      <div class="mt-2 flex items-center gap-2"><input class="class-review-score w-20 text-center rounded border px-2 py-1 bg-background ${val == null ? 'border-red-300' : ''}" data-record-id="${recordId}" data-student-id="${id}" data-subject="${escapeHtml(sub)}" value="${val == null ? '' : val}" type="number" min="0" max="100" ${recordId ? '' : 'disabled'} oninput="updateClassReviewRow('${id}')" onchange="saveClassReviewMark(this)"><span class="text-xs text-muted-foreground">/100</span></div>
+    </div>`;
+  }).join('');
+  return `
+    <tr data-student-id="${id}" data-duplicate="${row.duplicate ? '1' : '0'}" class="hover:bg-muted/20">
+      <td class="px-3 py-4 text-muted-foreground">${index + 1}</td>
+      <td class="px-3 py-4"><div class="font-semibold">${escapeHtml(st.name || 'Student')}</div><div class="text-xs text-muted-foreground">${escapeHtml(st.gender || st.sex || '')}</div></td>
+      <td class="px-3 py-4"><span class="font-mono text-xs rounded bg-muted px-2 py-1">${escapeHtml(st.elimuid || st.admissionNumber || 'Missing')}</span></td>
+      <td class="px-3 py-4"><div class="flex items-center gap-3"><div class="h-2 w-28 rounded-full bg-muted overflow-hidden"><div class="h-full ${progressTone}" style="width:${Math.max(0, Math.min(100, row.completionPct))}%"></div></div><span id="class-review-completion-${id}" class="text-xs font-medium">${row.completed}/${subjects.length}</span></div></td>
+      <td class="px-3 py-4 text-center"><span id="class-review-avg-${id}" class="font-semibold ${avg === '—' ? 'text-muted-foreground' : 'text-green-700'}">${avg}</span><div id="class-review-grade-${id}" class="text-xs text-muted-foreground">${grade}</div></td>
+      <td class="px-3 py-4 text-center"><span class="font-semibold text-green-700">${row.attendance || 0}%</span></td>
+      <td class="px-3 py-4 text-center" id="class-review-status-${id}"><span class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${statusTone}"><i data-lucide="${statusIcon}" class="h-3 w-3"></i>${escapeHtml(row.status)}</span></td>
+      <td class="px-3 py-4 text-right">
+        <div class="flex items-center justify-end gap-2">
+          <button type="button" class="px-2 py-1 rounded border bg-background hover:bg-muted text-xs" onclick="openClassTeacherReportCardPreview('${id}','${classId}')">Preview</button>
+          <button type="button" class="px-2 py-1 rounded border bg-background hover:bg-muted text-xs" onclick='openMarksEntry("All Subjects", ${JSON.stringify(String(classId))}, ${JSON.stringify(String(className || 'Class'))}, "class_teacher", ${JSON.stringify(subjects.join('|'))})'>Edit Marks</button>
         </div>
-      </div>`;
+      </td>
+    </tr>
+    <tr class="bg-muted/10"><td colspan="8" class="px-3 py-2">
+      <details class="rounded-lg border bg-card p-3">
+        <summary class="cursor-pointer text-sm font-medium">Subject marks for ${escapeHtml(st.name || 'Student')}</summary>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">${subjectDetails || '<div class="text-muted-foreground text-sm">No subjects configured.</div>'}</div>
+      </details>
+    </td></tr>`;
+}
+
+function renderClassReportDataIssues(gradebook, summaryArg) {
+  const summary = summaryArg || buildClassReportReviewSummary(gradebook || {});
+  const duplicateCards = summary.duplicateGroups.map((group, index) => `
+    <div class="rounded-xl border border-red-200 bg-red-50/60 dark:bg-red-950/20 p-4">
+      <div class="flex items-start justify-between gap-3"><div><p class="font-semibold text-red-800 dark:text-red-100">${index + 1}. Possible duplicate: ${escapeHtml(group.students[0]?.name || group.name)}</p><p class="text-sm text-red-700 dark:text-red-200">Same name appears with different Elimu IDs/student records. Verify before publishing.</p></div><span class="rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs font-semibold">Blocking</span></div>
+      <div class="mt-3 overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-xs text-red-900/70"><th class="py-2">Student Name</th><th>Elimu ID</th><th>Student ID</th><th>Completion</th></tr></thead><tbody>${group.students.map(st => { const row = summary.rows.find(r => String(r.student.id) === String(st.id)); return `<tr class="border-t border-red-100"><td class="py-2 font-medium">${escapeHtml(st.name || 'Student')}</td><td>${escapeHtml(st.elimuid || st.admissionNumber || 'Missing')}</td><td>${escapeHtml(String(st.id || ''))}</td><td>${row ? `${row.completed}/${summary.subjects.length}` : '—'}</td></tr>`; }).join('')}</tbody></table></div>
+      <div class="mt-3 rounded-lg border border-red-200 bg-white/70 p-3 text-sm text-red-800">Action: confirm whether these are different learners. If one is duplicate/wrong, mark it inactive or clean the student record before publishing.</div>
+      <div class="mt-3 flex flex-wrap gap-2"><button class="px-3 py-2 rounded-lg bg-red-700 text-white text-sm" onclick='resolveClassReportDuplicate(${JSON.stringify(group.name)})'>Confirm separate learners</button><button class="px-3 py-2 rounded-lg border border-red-200 bg-white text-red-700 text-sm" onclick="showDashboardSection && showDashboardSection('students')">Open Students</button></div>
+    </div>`).join('');
+
+  const missingCards = summary.missingRows.map(row => `
+    <div class="rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-amber-950/20 p-4">
+      <div class="flex items-start justify-between gap-3"><div><p class="font-semibold text-amber-900 dark:text-amber-100">${escapeHtml(row.student.name || 'Student')}</p><p class="text-sm text-amber-800 dark:text-amber-200">${escapeHtml(row.student.elimuid || row.student.admissionNumber || '')} • Missing ${row.missingSubjects.length} subject(s)</p></div><span class="rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs font-semibold">Warning</span></div>
+      <p class="mt-2 text-sm text-amber-900 dark:text-amber-100">Missing: ${escapeHtml(row.missingSubjects.join(', '))}</p>
+      <div class="mt-3 flex gap-2"><button class="px-3 py-2 rounded-lg bg-primary text-white text-sm" onclick='openMarksEntry("All Subjects", ${JSON.stringify(String(gradebook.classId || ''))}, ${JSON.stringify(String(gradebook.className || 'Class'))}, "class_teacher", ${JSON.stringify((gradebook.subjects || []).join('|'))})'>Fix Marks</button><button class="px-3 py-2 rounded-lg border text-sm" onclick="openClassTeacherReportCardPreview('${row.student.id}','${gradebook.classId || ''}')">Preview</button></div>
+    </div>`).join('');
+
+  const attendanceCards = summary.attendanceWithoutMarks.map(row => `
+    <div class="rounded-xl border border-blue-200 bg-blue-50/70 dark:bg-blue-950/20 p-4">
+      <p class="font-semibold text-blue-900 dark:text-blue-100">${escapeHtml(row.student.name || 'Student')}</p>
+      <p class="text-sm text-blue-800 dark:text-blue-200">Attendance exists (${row.attendance}%) but no marks are recorded. Check if the learner is active in this class.</p>
+    </div>`).join('');
+
+  if (!summary.totalIssues) {
+    return `<div class="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 p-5 flex items-start gap-3"><i data-lucide="check-circle-2" class="h-6 w-6 text-green-700"></i><div><h3 class="font-semibold text-green-900 dark:text-green-100">No data issues found</h3><p class="text-sm text-green-800 dark:text-green-200">The class draft is clean. Return to Current Draft Review to preview and publish.</p></div></div>`;
+  }
+  return `
+    <div class="space-y-5">
+      <div class="grid gap-3 md:grid-cols-4">
+        ${renderClassReportMetricCard('Total Issues', summary.totalIssues, 'Requires attention', 'triangle-alert', 'bg-red-50 text-red-700')}
+        ${renderClassReportMetricCard('Blocking', summary.blockingCount, 'Must fix before publish', 'ban', summary.blockingCount ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700')}
+        ${renderClassReportMetricCard('Missing Marks', summary.missingRows.length, 'Incomplete reports', 'alert-triangle', summary.missingRows.length ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700')}
+        ${renderClassReportMetricCard('Attendance Without Marks', summary.attendanceWithoutMarks.length, 'Needs review', 'info', summary.attendanceWithoutMarks.length ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700')}
+      </div>
+      ${duplicateCards ? `<div><h3 class="font-semibold mb-3">Possible Duplicate Students</h3><div class="grid gap-3">${duplicateCards}</div></div>` : ''}
+      ${missingCards ? `<div><h3 class="font-semibold mb-3">Missing Marks</h3><div class="grid gap-3 md:grid-cols-2">${missingCards}</div></div>` : ''}
+      ${attendanceCards ? `<div><h3 class="font-semibold mb-3">Attendance Without Marks</h3><div class="grid gap-3 md:grid-cols-2">${attendanceCards}</div></div>` : ''}
+      <div class="rounded-xl border bg-blue-50 dark:bg-blue-950/20 p-4 text-sm text-blue-900 dark:text-blue-100">Tip: Duplicate identity issues are blocked because they can create wrong published report ownership. Missing marks must be completed before the full class publish button unlocks.</div>
+    </div>`;
+}
+
+
+function resolveClassReportDuplicate(groupName) {
+  window.__classReportResolvedDuplicateNames = window.__classReportResolvedDuplicateNames || new Set();
+  window.__classReportResolvedDuplicateNames.add(String(groupName || '').toLowerCase().replace(/\s+/g, ' ').trim());
+  if (window.showToast) showToast('Duplicate warning reviewed. Confirmed as separate learners for this publish session.', 'success');
+  const ctx = window.__lastClassReportContext || {};
+  if (window.__lastClassReportGradebook) {
+    const draft = document.getElementById('class-report-review-panel');
+    if (draft) draft.innerHTML = renderClassTeacherReportReview(window.__lastClassReportGradebook, ctx.term || 'Term 1', ctx.year || new Date().getFullYear());
+    const issuesPanel = document.getElementById('class-report-issues-panel');
+    if (issuesPanel) issuesPanel.innerHTML = renderClassReportDataIssues(window.__lastClassReportGradebook, window.__lastClassReportSummary || null);
+    updateClassReportPublishState();
+    refreshClassReportIcons();
+  }
+}
+window.resolveClassReportDuplicate = resolveClassReportDuplicate;
+
+function refreshClassReportIcons() {
+  try { if (window.lucide?.createIcons) window.lucide.createIcons(); } catch (_) {}
+}
+
+function updateClassReportPublishState(options = {}) {
+  const top = document.getElementById('class-report-publish-top');
+  const summary = window.__lastClassReportSummary;
+  const disabled = options.forceDisabled || !summary || !summary.canPublish;
+  const label = options.label || (!summary ? 'Load review first' : (summary.canPublish ? 'Publish Full Class Report' : `Resolve ${summary.totalIssues || 0} issue${summary.totalIssues === 1 ? '' : 's'} before publishing`));
+  if (top) {
+    top.textContent = label;
+    top.disabled = !!disabled;
+    top.className = disabled ? 'px-4 py-2 rounded-lg bg-muted text-muted-foreground cursor-not-allowed' : 'px-4 py-2 rounded-lg bg-primary text-white hover:opacity-90';
+  }
+  const issueCountEl = document.getElementById('class-report-issue-tab-count');
+  if (issueCountEl) issueCountEl.textContent = summary ? String(summary.totalIssues || 0) : '0';
 }
 
 function updateClassReviewRow(studentId) {
   const inputs = [...document.querySelectorAll(`.class-review-score[data-student-id="${studentId}"]`)];
-  const scores = inputs.map(i => Number(i.value)).filter(n => Number.isFinite(n));
-  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+  const validScores = inputs.map(i => Number(i.value)).filter(n => Number.isFinite(n));
+  const avg = validScores.length ? Math.round(validScores.reduce((a,b)=>a+b,0)/validScores.length) : null;
   const avgEl = document.getElementById(`class-review-avg-${studentId}`);
   const gradeEl = document.getElementById(`class-review-grade-${studentId}`);
   const statusEl = document.getElementById(`class-review-status-${studentId}`);
-  if (avgEl) avgEl.textContent = avg == null ? '—' : `${avg}%`;
+  const completionEl = document.getElementById(`class-review-completion-${studentId}`);
+  const missing = inputs.filter(i => String(i.value || '').trim() === '').map(i => i.dataset.subject).filter(Boolean);
+  if (avgEl) { avgEl.textContent = avg == null ? '—' : `${avg}%`; avgEl.className = `font-semibold ${avg == null ? 'text-muted-foreground' : 'text-green-700'}`; }
   if (gradeEl) gradeEl.textContent = avg == null ? '—' : getGradeFromScore(avg, window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null);
-  const missing = inputs.filter(i => i.value === '').map(i => i.dataset.subject);
-  if (statusEl) statusEl.innerHTML = `<span class="rounded-full px-2 py-1 ${missing.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing: ' + missing.join(', ') : 'Ready'}</span>`;
+  if (completionEl) completionEl.textContent = `${Math.max(0, inputs.length - missing.length)}/${inputs.length}`;
+  const row = document.querySelector(`#class-report-review-table tr[data-student-id="${studentId}"]`);
+  const duplicate = row?.dataset?.duplicate === '1';
+  const statusText = duplicate ? 'Possible Duplicate' : (missing.length ? 'Missing Marks' : 'Ready');
+  const tone = duplicate ? 'bg-red-100 text-red-700' : (missing.length ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700');
+  const icon = duplicate ? 'copy-x' : (missing.length ? 'alert-triangle' : 'check-circle-2');
+  if (statusEl) statusEl.innerHTML = `<span class="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${tone}"><i data-lucide="${icon}" class="h-3 w-3"></i>${statusText}</span>`;
+  if (window.__lastClassReportGradebook) {
+    const st = (window.__lastClassReportGradebook.students || []).find(x => String(x.id) === String(studentId));
+    if (st) {
+      inputs.forEach(i => { st.scores = st.scores || {}; st.scores[i.dataset.subject] = String(i.value || '').trim() === '' ? null : Number(i.value); });
+      st.overallAverage = avg;
+      st.finalGrade = avg == null ? null : getGradeFromScore(avg, window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null);
+    }
+    window.__lastClassReportSummary = buildClassReportReviewSummary(window.__lastClassReportGradebook);
+    const issuesPanel = document.getElementById('class-report-issues-panel');
+    if (issuesPanel && !issuesPanel.classList.contains('hidden')) issuesPanel.innerHTML = renderClassReportDataIssues(window.__lastClassReportGradebook, window.__lastClassReportSummary);
+    updateClassReportPublishState();
+  }
+  refreshClassReportIcons();
 }
 
 async function saveClassReviewMark(input) {
@@ -343,21 +636,31 @@ async function publishClassReportFromStudents(classId) {
   const term = document.getElementById('class-report-term')?.value || 'Term 1';
   const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
   if (!classId) return showToast('Class not found', 'error');
+  const summary = window.__lastClassReportSummary || (window.__lastClassReportGradebook ? buildClassReportReviewSummary(window.__lastClassReportGradebook) : null);
+  if (!summary) return showToast('Load the current draft review first.', 'warning');
+  if (summary.duplicateGroups?.length) {
+    switchClassReportTab('issues', classId);
+    return showToast(`Resolve ${summary.duplicateGroups.length} possible duplicate student issue(s) before publishing.`, 'error');
+  }
+  if (summary.missingRows?.length) {
+    switchClassReportTab('issues', classId);
+    return showToast(`Complete missing marks for ${summary.missingRows.length} student(s) before publishing.`, 'error');
+  }
   const rowIds = [...document.querySelectorAll('#class-report-review-table tbody tr[data-student-id]')].map(r => String(r.dataset.studentId || '')).filter(Boolean);
   const viewed = window.__classReportPreviewedStudents || new Set();
   const notPreviewed = rowIds.filter(id => !viewed.has(id));
   if (notPreviewed.length) return showToast(`Preview all student report cards before publishing. Remaining: ${notPreviewed.length}`, 'error');
   if (!document.getElementById('class-report-reviewed-checkbox')?.checked) return showToast('Tick the verification checkbox before publishing.', 'error');
-  if (!confirm(`Publish full class report for ${term} ${year}? Students and parents will see it after this.`)) return;
+  if (!confirm(`Publish full class report for ${term} ${year}? This will create official immutable report snapshots for parents/students.`)) return;
   showLoading();
   try {
     const assessmentName = document.getElementById('class-report-assessment')?.value || '';
     const res = await api.teacher.publishMarks({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
     showToast(res.message || 'Full class report published', 'success');
     await toggleClassReportReview(classId);
-    await toggleClassReportReview(classId);
+    switchClassReportTab('archive', classId);
     if (typeof refreshSavedClassReports === 'function') await refreshSavedClassReports(classId);
-  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+  } catch(e) { showToast(e.message || 'Could not publish full class report', 'error'); } finally { hideLoading(); }
 }
 
 function renderStudentsTable(students, isClassTeacher, subjects) {
@@ -2372,12 +2675,12 @@ async function refreshSavedClassReports(classId) {
   if (!panel) return;
   const term = document.getElementById('class-report-term')?.value || '';
   const year = document.getElementById('class-report-year')?.value || '';
-  panel.innerHTML = 'Loading saved reports...';
+  panel.innerHTML = `<div class="py-6 text-center text-muted-foreground">Loading published archive...</div>`;
   try {
     const res = await api.teacher.getClassReportSnapshots({ classId, ...(term ? { term } : {}), ...(year ? { year } : {}) });
     const rows = res?.data || [];
     if (!rows.length) {
-      panel.innerHTML = '<div class="text-muted-foreground">No published term reports saved for this selection yet.</div>';
+      panel.innerHTML = '<div class="rounded-xl border bg-muted/20 p-5 text-muted-foreground">No published term reports saved for this selection yet. Publish the current draft first, then it will appear here.</div>';
       return;
     }
     const grouped = rows.reduce((acc, r) => {
@@ -2386,17 +2689,51 @@ async function refreshSavedClassReports(classId) {
       acc[key].push(r);
       return acc;
     }, {});
-    panel.innerHTML = Object.entries(grouped).map(([label, list]) => `
-      <details class="rounded-lg border bg-card p-3 mb-2">
-        <summary class="cursor-pointer font-semibold">${escapeHtml(label)} • ${list.length} report(s)</summary>
-        <div class="mt-3 grid gap-2 md:grid-cols-2">
-          ${list.map(r => `<div class="rounded-lg bg-muted/30 p-3"><strong>${escapeHtml(r.studentName || 'Student')}</strong><div class="text-xs text-muted-foreground">Avg: ${r.overallAverage ?? '—'} • Grade: ${escapeHtml(r.overallGrade || '—')} • Published: ${r.publishedAt ? new Date(r.publishedAt).toLocaleString() : '—'}</div></div>`).join('')}
-        </div>
-      </details>`).join('');
+    panel.innerHTML = Object.entries(grouped).map(([label, list]) => {
+      const publishedAt = list[0]?.publishedAt ? new Date(list[0].publishedAt).toLocaleString() : '—';
+      const className = list[0]?.className || window.__lastClassReportGradebook?.className || 'Class';
+      return `
+        <div class="rounded-xl border bg-card overflow-hidden mb-4">
+          <div class="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b bg-muted/20">
+            <div><h4 class="font-bold text-lg">${escapeHtml(className)} • ${escapeHtml(label)}</h4><p class="text-sm text-muted-foreground">Published: ${escapeHtml(publishedAt)} • ${list.length} report(s)</p></div>
+            <div class="flex flex-wrap gap-2"><button class="px-3 py-2 rounded-lg border bg-background text-sm" onclick="alert('Class PDF package export will use the official report snapshot PDFs.')">Download Class PDF</button><button class="px-3 py-2 rounded-lg border bg-background text-sm" onclick="alert('Excel export will include official published summary data.')">Export Excel</button></div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[760px]"><thead class="bg-muted/40 text-xs uppercase text-muted-foreground"><tr><th class="px-3 py-3 text-left">#</th><th class="px-3 py-3 text-left">Student</th><th class="px-3 py-3 text-center">Average</th><th class="px-3 py-3 text-center">Grade</th><th class="px-3 py-3 text-left">Published Date</th><th class="px-3 py-3 text-right">Action</th></tr></thead><tbody class="divide-y">
+              ${list.map((r, i) => `<tr><td class="px-3 py-3 text-muted-foreground">${i + 1}</td><td class="px-3 py-3 font-medium">${escapeHtml(r.studentName || 'Student')}</td><td class="px-3 py-3 text-center font-semibold text-green-700">${r.overallAverage ?? '—'}</td><td class="px-3 py-3 text-center"><span class="rounded-full px-2 py-1 text-xs ${getGradeColorClass(r.overallGrade || '')}">${escapeHtml(r.overallGrade || '—')}</span></td><td class="px-3 py-3">${r.publishedAt ? new Date(r.publishedAt).toLocaleDateString() : '—'}</td><td class="px-3 py-3 text-right"><button class="px-2 py-1 rounded border bg-background text-xs" onclick="openPublishedReportSnapshot('${r.id}')">View PDF</button></td></tr>`).join('')}
+            </tbody></table>
+          </div>
+          <div class="px-4 py-3 text-xs text-muted-foreground text-center border-t">Showing ${list.length} of ${list.length} published reports</div>
+        </div>`;
+    }).join('');
   } catch (e) {
     panel.innerHTML = `<span class="text-red-600">Could not load saved reports: ${escapeHtml(e.message || 'Unknown error')}</span>`;
   }
+  refreshClassReportIcons();
 }
 window.refreshSavedClassReports = refreshSavedClassReports;
 
+async function openPublishedReportSnapshot(snapshotId) {
+  if (!snapshotId) return showToast('Report snapshot not found', 'error');
+  if (typeof window.openReportSnapshotPdf === 'function') return window.openReportSnapshotPdf(snapshotId);
+  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+  const base = (window.API_BASE_URL || window.apiBaseUrl || '').replace(/\/$/, '');
+  try {
+    const response = await fetch(`${base}/api/report-cards/history/${encodeURIComponent(snapshotId)}/pdf`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error('Report PDF could not open');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+  } catch (error) {
+    showToast(error.message || 'Report PDF could not open', 'error');
+  }
+}
+window.openPublishedReportSnapshot = openPublishedReportSnapshot;
+
+
+window.classReportSelectionChanged = classReportSelectionChanged;
+window.switchClassReportTab = switchClassReportTab;
+window.renderClassReportDataIssues = renderClassReportDataIssues;
+window.openPublishedReportSnapshot = window.openPublishedReportSnapshot || openPublishedReportSnapshot;
 window.openClassTeacherReportCardPreview = openClassTeacherReportCardPreview;
