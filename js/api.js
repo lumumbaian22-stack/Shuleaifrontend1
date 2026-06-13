@@ -966,7 +966,7 @@ function resolveMediaUrl(url) {
         return raw.slice(embeddedDataUrlIndex);
     }
     if (/^(data|blob):/i.test(raw)) return raw;
-    if (/\/uploads\/profiles\//i.test(raw)) return '';
+    if (/\/uploads\/(profiles|signatures)\//i.test(raw)) return '';
     if (/^http:\/\/shuleaibackend-32h1\.onrender\.com/i.test(raw)) raw = raw.replace(/^http:/i, 'https:');
     if (/^https?:\/\//i.test(raw)) return raw;
 

@@ -124,27 +124,34 @@ function updateAttendanceDisplay(attendance) {
     container.innerHTML = html;
 }
 
-// Send chat message
+// Send chat message through the real backend group-message endpoint.
 async function sendStudentMessage() {
-    const input = document.getElementById('chat-input');
-    const message = input?.value.trim();
-    
+    const input = document.getElementById('chat-input') || document.getElementById('student-chat-input') || document.getElementById('chat-message-input');
+    const message = input?.value?.trim();
     if (!message) return;
-    
-    const container = document.getElementById('chat-messages');
-    if (container) {
-        container.innerHTML += `
-            <div class="flex justify-end mb-3">
-                <div class="chat-bubble-sent max-w-[70%]">
-                    <p class="text-sm">${message}</p>
-                    <p class="text-xs text-muted-foreground mt-1">just now</p>
-                </div>
-            </div>
-        `;
-        container.scrollTop = container.scrollHeight;
-    }
-    
+    const previous = input.value;
     input.value = '';
+    try {
+        if (!api?.student?.sendGroupMessage) throw new Error('Student messaging API is not available.');
+        await api.student.sendGroupMessage({ content: message, clientMessageId: `student-${Date.now()}-${Math.random().toString(16).slice(2)}` });
+        const container = document.getElementById('chat-messages') || document.getElementById('chat-messages-container');
+        if (container) {
+            container.insertAdjacentHTML('beforeend', `
+                <div class="flex justify-end mb-3">
+                    <div class="chat-bubble-sent max-w-[70%]">
+                        <p class="text-sm">${message.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</p>
+                        <p class="text-xs text-muted-foreground mt-1">sent</p>
+                    </div>
+                </div>
+            `);
+            container.scrollTop = container.scrollHeight;
+        }
+        showToast?.('Message sent', 'success');
+    } catch (error) {
+        input.value = previous;
+        console.error('Student message send failed:', error);
+        showToast?.(error.message || 'Message could not be sent', 'error');
+    }
 }
 
 // Ask AI tutor

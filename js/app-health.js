@@ -14,7 +14,7 @@ window.addEventListener('load', () => {
 (function () {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js?v=1492', { updateViaCache:'none' })
+    navigator.serviceWorker.register('/service-worker.js?v=1494', { updateViaCache:'none' })
       .then(async (registration) => {
         if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         try { await registration.update?.(); } catch (_) {}

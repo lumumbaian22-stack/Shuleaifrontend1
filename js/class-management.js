@@ -704,6 +704,15 @@ function checkTeacherAssignment(teacherId, classId, subject = '') {
     }
 }
 
+async function listAllTeachersAndClasses() {
+    const [classes, teachers] = await Promise.all([loadAllClasses(), loadAvailableTeachers()]);
+    window.allClasses = classes;
+    window.__lastClasses = classes;
+    window.allTeachers = teachers;
+    window.__lastTeachers = teachers;
+    return { classes, teachers };
+}
+
 // ============ EXPORT ALL FUNCTIONS GLOBALLY ============
 window.renderClassManagement = renderClassManagement;
 window.loadAllClasses = loadAllClasses;

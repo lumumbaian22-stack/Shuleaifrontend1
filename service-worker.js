@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-1492-report-card-hardening';
+const CACHE_NAME = 'shule-ai-1494-final-console-audit-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

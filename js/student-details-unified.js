@@ -193,80 +193,76 @@ function generateStudentModalHTML(data) {
     `;
 }
 
-function generatePrintFriendlyHTML(data) {
-    const student = data.student || {};
-    const user = data.user || {};
-    const academic = data.academicSummary || {};
-    const attendance = data.attendanceSummary || {};
-    
-    return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Report Card - ${escapeHtml(user.name)}</title>
-            <style>
-                body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-                .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
-                .student-info { display: flex; gap: 20px; margin: 20px 0; }
-                .photo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; }
-                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #f2f2f2; }
-                .signature { margin-top: 40px; display: flex; justify-content: space-between; }
-                .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>ShuleAI Academy</h1>
-                <h2>Student Report Card</h2>
-                <p>Term 1, 2026</p>
-            </div>
-            <div class="student-info">
-                ${student.photo ? `<img src="${student.photo}" class="photo">` : ''}
-                <div>
-                    <h3>${escapeHtml(user.name)}</h3>
-                    <p><strong>ELIMUID:</strong> ${escapeHtml(student.elimuid)}</p>
-                    <p><strong>Grade:</strong> ${escapeHtml(student.grade)}</p>
-                    <p><strong>Enrollment Date:</strong> ${formatDate(student.enrollmentDate)}</p>
-                </div>
-            </div>
-            <h3>Academic Performance</h3>
-            <table>
-                <thead>
-                    <tr><th>Subject</th><th>Average</th><th>Grade</th></tr>
-                </thead>
-                <tbody>
-                    ${academic.subjects?.map(s => `<tr><td>${escapeHtml(s.subject)}</td><td>${s.average}%</td><td>${s.grade}</td></tr>`).join('') || '<tr><td colspan="3">No grades available</td></tr>'}
-                </tbody>
-            </table>
-            <p><strong>Overall Average:</strong> ${academic.overallAverage || 0}%</p>
-            <h3>Attendance Summary</h3>
-            <table>
-                <thead><tr><th>Present</th><th>Absent</th><th>Late</th><th>Rate</th></tr></thead>
-                <tbody><tr><td>${attendance.present || 0}</td><td>${attendance.absent || 0}</td><td>${attendance.late || 0}</td><td>${attendance.rate || 0}%</td></tr></tbody>
-            </table>
-            <div class="signature">
-                <div>_________________________<br>Class Teacher</div>
-                <div>_________________________<br>Principal</div>
-            </div>
-            <div class="footer">
-                <p>Generated on ${new Date().toLocaleDateString()} - ShuleAI School Intelligence System</p>
-            </div>
-        </body>
-        </html>
-    `;
+async function openSnapshotPdfDirect(reportId) {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+    const response = await fetch(`${API_BASE_URL}/api/report-cards/history/${encodeURIComponent(reportId)}/pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    if (!response.ok) {
+        let message = 'Official report PDF could not be opened';
+        try { message = (await response.json()).message || message; } catch (_) {}
+        throw new Error(message);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
-function printReportCard() {
+function unwrapReportHistoryResponse(response) {
+    const data = response?.data ?? response;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.reports)) return data.reports;
+    if (Array.isArray(data?.rows)) return data.rows;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
+}
+
+function reportBelongsToCurrentStudent(report, studentId) {
+    if (!studentId) return true;
+    const candidates = [report.studentId, report.StudentId, report.student?.id, report.Student?.id, report.snapshot?.studentId];
+    return candidates.some(v => String(v) === String(studentId));
+}
+
+function latestPublishedReport(rows, studentId) {
+    return (rows || [])
+        .filter(r => reportBelongsToCurrentStudent(r, studentId))
+        .filter(r => String(r.status || r.publicationStatus || 'published').toLowerCase() !== 'draft')
+        .sort((a, b) => {
+            const ad = new Date(a.publishedAt || a.createdAt || a.updatedAt || 0).getTime();
+            const bd = new Date(b.publishedAt || b.createdAt || b.updatedAt || 0).getTime();
+            if (bd !== ad) return bd - ad;
+            return Number(b.version || b.id || 0) - Number(a.version || a.id || 0);
+        })[0] || null;
+}
+
+async function printReportCard() {
     if (!currentStudentData) {
         showToast('No student data available', 'error');
         return;
     }
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(generatePrintFriendlyHTML(currentStudentData));
-    printWindow.document.close();
-    printWindow.print();
+    const studentId = currentStudentData?.student?.id || currentStudentData?.id;
+    showLoading();
+    try {
+        if (!api?.lifecycle?.getReportHistory) throw new Error('Report history API is not available yet.');
+        const response = await api.lifecycle.getReportHistory(studentId ? { studentId } : {});
+        const rows = unwrapReportHistoryResponse(response);
+        const latest = latestPublishedReport(rows, studentId);
+        if (!latest?.id) {
+            showToast('No published report card found for this student. Publish the class report first.', 'warning');
+            return;
+        }
+        if (typeof window.openReportSnapshotPdf === 'function') {
+            await window.openReportSnapshotPdf(latest.id);
+        } else {
+            await openSnapshotPdfDirect(latest.id);
+        }
+    } catch (error) {
+        console.error('Failed to open official report card:', error);
+        showToast(error.message || 'Official report card could not open', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
 function setupModalTabs() {

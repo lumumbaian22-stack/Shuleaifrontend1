@@ -51,6 +51,7 @@
   }
 
   let notifiedSessionMissing = false;
+  let consecutive401Count = 0;
 
   function normalizeCategory(alert) {
     const raw = String(alert.categoryLabel || alert.category || alert.type || alert.data?.category || '').toLowerCase();
@@ -172,11 +173,13 @@
         const data = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.alerts) ? res.alerts : []);
         const activeChild = activeChildIdForAlerts();
         notifications = dedupeAlerts(data).filter(alert => !activeChild || !alert.studentId || String(alert.studentId) === String(activeChild));
+        consecutive401Count = 0;
         updateUnreadCount();
         if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
         return notifications;
       } catch (error) {
         if (error?.status === 401 || /not authorized|invalid token|jwt/i.test(error?.message || '')) {
+          consecutive401Count++;
           notifications = []; updateUnreadCount(); notifiedSessionMissing = true; return notifications;
         }
         if (!silent) console.error('Failed to load alerts:', error);
@@ -355,6 +358,7 @@
     setTimeout(initNotificationWebSocket, 1500);
     setInterval(() => {
       if (!hasAuthToken()) return;
+      if (consecutive401Count >= 3) return; // stop polling after 3 consecutive 401s — token is gone
       loadNotifications({ silent: true }).then(() => {
         if (document.getElementById('alerts-center-v82')) renderAlertsCenterIntoDom();
       });

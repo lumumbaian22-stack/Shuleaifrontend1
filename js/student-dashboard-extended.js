@@ -1456,24 +1456,38 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-window.sendStudentMessage = function() {
-    const input = document.getElementById('chat-message-input');
-    const message = input?.value.trim();
-    if (!message) return;
-    const container = document.getElementById('chat-messages-container');
-    if (container) {
-        container.innerHTML += `
-            <div class="flex justify-end">
-                <div class="chat-bubble-sent max-w-[70%]">
-                    <p class="text-sm font-medium">You</p>
-                    <p class="text-sm">${escapeHtml(message)}</p>
-                    <p class="text-xs text-muted-foreground mt-1">just now</p>
-                </div>
-            </div>
-        `;
-        container.scrollTop = container.scrollHeight;
-    }
+window.sendStudentMessage = async function() {
+    const input = document.getElementById('student-chat-input') || document.getElementById('chat-message-input') || document.getElementById('chat-input');
+    const content = input?.value?.trim();
+    if (!content) return;
+    const previous = input.value;
     input.value = '';
+    try {
+        if (!api?.student?.sendGroupMessage) throw new Error('Student messaging API is not available.');
+        await api.student.sendGroupMessage({ content, clientMessageId: `student-${Date.now()}-${Math.random().toString(16).slice(2)}` });
+        if (typeof loadStudentChatMessages === 'function' && document.getElementById('student-chat-messages')) {
+            await loadStudentChatMessages();
+        } else {
+            const container = document.getElementById('chat-messages-container') || document.getElementById('chat-messages');
+            if (container) {
+                container.insertAdjacentHTML('beforeend', `
+                    <div class="flex justify-end">
+                        <div class="chat-bubble-sent max-w-[70%]">
+                            <p class="text-sm font-medium">You</p>
+                            <p class="text-sm">${escapeHtml(content)}</p>
+                            <p class="text-xs text-muted-foreground mt-1">sent</p>
+                        </div>
+                    </div>
+                `);
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        showToast('Message sent', 'success');
+    } catch (error) {
+        input.value = previous;
+        console.error('Student message send failed:', error);
+        showToast(error.message || 'Message could not be sent', 'error');
+    }
 };
 
 window.askAITutor = async function() {
@@ -1587,7 +1601,7 @@ window.redeemReward = redeemReward;
 window.submitHomework = submitHomework;
 window.loadStudentHomeTasks = loadStudentHomeTasks;
 window.markTaskComplete = markTaskComplete;
-window.sendStudentMessage = sendStudentMessage;
+// sendStudentMessage already assigned via window.sendStudentMessage = function(){...} above
 window.updateTutorSubjects = updateTutorSubjects;
 window.fillTutorCommand = fillTutorCommand;
 window.setStudentReply = setStudentReply;
