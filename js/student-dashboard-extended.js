@@ -23,8 +23,11 @@ function timeAgo(timestamp) {
 
 async function renderStudentSection(section) {
     switch(section) {
-        case 'dashboard':
-            return await renderStudentDashboard();
+        case 'dashboard': {
+            const html = await renderStudentDashboard();
+            setTimeout(() => { try { loadStudentHomeTasks(); loadDashboardLeaderboard(); loadDashboardBadges(); } catch (_) {} }, 80);
+            return html;
+        }
         case 'leaderboard':
             return await renderStudentLeaderboard();
         case 'grades':
@@ -273,7 +276,7 @@ async function loadDashboardLeaderboard() {
             : list.slice(0, 5).map(i => `<div class="flex justify-between py-1"><span>#${i.rank} ${escapeHtml(i.name)}</span><span class="font-bold">${i.points} pts</span></div>`).join('');
         const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = html;
     } catch (e) {
-        const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = ''; 
+        const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = '<p class="text-sm text-muted-foreground">Leaderboard is not available yet.</p>'; 
     }
 }
 
@@ -283,7 +286,7 @@ async function loadDashboardBadges() {
         const dashboardRes = await api.student.getDashboard();
         const studentId = dashboardRes.data?.student?.id;
         if (!studentId) {
-            const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = ''; 
+            const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = '<p class="text-sm text-muted-foreground">No badges yet.</p>'; 
             return;
         }
         const res = await apiRequest(`/api/gamification/badges/${studentId}`);
@@ -293,7 +296,7 @@ async function loadDashboardBadges() {
             : badges.map(b => `<span class="inline-flex items-center px-2 py-1 mr-2 mt-2 bg-purple-100 text-purple-800 rounded-full text-xs">${b.Badge?.icon || '🏅'} ${b.Badge?.name}</span>`).join('');
         const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = html;
     } catch (e) {
-        const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = ''; 
+        const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = '<p class="text-sm text-muted-foreground">No badges yet.</p>'; 
     }
 }
 
@@ -312,7 +315,7 @@ async function loadStudentHomeTasks() {
     if (!container) return;
     try {
         const user = getCurrentUser();
-        const studentId = user?.id;
+        const studentId = window.dashboardData?.student?.id || window.studentDashboardData?.student?.id || user?.student?.id || user?.id;
         const res = await api.homeTasks.getToday(studentId);
         const tasks = res.data || [];
         if (tasks.length === 0) {
@@ -343,7 +346,7 @@ async function loadStudentHomeTasks() {
         if (window.lucide) lucide.createIcons();
     } catch (e) {
         console.error('Failed to load home tasks:', e);
-        container.innerHTML = '<div class="text-center text-red-500 py-4">Failed to load tasks</div>';
+        container.innerHTML = '<div class="text-center text-muted-foreground py-4">No learning tasks are available right now.</div>';
     }
 }
 

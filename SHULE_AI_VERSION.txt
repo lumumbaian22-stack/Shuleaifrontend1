@@ -1,2 +1,2 @@
-Shule AI v150.0 - report review real layout lock
+Shule AI v150.1 - report review real layout lock
 Backend remains v149.8 timetable DB lock.

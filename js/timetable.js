@@ -417,8 +417,20 @@
 
   w.renderStudentTimetable = async function () { return renderReadOnlyTimetableFrom('/api/timetable/student/me', 'My Timetable', { todayOnly: true, todayTitle: 'Today’s Lessons' }); };
   w.renderParentTimetable = async function () {
-    const childId = window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || window.selectedChildId || '';
-    return childId ? renderReadOnlyTimetableFrom(`/api/timetable/parent/child/${childId}`, 'Child Timetable', { todayOnly: true, todayTitle: 'Today’s Lessons', parentStatus: true }) : `<div class="timetable-v33-card v12-card"><h2>Child Timetable</h2><p>Select a linked child to view the timetable.</p></div>`;
+    let children = Array.isArray(window.dashboardData?.children) ? window.dashboardData.children : [];
+    try {
+      if (!children.length && window.api?.parent?.getChildren) {
+        const res = await window.api.parent.getChildren();
+        children = Array.isArray(res?.data) ? res.data : [];
+        window.dashboardData = window.dashboardData || {};
+        window.dashboardData.children = children;
+      }
+    } catch (_) {}
+    let childId = window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || window.selectedChildId || '';
+    if (!childId && children.length) childId = children[0].id;
+    if (childId) { localStorage.setItem('shule_selected_child_id', String(childId)); window.dashboardData.selectedChildId = childId; }
+    const selector = children.length ? `<div class="rounded-xl border bg-card p-4 mb-4"><label class="text-sm font-medium">Select child timetable<select class="mt-1 w-full rounded-lg border bg-background px-3 py-2" onchange="localStorage.setItem('shule_selected_child_id',this.value); window.dashboardData.selectedChildId=this.value; showDashboardSection('timetable')">${children.map(c=>`<option value="${esc(String(c.id))}" ${String(c.id)===String(childId)?'selected':''}>${esc(c.User?.name||c.name||'Child')} — ${esc(c.className||c.grade||'Class')}</option>`).join('')}</select></label><p class="mt-2 text-xs text-muted-foreground">Each child shows their own published class timetable and current lesson.</p></div>` : '';
+    return childId ? selector + await renderReadOnlyTimetableFrom(`/api/timetable/parent/child/${childId}`, 'Child Timetable', { todayOnly: true, todayTitle: 'Current & Today’s Lessons', parentStatus: true }) : `<div class="timetable-v33-card v12-card"><h2>Child Timetable</h2><p>Select a linked child to view the timetable.</p></div>`;
   };
   w.renderTeacherTimetable = async function () {
     return renderReadOnlyTimetableFrom('/api/timetable/teacher/me', 'My Teaching Timetable');

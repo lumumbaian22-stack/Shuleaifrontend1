@@ -29,7 +29,7 @@ async function apiRequest(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     if (authToken) headers.Authorization = `Bearer ${authToken}`;
     const retryableWrite = /^\/api\/timetable\b/i.test(endpoint);
-    const attempts = method === 'GET' ? 2 : (retryableWrite ? 3 : 1);
+    const attempts = method === 'GET' ? 3 : (retryableWrite ? 3 : 2);
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         try {

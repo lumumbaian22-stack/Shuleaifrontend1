@@ -185,13 +185,52 @@ async function renderTeacherDashboard() {
 async function loadMyStudents() {
   try {
     const response = await api.teacher.getMyStudents();
-    return response.data || { students: [], isClassTeacher: false, subjects: [] };
+    const data = response.data || { students: [], isClassTeacher: false, subjects: [] };
+    // v150.1: if the endpoint returns an empty class-teacher list because of a stale
+    // assignment/classId mismatch, recover from the canonical assignment endpoint.
+    if ((!data.students || !data.students.length) && (data.isClassTeacher || isClassTeacher())) {
+      try {
+        const assignmentRes = await api.teacher.getMyAssignments();
+        const classTeacher = assignmentRes?.data?.classTeacher;
+        if (classTeacher?.id && api.teacher.getClassStudents) {
+          const classStudentsRes = await api.teacher.getClassStudents(classTeacher.id);
+          const fallbackStudents = classStudentsRes?.data?.students || classStudentsRes?.data || [];
+          if (Array.isArray(fallbackStudents) && fallbackStudents.length) {
+            return { ...data, students: fallbackStudents, isClassTeacher: true, subjects: classTeacher.subjects || data.subjects || [], classTeacher };
+          }
+        }
+        if (classTeacher?.id && api.teacher.getGradebook) {
+          const gb = await api.teacher.getGradebook({ classId: classTeacher.id });
+          const gbd = gb?.data || {};
+          if (Array.isArray(gbd.students) && gbd.students.length) {
+            return { ...data, students: gbd.students.map(st => ({ ...st, classId: gbd.classId, className: gbd.className })), isClassTeacher: true, subjects: gbd.subjects || classTeacher.subjects || data.subjects || [], classTeacher };
+          }
+        }
+      } catch (fallbackError) { console.warn('Class teacher roster fallback failed:', fallbackError.message); }
+    }
+    return data;
   } catch(e) {
     console.error(e);
-    return { students: [], isClassTeacher: false, subjects: [] };
+    // v150.1: a transient /teacher/students network failure must not make the
+    // class teacher look like they have no class. Try the assignment + gradebook
+    // path before showing an empty state.
+    try {
+      const assignmentRes = await api.teacher.getMyAssignments();
+      const classTeacher = assignmentRes?.data?.classTeacher || getTeacherAssignedClass();
+      if (classTeacher?.id && api.teacher.getClassStudents) {
+        const classStudentsRes = await api.teacher.getClassStudents(classTeacher.id);
+        const fallbackStudents = classStudentsRes?.data?.students || classStudentsRes?.data || [];
+        if (Array.isArray(fallbackStudents) && fallbackStudents.length) return { students:fallbackStudents, isClassTeacher:true, subjects:classTeacher.subjects || [], classTeacher };
+      }
+      if (classTeacher?.id && api.teacher.getGradebook) {
+        const gb = await api.teacher.getGradebook({ classId: classTeacher.id });
+        const gbd = gb?.data || {};
+        if (Array.isArray(gbd.students) && gbd.students.length) return { students:gbd.students.map(st => ({ ...st, classId:gbd.classId, className:gbd.className })), isClassTeacher:true, subjects:gbd.subjects || classTeacher.subjects || [], classTeacher };
+      }
+    } catch (fallbackError) { console.warn('Class teacher roster recovery failed:', fallbackError.message); }
+    return { students: [], isClassTeacher: isClassTeacher(), subjects: [] };
   }
 }
-
 
 async function renderTeacherStudents() {
     const data = await loadMyStudents();
@@ -214,7 +253,7 @@ async function renderTeacherStudents() {
       if (autoClassId) {
         window.__classReportAutoLoadTimer = setTimeout(() => {
           window.__classReportAutoLoadTimer = null;
-          const shell = document.querySelector(`.shule-report-review-v1500[data-class-id="${autoClassId}"]`);
+          const shell = document.querySelector(`.shule-report-review-v1501[data-class-id="${autoClassId}"]`);
           if (shell && !window.__lastClassReportGradebook) toggleClassReportReview(autoClassId);
         }, 250);
       }
@@ -235,7 +274,7 @@ function renderClassTeacherRosterSummary(students = [], subjects = []) {
     });
     return [...map.values()].filter(list => list.length > 1).length;
   })();
-  const rows = safeStudents.slice(0, 12).map(st => `
+  const rows = safeStudents.map(st => `
     <tr class="border-t">
       <td class="px-3 py-3"><div class="font-semibold">${escapeHtml(st.name || 'Student')}</div><div class="text-xs text-muted-foreground">${escapeHtml(st.gender || st.sex || '')}</div></td>
       <td class="px-3 py-3"><span class="font-mono text-xs rounded bg-muted px-2 py-1">${escapeHtml(st.elimuid || st.admissionNumber || 'Missing')}</span></td>
@@ -262,7 +301,6 @@ function renderClassTeacherRosterSummary(students = [], subjects = []) {
           <tbody>${rows || `<tr><td colspan="4" class="px-3 py-8 text-center text-muted-foreground">No students found in this class.</td></tr>`}</tbody>
         </table>
       </div>
-      ${safeStudents.length > 12 ? `<div class="px-5 py-3 text-xs text-muted-foreground border-t text-center">Showing first 12 of ${safeStudents.length} students. Use search/student management for the full roster.</div>` : ''}
     </section>`;
 }
 
@@ -271,7 +309,7 @@ function renderClassTeacherReviewShell(classTeacher) {
   const years = [currentYear - 1, currentYear, currentYear + 1];
   const className = escapeHtml(classTeacher.name || 'My Class');
   return `
-    <section class="rounded-2xl border bg-card shadow-sm overflow-hidden shule-report-review-v1500" data-class-id="${escapeHtml(String(classTeacher.id || ''))}">
+    <section class="rounded-2xl border bg-card shadow-sm overflow-hidden shule-report-review-v1501" data-class-id="${escapeHtml(String(classTeacher.id || ''))}">
       <div class="p-5 border-b bg-gradient-to-r from-[#083A85]/5 via-white to-[#11B5B1]/5 dark:from-[#083A85]/20 dark:via-card dark:to-[#11B5B1]/10">
         <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
           <div>
@@ -430,7 +468,7 @@ function buildClassReportReviewSummary(gradebook) {
     totalIssues: blockingCount + warningCount,
     blockingCount,
     warningCount,
-    canPublish: students.length > 0 && blockingCount === 0 && missingRows.length === 0
+    canPublish: students.length > 0, hasIssues: (blockingCount + warningCount) > 0
   };
 }
 
@@ -442,7 +480,7 @@ function renderClassTeacherReportReview(gradebook, term, year) {
   const students = summary.students;
   const classId = gradebook.classId || window.__lastClassReportContext?.classId || '';
   const className = gradebook.className || 'Class';
-  const publishLabel = summary.canPublish ? 'Publish Full Class Report' : `Resolve ${summary.totalIssues || 0} issue${summary.totalIssues === 1 ? '' : 's'} before publishing`;
+  const publishLabel = summary.totalIssues ? 'Publish Anyway / Review Issues' : 'Publish Full Class Report';
   const issueCountEl = document.getElementById('class-report-issue-tab-count');
   if (issueCountEl) issueCountEl.textContent = String(summary.totalIssues || 0);
   return `
@@ -452,7 +490,7 @@ function renderClassTeacherReportReview(gradebook, term, year) {
           <h3 class="text-lg font-bold">Current Draft Review</h3>
           <p class="text-sm text-muted-foreground">${escapeHtml(className)} • ${escapeHtml(term)} ${escapeHtml(String(year))}. This is the working draft before publishing.</p>
         </div>
-        <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${summary.canPublish ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${summary.canPublish ? '' : 'disabled'}>${escapeHtml(publishLabel)}</button>
+        <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${students.length ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${students.length ? '' : 'disabled'}>${escapeHtml(publishLabel)}</button>
       </div>
 
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -466,7 +504,7 @@ function renderClassTeacherReportReview(gradebook, term, year) {
         <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div class="flex items-start gap-3">
             <div class="h-9 w-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"><i data-lucide="alert-triangle" class="h-5 w-5"></i></div>
-            <div><p class="font-semibold text-amber-900 dark:text-amber-100">Resolve issues before publishing</p><p class="text-sm text-amber-800 dark:text-amber-200">Open Data Issues to fix duplicates or missing marks. The final publish button stays locked until the class is clean.</p></div>
+            <div><p class="font-semibold text-amber-900 dark:text-amber-100">Issues detected before publishing</p><p class="text-sm text-amber-800 dark:text-amber-200">Open Data Issues to fix them, or use Publish Anyway after explicit confirmation. The published report will keep missing marks as blank/pending.</p></div>
           </div>
           <button class="px-3 py-2 rounded-lg border border-amber-300 bg-white/80 text-amber-900" onclick="switchClassReportTab('issues','${classId}')">Open Data Issues</button>
         </div>` : `
@@ -500,7 +538,7 @@ function renderClassTeacherReportReview(gradebook, term, year) {
           <p class="text-sm text-muted-foreground">Preview student reports before publishing. The report becomes the official immutable snapshot after publishing.</p>
           <label class="flex items-center gap-2 text-sm font-medium"><input id="class-report-reviewed-checkbox" type="checkbox" class="rounded"> I have previewed and verified the class report cards.</label>
         </div>
-        <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${summary.canPublish ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${summary.canPublish ? '' : 'disabled'}>${escapeHtml(publishLabel)}</button>
+        <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg ${students.length ? 'bg-primary text-white hover:opacity-90' : 'bg-muted text-muted-foreground cursor-not-allowed'}" ${students.length ? '' : 'disabled'}>${escapeHtml(publishLabel)}</button>
       </div>
     </div>`;
 }
@@ -526,7 +564,7 @@ function renderClassReportStudentRow(row, index, subjects, classId, className) {
     const gradeVal = val == null ? '—' : (st.grades?.[sub] || getGradeFromScore(Number(val), window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null));
     return `<div class="rounded-lg border bg-background p-3">
       <div class="flex items-center justify-between gap-2"><span class="font-medium">${escapeHtml(sub)}</span><span class="text-xs rounded-full px-2 py-0.5 ${val == null ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}">${val == null ? 'Missing' : escapeHtml(String(gradeVal))}</span></div>
-      <div class="mt-2 flex items-center gap-2"><input class="class-review-score w-20 text-center rounded border px-2 py-1 bg-background ${val == null ? 'border-red-300' : ''}" data-record-id="${recordId}" data-student-id="${id}" data-subject="${escapeHtml(sub)}" value="${val == null ? '' : val}" type="number" min="0" max="100" ${recordId ? '' : 'disabled'} oninput="updateClassReviewRow('${id}')" onchange="saveClassReviewMark(this)"><span class="text-xs text-muted-foreground">/100</span></div>
+      <div class="mt-2 flex items-center gap-2"><input class="class-review-score w-20 text-center rounded border px-2 py-1 bg-background ${val == null ? 'border-red-300' : ''}" data-record-id="${recordId}" data-student-id="${id}" data-class-id="${escapeHtml(String(classId || ''))}" data-subject="${escapeHtml(sub)}" value="${val == null ? '' : val}" type="number" min="0" max="100" oninput="updateClassReviewRow('${id}')" onkeydown="if(event.key==='Enter')saveClassReviewMark(this)" onchange="saveClassReviewMark(this)"><span class="text-xs text-muted-foreground">/100</span></div>
     </div>`;
   }).join('');
   return `
@@ -541,12 +579,12 @@ function renderClassReportStudentRow(row, index, subjects, classId, className) {
       <td class="px-3 py-4 text-right">
         <div class="flex items-center justify-end gap-2">
           <button type="button" class="px-2 py-1 rounded border bg-background hover:bg-muted text-xs" onclick="openClassTeacherReportCardPreview('${id}','${classId}')">Preview</button>
-          <button type="button" class="px-2 py-1 rounded border bg-background hover:bg-muted text-xs" onclick='openMarksEntry("All Subjects", ${JSON.stringify(String(classId))}, ${JSON.stringify(String(className || 'Class'))}, "class_teacher", ${JSON.stringify(subjects.join('|'))})'>Edit Marks</button>
+          <button type="button" class="px-2 py-1 rounded border bg-background hover:bg-muted text-xs" onclick="toggleClassReviewDetails('${id}')">Edit Inline</button>
         </div>
       </td>
     </tr>
     <tr class="bg-muted/10"><td colspan="8" class="px-3 py-2">
-      <details class="rounded-lg border bg-card p-3">
+      <details id="class-review-details-${id}" class="rounded-lg border bg-card p-3">
         <summary class="cursor-pointer text-sm font-medium">Subject marks for ${escapeHtml(st.name || 'Student')}</summary>
         <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">${subjectDetails || '<div class="text-muted-foreground text-sm">No subjects configured.</div>'}</div>
       </details>
@@ -567,7 +605,7 @@ function renderClassReportDataIssues(gradebook, summaryArg) {
     <div class="rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-amber-950/20 p-4">
       <div class="flex items-start justify-between gap-3"><div><p class="font-semibold text-amber-900 dark:text-amber-100">${escapeHtml(row.student.name || 'Student')}</p><p class="text-sm text-amber-800 dark:text-amber-200">${escapeHtml(row.student.elimuid || row.student.admissionNumber || '')} • Missing ${row.missingSubjects.length} subject(s)</p></div><span class="rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs font-semibold">Warning</span></div>
       <p class="mt-2 text-sm text-amber-900 dark:text-amber-100">Missing: ${escapeHtml(row.missingSubjects.join(', '))}</p>
-      <div class="mt-3 flex gap-2"><button class="px-3 py-2 rounded-lg bg-primary text-white text-sm" onclick='openMarksEntry("All Subjects", ${JSON.stringify(String(gradebook.classId || ''))}, ${JSON.stringify(String(gradebook.className || 'Class'))}, "class_teacher", ${JSON.stringify((gradebook.subjects || []).join('|'))})'>Fix Marks</button><button class="px-3 py-2 rounded-lg border text-sm" onclick="openClassTeacherReportCardPreview('${row.student.id}','${gradebook.classId || ''}')">Preview</button></div>
+      <div class="mt-3 flex gap-2"><button class="px-3 py-2 rounded-lg bg-primary text-white text-sm" onclick="switchClassReportTab('draft','${gradebook.classId || ''}'); setTimeout(()=>toggleClassReviewDetails('${row.student.id}', true),80)">Fix Marks Inline</button><button class="px-3 py-2 rounded-lg border text-sm" onclick="openClassTeacherReportCardPreview('${row.student.id}','${gradebook.classId || ''}')">Preview</button></div>
     </div>`).join('');
 
   const attendanceCards = summary.attendanceWithoutMarks.map(row => `
@@ -610,6 +648,7 @@ function resolveClassReportDuplicate(groupName) {
   }
 }
 window.resolveClassReportDuplicate = resolveClassReportDuplicate;
+window.toggleClassReviewDetails = toggleClassReviewDetails;
 
 function refreshClassReportIcons() {
   try { if (window.lucide?.createIcons) window.lucide.createIcons(); } catch (_) {}
@@ -618,8 +657,8 @@ function refreshClassReportIcons() {
 function updateClassReportPublishState(options = {}) {
   const top = document.getElementById('class-report-publish-top');
   const summary = window.__lastClassReportSummary;
-  const disabled = options.forceDisabled || !summary || !summary.canPublish;
-  const label = options.label || (!summary ? 'Load review first' : (summary.canPublish ? 'Publish Full Class Report' : `Resolve ${summary.totalIssues || 0} issue${summary.totalIssues === 1 ? '' : 's'} before publishing`));
+  const disabled = options.forceDisabled || !summary || !summary.students?.length;
+  const label = options.label || (!summary ? 'Load review first' : (summary.totalIssues ? 'Publish Anyway / Review Issues' : 'Publish Full Class Report'));
   if (top) {
     top.textContent = label;
     top.disabled = !!disabled;
@@ -664,15 +703,44 @@ function updateClassReviewRow(studentId) {
 
 async function saveClassReviewMark(input) {
   const recordId = input.dataset.recordId;
-  if (!recordId) return;
   const score = Number(input.value);
   if (!Number.isFinite(score) || score < 0 || score > 100) { showToast('Score must be 0-100', 'error'); return; }
+  const studentId = input.dataset.studentId;
+  const subject = input.dataset.subject;
+  const classId = input.dataset.classId || window.__lastClassReportContext?.classId || '';
+  const term = document.getElementById('class-report-term')?.value || window.__lastClassReportContext?.term || 'Term 1';
+  const year = document.getElementById('class-report-year')?.value || window.__lastClassReportContext?.year || new Date().getFullYear();
+  const assessmentName = document.getElementById('class-report-assessment')?.value || window.__lastClassReportContext?.assessmentName || '';
+  const payload = { studentId, classId, subject, score, term, year, status:'submitted' };
+  if (assessmentName) payload.assessmentName = assessmentName;
   try {
-    const res = await api.teacher.updateMark(recordId, { score });
+    const res = recordId
+      ? await api.teacher.updateMark(recordId, { score })
+      : await api.teacher.enterMarks(payload);
+    const savedId = res?.data?.id || res?.data?.record?.id || res?.id;
+    if (savedId) input.dataset.recordId = String(savedId);
     const rowId = input.dataset.studentId;
+    if (window.__lastClassReportGradebook) {
+      const st = (window.__lastClassReportGradebook.students || []).find(x => String(x.id) === String(rowId));
+      if (st) {
+        st.scores = st.scores || {}; st.recordIds = st.recordIds || {}; st.grades = st.grades || {};
+        st.scores[subject] = score;
+        if (savedId) st.recordIds[subject] = savedId;
+        st.grades[subject] = res?.meta?.grade || st.grades[subject] || '';
+      }
+    }
     updateClassReviewRow(rowId);
-    if (res?.meta?.grade) showToast(`Updated ${input.dataset.subject}: ${res.meta.grade}`, 'success');
-  } catch(e) { showToast(e.message || 'Could not update mark', 'error'); }
+    const badge = input.closest('.rounded-lg')?.querySelector('span.text-xs.rounded-full');
+    if (badge) { badge.textContent = res?.meta?.grade || 'Saved'; badge.className = 'text-xs rounded-full px-2 py-0.5 bg-blue-100 text-blue-700'; }
+    showToast(`${subject} saved`, 'success');
+  } catch(e) { showToast(e.message || 'Could not save mark', 'error'); }
+}
+
+function toggleClassReviewDetails(studentId, forceOpen = false) {
+  const details = document.getElementById(`class-review-details-${studentId}`);
+  if (!details) return;
+  details.open = forceOpen || !details.open;
+  if (details.open) setTimeout(() => details.querySelector('input.class-review-score')?.focus(), 50);
 }
 
 async function openClassTeacherReportCardPreview(studentId, classId) {
@@ -692,24 +760,18 @@ async function publishClassReportFromStudents(classId) {
   if (!classId) return showToast('Class not found', 'error');
   const summary = window.__lastClassReportSummary || (window.__lastClassReportGradebook ? buildClassReportReviewSummary(window.__lastClassReportGradebook) : null);
   if (!summary) return showToast('Load the current draft review first.', 'warning');
-  if (summary.duplicateGroups?.length) {
-    switchClassReportTab('issues', classId);
-    return showToast(`Resolve ${summary.duplicateGroups.length} possible duplicate student issue(s) before publishing.`, 'error');
-  }
-  if (summary.missingRows?.length) {
-    switchClassReportTab('issues', classId);
-    return showToast(`Complete missing marks for ${summary.missingRows.length} student(s) before publishing.`, 'error');
-  }
   const rowIds = [...document.querySelectorAll('#class-report-review-table tbody tr[data-student-id]')].map(r => String(r.dataset.studentId || '')).filter(Boolean);
   const viewed = window.__classReportPreviewedStudents || new Set();
   const notPreviewed = rowIds.filter(id => !viewed.has(id));
-  if (notPreviewed.length) return showToast(`Preview all student report cards before publishing. Remaining: ${notPreviewed.length}`, 'error');
-  if (!document.getElementById('class-report-reviewed-checkbox')?.checked) return showToast('Tick the verification checkbox before publishing.', 'error');
-  if (!confirm(`Publish full class report for ${term} ${year}? This will create official immutable report snapshots for parents/students.`)) return;
+  const reviewed = !!document.getElementById('class-report-reviewed-checkbox')?.checked;
+  const issueText = summary.totalIssues ? `\n\nUnresolved issues detected:\n- Possible duplicates: ${summary.duplicateGroups?.length || 0}\n- Students with missing marks: ${summary.missingRows?.length || 0}\n\nIf you continue, missing marks remain blank/pending and duplicate-name warnings are archived in the publish audit note.` : '';
+  const previewText = notPreviewed.length ? `\n\nNote: ${notPreviewed.length} student report preview(s) have not been opened.` : '';
+  const checkboxText = reviewed ? '' : '\n\nThe verification checkbox is not ticked.';
+  if (!confirm(`Publish full class report for ${term} ${year}? This will create official immutable report snapshots for parents/students.${issueText}${previewText}${checkboxText}\n\nChoose OK to publish anyway, or Cancel to keep editing.`)) return;
   showLoading();
   try {
     const assessmentName = document.getElementById('class-report-assessment')?.value || '';
-    const res = await api.teacher.publishMarks({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
+    const res = await api.teacher.publishMarks({ classId, term, year, ...(assessmentName ? { assessmentName } : {}), publishAnyway:true, unresolvedIssueSummary:{ duplicates:summary.duplicateGroups?.length || 0, missingMarks:summary.missingRows?.length || 0, notPreviewed:notPreviewed.length, reviewed } });
     showToast(res.message || 'Full class report published', 'success');
     await toggleClassReportReview(classId);
     switchClassReportTab('archive', classId);

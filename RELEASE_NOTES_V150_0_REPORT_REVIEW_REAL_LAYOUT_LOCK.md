@@ -1,4 +1,4 @@
-# Shule AI v150.0 — Report Review Real Layout Lock
+# Shule AI v150.1 — Report Review Real Layout Lock
 
 This frontend build replaces the actual class-teacher report-review rendering path, not only the design mockup.
 
@@ -9,4 +9,4 @@ Locked changes:
 - Class roster is simplified and separate from report review.
 - Report review auto-loads after the class teacher students screen renders.
 - Publish is blocked by unresolved duplicate identities or missing marks.
-- Frontend cache is bumped to ?v=1500.
+- Frontend cache is bumped to ?v=1501.

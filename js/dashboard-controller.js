@@ -137,7 +137,6 @@ function updateSidebar(role) {
                 { icon: 'bar-chart-2', label: 'Fairness Report', section: 'fairness-report' },
                 { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' },
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
-                { icon: 'file-text', label: 'Final Report Cards', section: 'report-history' },
                 { icon: 'sliders-horizontal', label: 'Report Card Settings', section: 'report-settings' },
                 { icon: 'clock', label: 'Timetable', section: 'timetable' },
                 { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
@@ -175,7 +174,7 @@ function updateSidebar(role) {
                         const t = u?.teacher || {};
                         const fallbackClass = u?.classId || t.classId || t.isClassTeacher || t.role === 'class_teacher';
                         const isClassTeacher = !!(canonicalClass?.id || canonicalClass?.classId || fallbackClass);
-                        return isClassTeacher ? [{icon:'users',label:'My Students',section:'students'},{icon:'file-clock',label:'Report Cards',section:'report-history'},{icon:'cake',label:'My Class Birthdays',section:'birthdays'},{icon:'calendar-check',label:'Attendance',section:'attendance'},{icon:'log-out',label:'Release Class',section:'release-class'}] : [];
+                        return isClassTeacher ? [{icon:'users',label:'My Students',section:'students'},{icon:'cake',label:'My Class Birthdays',section:'birthdays'},{icon:'calendar-check',label:'Attendance',section:'attendance'},{icon:'log-out',label:'Release Class',section:'release-class'}] : [];
                     } catch (_) { return []; }
                 })(),
                 { icon: 'trending-up', label: 'Grades', section: 'grades' },
@@ -198,7 +197,6 @@ function updateSidebar(role) {
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'trending-up', label: 'Progress', section: 'progress' },
                 { icon: 'calendar-check', label: 'Attendance', section: 'child-attendance' },
-                { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
                 { icon: 'route', label: 'Child School History', section: 'school-history' },
                 { icon: 'credit-card', label: 'Payments', section: 'payments' },
                 { icon: 'calendar', label: 'Child Timetable', section: 'timetable' },
@@ -216,7 +214,6 @@ function updateSidebar(role) {
             main: [
                 { icon: 'layout-dashboard', label: 'Dashboard', section: 'dashboard' },
                 { icon: 'trending-up', label: 'My Grades', section: 'grades' },
-                { icon: 'file-clock', label: 'Report Cards', section: 'report-history' },
                 { icon: 'route', label: 'School History', section: 'school-history' },
                 { icon: 'calendar-check', label: 'Attendance', section: 'attendance' },
                 { icon: 'message-circle', label: 'Study Chat', section: 'chat' },
@@ -236,7 +233,10 @@ function updateSidebar(role) {
     };
 
     const rawConfig = sidebarConfig[role] || sidebarConfig.student;
-    const config = { main: filterNavByRulebook(rawConfig.main), settings: filterNavByRulebook(rawConfig.settings) };
+    // v150.1: Final Report Card / Report Cards is no longer a sidebar section.
+    // Official report access stays inside class review, archive, parent/student grade/history flows.
+    const hideFinalReportSidebar = (items = []) => (items || []).filter(item => item.section !== 'report-history');
+    const config = { main: filterNavByRulebook(hideFinalReportSidebar(rawConfig.main)), settings: filterNavByRulebook(hideFinalReportSidebar(rawConfig.settings)) };
 
     nav.innerHTML = config.main.map(item => `
         <a href="#" onclick="showDashboardSection('${item.section}')" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors sidebar-link" data-section="${item.section}">
