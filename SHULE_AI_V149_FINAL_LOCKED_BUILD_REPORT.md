@@ -1,14 +1,14 @@
 # Shule AI v149.2-report-card-hardening Hotfix Runtime Stability Build Report
 
 Build ID: `v149.2-report-card-hardening`  
-Frontend asset version: `?v=1492`  
+Frontend asset version: `?v=1497`  
 Service-worker cache: `shule-ai-1492-report-card-hardening`
 
 ## What this build finalizes
 
 ### Runtime and old-file cleanup
 - Updated backend health endpoints to report `v149.2-report-card-hardening`.
-- Updated every active frontend asset reference in `index.html` to `?v=1492`.
+- Updated every active frontend asset reference in `index.html` to `?v=1497`.
 - Added `final-locked-overrides.js` as the last runtime override layer.
 - Updated the service worker to a new cache name so old v148.x caches are deleted/replaced.
 - Removed old root deployment/report files that referenced v148.x so they cannot be confused with deployable runtime instructions.
@@ -67,7 +67,7 @@ Service-worker cache: `shule-ai-1492-report-card-hardening`
 - Backend JavaScript syntax check passed.
 - Backend application imported successfully after production dependency install; only database connection was unavailable in this sandbox.
 - Duplicate `exports.*` assignments check passed for backend controllers.
-- Active runtime references use `?v=1492`.
+- Active runtime references use `?v=1497`.
 - No `rerenderBody` reference remains in active frontend JS.
 - `checkTeacherAssignment` is now defined in class management.
 - ZIP archive integrity checks passed.
@@ -92,7 +92,7 @@ After deployment verify:
 Browser network should show:
 
 ```text
-api.js?v=1492
-finance-fees.js?v=1492
-final-locked-overrides.js?v=1492
+api.js?v=1497
+finance-fees.js?v=1497
+final-locked-overrides.js?v=1497
 ```

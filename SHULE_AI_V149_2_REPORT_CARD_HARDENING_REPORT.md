@@ -1,7 +1,7 @@
 # Shule AI v149.2 Report Card + Runtime Hardening Report
 
 Build ID: `v149.2-report-card-hardening`  
-Frontend asset version: `?v=1492`  
+Frontend asset version: `?v=1497`  
 Service-worker cache: `shule-ai-1492-report-card-hardening`
 
 ## Why this hotfix exists
@@ -89,7 +89,7 @@ This avoids the old single `CAT` label confusion.
 ### Runtime cleanup
 
 - Updated backend health build to `v149.2-report-card-hardening`.
-- Updated all frontend active asset references to `?v=1492`.
+- Updated all frontend active asset references to `?v=1497`.
 - Updated service-worker cache to `shule-ai-1492-report-card-hardening`.
 - Removed active old `?v=1490` / `?v=1491` runtime references.
 - Kept prior v149.1 fixes for analytics enum handling, timetable retry, token handling, and Admin Finance Overview calls.
@@ -126,10 +126,10 @@ After deployment, verify:
 Browser Network should show:
 
 ```text
-api.js?v=1492
-admin-dashboard.js?v=1492
-locked-features-ui.js?v=1492
-final-locked-overrides.js?v=1492
+api.js?v=1497
+admin-dashboard.js?v=1497
+locked-features-ui.js?v=1497
+final-locked-overrides.js?v=1497
 ```
 
 Use one hard refresh after deployment.
