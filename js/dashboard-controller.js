@@ -233,10 +233,7 @@ function updateSidebar(role) {
     };
 
     const rawConfig = sidebarConfig[role] || sidebarConfig.student;
-    // v150.1: Final Report Card / Report Cards is no longer a sidebar section.
-    // Official report access stays inside class review, archive, parent/student grade/history flows.
-    const hideFinalReportSidebar = (items = []) => (items || []).filter(item => item.section !== 'report-history');
-    const config = { main: filterNavByRulebook(hideFinalReportSidebar(rawConfig.main)), settings: filterNavByRulebook(hideFinalReportSidebar(rawConfig.settings)) };
+    const config = { main: filterNavByRulebook(rawConfig.main), settings: filterNavByRulebook(rawConfig.settings) };
 
     nav.innerHTML = config.main.map(item => `
         <a href="#" onclick="showDashboardSection('${item.section}')" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors sidebar-link" data-section="${item.section}">

@@ -29,7 +29,7 @@ async function apiRequest(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     if (authToken) headers.Authorization = `Bearer ${authToken}`;
     const retryableWrite = /^\/api\/timetable\b/i.test(endpoint);
-    const attempts = method === 'GET' ? 3 : (retryableWrite ? 3 : 2);
+    const attempts = method === 'GET' ? 2 : (retryableWrite ? 3 : 1);
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         try {
@@ -440,6 +440,7 @@ const teacherAPI = {
             body: JSON.stringify(data)
         }),
     uploadMarksCSV: (formData) => uploadFile('/api/teacher/upload/marks', formData),
+    saveBulkMarks: (data) => apiRequest('/api/teacher/marks/bulk', { method: 'POST', body: JSON.stringify(data) }),
     getConversations: () => apiRequest('/api/teacher/conversations'),
     getStaffMembers: () => apiRequest('/api/teacher/staff-members'),
     getStaffConversations: () => apiRequest('/api/teacher/conversations'),

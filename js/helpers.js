@@ -225,17 +225,8 @@ async function fetchPublishedReportPdf(studentId) {
         studentId = dash?.data?.student?.id || window.dashboardData?.student?.id;
     }
     if (!studentId) throw new Error('Student ID not available');
-    // v150.1: avoid noisy /latest/:studentId 404s. Use the immutable report-history list
-    // first, then open the current published snapshot PDF if one exists.
-    let reports = [];
-    try {
-        const response = await api.lifecycle.getReportHistory({ studentId });
-        reports = Array.isArray(response?.data) ? response.data : [];
-    } catch (_) { reports = []; }
-    const latest = reports.find(r => r.isCurrent !== false) || reports[0];
-    if (!latest?.id) throw new Error('No published report card yet. Ask the class teacher to publish the report first.');
     const token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
-    const response = await fetch(`${API_BASE_URL}/api/report-cards/history/${encodeURIComponent(latest.id)}/pdf`, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
+    const response = await fetch(`${API_BASE_URL}/api/report-cards/latest/${studentId}/pdf`, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
     if (!response.ok) {
         let message = 'Report card could not be loaded';
         try { const error = await response.json(); message = error.message || message; } catch (_) {}
