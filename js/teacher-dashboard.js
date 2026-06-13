@@ -209,7 +209,61 @@ async function renderTeacherStudents() {
     } catch (e) {
       reviewPanel = `<div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200">Class report controls could not load: ${escapeHtml(e.message || 'Unknown error')}</div>`;
     }
-    return `<div class="space-y-6">${reviewPanel}${renderStudentsTable(students, true, subjects)}</div>`;
+    if (reviewPanel && !window.__classReportAutoLoadTimer) {
+      const autoClassId = (() => { try { return (reviewPanel.match(/data-class-id="([^"]+)/) || [])[1] || ''; } catch (_) { return ''; } })();
+      if (autoClassId) {
+        window.__classReportAutoLoadTimer = setTimeout(() => {
+          window.__classReportAutoLoadTimer = null;
+          const shell = document.querySelector(`.shule-report-review-v1500[data-class-id="${autoClassId}"]`);
+          if (shell && !window.__lastClassReportGradebook) toggleClassReportReview(autoClassId);
+        }, 250);
+      }
+    }
+    return `<div class="space-y-6">${reviewPanel}${renderClassTeacherRosterSummary(students, subjects)}</div>`;
+}
+
+function renderClassTeacherRosterSummary(students = [], subjects = []) {
+  const safeStudents = Array.isArray(students) ? students : [];
+  const safeSubjects = Array.isArray(subjects) ? subjects : [];
+  const duplicateNames = (() => {
+    const map = new Map();
+    safeStudents.forEach(st => {
+      const key = normalizeClassReportName(st?.name);
+      if (!key) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(st);
+    });
+    return [...map.values()].filter(list => list.length > 1).length;
+  })();
+  const rows = safeStudents.slice(0, 12).map(st => `
+    <tr class="border-t">
+      <td class="px-3 py-3"><div class="font-semibold">${escapeHtml(st.name || 'Student')}</div><div class="text-xs text-muted-foreground">${escapeHtml(st.gender || st.sex || '')}</div></td>
+      <td class="px-3 py-3"><span class="font-mono text-xs rounded bg-muted px-2 py-1">${escapeHtml(st.elimuid || st.admissionNumber || 'Missing')}</span></td>
+      <td class="px-3 py-3 text-muted-foreground">${escapeHtml(st.className || st.class || st.stream || 'My class')}</td>
+      <td class="px-3 py-3 text-right"><button class="px-2 py-1 rounded border bg-background text-xs hover:bg-muted" onclick="openClassTeacherReportCardPreview('${String(st.id || st.studentId || '')}','${String(st.classId || '')}')">Preview Report</button></td>
+    </tr>`).join('');
+  return `
+    <section class="rounded-2xl border bg-card shadow-sm overflow-hidden">
+      <div class="p-5 border-b flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-muted-foreground">Class Roster</p>
+          <h3 class="text-lg font-bold text-[#0B2F6B] dark:text-white">Students in this class</h3>
+          <p class="text-sm text-muted-foreground">This is now a simple roster only. Marks, review status, archive, and publish controls are handled in the Report Review panel above.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-sm">
+          <span class="rounded-full bg-blue-50 text-blue-700 px-3 py-1">${safeStudents.length} students</span>
+          <span class="rounded-full bg-teal-50 text-teal-700 px-3 py-1">${safeSubjects.length} subjects</span>
+          ${duplicateNames ? `<span class="rounded-full bg-red-50 text-red-700 px-3 py-1">${duplicateNames} possible duplicate name${duplicateNames === 1 ? '' : 's'}</span>` : `<span class="rounded-full bg-green-50 text-green-700 px-3 py-1">No duplicate names detected</span>`}
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[680px]">
+          <thead class="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground"><tr><th class="px-3 py-3 text-left">Student</th><th class="px-3 py-3 text-left">Elimu ID</th><th class="px-3 py-3 text-left">Class/Stream</th><th class="px-3 py-3 text-right">Action</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="4" class="px-3 py-8 text-center text-muted-foreground">No students found in this class.</td></tr>`}</tbody>
+        </table>
+      </div>
+      ${safeStudents.length > 12 ? `<div class="px-5 py-3 text-xs text-muted-foreground border-t text-center">Showing first 12 of ${safeStudents.length} students. Use search/student management for the full roster.</div>` : ''}
+    </section>`;
 }
 
 function renderClassTeacherReviewShell(classTeacher) {
@@ -217,7 +271,7 @@ function renderClassTeacherReviewShell(classTeacher) {
   const years = [currentYear - 1, currentYear, currentYear + 1];
   const className = escapeHtml(classTeacher.name || 'My Class');
   return `
-    <section class="rounded-2xl border bg-card shadow-sm overflow-hidden shule-report-review-v1499" data-class-id="${escapeHtml(String(classTeacher.id || ''))}">
+    <section class="rounded-2xl border bg-card shadow-sm overflow-hidden shule-report-review-v1500" data-class-id="${escapeHtml(String(classTeacher.id || ''))}">
       <div class="p-5 border-b bg-gradient-to-r from-[#083A85]/5 via-white to-[#11B5B1]/5 dark:from-[#083A85]/20 dark:via-card dark:to-[#11B5B1]/10">
         <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
           <div>

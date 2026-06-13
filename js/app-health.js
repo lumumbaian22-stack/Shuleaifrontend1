@@ -9,10 +9,10 @@ window.addEventListener('load', () => {
   }, 2500);
 });
 
-// Shule AI v149.9 final service-worker registration and stale-cache cleanup.
+// Shule AI v150.0 final service-worker registration and stale-cache cleanup.
 (function () {
   if (!('serviceWorker' in navigator)) return;
-  const BUILD = '1499';
+  const BUILD = '1500';
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return;
@@ -27,7 +27,7 @@ window.addEventListener('load', () => {
   });
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js?v=1499', { updateViaCache:'none' });
+      const registration = await navigator.serviceWorker.register('/service-worker.js?v=1500', { updateViaCache:'none' });
       try { registration.active?.postMessage({ type: 'CLEAR_OLD_CACHES' }); } catch (_) {}
       if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       try { await registration.update?.(); } catch (_) {}

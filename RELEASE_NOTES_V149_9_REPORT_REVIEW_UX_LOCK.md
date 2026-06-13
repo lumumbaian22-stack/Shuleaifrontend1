@@ -1,4 +1,4 @@
-# Shule AI v149.9 — Report Review UX Lock
+# Shule AI v150.0 — Report Review UX Lock
 
 Base: v149.8 final timetable DB lock.
 
@@ -25,7 +25,7 @@ Base: v149.8 final timetable DB lock.
   - attendance records without marks
 - Publishing is locked until missing marks and duplicate identity issues are resolved or confirmed.
 - Published reports are now shown only inside Published Archive using official report snapshots.
-- Cache bumped to ?v=1499.
+- Cache bumped to ?v=1500.
 
 ## Backend
 

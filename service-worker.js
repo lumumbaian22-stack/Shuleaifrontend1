@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-1499-final-cors-cache-timetable-realtime-lock';
+const CACHE_NAME = 'shule-ai-1500-report-review-real-layout-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 
