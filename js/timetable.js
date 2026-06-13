@@ -112,6 +112,46 @@
     const label = String(item.label || item.type || '').trim();
     return !!subject && !item.break && !/^(free|break|lunch|assembly|games|club|remedial)$/i.test(subject) && !/break|lunch/i.test(label);
   }
+
+  function compactSlotsForApi(slots) {
+    return normalizeSlots(slots || [], activePeriods).map(day => ({
+      day: day.day,
+      periods: (day.periods || []).map((p, idx) => ({
+        id: p.id || `period-${idx + 1}`,
+        label: p.label,
+        startTime: String(p.startTime || '').slice(0,5),
+        endTime: String(p.endTime || '').slice(0,5),
+        type: p.break ? 'break' : (p.type || 'lesson'),
+        break: !!p.break,
+        classes: p.break ? [] : (p.classes || []).filter(isRealLesson).map(l => ({
+          classId: l.classId == null || l.classId === '' ? null : Number(l.classId),
+          className: l.className || '',
+          grade: l.grade || '',
+          stream: l.stream || '',
+          subject: String(l.subject || '').trim(),
+          teacherId: l.teacherId == null || l.teacherId === '' ? null : Number(l.teacherId),
+          teacherName: l.teacherName || l.teacher || 'Unassigned Teacher',
+          room: l.room || '',
+          startTime: String(l.startTime || p.startTime || '').slice(0,5),
+          endTime: String(l.endTime || p.endTime || '').slice(0,5),
+          day: day.day
+        }))
+      }))
+    }));
+  }
+
+  function compactClassSummariesForApi(slots) {
+    const map = new Map();
+    (activeClasses || []).forEach(c => map.set(String(classIdOf(c)), { classId: classIdOf(c), className: classNameOf(c), grade: c.grade || '', stream: c.stream || '', lessonCount: 0, subjects: [] }));
+    (slots || []).forEach(day => (day.periods || []).forEach(p => (p.classes || []).forEach(l => {
+      if (!isRealLesson(l)) return;
+      const key = String(l.classId || l.className || l.grade || 'unknown');
+      if (!map.has(key)) map.set(key, { classId: l.classId || null, className: l.className || l.grade || 'Class', grade: l.grade || '', stream: l.stream || '', lessonCount: 0, subjects: [] });
+      const row = map.get(key); row.lessonCount += 1; if (l.subject && !row.subjects.includes(l.subject)) row.subjects.push(l.subject);
+    })));
+    return Array.from(map.values());
+  }
+
   function countFromSlots(slots, classId) {
     const seen = new Set();
     normalizeSlots(slots, activePeriods).forEach(d => (d.periods || []).forEach((p, pi) => (p.classes || []).forEach((l, li) => {
@@ -298,8 +338,8 @@
     try {
       if (!opts.silent && w.showLoading) showLoading();
       const scope = document.getElementById('ttScope')?.value || activeTimetable.scope || 'term'; const term = document.getElementById('ttTerm')?.value || activeTimetable.term || 'Term 1'; const year = Number(document.getElementById('ttYear')?.value || activeTimetable.year || new Date().getFullYear());
-      activeTimetable.slots = normalizeSlots(activeTimetable.slots || [], activePeriods);
-      activeTimetable.classes = buildClassBlocks(activeTimetable.slots);
+      activeTimetable.slots = compactSlotsForApi(activeTimetable.slots || []);
+      activeTimetable.classes = compactClassSummariesForApi(activeTimetable.slots);
       const saved = await req(`/api/timetable/${activeTimetableId}`, { method: 'PUT', body: JSON.stringify({ slots: activeTimetable.slots, classes: activeTimetable.classes, warnings: activeTimetable.warnings || [], scope, term, year }) });
       const savedRow=saved?.data||saved;
       if(savedRow?.id){
@@ -312,7 +352,16 @@
       if (!opts.silent && w.showToast) showToast(saved?.message || 'Timetable draft saved. Click Publish Changes for users to see it.', 'success');
       refreshTimetableView();
       return savedRow || true;
-    } catch (e) { w.showToast ? showToast(e.message, 'error') : alert(e.message); return false; } finally { if (!opts.silent && w.hideLoading) hideLoading(); }
+    } catch (e) {
+      const msg = String(e?.message || e || 'Timetable save failed');
+      if (/Database connection was interrupted|connection terminated|connection reset|timeout/i.test(msg)) {
+        timetableDirty = true; activeHasUnpublishedChanges = true;
+        w.showToast ? showToast('The server database connection dropped while saving. Your edits are still on this screen; click Save Draft once more after a few seconds.', 'warning') : alert(msg);
+      } else {
+        w.showToast ? showToast(msg, 'error') : alert(msg);
+      }
+      return false;
+    } finally { if (!opts.silent && w.hideLoading) hideLoading(); }
   };
   w.v66GenerateTimetable = async function () {
     try {

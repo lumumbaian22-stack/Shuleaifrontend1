@@ -7,8 +7,8 @@
   'use strict';
 
   const PLATFORM_SHORT_NAME = 'Shule AI';
-  const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png?v=1497';
-  const PLATFORM_LOGO_DARK = 'assets/logo-light.png?v=1497'; // keep visible in dark mode; old dark asset can disappear on some dashboards
+  const PLATFORM_LOGO_LIGHT = 'assets/logo-light.png?v=1498';
+  const PLATFORM_LOGO_DARK = 'assets/logo-light.png?v=1498'; // keep visible in dark mode; old dark asset can disappear on some dashboards
   const BRAND_COLOR_PRESETS = {
     'Shule Blue': { primaryColor: '#083A85', accentColor: '#11B5B1' },
     'Royal Blue': { primaryColor: '#0B2F6B', accentColor: '#3B82F6' },

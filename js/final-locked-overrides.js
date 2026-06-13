@@ -7,7 +7,7 @@
   w.getSafeSchoolLogo=function(school){
     const b=school?.branding||school?.settings?.branding||{};
     const logo=b.logoDataUrl||b.logoUrl||b.logo||school?.logo||school?.schoolLogo||'';
-    if(!logo || /undefined|null|\/uploads\//i.test(String(logo))) return 'assets/logo.png?v=1497';
+    if(!logo || /undefined|null|\/uploads\//i.test(String(logo))) return 'assets/logo.png?v=1498';
     return logo;
   };
   const oldBirthdays=w.renderBirthdayCentre;
@@ -36,7 +36,7 @@
 (function(){
   const w=window;
   const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function getLogo(school){ try{return w.getSafeSchoolLogo? w.getSafeSchoolLogo(school||{}):'assets/logo.png?v=1497';}catch(_){return 'assets/logo.png?v=1497';} }
+  function getLogo(school){ try{return w.getSafeSchoolLogo? w.getSafeSchoolLogo(school||{}):'assets/logo.png?v=1498';}catch(_){return 'assets/logo.png?v=1498';} }
   w.renderFinalReportCardMockup=function(data={}){
     const school=data.school||{}, student=data.student||{}, logo=getLogo(school);
     const components=['CAT 1','CAT 2','Midterm','End Term','SBA/Project'];
