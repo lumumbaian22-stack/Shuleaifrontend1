@@ -167,7 +167,7 @@ async function renderStudentDashboard() {
                             <i data-lucide="trophy" class="h-5 w-5 text-yellow-500"></i> Class Leaderboard
                         </h3>
                         <div id="student-leaderboard">
-                            <p class="text-sm text-muted-foreground">Loading...</p>
+                            <p class="text-sm text-muted-foreground">Preparing real class data…</p>
                         </div>
                     </div>
                     <div class="rounded-xl border bg-card p-4">
@@ -175,7 +175,7 @@ async function renderStudentDashboard() {
                             <i data-lucide="award" class="h-5 w-5 text-purple-500"></i> My Badges
                         </h3>
                         <div id="student-badges">
-                            <p class="text-sm text-muted-foreground">Loading...</p>
+                            <p class="text-sm text-muted-foreground">Preparing real class data…</p>
                         </div>
                     </div>
                 </div>
@@ -233,7 +233,7 @@ async function renderStudentDashboard() {
                     <div id="student-home-tasks-list">
                         <div class="text-center text-muted-foreground py-4">
                             <i data-lucide="loader-2" class="h-6 w-6 animate-spin mx-auto mb-2"></i>
-                            Loading tasks...
+                            Preparing today’s tasks…
                         </div>
                     </div>
                 </div>
@@ -269,11 +269,11 @@ async function loadDashboardLeaderboard() {
         const res = await apiRequest(`/api/gamification/leaderboard/${classId}`);
         const list = res.data || [];
         const html = list.length === 0
-            ? '<p class="text-sm text-muted-foreground">No data</p>'
+            ? '<p class="text-sm text-muted-foreground">No leaderboard data yet.</p>'
             : list.slice(0, 5).map(i => `<div class="flex justify-between py-1"><span>#${i.rank} ${escapeHtml(i.name)}</span><span class="font-bold">${i.points} pts</span></div>`).join('');
         const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = html;
     } catch (e) {
-        const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = ''; 
+        const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = '<p class="text-sm text-muted-foreground">No leaderboard data yet.</p>';  
     }
 }
 
@@ -283,7 +283,7 @@ async function loadDashboardBadges() {
         const dashboardRes = await api.student.getDashboard();
         const studentId = dashboardRes.data?.student?.id;
         if (!studentId) {
-            const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = ''; 
+            const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = '<p class="text-sm text-muted-foreground">No badges earned yet.</p>';  
             return;
         }
         const res = await apiRequest(`/api/gamification/badges/${studentId}`);
@@ -293,7 +293,7 @@ async function loadDashboardBadges() {
             : badges.map(b => `<span class="inline-flex items-center px-2 py-1 mr-2 mt-2 bg-purple-100 text-purple-800 rounded-full text-xs">${b.Badge?.icon || '🏅'} ${b.Badge?.name}</span>`).join('');
         const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = html;
     } catch (e) {
-        const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = ''; 
+        const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = '<p class="text-sm text-muted-foreground">No badges earned yet.</p>';  
     }
 }
 
@@ -343,7 +343,7 @@ async function loadStudentHomeTasks() {
         if (window.lucide) lucide.createIcons();
     } catch (e) {
         console.error('Failed to load home tasks:', e);
-        container.innerHTML = '<div class="text-center text-red-500 py-4">Failed to load tasks</div>';
+        container.innerHTML = '<div class="text-center text-muted-foreground py-4">No learning tasks assigned today.</div>';
     }
 }
 

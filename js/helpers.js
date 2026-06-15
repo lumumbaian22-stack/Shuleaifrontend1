@@ -225,16 +225,15 @@ async function fetchPublishedReportPdf(studentId) {
         studentId = dash?.data?.student?.id || window.dashboardData?.student?.id;
     }
     if (!studentId) throw new Error('Student ID not available');
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
-    const response = await fetch(`${API_BASE_URL}/api/report-cards/latest/${studentId}/pdf`, { headers: token ? { Authorization:`Bearer ${token}` } : {} });
-    if (!response.ok) {
-        let message = 'Report card could not be loaded';
-        try { const error = await response.json(); message = error.message || message; } catch (_) {}
-        throw new Error(message);
-    }
-    const disposition = response.headers.get('content-disposition') || '';
-    const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || `Student_Report_Card_${studentId}.pdf`;
-    return { blob:await response.blob(), filename };
+
+    // Official report cards must come from immutable published history first.
+    // This prevents noisy /latest/:studentId/pdf 404s when no current report exists.
+    const history = await apiRequest(`/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}`).catch(() => null);
+    const reports = Array.isArray(history?.data) ? history.data : [];
+    const latest = reports.find(r => r.isCurrent) || reports[0];
+    if (!latest?.id) throw new Error('No published report card yet. Publish the report first from the class teacher review.');
+
+    return await fetchHistoricalReportPdf(latest.id);
 }
 
 async function openReportCard(studentId) {
@@ -317,7 +316,7 @@ function avatarHTML(name, photoUrl, sizeClass = 'h-10 w-10') {
     const resolvedUrl = rawUrl && typeof resolveMediaUrl === 'function' ? resolveMediaUrl(rawUrl) : rawUrl;
 
     if (resolvedUrl) {
-        return `<img src="${escapeHtml(resolvedUrl)}" class="${escapeHtml(sizeClass)} rounded-full object-cover data-profile-image" data-profile-image="${escapeHtml(rawUrl)}" data-user-name="${safeDisplayName}" alt="${safeDisplayName}">`;
+        return `<img src="${escapeHtml(resolvedUrl)}" class="${escapeHtml(sizeClass)} rounded-full object-cover data-profile-image" data-profile-image="${escapeHtml(rawUrl)}" data-user-name="${safeDisplayName}" alt="${safeDisplayName}" onerror="this.outerHTML='<div class=&quot;${escapeHtml(sizeClass)} rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold&quot;>${getInitials(displayName)}</div>'">`;
     }
 
     return `<div class="${escapeHtml(sizeClass)} rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold flex-shrink-0"><span>${getInitials(displayName)}</span></div>`;

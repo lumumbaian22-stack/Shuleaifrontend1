@@ -119,7 +119,7 @@
   }
 
   function reportCardDesignPanel(role, rows){
-    // v150.2: remove the confusing final report-card preview/mockup card from the Report History section.
+    // v150.3: remove the confusing final report-card preview/mockup card from the Report History section.
     // The official PDFs remain available in the Published versions list below.
     return '';
   }

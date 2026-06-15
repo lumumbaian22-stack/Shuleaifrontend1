@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-1502-safe-report-review-lock';
+const CACHE_NAME = 'shule-ai-1503-safe-report-review-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

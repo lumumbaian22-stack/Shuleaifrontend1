@@ -415,7 +415,7 @@
     }catch(e){return `<div class="timetable-v33-card v12-card"><h2>${esc(title)}</h2><p class="text-red-500">${esc(e.message)}</p></div>`;}
   }
 
-  w.renderStudentTimetable = async function () { return renderReadOnlyTimetableFrom('/api/timetable/student/me', 'My Timetable', { todayOnly: true, todayTitle: 'Today’s Lessons' }); };
+  w.renderStudentTimetable = async function () { return renderReadOnlyTimetableFrom('/api/timetable/student/me', 'My Timetable', { todayOnly: true, todayTitle: 'Today’s Lessons', parentStatus: true }); };
   w.renderParentTimetable = async function () {
     const childId = window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || window.selectedChildId || '';
     return childId ? renderReadOnlyTimetableFrom(`/api/timetable/parent/child/${childId}`, 'Child Timetable', { todayOnly: true, todayTitle: 'Today’s Lessons', parentStatus: true }) : `<div class="timetable-v33-card v12-card"><h2>Child Timetable</h2><p>Select a linked child to view the timetable.</p></div>`;

@@ -213,6 +213,7 @@ async function renderTeacherStudents() {
     } catch (e) {
       reviewPanel = `<div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200">Class report controls could not load: ${escapeHtml(e.message || 'Unknown error')}</div>`;
     }
+    if (classId) setTimeout(() => { try { if (typeof openClassReportTab === 'function') openClassReportTab('current', String(classId)); } catch (_) {} }, 120);
     return `<div class="space-y-6">${reviewPanel}${renderStudentsTable(students, true, subjects, classId)}</div>`;
 }
 
@@ -487,122 +488,80 @@ async function publishClassReportFromStudents(classId) {
 
 function renderStudentsTable(students, isClassTeacher, subjects, classId = "") {
     if (!students || students.length === 0) {
-        return '<div class="text-center py-8 text-muted-foreground">No students in your class</div>';
+        return '<div class="rounded-xl border bg-card p-8 text-center text-muted-foreground"><h3 class="font-semibold text-foreground mb-1">No students found in your assigned class</h3><p class="text-sm">Confirm the class-teacher assignment or upload/import students for this class.</p></div>';
     }
-    
-    // ---------- DETECT LEVEL FROM CLASS NAME ----------
-    const classNames = window.dashboardData?.classNames || [];
-    const className = classNames[0] || '';
-    const primaryKeywords = ['PP1', 'PP2', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'GRADE 4', 'GRADE 5', 'GRADE 6', 'STANDARD', 'PRIMARY'];
-    const detectedLevel = primaryKeywords.some(kw => className.toUpperCase().includes(kw)) ? 'primary' : 'secondary';
-    
-    const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
-    let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel;
-    if (!level || level === 'both') {
-        level = detectedLevel;
-    }
-    
-    const subjectAbbreviations = {
-        'Mathematics': 'Math',
-        'English': 'Eng',
-        'Kiswahili': 'Kisw',
-        'Science': 'Sci',
-        'Social Studies': 'SST',
-        'CRE/IRE': 'CRE',
-        'Physical Education': 'PE',
-        'art and karafta': 'Art'
+    const safeSubjects = Array.isArray(subjects) ? subjects : [];
+    const completionFor = (student) => {
+        const scores = student.subjectScores || {};
+        const total = safeSubjects.length || Object.keys(scores).length;
+        const filled = (safeSubjects.length ? safeSubjects : Object.keys(scores)).filter(subject => scores[subject] !== null && scores[subject] !== undefined && scores[subject] !== '').length;
+        return { filled, total, label: total ? `${filled}/${total}` : '0/0' };
     };
-    
-    let html = `
-        <div class="overflow-x-auto">
-            <table class="w-full text-xs table-fixed border-separate border-spacing-0">
-                <thead class="bg-muted/50">
-                    <tr>
-                        <th class="px-2 py-2 text-left w-24">Student</th>
-                        <th class="px-2 py-2 text-left w-20">ELIMUID</th>`;
-    
-    if (isClassTeacher) {
-        subjects.forEach(subject => {
-            const short = subjectAbbreviations[subject] || subject.substring(0,4);
-            html += `<th class="px-1 py-2 text-center w-12" title="${escapeHtml(subject)}">${escapeHtml(short)}</th>`;
-        });
-    } else {
-        html += '<th class="px-2 py-2 text-center w-16">Score</th>';
-    }
-    
-    html += `<th class="px-2 py-2 text-center w-14">Att</th>
-             <th class="px-2 py-2 text-center w-12">Overall</th>
-             <th class="px-2 py-2 text-right w-12">Actions</th>
-             </tr>
-        </thead>
-        <tbody class="divide-y">`;
-    
+    const avgFor = (student) => {
+        const value = student.overallAverage;
+        return value === null || value === undefined || value === '' ? null : Number(value);
+    };
+    const duplicateMap = {};
     students.forEach(student => {
-        const attendance = student.attendance || 100;
-        const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
-        const isPrefect = student.isPrefect || false;
-        const photoUrl = resolveMediaUrl(student.photo || (student.User && student.User.profileImage) || '');
-        
-        html += `<tr class="hover:bg-accent/50">
-            <td class="px-2 py-2">
-                <div class="flex items-center gap-1">
-                    ${photoUrl ? 
-                        `<img src="${photoUrl}" class="h-6 w-6 rounded-full object-cover flex-shrink-0">` :
-                        `<div class="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <span class="font-medium text-blue-700 text-xs">${getInitials(student.name)}</span>
-                        </div>`
-                    }
-                    <div class="min-w-0">
-                        <span class="font-medium truncate block" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
-                        ${isPrefect ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 mt-0.5"><i data-lucide="shield" class="h-3 w-3 mr-0.5"></i>Prefect</span>' : ''}
-                    </div>
-                </div>
-            </td>
-            <td class="px-2 py-2"><span class="font-mono text-xs bg-muted px-1 py-0.5 rounded truncate block" title="${escapeHtml(student.elimuid)}">${escapeHtml(student.elimuid)}</span></td>`;
-        
-        if (isClassTeacher) {
-            subjects.forEach(subject => {
-                const score = student.subjectScores[subject];
-                const display = score !== null ? `${score}%` : '—';
-                const grade = score !== null ? getGradeFromScore(score, curriculum, level) : '';
-                html += `<td class="px-1 py-2 text-center" title="${escapeHtml(subject)}">
-                    <span class="font-medium">${display}</span>
-                    ${grade ? `<span class="text-xs ${getGradeColorClass(grade)} px-1 py-0.5 rounded-full block mt-0.5">${grade}</span>` : ''}
-                </td>`;
-            });
-        } else {
-            const subject = subjects[0] || 'Subject';
-            const score = student.subjectScores[subject];
-            const display = score !== null ? `${score}%` : '—';
-            const grade = score !== null ? getGradeFromScore(score, curriculum, level) : '';
-            html += `<td class="px-2 py-2 text-center">
-                <span class="font-medium">${display}</span>
-                ${grade ? `<span class="text-xs ${getGradeColorClass(grade)} px-1 py-0.5 rounded-full block mt-0.5">${grade}</span>` : ''}
-            </td>`;
-        }
-        
-        html += `<td class="px-2 py-2 text-center">
-                    <div class="flex items-center justify-center gap-1">
-                        <div class="h-1.5 w-8 rounded-full bg-muted overflow-hidden">
-                            <div class="h-full w-[${attendance}%] bg-green-500 rounded-full"></div>
-                        </div>
-                        <span class="text-xs">${attendance}%</span>
-                    </div>
-                </td>
-                <td class="px-2 py-2 text-center font-semibold text-xs ${getOverallColor(overall)}">${overall}</td>
-                <td class="px-2 py-2 text-right">
-                    <div class="flex items-center justify-end gap-1">
-                        <button title="View student" onclick="showUnifiedStudentModal('${student.id}')" class="p-1 hover:bg-accent rounded"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
-                        <button title="Expand and edit marks" onclick="toggleMyStudentMarks('${student.id}','${classId || student.classId || ''}')" class="p-1 hover:bg-accent rounded"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-                        <button title="Copy Elimu ID" onclick="copyElimuid('${escapeHtml(student.elimuid)}')" class="p-1 hover:bg-accent rounded"><i data-lucide="copy" class="h-3.5 w-3.5"></i></button>
-                    </div>
-                </td>
-            </tr>
-            <tr id="my-student-marks-${student.id}" class="hidden bg-muted/20"><td colspan="${isClassTeacher ? subjects.length + 5 : 5}" class="px-4 py-4 text-sm text-muted-foreground">Loading mark editor...</td></tr>`;
+        const key = String(student.name || '').trim().toLowerCase();
+        if (key) (duplicateMap[key] ||= []).push(student);
     });
-    
-    html += `</tbody></table></div>`;
-    return html;
+    return `<section class="rounded-2xl border bg-card shadow-sm overflow-hidden">
+      <div class="p-5 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-bold">My Class Roster</h3>
+          <p class="text-sm text-muted-foreground">Expand a learner to edit marks directly here. Changes save to the real marks database.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="rounded-full bg-muted px-3 py-1">${students.length} learner(s)</span>
+          <span class="rounded-full bg-muted px-3 py-1">${safeSubjects.length} subject(s)</span>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[760px]">
+          <thead class="bg-muted/50"><tr>
+            <th class="px-4 py-3 text-left">Student</th>
+            <th class="px-4 py-3 text-left">Elimu ID</th>
+            <th class="px-4 py-3 text-center">Completion</th>
+            <th class="px-4 py-3 text-center">Average</th>
+            <th class="px-4 py-3 text-center">Attendance</th>
+            <th class="px-4 py-3 text-center">Status</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr></thead>
+          <tbody class="divide-y">
+            ${students.map(student => {
+              const photoUrl = resolveMediaUrl(student.photo || (student.User && student.User.profileImage) || '');
+              const completion = completionFor(student);
+              const avg = avgFor(student);
+              const attendance = Number(student.attendance ?? 100);
+              const duplicate = (duplicateMap[String(student.name || '').trim().toLowerCase()] || []).length > 1;
+              const ready = completion.total > 0 && completion.filled === completion.total;
+              const status = duplicate
+                ? '<span class="rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs">Possible duplicate</span>'
+                : ready ? '<span class="rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs">Ready</span>'
+                : '<span class="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-xs">Missing marks</span>';
+              return `<tr class="hover:bg-accent/40" data-student-row="${escapeHtml(student.id)}">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    ${photoUrl ? `<img src="${escapeHtml(photoUrl)}" class="h-9 w-9 rounded-full object-cover" onerror="this.outerHTML='<div class=&quot;h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold&quot;>${getInitials(student.name)}</div>'">` : `<div class="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">${getInitials(student.name)}</div>`}
+                    <div class="min-w-0"><p class="font-semibold truncate">${escapeHtml(student.name || 'Student')}</p>${duplicate ? '<p class="text-xs text-red-600">Same name appears more than once — use Elimu ID to confirm.</p>' : ''}</div>
+                  </div>
+                </td>
+                <td class="px-4 py-3"><span class="font-mono text-xs rounded bg-muted px-2 py-1">${escapeHtml(student.elimuid || student.elimuId || student.admissionNumber || '—')}</span></td>
+                <td class="px-4 py-3 text-center font-semibold">${completion.label}</td>
+                <td class="px-4 py-3 text-center font-semibold ${avg === null ? 'text-muted-foreground' : getOverallColor(String(avg))}">${avg === null ? '—' : avg + '%'}</td>
+                <td class="px-4 py-3 text-center">${Number.isFinite(attendance) ? attendance + '%' : '—'}</td>
+                <td class="px-4 py-3 text-center">${status}</td>
+                <td class="px-4 py-3 text-right"><div class="flex justify-end gap-1">
+                  <button title="Expand/edit marks" onclick="toggleMyStudentMarks('${student.id}','${classId || student.classId || ''}')" class="px-3 py-1.5 rounded border text-xs hover:bg-accent">Expand / Edit</button>
+                  <button title="View student" onclick="showUnifiedStudentModal('${student.id}')" class="px-3 py-1.5 rounded border text-xs hover:bg-accent">View</button>
+                </div></td>
+              </tr><tr id="my-student-marks-${student.id}" class="hidden bg-muted/20"><td colspan="7" class="px-4 py-4 text-sm text-muted-foreground">Loading mark editor...</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
 }
 
 
