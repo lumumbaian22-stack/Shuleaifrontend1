@@ -245,3 +245,50 @@
   window.renderParentSubscriptionCentre=renderParentSubscriptionCentre;
   window.renderStudentLifecycleHome=renderStudentLifecycleHome;
 })();
+
+
+// v150.4: Class-first Report Card History. Keeps official immutable PDF helpers untouched.
+(function(){
+  const esc = (v)=>typeof escapeHtml==='function'?escapeHtml(v):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const unwrap = (r)=>r?.data?.data ?? r?.data ?? r ?? null;
+  const arr = (v)=>Array.isArray(v)?v:[];
+  const currentRole = ()=>String((typeof getCurrentRole==='function'?getCurrentRole():'') || JSON.parse(localStorage.getItem('user')||'{}')?.role || '').toLowerCase();
+  function reportStudentName(r){return r?.snapshot?.student?.name||r?.studentName||r?.Student?.User?.name||`Student #${r?.studentId||''}`;}
+  function reportClassName(r){return r?.snapshot?.student?.className||r?.snapshot?.student?.grade||r?.snapshot?.class?.name||r?.className||r?.Class?.name||'Unassigned';}
+  function reportActions(r, role){
+    const canCorrect=['admin','superadmin','super_admin'].includes(String(role).toLowerCase()) && r.isCurrent;
+    const canShare=!['student'].includes(String(role).toLowerCase()) && r.isCurrent;
+    return `<div class="flex flex-wrap gap-2 justify-end"><button onclick="openReportSnapshotPdf(${r.id})" class="px-3 py-2 rounded-lg border">View PDF</button><button onclick="downloadReportSnapshotPdf(${r.id})" class="px-3 py-2 rounded-lg bg-primary text-primary-foreground">Download PDF</button>${canShare?`<button onclick="openReportShare(${r.id})" class="px-3 py-2 rounded-lg border">Share</button>`:''}${canCorrect?`<button onclick="correctReportSnapshot(${r.id})" class="px-3 py-2 rounded-lg border border-amber-300 text-amber-700">Correct Version</button>`:''}</div>`;
+  }
+  function classGroupHtml(className, rows, role){
+    const id='rh-class-'+String(className).replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+    return `<details class="rounded-2xl border bg-card overflow-hidden" open data-rh-class="${esc(className)}"><summary class="cursor-pointer p-4 bg-muted/30 flex items-center justify-between"><div><h3 class="font-semibold">${esc(className)}</h3><p class="text-xs text-muted-foreground">${rows.length} published version${rows.length===1?'':'s'}</p></div><span class="rounded-full border px-3 py-1 text-xs">Class archive</span></summary><div class="divide-y">${rows.map(r=>`<div class="p-4 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4" data-report-id="${r.id}" data-report-search="${esc(`${reportStudentName(r)} ${reportClassName(r)} ${r.term||''} ${r.year||''}`.toLowerCase())}"><div><h4 class="font-semibold">${esc(reportStudentName(r))}</h4><p class="text-sm text-muted-foreground">Version ${Number(r.version||1)}${r.isCurrent?' · Current':''} · ${esc(r.term||'Term')} ${esc(r.year||'')}</p><p class="text-xs text-muted-foreground">Published ${r.publishedAt?new Date(r.publishedAt).toLocaleString('en-KE'):(r.createdAt?new Date(r.createdAt).toLocaleString('en-KE'):'—')}</p></div>${reportActions(r,role)}</div>`).join('')}</div></details>`;
+  }
+  window.filterReportHistory=function(){
+    const cls=document.getElementById('report-history-class')?.value||'';
+    const student=document.getElementById('report-history-student')?.value||'';
+    const search=String(document.getElementById('report-history-search')?.value||'').toLowerCase().trim();
+    document.querySelectorAll('[data-rh-class]').forEach(group=>{ const show=!cls||group.dataset.rhClass===cls; group.classList.toggle('hidden',!show); });
+    document.querySelectorAll('[data-report-search]').forEach(node=>{ const row=(window.__reportHistoryRows||[]).find(r=>String(r.id)===String(node.dataset.reportId)); const text=String(node.dataset.reportSearch||''); const okClass=!cls||reportClassName(row)===cls; const okStudent=!student||String(row?.studentId||'')===String(student); const okSearch=!search||text.includes(search); node.classList.toggle('hidden',!(okClass&&okStudent&&okSearch)); });
+  };
+  window.updateReportHistoryStudentFilter=function(){
+    const cls=document.getElementById('report-history-class')?.value||'';
+    const select=document.getElementById('report-history-student'); if(!select)return;
+    const rows=(window.__reportHistoryRows||[]).filter(r=>!cls||reportClassName(r)===cls);
+    const seen=new Map(); rows.forEach(r=>{ if(r.studentId&&!seen.has(String(r.studentId))) seen.set(String(r.studentId),reportStudentName(r)); });
+    select.innerHTML='<option value="">All learners in class</option>'+Array.from(seen.entries()).map(([id,name])=>`<option value="${id}">${esc(name)}</option>`).join('');
+    window.filterReportHistory();
+  };
+  window.renderReportHistoryCentre=async function(role=currentRole()){
+    try{
+      let params={};
+      if(role==='parent'){
+        const childId=window.dashboardData?.selectedChildId||localStorage.getItem('shule_selected_child_id')||''; if(childId) params.studentId=childId;
+      }
+      const res=await api.lifecycle.getReportHistory(params); const rows=arr(unwrap(res)); window.__reportHistoryRows=rows;
+      const classes=[...new Set(rows.map(reportClassName).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
+      const groups=classes.map(c=>classGroupHtml(c, rows.filter(r=>reportClassName(r)===c), role)).join('');
+      return `<div class="space-y-6 animate-fade-in"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">Immutable academic record</p><h2 class="text-2xl font-bold">${role==='teacher'?'Class Report-Card History':role==='student'?'My Report Cards':role==='parent'?'Child Report Cards':'School Report-Card History'}</h2><p class="text-sm text-muted-foreground">Published reports are permanent. Use class and learner filters instead of one long flat list.</p></div><section class="rounded-2xl border bg-card p-4"><div class="grid gap-3 md:grid-cols-4"><label class="text-sm">Class<select id="report-history-class" onchange="updateReportHistoryStudentFilter()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="">All classes</option>${classes.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><label class="text-sm">Student<select id="report-history-student" onchange="filterReportHistory()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="">All learners</option></select></label><label class="text-sm md:col-span-2">Search<input id="report-history-search" oninput="filterReportHistory()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="Search learner, term, year..."></label></div></section>${rows.length?groups:'<div class="rounded-2xl border bg-card p-8 text-center text-muted-foreground">No published report cards yet.</div>'}</div>`;
+    }catch(e){return `<div class="rounded-xl border border-red-200 bg-red-50 p-5 text-red-700">${esc(e.message||'Report-card history could not load')}</div>`;}
+  };
+})();

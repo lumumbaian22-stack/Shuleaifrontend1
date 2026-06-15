@@ -188,6 +188,14 @@
     if (activeTimetable.isPublished && !activeHasUnpublishedChanges) return '<span class="v12-pill green">Live published</span>';
     return '<span class="v12-pill amber">Draft changes pending</span>';
   }
+  function renderConflictPanel(error){
+    const conflicts = Array.isArray(error?.data?.data?.conflicts) ? error.data.data.conflicts : (Array.isArray(error?.data?.conflicts) ? error.data.conflicts : []);
+    const message = String(error?.message || 'Resolve timetable conflicts before saving.');
+    const html = `<div id="timetable-conflict-panel" class="my-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><div class="flex items-start gap-3"><div class="text-xl">⚠️</div><div><h3 class="font-semibold">Timetable conflicts must be fixed before publishing</h3><p>${esc(message)}</p>${conflicts.length?`<ul class="mt-2 list-disc pl-5 space-y-1">${conflicts.slice(0,8).map(c=>`<li><b>${esc((c.day||'').toString().toUpperCase())}</b> ${esc(c.start||'')} ${esc(c.end?'- '+c.end:'')} — ${esc(c.message||c.type||'Conflict')}</li>`).join('')}</ul>`:'<p class="mt-2">Open the conflicting day/period and adjust class, teacher or room.</p>'}<p class="mt-2 text-xs">Draft remains on screen. Fix highlighted conflict, then Save Draft again.</p></div></div></div>`;
+    const host=document.querySelector('.timetable-v66-page')||document.getElementById('dashboard-content');
+    if(host){document.getElementById('timetable-conflict-panel')?.remove();host.insertAdjacentHTML('afterbegin',html);}
+  }
+
   function renderVisibilityNotice() {
     if (!activeTimetable) return '<div data-tt-notice></div>';
     if (activeTimetable.isPublished && !timetableDirty && !activeHasUnpublishedChanges) {
@@ -357,6 +365,9 @@
       if (/Database connection was interrupted|connection terminated|connection reset|timeout/i.test(msg)) {
         timetableDirty = true; activeHasUnpublishedChanges = true;
         w.showToast ? showToast('The server database connection dropped while saving. Your edits are still on this screen; click Save Draft once more after a few seconds.', 'warning') : alert(msg);
+      } else if (/conflict/i.test(msg)) {
+        renderConflictPanel(e);
+        w.showToast ? showToast('Timetable conflict found. See the conflict panel above the timetable.', 'warning') : alert(msg);
       } else {
         w.showToast ? showToast(msg, 'error') : alert(msg);
       }
@@ -381,7 +392,7 @@
       }
       if (w.showToast) showToast('Timetable generated', 'success');
       await w.showDashboardSection?.('timetable');
-    } catch (e) { w.showToast ? showToast(e.message, 'error') : alert(e.message); } finally { if (w.hideLoading) hideLoading(); }
+    } catch (e) { if(/conflict/i.test(String(e?.message||''))){ renderConflictPanel(e); w.showToast ? showToast('Timetable conflict found. See the conflict panel above the timetable.', 'warning') : alert(e.message); } else { w.showToast ? showToast(e.message, 'error') : alert(e.message); } } finally { if (w.hideLoading) hideLoading(); }
   };
   w.v66PublishTimetable = async function () {
     if (!activeTimetableId) { alert('Generate or load a timetable first.'); return; }

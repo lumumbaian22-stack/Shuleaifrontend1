@@ -27,7 +27,7 @@ window.addEventListener('load', () => {
   });
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js?v=1503', { updateViaCache:'none' });
+      const registration = await navigator.serviceWorker.register('/service-worker.js?v=1504', { updateViaCache:'none' });
       try { registration.active?.postMessage({ type: 'CLEAR_OLD_CACHES' }); } catch (_) {}
       if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       try { await registration.update?.(); } catch (_) {}

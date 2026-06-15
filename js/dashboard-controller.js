@@ -137,7 +137,6 @@ function updateSidebar(role) {
                 { icon: 'bar-chart-2', label: 'Fairness Report', section: 'fairness-report' },
                 { icon: 'book-open', label: 'Custom Subjects', section: 'custom-subjects' },
                 { icon: 'trending-up', label: 'Analytics', section: 'analytics' },
-                { icon: 'sliders-horizontal', label: 'Report Card Settings', section: 'report-settings' },
                 { icon: 'clock', label: 'Timetable', section: 'timetable' },
                 { icon: 'bell', label: 'Alerts Center', section: 'alerts' },
                 { icon: 'message-square', label: 'Bulk SMS', section: 'sms' },

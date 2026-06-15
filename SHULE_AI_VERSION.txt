@@ -1,1 +1,3 @@
-v150.3-safe-final-dashboard-lock
+v150.4-final-logic-lock
+Base: v149.8 timetable DB lock + v150.3 safe dashboard line.
+Targeted fixes: class transfer, class-first report history, report settings location, timetable conflict details, class birthdays, parent/student timetable display, profile image fallbacks, draft preview calculations.

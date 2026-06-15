@@ -119,6 +119,16 @@
         if (src) setImageIntoElement(el, src, name);
         else if (!el.querySelector?.('img') && !el.textContent.trim()) el.textContent = initials(name);
       });
+
+      // Safety net: any raw/stale profile image rendered by older sections is converted to initials on error.
+      document.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src') || '';
+        if (!/\/uploads\/profiles|\/undefined|\/null/i.test(src)) return;
+        const name = img.getAttribute('alt') || img.dataset.profileName || img.closest('[data-user-name]')?.dataset.userName || currentName;
+        img.onerror = function(){ markBrokenProfileImage(this.src, this, name); };
+        const resolved = media(src);
+        if (resolved && resolved !== src) img.src = resolved;
+      });
     } finally {
       profileApplyInProgress = false;
     }
