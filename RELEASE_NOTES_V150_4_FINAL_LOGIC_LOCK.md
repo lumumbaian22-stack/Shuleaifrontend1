@@ -1,4 +1,4 @@
-# Shule AI v150.5 — Final Logic Lock
+# Shule AI v150.6 — Final Logic Lock
 
 Base: stable v149.8 timetable DB lock plus safe v150.3 dashboard line.
 
@@ -10,7 +10,7 @@ Targeted fixes applied only to agreed areas:
 - Class birthdays: teacher assigned-class resolution includes TeacherSubjectAssignment class-teacher records.
 - Report preview: draft preview calculates subject averages from current saved assessments when academic summary is blank; draft wording fixed.
 - Profile pictures: stale /uploads profile paths fall back safely.
-- Cache bumped to ?v=1505.
+- Cache bumped to ?v=1506.
 
 Not touched:
 - v149.8 timetable DB write/retry backend fix.

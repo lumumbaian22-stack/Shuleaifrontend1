@@ -16,7 +16,19 @@
     if(type.includes('payment')||type.includes('fee_balance'))debounce('finance',()=>Promise.allSettled([call('refreshParentPaymentsSilent'),call('loadParentPaymentHistory'),call('financeV31Refresh')]));
     if(type.includes('subscription'))debounce('subscription',()=>Promise.allSettled([call('refreshSubscriptionBilling'),call('loadParentSubscriptions')]));
     if(type.includes('attendance'))debounce('attendance',()=>Promise.allSettled([call('loadStudentAttendance'),call('loadLiveAttendance'),call('refreshMyStudents')]));
-    if(type.includes('marks')||type.includes('report_card'))debounce('academics',()=>Promise.allSettled([call('loadStudentGrades'),call('refreshSavedClassReports'),call('refreshTeacherGrades')]));
+    if(type.includes('marks')||type.includes('report_card'))debounce('academics',()=>{
+      const user=(typeof getCurrentUser==='function'?getCurrentUser():{})||{};
+      const role=String((typeof getCurrentRole==='function'?getCurrentRole():user.role)||'').toLowerCase().replace(/-/g, '_');
+      const jobs=[];
+      if(role==='student') jobs.push(call('loadStudentGrades'));
+      if(role==='teacher'||role==='class_teacher') {
+        const classId = window.__activeClassReportClassId || document.querySelector('#class-report-review-table')?.dataset?.classId || window.dashboardData?.teacher?.classId || window.dashboardData?.profile?.classId || user.classId || user.teacher?.classId;
+        if(classId) jobs.push(call('refreshSavedClassReports', classId, { silent:true }));
+        jobs.push(call('refreshTeacherGrades'));
+      }
+      if(role==='parent') jobs.push(call('refreshParentReportCardsSilent'), call('loadParentChildren'));
+      return Promise.allSettled(jobs.filter(Boolean));
+    });
     if(type==='analytics:invalidated'&&section()==='analytics')debounce('analytics',()=>Promise.allSettled([call('loadAnalytics'),call('refreshAnalytics'),call('renderAnalyticsDashboard')]),700);
     if(type.includes('homework'))debounce('homework',()=>Promise.allSettled([call('v66LoadStudentHomework'),call('loadStudentHomework'),call('refreshTeacherHomework')]));
     if(type.includes('timetable'))debounce('timetable',()=>Promise.allSettled([section()==='timetable'?call('showDashboardSection','timetable'):null,call('loadTimetable')]));

@@ -265,7 +265,7 @@
         if (isBreak) {
           lessonHtml = `<div class="tt-lesson tt-break ${status ? `tt-${status}` : ''}"><div class="tt-title">${esc(period.label || base.label)}</div><div class="tt-meta">${esc(period.startTime)} - ${esc(period.endTime)}</div></div>`;
         } else if (lessons.length) {
-          lessonHtml = lessons.map((l, li) => `<div class="tt-lesson ${status ? `tt-${status}` : ''}"><div class="tt-title">${esc(l.subject || 'Free')}</div><div class="tt-meta">${esc(l.className || l.grade || '')}</div><div class="tt-meta">${esc(l.teacherName || l.teacher || '')}</div><div class="tt-meta">${esc(l.room || '')}</div>${editable ? `<button class="tt-mini" onclick="v66EditSlot('${day}',${pi},${li})">Edit lesson</button>` : ''}</div>`).join('');
+          lessonHtml = lessons.map((l, li) => `<div class="tt-lesson ${status ? `tt-${status}` : ''}"><div class="tt-title">${esc(l.subjectName || l.subject || l.learningArea || l.name || 'Free')}</div><div class="tt-meta">${esc(l.className || l.grade || '')}</div><div class="tt-meta">${esc(l.teacherName || l.teacher || '')}</div><div class="tt-meta">${esc(l.room || '')}</div>${editable ? `<button class="tt-mini" onclick="v66EditSlot('${day}',${pi},${li})">Edit lesson</button>` : ''}</div>`).join('');
         } else {
           lessonHtml = `<div class="tt-lesson tt-free ${status ? `tt-${status}` : ''}"><div class="tt-title">Free</div><div class="tt-meta">${esc(period.startTime)} - ${esc(period.endTime)}</div>${editable ? `<button class="tt-mini" onclick="v66EditSlot('${day}',${pi},0)">Add lesson</button>` : ''}</div>`;
         }
@@ -280,7 +280,8 @@
     const cards = (day?.periods || []).map((p) => {
       const status = parentStatus ? currentStatus(p, { day: day.day }) : '';
       const lesson = p.break ? { subject: p.label, teacherName: '', room: '' } : (p.classes || [])[0] || { subject: 'Free' };
-      return `<div class="tt-today-card ${p.break ? 'tt-break' : ''} ${status ? `tt-${status}` : ''}"><div><strong>${esc(lesson.subject || p.label || 'Free')}</strong><span>${esc(p.startTime)} - ${esc(p.endTime)}</span></div><p>${esc(lesson.teacherName || '')}${lesson.room ? ` • ${esc(lesson.room)}` : ''}</p>${parentStatus ? `<small>${status === 'ended' ? 'Lesson ended' : status === 'current' ? 'Current lesson' : 'Upcoming'}</small>` : ''}</div>`;
+      const title = lesson.subjectName || lesson.subject || lesson.learningArea || lesson.name || p.label || 'Free';
+      return `<div class="tt-today-card ${p.break ? 'tt-break' : ''} ${status ? `tt-${status}` : ''}"><div><strong>${esc(title)}</strong><span>${esc(p.startTime)} - ${esc(p.endTime)}</span></div><p>${esc(lesson.teacherName || '')}${lesson.room ? ` • ${esc(lesson.room)}` : ''}</p>${parentStatus ? `<small>${status === 'ended' ? 'Lesson ended' : status === 'current' ? 'Current lesson' : 'Upcoming'}</small>` : ''}</div>`;
     }).join('');
     return `<section class="tt-today"><div class="tt-section-head"><h3>${esc(title)}</h3><span>${esc(DAY_LABELS[today] || today)}</span></div><div class="tt-today-grid">${cards || '<p>No lessons for today.</p>'}</div></section>`;
   }

@@ -1696,22 +1696,78 @@ window.sendAdminSms = sendAdminSms;
 
 async function renderAdminReportSettings() {
     const fallback = [
-        { key:'cat1', label:'CAT 1', showOnReport:true, countInFinal:true, weight:10, displayOrder:1, assessmentType:'CAT 1' },
-        { key:'cat2', label:'CAT 2', showOnReport:true, countInFinal:true, weight:10, displayOrder:2, assessmentType:'CAT 2' },
-        { key:'midterm', label:'Midterm', showOnReport:true, countInFinal:true, weight:20, displayOrder:3, assessmentType:'Midterm' },
-        { key:'endterm', label:'End Term', showOnReport:true, countInFinal:true, weight:40, displayOrder:4, assessmentType:'End Term' },
-        { key:'sba', label:'SBA / Project', showOnReport:true, countInFinal:true, weight:20, displayOrder:5, assessmentType:'SBA' },
-        { key:'practical', label:'Practical', showOnReport:false, countInFinal:false, weight:0, displayOrder:6, assessmentType:'Practical' }
+        { key:'opener', label:'Opener Exam', showOnReport:true, countInFinal:false, weight:0, displayOrder:1, assessmentType:'Opener', type:'Opener', classLevel:'all', curriculum:'any', maxScore:100, isActive:true },
+        { key:'cat1', label:'CAT 1', showOnReport:true, countInFinal:true, weight:10, displayOrder:2, assessmentType:'CAT 1', type:'CAT', classLevel:'all', curriculum:'any', maxScore:100, isActive:true },
+        { key:'cat2', label:'CAT 2', showOnReport:true, countInFinal:true, weight:10, displayOrder:3, assessmentType:'CAT 2', type:'CAT', classLevel:'all', curriculum:'any', maxScore:100, isActive:true },
+        { key:'midterm', label:'Midterm', showOnReport:true, countInFinal:true, weight:20, displayOrder:4, assessmentType:'Midterm', type:'Midterm', classLevel:'all', curriculum:'any', maxScore:100, isActive:true },
+        { key:'endterm', label:'End Term', showOnReport:true, countInFinal:true, weight:50, displayOrder:5, assessmentType:'End Term', type:'EndTerm', classLevel:'all', curriculum:'any', maxScore:100, isActive:true },
+        { key:'sba', label:'SBA / Project', showOnReport:true, countInFinal:true, weight:10, displayOrder:6, assessmentType:'SBA', type:'SBA', classLevel:'all', curriculum:'cbc', maxScore:100, isActive:true },
+        { key:'practical', label:'Practical', showOnReport:false, countInFinal:false, weight:0, displayOrder:7, assessmentType:'Practical', type:'Practical', classLevel:'all', curriculum:'any', maxScore:100, isActive:true }
     ];
     const res = await (api.admin.getAssessmentSettings ? api.admin.getAssessmentSettings() : Promise.resolve({data:{assessmentSettings:fallback}})).catch(() => ({data:{assessmentSettings:fallback}}));
-    const rows = res.data?.assessmentSettings?.length ? res.data.assessmentSettings : fallback;
-    return `<div class="space-y-6 animate-fade-in"><div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">Final report-card control</p><h2 class="text-2xl font-bold">Report Card Settings</h2><p class="text-sm text-muted-foreground mt-1"><b>Assessment Columns</b> is where Admin chooses exactly which tests appear in the final End Term report card, their order, weight and whether they count in the final mean/grade.</p></div><div class="flex gap-2"><button onclick="showDashboardSection('settings')" class="px-4 py-2 rounded-lg border hover:bg-accent">Back to School Settings</button></div></div><div class="rounded-xl border bg-card p-4"><h3 class="font-semibold">Assessment Columns</h3><p class="text-sm text-muted-foreground mt-1">Example: CAT 1 + CAT 2 + Midterm + End Term + SBA/Project. Only checked and counted assessments affect the final calculation. Published reports remain immutable.</p></div><div class="rounded-xl border bg-card overflow-hidden"><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">Assessment / Test</th><th class="p-3">Show on Report</th><th class="p-3">Count in Final</th><th class="p-3">Weight %</th><th class="p-3">Display Order</th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="border-t" data-assessment-row data-key="${escapeHtml(r.key)}" data-type="${escapeHtml(r.assessmentType || r.label)}"><td class="p-3 font-medium">${escapeHtml(r.label)}</td><td class="p-3 text-center"><input type="checkbox" class="assess-show" ${r.showOnReport !== false ? 'checked' : ''}></td><td class="p-3 text-center"><input type="checkbox" class="assess-count" ${r.countInFinal !== false ? 'checked' : ''}></td><td class="p-3"><input type="number" min="0" max="100" class="assess-weight w-24 rounded border bg-background px-2 py-1" value="${Number(r.weight||0)}"></td><td class="p-3"><input type="number" min="1" class="assess-order w-20 rounded border bg-background px-2 py-1" value="${Number(r.displayOrder||i+1)}"></td></tr>`).join('')}</tbody></table></div><div class="rounded-xl border bg-amber-50 dark:bg-amber-950/20 p-4 text-sm"><b>Locked rule:</b> report cards list all selected tests, calculate only selected counted tests, exclude subjects not taken, and show blank/Not assessed for missing marks instead of inventing scores.</div><div class="flex justify-end"><button onclick="saveAdminReportSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg">Save Report Card Settings</button></div></div>`;
+    const rows = (res.data?.assessmentSettings?.length ? res.data.assessmentSettings : fallback).map((r,i)=>({
+      key:r.key || r.assessmentKey || `custom_${i+1}`, label:r.label || r.displayName || r.assessmentName || r.assessmentType || `Assessment ${i+1}`,
+      assessmentType:r.assessmentType || r.type || r.label || 'Custom', type:r.type || r.assessmentType || 'Custom', curriculum:r.curriculum || 'any', classLevel:r.classLevel || r.level || 'all',
+      showOnReport:r.showOnReport !== false, countInFinal:r.countInFinal !== false, weight:Number(r.weight ?? r.weightPercent ?? 0), displayOrder:Number(r.displayOrder || i+1), maxScore:Number(r.maxScore || 100), isActive:r.isActive !== false
+    })).sort((a,b)=>a.displayOrder-b.displayOrder);
+    const typeOptions=['Opener','CAT','Midterm','EndTerm','SBA','Project','Practical','Custom'];
+    const rowHtml = (r,i)=>`<tr class="border-t" data-assessment-row data-key="${escapeHtml(r.key)}">
+      <td class="p-2"><input class="assess-label w-44 rounded border bg-background px-2 py-1" value="${escapeHtml(r.label)}"></td>
+      <td class="p-2"><select class="assess-type rounded border bg-background px-2 py-1">${typeOptions.map(t=>`<option value="${t}" ${String(r.type).toLowerCase()===t.toLowerCase()?'selected':''}>${t}</option>`).join('')}</select></td>
+      <td class="p-2 text-center"><input type="checkbox" class="assess-show" ${r.showOnReport?'checked':''}></td>
+      <td class="p-2 text-center"><input type="checkbox" class="assess-count" ${r.countInFinal?'checked':''}></td>
+      <td class="p-2"><input type="number" min="0" max="100" class="assess-weight w-20 rounded border bg-background px-2 py-1" value="${Number(r.weight||0)}"></td>
+      <td class="p-2"><input type="number" min="1" class="assess-order w-16 rounded border bg-background px-2 py-1" value="${Number(r.displayOrder||i+1)}"></td>
+      <td class="p-2"><input class="assess-level w-32 rounded border bg-background px-2 py-1" value="${escapeHtml(r.classLevel)}" placeholder="all / Grade 6"></td>
+      <td class="p-2"><input class="assess-curriculum w-24 rounded border bg-background px-2 py-1" value="${escapeHtml(r.curriculum)}"></td>
+      <td class="p-2"><input type="number" class="assess-max w-20 rounded border bg-background px-2 py-1" value="${Number(r.maxScore||100)}"></td>
+      <td class="p-2 text-center"><input type="checkbox" class="assess-active" ${r.isActive?'checked':''}></td>
+      <td class="p-2"><button type="button" class="px-2 py-1 rounded border text-xs" onclick="this.closest('tr').remove()">Remove</button></td>
+    </tr>`;
+    return `<div class="space-y-6 animate-fade-in"><div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">School Settings → Academic & Report Card Settings</p><h2 class="text-2xl font-bold">Report Card Settings</h2><p class="text-sm text-muted-foreground mt-1">Add openers/custom tests, choose which tests show on reports, which count, their weights, and class/curriculum applicability. Published reports keep an immutable copy of the settings used.</p></div><button onclick="showDashboardSection('settings')" class="px-4 py-2 rounded-lg border hover:bg-accent">Back to School Settings</button></div>
+      <div class="rounded-xl border bg-card p-4"><h3 class="font-semibold">Dynamic Assessment Columns</h3><p class="text-sm text-muted-foreground mt-1">Use classLevel for school-wide or specific classes/levels. Counted weights should total 100%; if not, the engine normalizes with a warning.</p><button type="button" onclick="addAssessmentSettingRow()" class="mt-3 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Add Custom Test / Opener</button></div>
+      <div class="rounded-xl border bg-card overflow-auto"><table class="w-full text-sm min-w-[1100px]"><thead class="bg-muted/40"><tr><th class="p-2 text-left">Assessment / Test</th><th class="p-2">Type</th><th class="p-2">Show</th><th class="p-2">Count</th><th class="p-2">Weight %</th><th class="p-2">Order</th><th class="p-2">Class/Level</th><th class="p-2">Curriculum</th><th class="p-2">Max</th><th class="p-2">Active</th><th class="p-2"></th></tr></thead><tbody id="assessment-settings-body">${rows.map(rowHtml).join('')}</tbody></table></div>
+      <div class="rounded-xl border bg-amber-50 dark:bg-amber-950/20 p-4 text-sm"><b>Locked rule:</b> report cards list all selected tests, calculate only selected counted tests, exclude subjects not taken, and show blank/Not assessed for missing marks instead of inventing scores.</div><div class="flex justify-end"><button onclick="saveAdminReportSettings()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg">Save Report Card Settings</button></div></div>`;
 }
 async function saveAdminReportSettings() {
-    const assessmentSettings = [...document.querySelectorAll('[data-assessment-row]')].map((row, index) => ({ key: row.dataset.key, label: row.querySelector('td')?.textContent?.trim() || row.dataset.key, assessmentType: row.dataset.type, showOnReport: !!row.querySelector('.assess-show')?.checked, countInFinal: !!row.querySelector('.assess-count')?.checked, weight: Number(row.querySelector('.assess-weight')?.value || 0), displayOrder: Number(row.querySelector('.assess-order')?.value || index + 1) }));
+    const assessmentSettings = [...document.querySelectorAll('[data-assessment-row]')].map((row, index) => {
+      const label = row.querySelector('.assess-label')?.value?.trim() || `Assessment ${index+1}`;
+      const type = row.querySelector('.assess-type')?.value || 'Custom';
+      const keyBase = row.dataset.key && !/^custom_new/.test(row.dataset.key) ? row.dataset.key : `${type}_${label}`;
+      return {
+        key: String(keyBase).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'') || `custom_${index+1}`,
+        name: label,
+        label,
+        displayName: label,
+        assessmentType: type,
+        type,
+        showOnReport: !!row.querySelector('.assess-show')?.checked,
+        countInFinal: !!row.querySelector('.assess-count')?.checked,
+        weight: Number(row.querySelector('.assess-weight')?.value || 0),
+        weightPercent: Number(row.querySelector('.assess-weight')?.value || 0),
+        displayOrder: Number(row.querySelector('.assess-order')?.value || index + 1),
+        classLevel: row.querySelector('.assess-level')?.value?.trim() || 'all',
+        curriculum: row.querySelector('.assess-curriculum')?.value?.trim() || 'any',
+        maxScore: Number(row.querySelector('.assess-max')?.value || 100),
+        isActive: !!row.querySelector('.assess-active')?.checked
+      };
+    });
     await api.admin.saveAssessmentSettings(assessmentSettings);
     showToast('Assessment/report settings saved', 'success');
 }
+function addAssessmentSettingRow() {
+  const body = document.getElementById('assessment-settings-body'); if (!body) return;
+  const idx = body.querySelectorAll('[data-assessment-row]').length + 1;
+  body.insertAdjacentHTML('beforeend', `<tr class="border-t" data-assessment-row data-key="custom_new_${idx}">
+    <td class="p-2"><input class="assess-label w-44 rounded border bg-background px-2 py-1" value="Custom Test ${idx}"></td>
+    <td class="p-2"><select class="assess-type rounded border bg-background px-2 py-1"><option>Opener</option><option>CAT</option><option>Midterm</option><option>EndTerm</option><option>SBA</option><option>Project</option><option>Practical</option><option selected>Custom</option></select></td>
+    <td class="p-2 text-center"><input type="checkbox" class="assess-show" checked></td><td class="p-2 text-center"><input type="checkbox" class="assess-count"></td>
+    <td class="p-2"><input type="number" min="0" max="100" class="assess-weight w-20 rounded border bg-background px-2 py-1" value="0"></td>
+    <td class="p-2"><input type="number" min="1" class="assess-order w-16 rounded border bg-background px-2 py-1" value="${idx}"></td>
+    <td class="p-2"><input class="assess-level w-32 rounded border bg-background px-2 py-1" value="all"></td><td class="p-2"><input class="assess-curriculum w-24 rounded border bg-background px-2 py-1" value="any"></td><td class="p-2"><input type="number" class="assess-max w-20 rounded border bg-background px-2 py-1" value="100"></td><td class="p-2 text-center"><input type="checkbox" class="assess-active" checked></td><td class="p-2"><button type="button" class="px-2 py-1 rounded border text-xs" onclick="this.closest('tr').remove()">Remove</button></td>
+  </tr>`);
+}
+window.addAssessmentSettingRow = addAssessmentSettingRow;
 function v132AnnouncementOption(title, platformMessage, smsMessage, tone) { return { title, platformMessage, smsMessage, tone }; }
 function normalizeAnnouncementOptionsFromResponse(res, fallback) {
     const raw = res?.data?.suggestion || res?.suggestion || res?.data || res || {};

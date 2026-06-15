@@ -469,7 +469,7 @@ const teacherAPI = {
     getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
     getGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassStudentsForSubject: (params = {}) => apiRequest('/api/teacher/class-students' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
-    getClassReportSnapshots: (params = {}) => apiRequest('/api/teacher/reports/snapshots' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    getClassReportSnapshots: (params = {}) => { const q = cleanQueryParams(params); return apiRequest('/api/teacher/reports/snapshots' + (q ? `?${q}` : '')); },
     getStudentReportPreview: (studentId, params = {}) => apiRequest(`/api/teacher/students/${studentId}/report-card-preview` + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getSubjectRequests: () => apiRequest('/api/teacher/subject-selection-requests'),
     reviewSubjectRequest: (selectionId, data) => apiRequest(`/api/teacher/subject-selection-requests/${selectionId}/review`, { method:'POST', body: JSON.stringify(data || {}) })
@@ -526,7 +526,9 @@ const parentAPI = {
     getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`),
     getChildSubjectSelection: (childId) => apiRequest(`/api/parent/child/${childId}/subject-selection`),
     saveChildSubjectSelection: (childId, data) => apiRequest(`/api/parent/child/${childId}/subject-selection`, { method:'PUT', body:JSON.stringify(data || {}) }),
-    getChildEnrollmentHistory: (childId) => apiRequest(`/api/lifecycle/children/${childId}/enrollments`)
+    getChildEnrollmentHistory: (childId) => apiRequest(`/api/lifecycle/children/${childId}/enrollments`),
+    getChildTimetable: (studentId) => apiRequest(`/api/timetable/parent/child/${encodeURIComponent(studentId)}`),
+    getLatestReportPdf: (studentId) => apiRequest(`/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}`)
 };
 
 // ============ STUDENT ENDPOINTS ============
@@ -567,7 +569,9 @@ const studentAPI = {
     getAnalytics: () => apiRequest(`/api/student/analytics?_=${Date.now()}`),
     getSubjectSelection: () => apiRequest('/api/student/subject-selection'),
     saveSubjectSelection: (data) => apiRequest('/api/student/subject-selection', { method:'PUT', body:JSON.stringify(data || {}) }),
-    getEnrollmentHistory: () => apiRequest('/api/lifecycle/me/enrollments')
+    getEnrollmentHistory: () => apiRequest('/api/lifecycle/me/enrollments'),
+    getTimetable: () => apiRequest('/api/timetable/student/me'),
+    getReportHistory: () => apiRequest('/api/report-cards/history')
 };
 
 // ============ DUTY ENDPOINTS ============
@@ -1002,6 +1006,7 @@ const chatV9API = {
     updateDepartment: (departmentId, data) => apiRequest(`/api/chat-v9/departments/${departmentId}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDepartment: (departmentId) => apiRequest(`/api/chat-v9/departments/${departmentId}`, { method: 'DELETE' }),
     getTeachers: () => apiRequest('/api/chat-v9/teachers'),
+    getTeacherClassParents: () => apiRequest('/api/chat-v9/teacher/class-parents'),
 
     getTeacherGroups: () => apiRequest('/api/chat-v9/teacher/groups'),
     createTeacherGroup: (data) => apiRequest('/api/chat-v9/teacher/groups', { method: 'POST', body: JSON.stringify(data) }),

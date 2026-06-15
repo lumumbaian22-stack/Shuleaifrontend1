@@ -281,6 +281,8 @@ async function openClassReportTab(tab, classId) {
 }
 
 async function toggleClassReportReview(classId, options = {}) {
+  classId = classId || window.__activeClassReportClassId || window.dashboardData?.teacher?.classId || window.dashboardData?.profile?.classId || getCurrentUser?.()?.teacher?.classId || getCurrentUser?.()?.classId || '';
+  if (classId && String(classId) !== 'undefined') window.__activeClassReportClassId = classId;
   const panel = document.getElementById('class-report-current-panel') || document.getElementById('class-report-review-panel');
   if (!panel) return;
   if (!options.forceOpen && panel.id === 'class-report-review-panel' && !panel.classList.contains('hidden') && panel.innerHTML.trim()) { panel.classList.add('hidden'); return; }
@@ -2486,9 +2488,12 @@ window.v12RenderTeacherDuty = window.v12RenderTeacherDuty || window.renderTeache
 
 
 async function refreshSavedClassReports(classId, options = {}) {
+  classId = classId || window.__activeClassReportClassId || document.querySelector('#class-report-review-table')?.dataset?.classId || window.dashboardData?.teacher?.classId || window.dashboardData?.profile?.classId || getCurrentUser?.()?.teacher?.classId || getCurrentUser?.()?.classId || '';
   const panel = document.getElementById(options.targetId || 'class-report-archive-panel') || document.getElementById('saved-class-reports-panel');
   if (!panel) return;
   const term = document.getElementById('class-report-term')?.value || '';
+  if (!classId || String(classId) === 'undefined') { if (panel) panel.innerHTML = '<div class="rounded-xl border bg-card p-5 text-muted-foreground">No class assigned yet. Saved class reports will appear after a class is resolved.</div>'; return; }
+  window.__activeClassReportClassId = classId;
   const year = document.getElementById('class-report-year')?.value || '';
   if (!options.silent) panel.innerHTML = 'Loading published archive...';
   try {

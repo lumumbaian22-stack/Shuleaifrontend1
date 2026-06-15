@@ -146,9 +146,35 @@ async function v9RefreshTeacherChat() {
   const root = document.getElementById('v9-teacher-chat-root');
   if (root) root.innerHTML = '<div class="tm6-empty">Loading teacher workspace...</div>';
   try {
-    const parentPromise = v9CanShowParentsTab() && window.api?.teacher?.getParentConversations
-      ? window.api.teacher.getParentConversations().catch(() => ({ data: [] }))
-      : Promise.resolve({ data: [] });
+    const parentPromise = (async () => {
+      if (!v9CanShowParentsTab()) return { data: [] };
+      let primary = { data: [] };
+      if (window.api?.teacher?.getParentConversations) {
+        primary = await window.api.teacher.getParentConversations().catch(() => ({ data: [] }));
+      }
+      const existing = Array.isArray(primary.data) ? primary.data : [];
+      if (existing.length) return { data: existing };
+      if (!chatV9API.getTeacherClassParents) return { data: [] };
+      const grouped = await chatV9API.getTeacherClassParents().catch(() => ({ data: [] }));
+      const flat = [];
+      (grouped.data || []).forEach(row => {
+        (row.parents || []).forEach(parent => {
+          flat.push({
+            ...parent,
+            userId: parent.userId,
+            parentId: parent.parentId,
+            name: parent.name,
+            studentId: row.studentId,
+            studentName: row.studentName,
+            elimuId: row.elimuId,
+            className: row.className,
+            conversationKey: `parent:${parent.userId}:student:${row.studentId}`,
+            profilePhoto: parent.profilePhoto
+          });
+        });
+      });
+      return { data: flat };
+    })();
     const [teachersRes, groupsRes, threadsRes, parentsRes] = await Promise.all([
       chatV9API.getTeachers(),
       chatV9API.getTeacherGroups(),
@@ -254,7 +280,7 @@ function v9RenderDirectList() {
 }
 function v9RenderParentList() {
   if (!v9CanShowParentsTab()) return '<div class="tm6-empty small">Parent chats are visible only to class teachers.</div>';
-  if (!v9ChatState.parents.length) return '<div class="tm6-empty small">No linked parents found for your class yet.</div>';
+  if (!v9ChatState.parents.length) return '<div class="tm6-empty small">No linked parents found for students in your assigned class yet.</div>';
   return v9ChatState.parents.map(p => {
     const active = Number(v9ChatState.selectedParent?.userId) === Number(p.userId) && String(v9ChatState.selectedParent?.conversationKey || '') === String(p.conversationKey || '');
     return `<button class="tm6-list-item ${active ? 'active' : ''}" onclick="v9SelectParent(${Number(p.userId)}, '${v9Safe(p.conversationKey || '')}')">
