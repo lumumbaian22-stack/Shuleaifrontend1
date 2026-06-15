@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-1504-final-logic-lock';
+const CACHE_NAME = 'shule-ai-1505-final-logic-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

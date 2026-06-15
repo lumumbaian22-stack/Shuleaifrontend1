@@ -45,10 +45,24 @@
   function classNameOf(c) { return c?.className || c?.name || c?.grade || c?.label || 'Class'; }
   function teacherIdOf(t) { return t?.teacherId ?? t?.id ?? t?.TeacherId ?? null; }
   function teacherNameOf(t) { return t?.User?.name || t?.user?.name || t?.name || t?.fullName || t?.email || 'Teacher'; }
+  function addMinutes(time, minutes = 40) {
+    const raw = String(time || '08:00').slice(0,5);
+    const [hh, mm] = raw.split(':').map(Number);
+    const total = (Number.isFinite(hh) ? hh : 8) * 60 + (Number.isFinite(mm) ? mm : 0) + Number(minutes || 40);
+    const clamped = Math.max(0, Math.min(23 * 60 + 59, total));
+    return `${String(Math.floor(clamped / 60)).padStart(2,'0')}:${String(clamped % 60).padStart(2,'0')}`;
+  }
+  function timeOk(start, end) {
+    const a = String(start || '').slice(0,5), b = String(end || '').slice(0,5);
+    return /^\d{2}:\d{2}$/.test(a) && /^\d{2}:\d{2}$/.test(b) && a < b;
+  }
   function cleanPeriod(p = {}, idx = 0) {
     const label = p.label || `Period ${idx + 1}`;
     const type = p.type || (p.break || /break|lunch|assembly|games|club/i.test(label) ? 'break' : 'lesson');
-    return { id: p.id || `period-${idx + 1}`, label, startTime: String(p.startTime || p.start || '08:00').slice(0, 5), endTime: String(p.endTime || p.end || '08:40').slice(0, 5), type, break: type === 'break' || p.break === true, classes: Array.isArray(p.classes) ? p.classes : [] };
+    const startTime = String(p.startTime || p.start || '08:00').slice(0, 5);
+    const rawEnd = String(p.endTime || p.end || '').slice(0, 5);
+    const endTime = timeOk(startTime, rawEnd) ? rawEnd : addMinutes(startTime, 40);
+    return { id: p.id || `period-${idx + 1}`, label, startTime, endTime, type, break: type === 'break' || p.break === true, classes: Array.isArray(p.classes) ? p.classes : [] };
   }
   function getPeriodsFromSlots(slots) {
     const first = Array.isArray(slots) && slots[0]?.periods;
@@ -188,13 +202,31 @@
     if (activeTimetable.isPublished && !activeHasUnpublishedChanges) return '<span class="v12-pill green">Live published</span>';
     return '<span class="v12-pill amber">Draft changes pending</span>';
   }
+  function repairInvalidPeriodTimes(showNotice = true) {
+    let changed = false;
+    activePeriods = (activePeriods || []).map((p, idx) => {
+      const next = { ...cleanPeriod(p, idx) };
+      if (!timeOk(p.startTime, p.endTime)) changed = true;
+      return next;
+    });
+    if (activeTimetable?.slots) activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods);
+    if (changed) {
+      timetableDirty = true;
+      activeHasUnpublishedChanges = true;
+      refreshTimetableView();
+      if (showNotice && w.showToast) showToast('Invalid period times were fixed automatically. Review the lesson times, then Save Draft again.', 'info');
+    }
+    return changed;
+  }
   function renderConflictPanel(error){
     const conflicts = Array.isArray(error?.data?.data?.conflicts) ? error.data.data.conflicts : (Array.isArray(error?.data?.conflicts) ? error.data.conflicts : []);
     const message = String(error?.message || 'Resolve timetable conflicts before saving.');
-    const html = `<div id="timetable-conflict-panel" class="my-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><div class="flex items-start gap-3"><div class="text-xl">⚠️</div><div><h3 class="font-semibold">Timetable conflicts must be fixed before publishing</h3><p>${esc(message)}</p>${conflicts.length?`<ul class="mt-2 list-disc pl-5 space-y-1">${conflicts.slice(0,8).map(c=>`<li><b>${esc((c.day||'').toString().toUpperCase())}</b> ${esc(c.start||'')} ${esc(c.end?'- '+c.end:'')} — ${esc(c.message||c.type||'Conflict')}</li>`).join('')}</ul>`:'<p class="mt-2">Open the conflicting day/period and adjust class, teacher or room.</p>'}<p class="mt-2 text-xs">Draft remains on screen. Fix highlighted conflict, then Save Draft again.</p></div></div></div>`;
+    const canAutoFix = conflicts.some(c => String(c.type || '').includes('invalid_time') || /end time must be after start time/i.test(String(c.message || '')));
+    const html = `<div id="timetable-conflict-panel" class="my-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><div class="flex items-start gap-3"><div class="text-xl">⚠️</div><div class="flex-1"><h3 class="font-semibold">Timetable conflicts must be fixed before publishing</h3><p>${esc(message)}</p>${conflicts.length?`<ul class="mt-2 list-disc pl-5 space-y-1">${conflicts.slice(0,12).map(c=>`<li><b>${esc((c.day||'').toString().toUpperCase())}</b> ${esc(c.start||'')} ${esc(c.end?'- '+c.end:'')} — ${esc(c.message||c.type||'Conflict')}</li>`).join('')}</ul>`:'<p class="mt-2">Open the conflicting day/period and adjust class, teacher or room.</p>'}${canAutoFix?`<button class="mt-3 rounded-lg bg-amber-600 px-3 py-2 text-white" onclick="v66AutoFixPeriodTimes()">Auto-fix invalid period times</button>`:''}<p class="mt-2 text-xs">Draft remains on screen. Fix highlighted conflict, then Save Draft again.</p></div></div></div>`;
     const host=document.querySelector('.timetable-v66-page')||document.getElementById('dashboard-content');
     if(host){document.getElementById('timetable-conflict-panel')?.remove();host.insertAdjacentHTML('afterbegin',html);}
   }
+  w.v66AutoFixPeriodTimes = function(){ repairInvalidPeriodTimes(true); document.getElementById('timetable-conflict-panel')?.remove(); };
 
   function renderVisibilityNotice() {
     if (!activeTimetable) return '<div data-tt-notice></div>';
@@ -282,7 +314,20 @@
     } catch (e) { if (w.hideLoading) hideLoading(); return `<div class="timetable-v33-card v12-card"><h2>Timetable failed to load</h2><p class="text-red-500">${esc(e.message)}</p></div>`; }
   };
   w.v66SelectClass = function (id) { selectedClassId = id || 'all'; w.showDashboardSection?.('timetable'); };
-  w.v66SetPeriod = function (idx, key, value) { if (!activePeriods[idx]) return; activePeriods[idx][key] = value; activePeriods[idx].break = activePeriods[idx].type === 'break'; activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods); markTimetableDirty('period'); const root = document.querySelector('.tt-period-panel'); if (root) root.outerHTML = renderPeriodEditor(); const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(displaySlots(selectedClassId), { editable: true, classId: selectedClassId }); };
+  w.v66SetPeriod = function (idx, key, value) {
+    if (!activePeriods[idx]) return;
+    activePeriods[idx][key] = value;
+    if (key === 'type') activePeriods[idx].break = activePeriods[idx].type === 'break';
+    if ((key === 'startTime' || key === 'endTime') && !timeOk(activePeriods[idx].startTime, activePeriods[idx].endTime)) {
+      activePeriods[idx].endTime = addMinutes(activePeriods[idx].startTime, 40);
+      if (w.showToast) showToast('End time must be after start time. I adjusted it by 40 minutes.', 'info');
+    }
+    activePeriods[idx] = cleanPeriod(activePeriods[idx], idx);
+    activeTimetable.slots = normalizeSlots(activeTimetable.slots, activePeriods);
+    markTimetableDirty('period');
+    const root = document.querySelector('.tt-period-panel'); if (root) root.outerHTML = renderPeriodEditor();
+    const grid = document.querySelector('.timetable-v66-fit'); if (grid) grid.outerHTML = renderGrid(displaySlots(selectedClassId), { editable: true, classId: selectedClassId });
+  };
   
   function refreshTimetableView() {
     activeTimetable.slots = normalizeSlots(activeTimetable.slots || [], activePeriods);
@@ -296,7 +341,7 @@
   w.v66AddPeriod = function () {
     const last = activePeriods[activePeriods.length - 1] || { endTime: '16:00' };
     const startTime = last.endTime || '16:00';
-    activePeriods.push({ label: 'Extra Lesson', startTime, endTime: startTime, type: 'lesson', break: false, classes: [] });
+    activePeriods.push({ label: 'Extra Lesson', startTime, endTime: addMinutes(startTime, 40), type: 'lesson', break: false, classes: [] });
     markTimetableDirty('period-added');
     activeTimetable.slots = (activeTimetable.slots && activeTimetable.slots.length ? activeTimetable.slots : shell(activePeriods.slice(0, -1))).map(day => ({ ...day, periods: [...(day.periods || []), { ...cleanPeriod(activePeriods[activePeriods.length - 1], activePeriods.length - 1), classes: [] }] }));
     refreshTimetableView();
@@ -346,6 +391,7 @@
     try {
       if (!opts.silent && w.showLoading) showLoading();
       const scope = document.getElementById('ttScope')?.value || activeTimetable.scope || 'term'; const term = document.getElementById('ttTerm')?.value || activeTimetable.term || 'Term 1'; const year = Number(document.getElementById('ttYear')?.value || activeTimetable.year || new Date().getFullYear());
+      repairInvalidPeriodTimes(false);
       activeTimetable.slots = compactSlotsForApi(activeTimetable.slots || []);
       activeTimetable.classes = compactClassSummariesForApi(activeTimetable.slots);
       const saved = await req(`/api/timetable/${activeTimetableId}`, { method: 'PUT', body: JSON.stringify({ slots: activeTimetable.slots, classes: activeTimetable.classes, warnings: activeTimetable.warnings || [], scope, term, year }) });

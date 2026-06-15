@@ -247,7 +247,7 @@
 })();
 
 
-// v150.4: Class-first Report Card History. Keeps official immutable PDF helpers untouched.
+// v150.5: Class-first Report Card History. Keeps official immutable PDF helpers untouched.
 (function(){
   const esc = (v)=>typeof escapeHtml==='function'?escapeHtml(v):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const unwrap = (r)=>r?.data?.data ?? r?.data ?? r ?? null;

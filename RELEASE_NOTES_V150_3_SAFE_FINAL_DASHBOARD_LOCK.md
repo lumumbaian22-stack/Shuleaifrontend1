@@ -18,7 +18,7 @@ Base: stable v149.8 timetable DB lock, carried through v150.2 safe line.
 - Student dashboard leaderboard, badges, and home tasks now show honest empty states instead of staying stuck on Loading.
 - Realtime class/conversation authorization now recognizes class teacher assignments stored in TeacherSubjectAssignment.isClassTeacher.
 - Stale profile images continue to fall back safely.
-- Cache bumped to ?v=1504.
+- Cache bumped to ?v=1505.
 
 ## Not changed
 

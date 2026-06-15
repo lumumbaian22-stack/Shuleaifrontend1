@@ -275,6 +275,8 @@ const adminAPI = {
     getClassTransferOptions: () => apiRequest('/api/lifecycle/transfer-options'),
     previewClassTransfer: (data) => apiRequest('/api/lifecycle/transfers/preview', { method:'POST', body:JSON.stringify(data) }),
     createClassTransfer: (data) => apiRequest('/api/lifecycle/transfers', { method:'POST', body:JSON.stringify(data) }),
+    previewSchoolTransferOut: (data) => apiRequest('/api/lifecycle/school-transfer-out/preview', { method:'POST', body:JSON.stringify(data) }),
+    createSchoolTransferOut: (data) => apiRequest('/api/lifecycle/school-transfer-outs', { method:'POST', body:JSON.stringify(data) }),
     listClassTransfers: (params={}) => apiRequest(`/api/lifecycle/transfers${Object.keys(params).length?`?${cleanQueryParams(params)}`:''}`),
     getClassTransfer: (id) => apiRequest(`/api/lifecycle/transfers/${id}`),
     approveClassTransfer: (id,data={}) => apiRequest(`/api/lifecycle/transfers/${id}/approve`, { method:'POST', body:JSON.stringify(data) }),
