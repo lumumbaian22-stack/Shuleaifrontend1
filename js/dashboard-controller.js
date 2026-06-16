@@ -154,6 +154,7 @@ function updateSidebar(role) {
         finance_officer: {
             main: [
                 { icon: 'wallet', label: 'Finance Workspace', section: 'finance-fees' },
+                { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'bell', label: 'Alerts', section: 'alerts' }
             ],
             settings: [
@@ -855,6 +856,9 @@ async function renderDashboardSection(role, section) {
             }
             return await renderAdminSection(section);
         case 'finance_officer':
+            if (section === 'analytics') {
+                return await renderAnalyticsSection('finance_officer');
+            }
             if (section === 'dashboard' || section === 'finance-fees' || section === 'payments') {
                 return typeof window.v31RenderFinanceFees === 'function'
                     ? await window.v31RenderFinanceFees()
