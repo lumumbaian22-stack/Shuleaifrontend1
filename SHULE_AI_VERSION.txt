@@ -1,1 +1,1 @@
-SHULE_AI_VERSION=v150.7-final-linkage-lock
+v150.9-class-membership-enrollment-backfill-lock
