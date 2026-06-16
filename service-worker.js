@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-1506-final-access-assessment-lock';
+const CACHE_NAME = 'shule-ai-1508-final-access-assessment-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

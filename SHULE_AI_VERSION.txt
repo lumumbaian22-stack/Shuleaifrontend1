@@ -1,3 +1,1 @@
-v150.5-final-logic-lock
-Base: v149.8 timetable DB lock + v150.3 safe dashboard line.
-Targeted fixes: class transfer, class-first report history, report settings location, timetable conflict details, class birthdays, parent/student timetable display, profile image fallbacks, draft preview calculations.
+SHULE_AI_VERSION=v150.7-final-linkage-lock

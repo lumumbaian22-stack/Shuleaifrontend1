@@ -15,11 +15,17 @@ async function loadStudentDashboard() {
 // Load student grades
 async function loadStudentGrades() {
     try {
+        const role = (() => { try { return (JSON.parse(localStorage.getItem('user') || '{}').role || localStorage.getItem('role') || '').toLowerCase().replace(/-/g, '_'); } catch (_) { return (localStorage.getItem('role') || '').toLowerCase().replace(/-/g, '_'); } })();
+        if (role && role !== 'student') return [];
         const response = await api.student.getGrades();
         return response.data || [];
     } catch (error) {
+        if (/forbidden|not authorized|invalid token/i.test(error.message || '')) {
+            console.warn('Student grades are not available for this session:', error.message);
+            return [];
+        }
         console.error('Failed to load grades:', error);
-        showToast('Failed to load grades', 'error');
+        if (typeof showToast === 'function') showToast('Failed to load grades', 'error');
         return [];
     }
 }

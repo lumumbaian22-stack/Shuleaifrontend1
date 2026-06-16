@@ -20,10 +20,10 @@
       const user=(typeof getCurrentUser==='function'?getCurrentUser():{})||{};
       const role=String((typeof getCurrentRole==='function'?getCurrentRole():user.role)||'').toLowerCase().replace(/-/g, '_');
       const jobs=[];
-      if(role==='student') jobs.push(call('loadStudentGrades'));
+      if(role==='student' && typeof window.loadStudentGrades === 'function') jobs.push(call('loadStudentGrades'));
       if(role==='teacher'||role==='class_teacher') {
         const classId = window.__activeClassReportClassId || document.querySelector('#class-report-review-table')?.dataset?.classId || window.dashboardData?.teacher?.classId || window.dashboardData?.profile?.classId || user.classId || user.teacher?.classId;
-        if(classId) jobs.push(call('refreshSavedClassReports', classId, { silent:true }));
+        if(classId && String(classId) !== 'undefined' && String(classId) !== 'null') jobs.push(call('refreshSavedClassReports', classId, { silent:true }));
         jobs.push(call('refreshTeacherGrades'));
       }
       if(role==='parent') jobs.push(call('refreshParentReportCardsSilent'), call('loadParentChildren'));
