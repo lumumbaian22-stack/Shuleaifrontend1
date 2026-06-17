@@ -621,6 +621,7 @@ const schoolAPI = {
 
 // ============ ANALYTICS ENDPOINTS ============
 const analyticsAPI = {
+    getDashboardAnalytics: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/analytics/dashboard${q ? `?${q}` : ''}`); },
     getStudentAnalytics: (studentId, curriculum, period) => 
         apiRequest(`/api/analytics/student/${studentId}?curriculum=${curriculum || ''}&period=${period || 'term'}`),
     getClassAnalytics: (classId, subject) => 
