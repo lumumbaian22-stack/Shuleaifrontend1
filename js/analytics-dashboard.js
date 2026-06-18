@@ -1,7 +1,7 @@
-// Shule AI v151.0 Analytics UI — role-safe, real backend data, dark-mode ready
+// Shule AI v151.1 Analytics UI — no reload loop, role-safe real backend data, dark-mode ready
 (function(){
   const chartBag = window.__shuleAnalyticsCharts || (window.__shuleAnalyticsCharts = {});
-  const state = window.__shuleAnalyticsState || (window.__shuleAnalyticsState = { data:null, query:'' });
+  const state = window.__shuleAnalyticsState || (window.__shuleAnalyticsState = { data:null, query:'', role:null, roleKey:null, refreshInFlight:false, lastRenderAt:0 });
 
   function esc(value){
     if (typeof escapeHtml === 'function') return escapeHtml(value == null ? '' : String(value));
@@ -213,24 +213,59 @@
     return renderSchool(data);
   }
 
+  function renderShellForData(role, data){
+    return `<div class="v151-analytics-shell animate-fade-in" data-v151-role="${esc(roleKey(role))}">${header(role, data)}${kpiCards(data)}${bodyFor(role, data)}<footer class="v151-updated">All data is updated as of ${esc(updatedAtLabel(data.updatedAt))} <button type="button" title="Refresh analytics" onclick="window.v151RefreshAnalytics({manual:true})"><i data-lucide="refresh-cw"></i></button><span class="v151-refresh-note" aria-live="polite"></span></footer></div>`;
+  }
+
   async function renderAnalyticsSection(role){
-    if (typeof showLoading === 'function') showLoading();
+    const nextKey = roleKey(role);
+    if (state.roleKey && state.roleKey !== nextKey) state.query = '';
+    state.role = role;
+    state.roleKey = nextKey;
     try {
       const data = await fetchAnalytics(role);
-      const html = `<div class="v151-analytics-shell animate-fade-in">${header(role, data)}${kpiCards(data)}${bodyFor(role, data)}<footer class="v151-updated">All data is updated as of ${esc(updatedAtLabel(data.updatedAt))} <button onclick="showDashboardSection('analytics')"><i data-lucide="refresh-cw"></i></button></footer></div>`;
+      const html = renderShellForData(role, data);
       setTimeout(()=>{ try { lucide?.createIcons?.(); } catch(_) {} }, 20);
       return html;
     } catch (error) {
       console.error('v151 analytics load failed:', error);
-      return `<div class="rounded-2xl border bg-card p-8 text-center"><h2 class="text-xl font-bold text-red-600">Analytics could not load</h2><p class="mt-2 text-muted-foreground">${esc(error.message || 'Unknown error')}</p><button class="mt-4 v151-export" onclick="showDashboardSection('analytics')">Retry</button></div>`;
-    } finally {
-      if (typeof hideLoading === 'function') hideLoading();
+      return `<div class="rounded-2xl border bg-card p-8 text-center"><h2 class="text-xl font-bold text-red-600">Analytics could not load</h2><p class="mt-2 text-muted-foreground">${esc(error.message || 'Unknown error')}</p><button class="mt-4 v151-export" onclick="window.v151RefreshAnalytics({manual:true})">Retry</button></div>`;
     }
   }
 
+  async function refreshAnalytics(options={}){
+    const shell = document.querySelector('.v151-analytics-shell');
+    if (!shell) return null;
+    if (state.refreshInFlight) return state.refreshInFlight;
+    if (options.filter || options.manual) state.query = currentParams();
+    const role = state.role || getCurrentRole?.() || getCurrentUser?.()?.role || localStorage.getItem('userRole') || 'admin';
+    const note = shell.querySelector('.v151-refresh-note');
+    if (note) note.textContent = options.manual ? 'Refreshing…' : 'Updating in background…';
+    shell.classList.add('v151-refreshing');
+    state.refreshInFlight = (async()=>{
+      try {
+        const data = await fetchAnalytics(role);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = renderShellForData(role, data).trim();
+        const next = wrapper.firstElementChild;
+        if (next) shell.replaceWith(next);
+        setTimeout(()=>{ try { lucide?.createIcons?.(); } catch(_) {} }, 20);
+        state.lastRenderAt = Date.now();
+        return data;
+      } catch (error) {
+        console.error('v151 analytics background refresh failed:', error);
+        shell.classList.remove('v151-refreshing');
+        if (note) note.textContent = 'Refresh failed. Existing data kept.';
+        return null;
+      } finally {
+        state.refreshInFlight = false;
+      }
+    })();
+    return state.refreshInFlight;
+  }
+
   async function applyAnalyticsFilters(){
-    state.query = currentParams();
-    await showDashboardSection('analytics');
+    await refreshAnalytics({filter:true});
   }
   function exportAnalytics(){
     const data = state.data || {};
@@ -241,15 +276,48 @@
     document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(link.href), 1000);
   }
   document.addEventListener('change', e => { if (e.target?.matches?.('[data-v151-filter]')) applyAnalyticsFilters(); });
+  function redrawAnalyticsCharts(){
+    const data = state.data;
+    if (!data || !document.querySelector('.v151-analytics-shell')) return;
+    const variant = data.variant || state.roleKey || 'school';
+    setTimeout(()=>{
+      if (variant === 'platform') {
+        makeChart('v151-growth','line',data.charts?.growth?.labels,data.charts?.growth?.values,{label:'Schools',legend:false});
+        makeChart('v151-plans','doughnut',data.charts?.planDistribution?.labels,data.charts?.planDistribution?.values,{legend:true});
+        makeChart('v151-engagement','bar',data.charts?.engagement?.labels,data.charts?.engagement?.values,{label:'Engagement %',legend:false,max:100});
+      } else if (variant === 'finance') {
+        makeChart('v151-fin-trend','line',data.charts?.collectionTrend?.labels,data.charts?.collectionTrend?.values,{label:'Collected KSh',legend:false});
+        makeChart('v151-fin-split','doughnut',data.charts?.feeSplit?.labels,data.charts?.feeSplit?.values,{legend:true});
+        makeChart('v151-fin-method','doughnut',data.charts?.paymentMethods?.labels,data.charts?.paymentMethods?.values,{legend:true});
+      } else if (variant === 'class') {
+        makeChart('v151-teacher-att','line',data.charts?.attendanceTrend?.labels,data.charts?.attendanceTrend?.values,{label:'Attendance %',legend:false,max:100});
+        makeChart('v151-teacher-sub','line',data.charts?.subjectPerformance?.labels,data.charts?.subjectPerformance?.values,{label:'Average %',legend:true,max:100});
+        makeChart('v151-teacher-home','doughnut',data.charts?.homeworkSplit?.labels,data.charts?.homeworkSplit?.values,{legend:true});
+      } else if (variant === 'child' || variant === 'student') {
+        makeChart('v151-child-perf','line',data.charts?.performanceTrend?.labels,data.charts?.performanceTrend?.values,{label:'Average %',legend:false,max:100});
+        makeChart('v151-child-att','line',data.charts?.attendanceTrend?.labels,data.charts?.attendanceTrend?.values,{label:'Attendance %',legend:false,max:100});
+        makeChart('v151-child-strength','doughnut',data.charts?.strengthsSplit?.labels,data.charts?.strengthsSplit?.values,{legend:true});
+      } else {
+        makeChart('v151-attendance','line',data.charts?.attendanceTrend?.labels,data.charts?.attendanceTrend?.values,{label:'Attendance %',legend:false,max:100});
+        makeChart('v151-classperf','bar',data.charts?.classPerformance?.labels,data.charts?.classPerformance?.values,{label:'Average %',legend:false,max:100});
+        makeChart('v151-fee','doughnut',data.charts?.feeSplit?.labels,data.charts?.feeSplit?.values,{legend:true});
+      }
+      try { lucide?.createIcons?.(); } catch(_) {}
+    }, 40);
+  }
+
   try {
-    const rerenderOnTheme = () => {
-      if (document.querySelector('.v151-analytics-shell') && typeof showDashboardSection === 'function') {
+    const redrawOnTheme = () => {
+      if (document.querySelector('.v151-analytics-shell')) {
         clearTimeout(window.__v151ThemeRefreshTimer);
-        window.__v151ThemeRefreshTimer = setTimeout(() => showDashboardSection('analytics'), 120);
+        window.__v151ThemeRefreshTimer = setTimeout(redrawAnalyticsCharts, 120);
       }
     };
-    new MutationObserver(rerenderOnTheme).observe(document.documentElement, { attributes:true, attributeFilter:['class','data-theme'] });
+    new MutationObserver(redrawOnTheme).observe(document.documentElement, { attributes:true, attributeFilter:['class','data-theme'] });
+    window.addEventListener('shule:theme-changed', redrawOnTheme);
   } catch (_) {}
   window.renderAnalyticsSection = renderAnalyticsSection;
   window.v151ExportAnalytics = exportAnalytics;
+  window.v151RefreshAnalytics = refreshAnalytics;
+  window.v151RedrawAnalyticsCharts = redrawAnalyticsCharts;
 })();
