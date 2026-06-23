@@ -29,7 +29,7 @@
       if(role==='parent') jobs.push(call('refreshParentReportCardsSilent'), call('loadParentChildren'));
       return Promise.allSettled(jobs.filter(Boolean));
     });
-    if(type==='analytics:invalidated'&&section()==='analytics')debounce('analytics',()=>call('v151RefreshAnalytics',{silent:true,reason:'realtime'}),900);
+    if(type==='analytics:invalidated'&&section()==='analytics')debounce('analytics',()=>call('v152RefreshAnalytics',{silent:true,reason:'realtime'}),900);
     if(type.includes('homework'))debounce('homework',()=>Promise.allSettled([call('v66LoadStudentHomework'),call('loadStudentHomework'),call('refreshTeacherHomework')]));
     if(type.includes('timetable'))debounce('timetable',()=>Promise.allSettled([section()==='timetable'?call('showDashboardSection','timetable'):null,call('loadTimetable')]));
     if(type.includes('calendar'))debounce('calendar',()=>Promise.allSettled([call('loadCalendarEvents'),section()==='calendar'?call('showDashboardSection','calendar'):null]));
