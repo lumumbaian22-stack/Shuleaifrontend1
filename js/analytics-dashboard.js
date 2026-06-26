@@ -82,7 +82,7 @@
   function chart(id){ return `<div class="v152-chart"><canvas id="${id}"></canvas><div id="${id}-fallback"></div></div>`; }
   function doughnut(id){ return `<div class="v152-chart doughnut"><canvas id="${id}"></canvas><div id="${id}-fallback"></div></div>`; }
   function progress(rows=[],key='average',labelKey='name',suffix='%'){ if(!rows.length)return empty(); return `<div class="v152-progress">${rows.map((r,i)=>{const v=number(r[key]??r.value??r.score);return `<div><span>${i+1}. ${esc(r[labelKey]||r.student||r.teacher||r.subject||'Item')}</span><i><b style="width:${Math.min(100,v)}%"></b></i><strong>${fmt(v)}${suffix}</strong></div>`;}).join('')}</div>`; }
-  function table(rows=[],columns=[]){ if(!rows.length)return empty(); return `<div class="v152-table-wrap"><table><thead><tr>${columns.map(c=>`<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${columns.map(c=>`<td>${c.render?c.render(row):esc(row[c.key]??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
+  function table(rows=[],columns=[]){ if(!rows.length)return empty(); return `<div class="v152-table-wrap"><table><thead><tr>${columns.map(c=>`<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row,index)=>`<tr>${columns.map(c=>`<td>${c.render?c.render(row,index):esc(row[c.key]??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
   function insights(rows=[]){ if(!rows.length)return empty('No alerts or insights are available.'); return `<div class="v152-insights">${rows.slice(0,8).map(x=>`<article class="tone-${esc(x.tone||'info')}"><span><i data-lucide="${esc(x.icon||'info')}"></i></span><div><b>${esc(x.title||'Insight')}</b><p>${esc(x.message||'')}</p></div><time>${esc(x.time||'')}</time></article>`).join('')}</div>`; }
   function heatmap(data){ const h=data?.charts?.attendanceHeatmap; if(!h?.weeks?.length)return empty(); return `<div class="v152-heatmap"><div></div>${(h.weekdays||[]).map(d=>`<b>${esc(d)}</b>`).join('')}${h.weeks.map(w=>`<strong>${esc(w.label)}</strong>${(w.cells||[]).map(v=>`<i class="${v>=90?'good':v>=80?'fair':'bad'}" title="${v}%">${v?Math.round(v):'—'}</i>`).join('')}`).join('')}</div>`; }
 
@@ -91,7 +91,7 @@
       ${card('Attendance Trend (by Month)',chart('v152-attendance'),'span-4')}
       ${card('Class Performance (Average Score %)',chart('v152-classperf'),'span-4')}
       ${card('Subject Performance (Average Score %)',progress((data.lists?.topSubjects||[]).map(x=>({...x,subject:x.name})), 'average','subject'),'span-4')}
-      ${card('Top Classes',table(data.lists?.topClasses||[],[{label:'#',render:(r,i)=>''},{label:'Class',key:'name'},{label:'Average',render:r=>`${fmt(r.average)}%`},{label:'Marks',key:'marks'}]),'span-3')}
+      ${card('Top Classes',table(data.lists?.topClasses||[],[{label:'#',render:(r,i)=>String(i+1)},{label:'Class',key:'name'},{label:'Average',render:r=>`${fmt(r.average)}%`},{label:'Marks',key:'marks'}]),'span-3')}
       ${card('At-Risk Classes',table(data.lists?.atRiskClasses||[],[{label:'Class',key:'name'},{label:'Average',render:r=>`<span class="danger">${fmt(r.average)}%</span>`},{label:'Marks',key:'marks'}]),'span-3')}
       ${card('Top Teachers',table(data.lists?.topTeachers||[],[{label:'Teacher',key:'name'},{label:'Average',render:r=>`${fmt(r.average)}%`},{label:'Records',key:'count'}]),'span-3')}
       ${card('Top Subjects',table(data.lists?.topSubjects||[],[{label:'Subject',key:'name'},{label:'Average',render:r=>`${fmt(r.average)}%`},{label:'Records',key:'count'}]),'span-3')}
@@ -192,7 +192,7 @@
   document.addEventListener('change',event=>{
     const el=event.target;
     if(el.matches('[data-v152-scope-type]')){scopeTypeChanged(el);return;}
-    if(el.matches('[data-v152-filter="analyticsType"]')){state.analyticsType=el.value||'overview';applyCategoryFilter();return;}
+    if(el.matches('[data-v152-filter="analyticsType"]')){state.analyticsType=el.value||'overview';refreshAnalytics({filter:true});return;}
     if(el.matches('[data-v152-filter]')){if(el.matches('[data-v152-scope-target]')&&!el.value)return;refreshAnalytics({filter:true});}
     if(el.matches('[data-v152-export-section]'))updateExportPreview();
   });

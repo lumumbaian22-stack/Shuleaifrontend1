@@ -622,6 +622,8 @@ const schoolAPI = {
 // ============ ANALYTICS ENDPOINTS ============
 const analyticsAPI = {
     getDashboardAnalytics: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/analytics/dashboard${q ? `?${q}` : ''}`); },
+    getAnalyticsTables: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/analytics/tables${q ? `?${q}` : ''}`); },
+    getAnalyticsTable: (section, params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/analytics/tables/${encodeURIComponent(section)}${q ? `?${q}` : ''}`); },
     getStudentAnalytics: (studentId, curriculum, period) => 
         apiRequest(`/api/analytics/student/${studentId}?curriculum=${curriculum || ''}&period=${period || 'term'}`),
     getClassAnalytics: (classId, subject) => 
@@ -846,6 +848,13 @@ const feeStructureAPI = {
 const paymentAPI = {
     getSchoolSettings: () => apiRequest('/api/payments/admin/school-settings'),
     updateSchoolSettings: (data) => apiRequest('/api/payments/admin/school-settings', { method: 'PUT', body: JSON.stringify(data) }),
+    getProviders: () => apiRequest('/api/payments/providers'),
+    getSchoolProviders: () => apiRequest('/api/payments/admin/providers'),
+    saveSchoolProvider: (data) => apiRequest('/api/payments/admin/providers', { method: 'PUT', body: JSON.stringify(data) }),
+    getParentMethods: () => apiRequest('/api/payments/parent/methods'),
+    initiate: (data) => apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(data) }),
+    status: (reference) => apiRequest(`/api/payments/${encodeURIComponent(reference)}/status`),
+    reconcile: (reference) => apiRequest(`/api/payments/reconcile/${encodeURIComponent(reference)}`, { method: 'POST' }),
     testSchoolConnection: () => apiRequest('/api/payments/admin/test-connection', { method: 'POST' }),
     getPlatformSettings: () => apiRequest('/api/payments/superadmin/platform-settings'),
     updatePlatformSettings: (data) => apiRequest('/api/payments/superadmin/platform-settings', { method: 'PUT', body: JSON.stringify(data) }),
