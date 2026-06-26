@@ -111,22 +111,25 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
     providerSettings = providerSettings || {};
     const enabled = new Set(Array.isArray(providerSettings.enabledProviders) ? providerSettings.enabledProviders : []);
     const defaultProvider = providerSettings.defaultProvider || 'manual';
-    return `<div class="rounded-xl border bg-card p-6">
-        <h3 class="font-semibold mb-2">Platform Payment Agents / Provider Keys</h3>
-        <p class="text-xs text-muted-foreground mb-4">Super Admin manages the Shule AI provider keys used for school platform subscriptions and parent/student subscriptions. Private keys are encrypted on save.</p>
-        <div class="grid gap-4">
-            ${PLATFORM_PAYMENT_AGENT_DEFS.map(agent => `<div class="rounded-xl border bg-background p-4" data-platform-provider="${agent.provider}">
-                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+    const enabledLabels = PLATFORM_PAYMENT_AGENT_DEFS.filter(a => enabled.has(a.provider)).map(a => a.label);
+    const row = (agent) => {
+        const active = enabled.has(agent.provider);
+        return `<details class="rounded-xl border bg-background p-4" data-platform-provider="${agent.provider}">
+            <summary class="cursor-pointer list-none">
+                <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div><strong>${escapeHtml(agent.label)}</strong><p class="text-sm text-muted-foreground">${escapeHtml(agent.description)}</p></div>
-                    <div class="flex flex-wrap gap-3 text-sm"><label class="flex items-center gap-2"><input type="checkbox" data-platform-provider-enabled ${enabled.has(agent.provider) ? 'checked' : ''}> Enabled</label><label class="flex items-center gap-2"><input type="radio" name="platform-default-provider" data-platform-provider-default ${defaultProvider === agent.provider ? 'checked' : ''}> Default</label></div>
+                    <div class="flex flex-wrap gap-2 text-xs"><span class="px-2 py-1 rounded-full ${active ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}">${active ? 'Enabled' : 'Disabled'}</span>${defaultProvider === agent.provider ? '<span class="px-2 py-1 rounded-full bg-primary/10 text-primary">Default</span>' : ''}<span class="px-2 py-1 rounded-full bg-muted text-muted-foreground">Configure</span></div>
                 </div>
-                <div class="grid gap-3 md:grid-cols-3 mt-3">${renderPlatformPaymentAgentFields(agent.provider, agent.fields, providerSettings)}</div>
+            </summary>
+            <div class="mt-4 border-t pt-4">
+                <div class="flex flex-wrap gap-4 text-sm mb-3"><label class="flex items-center gap-2"><input type="checkbox" data-platform-provider-enabled ${active ? 'checked' : ''}> Enabled</label><label class="flex items-center gap-2"><input type="radio" name="platform-default-provider" data-platform-provider-default ${defaultProvider === agent.provider ? 'checked' : ''}> Default</label></div>
+                <div class="grid gap-3 md:grid-cols-3">${renderPlatformPaymentAgentFields(agent.provider, agent.fields, providerSettings)}</div>
                 <div class="mt-3 flex justify-end"><button onclick="savePlatformPaymentAgent('${agent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save ${escapeHtml(agent.label)}</button></div>
-            </div>`).join('')}
-        </div>
-    </div>`;
+            </div>
+        </details>`;
+    };
+    return `<div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-2">Platform Payment Providers</h3><p class="text-xs text-muted-foreground mb-4">Super Admin manages Shule AI provider keys. Private keys are encrypted on save.</p><div class="rounded-lg bg-muted/30 p-3 text-sm mb-4"><strong>Enabled now:</strong> ${enabledLabels.length ? enabledLabels.map(escapeHtml).join(', ') : 'Manual verification only'}</div><div class="grid gap-3">${PLATFORM_PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
 }
-
 async function renderSuperAdminPlatformPayments() {
     let settings = {}, providerSettings = null, queue = [], error = '';
     try {

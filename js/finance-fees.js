@@ -26,7 +26,33 @@
   ];
   function paymentAgentConfig(provider){ return state.providerSettings?.providers?.[provider] || {}; }
   function renderPaymentAgentFields(provider, fields){ const cfg=paymentAgentConfig(provider); return fields.map(([name,label,placeholder,secret])=>`<label>${esc(label)}<input ${secret?'type="password" autocomplete="off"':''} data-provider-field="${esc(name)}" class="finance-v31-input" placeholder="${secret?'Leave blank to keep existing':esc(placeholder||'')}" value="${secret?'':esc(cfg[name]||'')}"></label>`).join(''); }
-  function renderSchoolPaymentAgents(){ const settings=state.providerSettings||{},enabled=new Set(settings.enabledProviders||[]),def=settings.defaultProvider||'manual'; return `<div class="finance-v31-form-card spacious"><h3>5. Payment Agents / Provider Keys</h3><p style="margin-top:-6px;color:var(--ff-muted);font-size:13px">These are the school-owned payment providers parents can use for school fees. Private keys are encrypted on save and never shown to parents.</p><div class="finance-v31-settings-stack">${PAYMENT_AGENT_DEFS.map(agent=>`<div class="rounded-xl border bg-card p-4" data-school-provider="${agent.provider}"><div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between"><div><strong>${esc(agent.label)}</strong><p class="text-sm text-muted-foreground">${esc(agent.description)}</p></div><div class="flex flex-wrap gap-3 text-sm"><label class="finance-v31-check"><input type="checkbox" data-provider-enabled ${enabled.has(agent.provider)?'checked':''}> Enabled</label><label class="finance-v31-check"><input type="radio" name="school-default-provider" data-provider-default ${def===agent.provider?'checked':''}> Default</label></div></div><div class="finance-v31-form-row mt-3">${renderPaymentAgentFields(agent.provider, agent.fields)}</div><div class="mt-3 flex justify-end"><button type="button" class="finance-v31-btn primary" onclick="financeV31SaveProviderAgent('${agent.provider}')">Save ${esc(agent.label)}</button></div></div>`).join('')}</div></div>`; }
+  function renderSchoolPaymentAgents(){
+    const settings = state.providerSettings || {};
+    const enabled = new Set(settings.enabledProviders || []);
+    const def = settings.defaultProvider || 'manual';
+    const enabledLabels = PAYMENT_AGENT_DEFS.filter(a => enabled.has(a.provider)).map(a => a.label);
+    const row = (agent) => {
+      const active = enabled.has(agent.provider);
+      return `<details class="rounded-xl border bg-card p-4" data-school-provider="${agent.provider}">
+        <summary class="cursor-pointer list-none">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div><strong>${esc(agent.label)}</strong><p class="text-sm text-muted-foreground">${esc(agent.description)}</p></div>
+            <div class="flex flex-wrap gap-3 text-sm">
+              <span class="finance-v31-chip ${active ? '' : 'muted'}">${active ? 'Enabled' : 'Disabled'}</span>
+              ${def === agent.provider ? '<span class="finance-v31-chip">Default</span>' : ''}
+              <span class="finance-v31-chip muted">Configure</span>
+            </div>
+          </div>
+        </summary>
+        <div class="mt-4 border-t pt-4">
+          <div class="flex flex-wrap gap-4 text-sm mb-3"><label class="finance-v31-check"><input type="checkbox" data-provider-enabled ${active?'checked':''}> Enabled for parents</label><label class="finance-v31-check"><input type="radio" name="school-default-provider" data-provider-default ${def===agent.provider?'checked':''}> Make default</label></div>
+          <div class="finance-v31-form-row">${renderPaymentAgentFields(agent.provider, agent.fields)}</div>
+          <div class="mt-3 flex justify-end"><button type="button" class="finance-v31-btn primary" onclick="financeV31SaveProviderAgent('${agent.provider}')">Save ${esc(agent.label)}</button></div>
+        </div>
+      </details>`;
+    };
+    return `<div class="finance-v31-form-card spacious"><h3>5. Payment Providers</h3><p style="margin-top:-6px;color:var(--ff-muted);font-size:13px">Parents only see providers enabled here. Private keys stay hidden from parents.</p><div class="rounded-lg bg-muted/30 p-3 text-sm"><strong>Enabled now:</strong> ${enabledLabels.length ? enabledLabels.map(esc).join(', ') : 'Manual verification only'}</div><div class="finance-v31-settings-stack mt-3">${PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
+  }
   function getClassName(c){ return c?.name || c?.grade || c?.className || c?.level || 'Class'; }
   function getStructureClassName(s){ const assigned=Array.isArray(s?.assignedClasses)?s.assignedClasses:[]; if(assigned.length) return assigned.map(c=>c.name||c.grade||c.id).filter(Boolean).join(', '); return s?.className || s?.classGrade || s?.gradeLevel || s?.Class?.name || 'Class'; }
   function normalizedStatus(s){ return String(s?.status || 'draft').trim().toLowerCase(); }
@@ -284,7 +310,7 @@
 
         ${renderSchoolPaymentAgents()}
 
-        <div class="finance-v31-total-box"><strong>Parent Visibility</strong><p style="color:var(--ff-muted)">Parents see safe public payment instructions based on the selected payment mode. They never receive private Daraja credentials.</p><div class="finance-v31-settings-actions"><button class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Daraja Connection</button><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div></div><div class="finance-v31-sticky-save"><span id="finance-settings-sticky-status">Payment settings loaded</span><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
+        <div class="finance-v31-total-box"><strong>Parent Visibility</strong><p style="color:var(--ff-muted)">Parents see safe public payment instructions based on the selected payment mode. They never receive private Daraja credentials.</p><div class="finance-v31-settings-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Daraja Connection</button><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div></div><div class="finance-v31-sticky-save" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span id="finance-settings-sticky-status">Payment settings loaded</span><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
       </div></div>`;
   }
 
