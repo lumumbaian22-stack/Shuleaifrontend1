@@ -92,14 +92,14 @@ function collectPlatformPlanInputs(ownerType) {
 }
 const PLATFORM_PAYMENT_AGENT_DEFS = [
     { provider:'daraja', label:'M-Pesa Daraja STK', description:'Platform STK prompts for school and parent subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
-    { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for Shule AI platform subscriptions.', fields:[['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
+    { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for Shule AI platform subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
     { provider:'paystack', label:'Paystack', description:'Paystack checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
     { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
     { provider:'stripe', label:'Stripe', description:'Stripe checkout for card subscription payments.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true],['successUrl','Success URL',''],['cancelUrl','Cancel URL','']] }
 ];
 
 function platformProviderConfig(provider, providerSettings) {
-    return providerSettings?.providers?.[provider] || {};
+    return (providerSettings || {})?.providers?.[provider] || {};
 }
 
 function renderPlatformPaymentAgentFields(provider, fields, providerSettings) {
@@ -108,7 +108,8 @@ function renderPlatformPaymentAgentFields(provider, fields, providerSettings) {
 }
 
 function renderPlatformPaymentAgents(providerSettings = {}) {
-    const enabled = new Set(providerSettings.enabledProviders || []);
+    providerSettings = providerSettings || {};
+    const enabled = new Set(Array.isArray(providerSettings.enabledProviders) ? providerSettings.enabledProviders : []);
     const defaultProvider = providerSettings.defaultProvider || 'manual';
     return `<div class="rounded-xl border bg-card p-6">
         <h3 class="font-semibold mb-2">Platform Payment Agents / Provider Keys</h3>

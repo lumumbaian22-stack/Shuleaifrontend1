@@ -71,7 +71,12 @@
       ${['admin','finance_officer','teacher'].includes(r)?`<label>Analytics Scope<select data-v152-filter="scopeType" data-v152-scope-type>${types.map(([id,name])=>`<option value="${id}" ${selectedType===id?'selected':''}>${esc(name)}</option>`).join('')}</select></label>`:''}
       ${['admin','finance_officer','teacher'].includes(r)&&selectedType!=='school'&&selectedType!=='platform'?`<label>Choose ${esc(selectedType)}<select data-v152-filter="scopeId" data-v152-scope-target>${scopeTargetOptions(data,selectedType,scope.id||f.scopeId)}</select></label>`:''}
       <label>Analytics Type<select data-v152-filter="analyticsType"><option value="overview" ${(f.analyticsType||state.analyticsType)==='overview'?'selected':''}>Overview</option><option value="academic" ${(f.analyticsType||state.analyticsType)==='academic'?'selected':''}>Academic</option><option value="attendance" ${(f.analyticsType||state.analyticsType)==='attendance'?'selected':''}>Attendance</option><option value="finance" ${(f.analyticsType||state.analyticsType)==='finance'?'selected':''}>Finance</option><option value="teachers" ${(f.analyticsType||state.analyticsType)==='teachers'?'selected':''}>Teachers</option><option value="reports" ${(f.analyticsType||state.analyticsType)==='reports'?'selected':''}>Reports</option></select></label>
-      <button type="button" class="v152-export-btn" onclick="window.v152OpenExport()"><i data-lucide="download"></i><span>Export</span><i data-lucide="chevron-down"></i></button>
+      <div class="v152-export-actions" role="group" aria-label="Export current analytics view">
+        <button type="button" class="v152-export-btn" title="Export current view to PDF" onclick="window.v152GenerateExport('pdf')"><i data-lucide="file-text"></i><span>PDF</span></button>
+        <button type="button" class="v152-export-btn" title="Export current view to Excel" onclick="window.v152GenerateExport('xlsx')"><i data-lucide="sheet"></i><span>Excel</span></button>
+        <button type="button" class="v152-export-btn" title="Export current view to CSV" onclick="window.v152GenerateExport('csv')"><i data-lucide="table-2"></i><span>CSV</span></button>
+        <button type="button" class="v152-export-btn" title="Choose sections and print options" onclick="window.v152OpenExport()"><i data-lucide="sliders-horizontal"></i><span>More</span></button>
+      </div>
     </div>`;
   }
   function header(role,data){ return `<header class="v152-head"><div class="v152-heading"><span><i data-lucide="trending-up"></i></span><div><h2>${esc(data.title||'Analytics')}</h2><p>${esc(data.subtitle||'Live analytics')}</p></div></div>${filterBar(role,data)}</header>`; }
@@ -202,14 +207,16 @@
   function exportScopeChanged(){ const data=state.data||{}; const type=document.querySelector('input[name="v152-export-scope"]:checked')?.value||data.scope?.type||'school'; const target=document.querySelector('[data-v152-export-target]'); if(target){target.hidden=type==='school'||type==='platform';target.innerHTML=scopeTargetOptions(data,type,type===data.scope?.type?data.scope?.id:'');}updateExportPreview(); }
   function updateExportPreview(){ const count=document.querySelectorAll('[data-v152-export-section]:checked').length; const target=document.querySelector('[data-v152-preview-count]'); if(target)target.textContent=String(count); const type=document.querySelector('input[name="v152-export-scope"]:checked')?.value||state.data?.scope?.type; const option=document.querySelector('[data-v152-export-target] option:checked'); const scope=document.querySelector('[data-v152-preview-scope]'); if(scope)scope.textContent=(type==='school'?'Whole School':type==='platform'?'All Schools':option?.textContent||titleize(type)); }
   function toggleAllExport(on){document.querySelectorAll('[data-v152-export-section]').forEach(c=>c.checked=on);updateExportPreview();}
-  async function generateExport(){
+  async function generateExport(preferredFormat=null){
     const button=document.querySelector('.v152-export-panel footer .primary'); if(button){button.disabled=true;button.innerHTML='<span class="v152-spinner"></span>Generating…';}
     try{
-      const format=document.querySelector('input[name="v152-export-format"]:checked')?.value||'pdf';
-      const scopeType=document.querySelector('input[name="v152-export-scope"]:checked')?.value||state.data?.scope?.type||'school';
-      const scopeId=(scopeType==='school'||scopeType==='platform')?'':document.querySelector('[data-v152-export-target]')?.value||'';
-      if(!scopeId&&scopeType!=='school'&&scopeType!=='platform')throw new Error(`Select the ${scopeType} to export.`);
-      const include=[...document.querySelectorAll('[data-v152-export-section]:checked')].map(x=>x.value); if(!include.length)throw new Error('Select at least one analytics section.');
+      const quick = !!preferredFormat;
+      const format=preferredFormat || document.querySelector('input[name="v152-export-format"]:checked')?.value || 'pdf';
+      const currentScope = state.data?.scope || {};
+      const scopeType=quick ? (currentScope.type || state.data?.variant || 'school') : (document.querySelector('input[name="v152-export-scope"]:checked')?.value||currentScope.type||'school');
+      const scopeId=quick ? (currentScope.id || '') : ((scopeType==='school'||scopeType==='platform')?'':document.querySelector('[data-v152-export-target]')?.value||'');
+      if(!scopeId&&scopeType!=='school'&&scopeType!=='platform'&&!quick)throw new Error(`Select the ${scopeType} to export.`);
+      const include=quick ? (state.data?.exportSections||[]).map(x=>x.key) : [...document.querySelectorAll('[data-v152-export-section]:checked')].map(x=>x.value); if(!include.length)throw new Error('No exportable analytics sections are available for this view.');
       const filters=Object.fromEntries(paramsFromUi().entries()); filters.scopeType=scopeType; filters.scopeId=scopeId;
       const token=localStorage.getItem('authToken')||localStorage.getItem('token')||'';
       const response=await fetch(`${API_BASE_URL}/api/analytics/export`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify({format,scopeType,scopeId,include,filters,childId:filters.childId||state.data?.student?.id})});
@@ -217,7 +224,7 @@
       const disposition=response.headers.get('content-disposition')||'';const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1]||`shule-ai-analytics.${format==='print'?'html':format}`;
       const blob=await response.blob();const url=URL.createObjectURL(blob);
       if(format==='print'){window.open(url,'_blank','noopener');setTimeout(()=>URL.revokeObjectURL(url),120000);}else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
-      showToast?.('Analytics export generated successfully.','success');closeExport();
+      showToast?.('Analytics export generated successfully.','success');if(!preferredFormat)closeExport();
     }catch(error){showToast?.(error.message||'Analytics export failed.','error');}
     finally{if(button){button.disabled=false;button.innerHTML='<i data-lucide="download"></i>Generate Export';try{lucide?.createIcons?.();}catch(_){}}}
   }

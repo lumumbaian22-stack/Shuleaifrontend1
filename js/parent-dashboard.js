@@ -561,9 +561,16 @@ async function renderParentPayments() {
 
         let finance = { accounts: [], totals: { totalExpected:0, parentPaidAmount:0, creditAmount:0, balance:0 } };
         let payments = [];
+        let parentPaymentMethods = { defaultProvider: 'manual', enabledProviders: [], methods: [] };
         if (selectedChildId) {
             try { finance = (await api.parent.getStudentFeeAccounts(selectedChildId)).data || finance; } catch (e) { console.warn('Student fee accounts failed', e.message); }
             try { payments = (await api.parent.getStudentPaymentHistory(selectedChildId, { status: historyFilter })).data || []; } catch (e) { console.warn('Student payment history failed', e.message); }
+        }
+        try {
+            const methodResponse = await (api.payments?.getParentMethods ? api.payments.getParentMethods({ studentId: selectedChildId }) : apiRequest('/api/payments/parent/methods'));
+            parentPaymentMethods = methodResponse?.data || methodResponse || parentPaymentMethods;
+        } catch (e) {
+            console.warn('Parent payment methods failed', e.message);
         }
         const fees = finance.accounts || [];
         const activeFee = fees.find(f => Number(f.balance || 0) > 0) || fees[0] || null;
@@ -600,7 +607,7 @@ async function renderParentPayments() {
                             <div class="flex items-center justify-between gap-3 flex-wrap">
                                 <div>
                                     <h4 class="font-semibold">School Payment Information</h4>
-                                    <p class="text-sm text-muted-foreground">Use the school details below for bank, manual M-Pesa, cash/card verification, or STK instructions.</p>
+                                    <p class="text-sm text-muted-foreground">Use the school details below, then choose one of the payment options enabled by school finance.</p>
                                 </div>
                                 <button type="button" onclick="refreshParentSchoolPaymentInfo()" class="px-3 py-2 rounded-lg border text-sm">Refresh Details</button>
                             </div>
@@ -632,13 +639,13 @@ async function renderParentPayments() {
                                 <button type="button" onclick="setParentFeeAmount(${Math.ceil(balance/2)||0})" class="px-3 py-2 rounded-lg border text-sm">Half Balance</button>
                                 <button type="button" onclick="setParentFeeAmount(${balance||0})" class="px-3 py-2 rounded-lg border text-sm">Full Balance</button>
                             </div>
-                            <label class="text-sm md:col-span-2">If school is in Manual M-Pesa mode, enter the M-Pesa code after paying
-                                <input type="text" id="payment-mpesa-code" placeholder="M-Pesa code e.g. QEH123ABC" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm uppercase">
+                            <label class="text-sm md:col-span-2">Payment reference/code after paying outside checkout
+                                <input type="text" id="payment-mpesa-code" placeholder="Payment reference e.g. QEH123ABC, bank slip, cash receipt" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm uppercase">
                             </label>
-                            <div class="grid gap-2 md:grid-cols-2 md:col-span-2">
-                                <button onclick="processSchoolFeeDarajaPayment()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Pay with STK Push</button>
-                                <button onclick="submitManualSchoolFeePayment()" class="w-full border border-input py-2 rounded-lg hover:bg-muted">Submit Manual M-Pesa Code</button>
+                            <div class="md:col-span-2">
+                                ${renderParentProviderMethods(parentPaymentMethods)}
                             </div>
+                            ${renderParentLegacyPaymentButtons(parentPaymentMethods)}
                         </div>
                     </div>
 
@@ -861,6 +868,77 @@ async function submitManualChildSubscription(planCode, amount) {
     finally { hideLoading(); }
 }
 
+function normalizeParentPaymentProvider(provider) {
+    return String(provider || '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function parentProviderLabel(provider, fallback = '') {
+    const p = normalizeParentPaymentProvider(provider);
+    const labels = { manual: 'Manual verification', bank: 'Bank transfer', cash: 'Cash office payment', card: 'Card/POS', daraja: 'M-Pesa STK Push', paystack: 'Paystack checkout', flutterwave: 'Flutterwave checkout', pesapal: 'Pesapal checkout', stripe: 'Stripe checkout' };
+    return fallback || labels[p] || String(provider || 'Payment option');
+}
+
+function parentProviderPrompt(provider, prompt = '') {
+    const p = normalizeParentPaymentProvider(provider);
+    if (prompt) return prompt;
+    if (['paystack','flutterwave','pesapal','stripe'].includes(p)) return 'checkout_url';
+    if (p === 'daraja') return 'phone_prompt';
+    return 'manual_instructions';
+}
+
+function parentProviderDescription(provider, prompt = '') {
+    const p = normalizeParentPaymentProvider(provider);
+    const type = parentProviderPrompt(p, prompt);
+    if (type === 'checkout_url') return 'Open a secure checkout. Balances update only after provider confirmation.';
+    if (type === 'phone_prompt') return 'Enter your M-Pesa phone, then complete the prompt on your phone.';
+    if (p === 'bank') return 'Pay using the bank details above, then submit the reference for finance approval.';
+    if (p === 'cash') return 'Pay at the school office, then submit the receipt number for finance approval.';
+    if (p === 'card') return 'Pay using the school card/POS option, then submit the receipt reference.';
+    return 'Submit your payment reference for school finance verification.';
+}
+
+function normalizeParentPaymentMethods(methodData = {}) {
+    const methods = Array.isArray(methodData.methods) ? methodData.methods : [];
+    const enabled = Array.isArray(methodData.enabledProviders) ? methodData.enabledProviders : [];
+    const rows = methods.length ? methods : enabled.map(provider => ({ provider }));
+    const seen = new Set();
+    return rows.map(row => {
+        const provider = normalizeParentPaymentProvider(row?.provider || row);
+        if (!provider || seen.has(provider)) return null;
+        seen.add(provider);
+        return { provider, label: parentProviderLabel(provider, row?.label || ''), prompt: parentProviderPrompt(provider, row?.prompt || '') };
+    }).filter(Boolean);
+}
+
+function renderParentProviderMethods(methodData = {}) {
+    const methods = normalizeParentPaymentMethods(methodData);
+    if (!methods.length) {
+        return '<div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Payment options could not be loaded. You can still use the M-Pesa/manual buttons below.</div>';
+    }
+    const cards = methods.map(method => {
+        const provider = method.provider;
+        const prompt = method.prompt;
+        const action = provider === 'daraja'
+            ? 'processSchoolFeeDarajaPayment()'
+            : (['manual','bank','cash','card'].includes(provider) ? 'submitManualSchoolFeePayment(' + JSON.stringify(provider) + ')' : 'processSchoolFeeProviderPayment(' + JSON.stringify(provider) + ')');
+        const actionLabel = prompt === 'checkout_url' ? 'Open ' + parentProviderLabel(provider) : (provider === 'daraja' ? 'Send STK Prompt' : 'Submit Reference');
+        return '<div class="rounded-lg border bg-background p-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">' +
+            '<div><div class="font-semibold">' + escapeHtml(method.label) + '</div>' +
+            '<p class="text-sm text-muted-foreground">' + escapeHtml(parentProviderDescription(provider, prompt)) + '</p></div>' +
+            '<button type="button" onclick="' + escapeHtml(action) + '" class="px-4 py-2 rounded-lg border text-sm hover:bg-muted whitespace-nowrap">' + escapeHtml(actionLabel) + '</button>' +
+            '</div>';
+    }).join('');
+    return '<div class="space-y-3"><div class="flex items-center justify-between gap-2 flex-wrap"><h4 class="font-semibold">Available School Payment Options</h4><span class="text-xs text-muted-foreground">Enabled by school finance</span></div>' + cards + '</div>';
+}
+
+function renderParentLegacyPaymentButtons(methodData = {}) {
+    if (normalizeParentPaymentMethods(methodData).length) return '';
+    return '<div class="grid gap-2 md:grid-cols-2 md:col-span-2">' +
+        '<button onclick="processSchoolFeeDarajaPayment()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Pay with STK Push</button>' +
+        '<button onclick="submitManualSchoolFeePayment()" class="w-full border border-input py-2 rounded-lg hover:bg-muted">Submit Payment Reference</button>' +
+    '</div>';
+}
+
 function getParentPaymentPhone() {
     const explicit = document.getElementById('payment-phone')?.value?.trim();
     if (explicit) return explicit;
@@ -895,6 +973,39 @@ function setParentFeeAmount(amount) {
     if (input && amount > 0) input.value = amount;
 }
 
+async function processSchoolFeeProviderPayment(provider) {
+    const normalizedProvider = normalizeParentPaymentProvider(provider);
+    if (!normalizedProvider) return showToast('Choose a payment option first', 'error');
+    if (normalizedProvider === 'daraja') return processSchoolFeeDarajaPayment();
+    if (['manual','bank','cash','card'].includes(normalizedProvider)) return submitManualSchoolFeePayment(normalizedProvider);
+
+    const payload = getSelectedFeePaymentPayload();
+    if (!payload.studentId) return showToast('Please select a child', 'error');
+    if (!payload.feeId) return showToast('Select a fee account first', 'error');
+    if (!payload.amount || payload.amount <= 0) return showToast('Enter the amount you want to pay', 'error');
+    showLoading();
+    try {
+        const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : {};
+        const requestPayload = { paymentType: 'school_fee', provider: normalizedProvider, studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, email: currentUser?.email || '', name: currentUser?.name || '', purpose: 'school_fee' };
+        const response = await (api.payments?.initiate ? api.payments.initiate(requestPayload) : apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(requestPayload) }));
+        const data = response?.data || {};
+        if (data.checkoutUrl) {
+            window.open(data.checkoutUrl, '_blank', 'noopener');
+            showToast(response.message || parentProviderLabel(normalizedProvider) + ' checkout opened. Complete payment there.', 'success');
+        } else if (data.promptType === 'checkout_url') {
+            showToast(response.message || parentProviderLabel(normalizedProvider) + ' is enabled, but no checkout link was returned. Ask finance to complete provider checkout setup.', 'error');
+        } else {
+            showToast(response.message || 'Payment request created. Follow the provider instructions to finish.', 'success');
+        }
+        window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-provider-payment-started', provider: normalizedProvider}}));
+        localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
+        await refreshParentPaymentPanelSoft();
+    } catch (error) {
+        console.error('School fee provider payment error:', error);
+        showToast(error.message || 'Could not start ' + parentProviderLabel(normalizedProvider) + ' payment.', 'error');
+    } finally { hideLoading(); }
+}
+
 async function processSchoolFeeDarajaPayment() {
     const payload = getSelectedFeePaymentPayload();
     if (!payload.studentId) return showToast('Please select a child', 'error');
@@ -917,17 +1028,17 @@ async function processSchoolFeeDarajaPayment() {
     } finally { hideLoading(); }
 }
 
-async function submitManualSchoolFeePayment() {
+async function submitManualSchoolFeePayment(method = 'manual_mpesa') {
     const payload = getSelectedFeePaymentPayload();
-    const mpesaCode = document.getElementById('payment-mpesa-code')?.value?.trim()?.toUpperCase();
+    const providerMethod = normalizeParentPaymentProvider(method) || 'manual_mpesa';
+    const paymentReference = document.getElementById('payment-mpesa-code')?.value?.trim()?.toUpperCase();
     if (!payload.studentId) return showToast('Please select a child', 'error');
     if (!payload.amount || payload.amount <= 0) return showToast('Enter the amount paid', 'error');
-    if (!mpesaCode) return showToast('Enter the M-Pesa code after paying', 'error');
+    if (!paymentReference) return showToast('Enter the payment reference/code after paying', 'error');
     showLoading();
     try {
-        const response = await (api.parent.submitManualFeePayment ? api.parent.submitManualFeePayment({
-            studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, mpesaCode
-        }) : api.payments.parentFeeManual({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, mpesaCode }));
+        const manualPayload = { studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, mpesaCode: paymentReference, reference: paymentReference, method: providerMethod, notes: parentProviderLabel(providerMethod) + ' payment awaiting school finance verification' };
+        const response = await (api.parent.submitManualFeePayment ? api.parent.submitManualFeePayment(manualPayload) : api.payments.parentFeeManual(manualPayload));
         showToast(response.message || 'Payment submitted for verification.', 'success');
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'manual-payment-submitted'}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
@@ -1271,8 +1382,15 @@ async function refreshParentSchoolPaymentInfo() {
     try {
         const res = await (api.payments?.getParentSchoolPaymentSettings ? api.payments.getParentSchoolPaymentSettings() : apiRequest('/api/payments/parent/school-settings'));
         const d = res.data || {};
+        let providerMethods = [];
+        try {
+            const selectedChildId = document.getElementById('parent-payments-root')?.dataset?.studentId || dashboardData?.selectedChildId || document.getElementById('payment-child')?.value;
+            const methodRes = await (api.payments?.getParentMethods ? api.payments.getParentMethods({ studentId: selectedChildId }) : apiRequest('/api/payments/parent/methods'));
+            providerMethods = normalizeParentPaymentMethods(methodRes?.data || methodRes || {});
+        } catch (_) { providerMethods = []; }
         const lines = [];
         lines.push(`<div><span class="text-muted-foreground">Payment mode:</span> <strong>${escapeHtml(d.paymentMode || 'manual')}</strong></div>`);
+        if (providerMethods.length) lines.push('<div><span class="text-muted-foreground">Enabled options:</span> <strong>' + providerMethods.map(m => escapeHtml(m.label)).join(', ') + '</strong></div>');
         if (d.mpesaType) lines.push(`<div><span class="text-muted-foreground">M-Pesa type:</span> <strong>${escapeHtml(d.mpesaType)}</strong></div>`);
         if (d.paybill) lines.push(`<div><span class="text-muted-foreground">Paybill:</span> <strong>${escapeHtml(d.paybill)}</strong></div>`);
         if (d.till) lines.push(`<div><span class="text-muted-foreground">Till:</span> <strong>${escapeHtml(d.till)}</strong></div>`);
@@ -1295,6 +1413,7 @@ window.selectChild = selectChild;
 window.reportAbsence = reportAbsence;
 window.processPayment = processPayment;
 window.processSchoolFeeDarajaPayment = processSchoolFeeDarajaPayment;
+window.processSchoolFeeProviderPayment = processSchoolFeeProviderPayment;
 window.submitManualSchoolFeePayment = submitManualSchoolFeePayment;
 window.setParentFeeAmount = setParentFeeAmount;
 window.upgradePlan = upgradePlan;
@@ -1371,6 +1490,7 @@ async function refreshParentPaymentPanelSoft() {
     const next = wrapper.firstElementChild;
     if (next) root.replaceWith(next);
     if (window.lucide?.createIcons) window.lucide.createIcons();
+    if (typeof window.refreshParentSchoolPaymentInfo === 'function') window.refreshParentSchoolPaymentInfo();
 }
 window.refreshParentPaymentPanelSoft = refreshParentPaymentPanelSoft;
 

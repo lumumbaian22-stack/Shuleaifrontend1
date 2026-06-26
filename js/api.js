@@ -853,7 +853,7 @@ const paymentAPI = {
     saveSchoolProvider: (data) => apiRequest('/api/payments/admin/providers', { method: 'PUT', body: JSON.stringify(data) }),
     getPlatformProviders: () => apiRequest('/api/payments/superadmin/providers'),
     savePlatformProvider: (data) => apiRequest('/api/payments/superadmin/providers', { method: 'PUT', body: JSON.stringify(data) }),
-    getParentMethods: () => apiRequest('/api/payments/parent/methods'),
+    getParentMethods: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/payments/parent/methods${q ? `?${q}` : ''}`); },
     initiate: (data) => apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(data) }),
     status: (reference) => apiRequest(`/api/payments/${encodeURIComponent(reference)}/status`),
     reconcile: (reference) => apiRequest(`/api/payments/reconcile/${encodeURIComponent(reference)}`, { method: 'POST' }),
