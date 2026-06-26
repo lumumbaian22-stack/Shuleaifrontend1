@@ -19,6 +19,9 @@ async function renderSuperAdminSection(section) {
             case 'platform-health':
                 return await renderSuperAdminHealth();
             case 'platform-payments':
+            case 'platform-payment-options':
+            case 'platform-payment-approvals':
+            case 'payment-options':
                 return await renderSuperAdminPlatformPayments();
             case 'settings':
                 return renderSuperAdminSettings();
@@ -87,17 +90,54 @@ function collectPlatformPlanInputs(ownerType) {
         };
     }).filter(p => p.code && p.name);
 }
+const PLATFORM_PAYMENT_AGENT_DEFS = [
+    { provider:'daraja', label:'M-Pesa Daraja STK', description:'Platform STK prompts for school and parent subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
+    { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for Shule AI platform subscriptions.', fields:[['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
+    { provider:'paystack', label:'Paystack', description:'Paystack checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
+    { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
+    { provider:'stripe', label:'Stripe', description:'Stripe checkout for card subscription payments.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true],['successUrl','Success URL',''],['cancelUrl','Cancel URL','']] }
+];
+
+function platformProviderConfig(provider, providerSettings) {
+    return providerSettings?.providers?.[provider] || {};
+}
+
+function renderPlatformPaymentAgentFields(provider, fields, providerSettings) {
+    const cfg = platformProviderConfig(provider, providerSettings);
+    return fields.map(([name, label, placeholder, secret]) => `<label class="text-sm">${escapeHtml(label)}<input ${secret ? 'type="password" autocomplete="off"' : ''} data-platform-provider-field="${escapeHtml(name)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" placeholder="${secret ? 'Leave blank to keep existing' : escapeHtml(placeholder || '')}" value="${secret ? '' : escapeHtml(cfg[name] || '')}"></label>`).join('');
+}
+
+function renderPlatformPaymentAgents(providerSettings = {}) {
+    const enabled = new Set(providerSettings.enabledProviders || []);
+    const defaultProvider = providerSettings.defaultProvider || 'manual';
+    return `<div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold mb-2">Platform Payment Agents / Provider Keys</h3>
+        <p class="text-xs text-muted-foreground mb-4">Super Admin manages the Shule AI provider keys used for school platform subscriptions and parent/student subscriptions. Private keys are encrypted on save.</p>
+        <div class="grid gap-4">
+            ${PLATFORM_PAYMENT_AGENT_DEFS.map(agent => `<div class="rounded-xl border bg-background p-4" data-platform-provider="${agent.provider}">
+                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div><strong>${escapeHtml(agent.label)}</strong><p class="text-sm text-muted-foreground">${escapeHtml(agent.description)}</p></div>
+                    <div class="flex flex-wrap gap-3 text-sm"><label class="flex items-center gap-2"><input type="checkbox" data-platform-provider-enabled ${enabled.has(agent.provider) ? 'checked' : ''}> Enabled</label><label class="flex items-center gap-2"><input type="radio" name="platform-default-provider" data-platform-provider-default ${defaultProvider === agent.provider ? 'checked' : ''}> Default</label></div>
+                </div>
+                <div class="grid gap-3 md:grid-cols-3 mt-3">${renderPlatformPaymentAgentFields(agent.provider, agent.fields, providerSettings)}</div>
+                <div class="mt-3 flex justify-end"><button onclick="savePlatformPaymentAgent('${agent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save ${escapeHtml(agent.label)}</button></div>
+            </div>`).join('')}
+        </div>
+    </div>`;
+}
 
 async function renderSuperAdminPlatformPayments() {
-    let settings = {}, queue = [], error = '';
+    let settings = {}, providerSettings = null, queue = [], error = '';
     try {
-        const [settingsRes, queueRes] = await Promise.all([
+        const [settingsRes, providersRes, queueRes] = await Promise.all([
             api.payments.getPlatformSettings().catch(e => ({ success:false, data:{}, message:e.message })),
+            (api.payments.getPlatformProviders ? api.payments.getPlatformProviders() : apiRequest('/api/payments/superadmin/providers')).catch(e => ({ success:false, data:null, message:e.message })),
             api.payments.getPlatformManualQueue().catch(e => ({ success:false, data:[], message:e.message }))
         ]);
         settings = settingsRes.data || {};
+        providerSettings = providersRes.data || null;
         queue = Array.isArray(queueRes.data) ? queueRes.data : (queueRes.data?.payments || queueRes.data?.requests || []);
-        if (settingsRes.message || queueRes.message) error = [settingsRes.message, queueRes.message].filter(Boolean).join(' • ');
+        if (settingsRes.message || providersRes.message || queueRes.message) error = [settingsRes.message, providersRes.message, queueRes.message].filter(Boolean).join(' - ');
     } catch (e) { error = e.message || 'Could not load platform payments.'; }
     const d = settings.darajaCredentials || {};
     const mode = settings.paymentMode || 'manual';
@@ -108,17 +148,17 @@ async function renderSuperAdminPlatformPayments() {
     }).join('') : '<tr><td colspan="6" class="p-8 text-center text-muted-foreground">No platform manual payment requests pending.</td></tr>';
     return `
     <div class="space-y-6 animate-fade-in">
-      <div><h2 class="text-2xl font-bold">Platform Payments</h2><p class="text-sm text-muted-foreground">Set Shule AI payment mode, Daraja/manual M-Pesa details, and approve parent/admin subscription requests.</p></div>
+      <div><h2 class="text-2xl font-bold">Platform Payment Options</h2><p class="text-sm text-muted-foreground">Configure Shule AI collection options for school subscriptions and parent/student subscriptions, then approve manual payment references from the queue below.</p></div>
       ${error ? `<div class="rounded-xl border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-300">${escapeHtml(error)}</div>` : ''}
       <div class="grid gap-4 lg:grid-cols-3">
         <div class="rounded-xl border bg-card p-6 lg:col-span-1">
-          <h3 class="font-semibold mb-4">Payment Mode</h3>
+          <h3 class="font-semibold mb-4">Platform Payment Mode</h3>
           <label class="text-sm">Mode<select id="platform-payment-mode" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="manual" ${mode==='manual'?'selected':''}>Manual M-Pesa only</option><option value="daraja" ${mode==='daraja'?'selected':''}>Daraja STK only</option><option value="both" ${mode==='both'?'selected':''}>Both Manual + Daraja</option></select></label>
           <label class="mt-3 flex gap-2 items-center text-sm"><input id="platform-parent-enabled" type="checkbox" ${settings.parentSubscriptionsEnabled !== false ? 'checked' : ''}> Parent subscriptions enabled</label>
           <label class="mt-2 flex gap-2 items-center text-sm"><input id="platform-school-enabled" type="checkbox" ${settings.schoolSubscriptionsEnabled !== false ? 'checked' : ''}> School/admin subscriptions enabled</label>
         </div>
         <div class="rounded-xl border bg-card p-6 lg:col-span-2">
-          <h3 class="font-semibold mb-4">Manual M-Pesa / Platform Payment Details</h3>
+          <h3 class="font-semibold mb-4">Manual M-Pesa / Shule AI Account Details</h3>
           <div class="grid gap-3 md:grid-cols-2">
             <label class="text-sm">Account Name<input id="platform-account-name" value="${escapeHtml(settings.accountName || 'Shule AI')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
             <label class="text-sm">Paybill<input id="platform-paybill" value="${escapeHtml(settings.paybill || settings.shortcode || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
@@ -160,6 +200,7 @@ async function renderSuperAdminPlatformPayments() {
         </div>
         <div class="mt-4 flex justify-end"><button onclick="savePlatformPaymentSettings()" class="px-5 py-2 rounded-lg bg-primary text-primary-foreground">Save Platform Payment Settings</button></div>
       </div>
+      ${renderPlatformPaymentAgents(providerSettings)}
       <div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">Manual Approval Queue</h3><p class="text-xs text-muted-foreground">Approve school/admin subscriptions and parent child-subscription references submitted manually.</p></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School/Parent</th><th class="p-3 text-left">Reference</th><th class="p-3 text-left">Amount</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Date</th><th class="p-3 text-right">Actions</th></tr></thead><tbody>${queueRows}</tbody></table></div>
     </div>`;
 }
@@ -484,6 +525,22 @@ async function renderSuperAdminBulkSms() {
     const historyRows = history.length ? history.slice(0,80).map(h => `<tr class="border-t"><td class="p-3">${escapeHtml(h.schoolName || h.schoolCode || 'School')}</td><td class="p-3">${escapeHtml(h.audience || '')}</td><td class="p-3 max-w-md truncate">${escapeHtml(h.message || '')}</td><td class="p-3">${Number(h.successCount || h.recipientCount || 0).toLocaleString()}</td><td class="p-3">${Number(h.failedCount || 0).toLocaleString()}</td><td class="p-3">${Number(h.tokensUsed || h.recipientCount || 0).toLocaleString()}</td><td class="p-3">${typeof formatDate === 'function' ? formatDate(h.createdAt) : (h.createdAt || '')}</td></tr>`).join('') : '<tr><td colspan="7" class="p-8 text-center text-muted-foreground">No SMS history yet.</td></tr>';
     return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">Bulk SMS</h2><p class="text-sm text-muted-foreground">Super Admin controls platform SMS provider, token allocation, and usage monitoring. School admins only compose/send.</p></div>${error ? `<div class="rounded-xl border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-300">${escapeHtml(error)}</div>` : ''}<div class="grid gap-4 md:grid-cols-4"><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Total Allocated/Remaining</p><h3 class="text-2xl font-bold">${remaining.toLocaleString()}</h3></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Total Used</p><h3 class="text-2xl font-bold">${used.toLocaleString()}</h3></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Schools With Tokens</p><h3 class="text-2xl font-bold">${Object.keys(tokens).filter(k=>Number(tokens[k])>0).length}</h3></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Provider</p><h3 class="text-lg font-bold">${cfg.providerConfigured ? 'Configured' : 'Not configured'}</h3></div></div><div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Platform SMS Provider</h3><div class="grid gap-3 md:grid-cols-4"><label class="text-sm">Provider<input id="sms-provider" value="${escapeHtml(cfg.provider || '')}" placeholder="e.g. AfricasTalking" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="text-sm md:col-span-2">API Key<input id="sms-api-key" type="password" placeholder="Leave blank to keep existing" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="text-sm">Sender ID<input id="sms-sender-id" value="${escapeHtml(cfg.senderId || 'SHULEAI')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="flex items-center gap-2 text-sm"><input id="sms-enabled" type="checkbox" ${cfg.enabledRaw || cfg.providerConfigured ? 'checked' : ''}> Enabled</label></div><div class="mt-4 flex justify-end"><button onclick="savePlatformSmsProvider()" class="px-5 py-2 rounded-lg bg-primary text-primary-foreground">Save Provider</button></div></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">School Token Allocation</h3></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School</th><th class="p-3 text-left">Remaining Tokens</th><th class="p-3 text-left">Used</th><th class="p-3 text-left">Set Tokens</th><th class="p-3 text-right">Action</th></tr></thead><tbody>${rows}</tbody></table></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">SMS Allocation History</h3><p class="text-xs text-muted-foreground">Every balance change is audited.</p></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School</th><th class="p-3 text-left">Change</th><th class="p-3 text-left">Balance</th><th class="p-3 text-left">Reason</th><th class="p-3 text-left">Allocated By</th><th class="p-3 text-left">Date</th></tr></thead><tbody>${allocationRows}</tbody></table></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">SMS Usage History</h3></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School</th><th class="p-3 text-left">Audience</th><th class="p-3 text-left">Message</th><th class="p-3 text-left">Reached</th><th class="p-3 text-left">Failed</th><th class="p-3 text-left">Tokens</th><th class="p-3 text-left">Date</th></tr></thead><tbody>${historyRows}</tbody></table></div></div>`;
 }
+window.savePlatformPaymentAgent = async function(provider) {
+    try {
+        const card = document.querySelector(`[data-platform-provider="${provider}"]`);
+        if (!card) throw new Error('Payment agent form was not found.');
+        const config = {};
+        card.querySelectorAll('[data-platform-provider-field]').forEach(input => {
+            const key = input.getAttribute('data-platform-provider-field');
+            const value = input.value?.trim() || '';
+            if (value) config[key] = value;
+        });
+        const payload = { provider, enabled: !!card.querySelector('[data-platform-provider-enabled]')?.checked, isDefault: !!card.querySelector('[data-platform-provider-default]')?.checked, config };
+        await (api.payments.savePlatformProvider ? api.payments.savePlatformProvider(payload) : apiRequest('/api/payments/superadmin/providers', { method:'PUT', body:JSON.stringify(payload) }));
+        showToast?.('Platform payment agent saved', 'success');
+        await showDashboardSection('platform-payments');
+    } catch(e) { showToast?.(e.message || 'Could not save platform payment agent', 'error'); }
+};
 
 window.savePlatformPaymentSettings = async function() {
     try {

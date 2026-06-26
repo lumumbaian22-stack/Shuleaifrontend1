@@ -82,6 +82,7 @@ window.sectionAllowedByRulebook = sectionAllowedByRulebook;
 // sidebar.js - Sidebar navigation and user info
 
 function updateSidebar(role) {
+    role = normalizeDashboardRole(role);
     const nav = document.getElementById('sidebar-nav');
     const settingsNav = document.getElementById('settings-nav');
     const mobileNav = document.getElementById('mobile-nav');
@@ -112,7 +113,7 @@ function updateSidebar(role) {
                 { icon: 'check-circle', label: 'School Approvals', section: 'school-approvals' },
                 { icon: 'file-edit', label: 'Name Changes', section: 'name-change-requests' },
                 { icon: 'activity', label: 'Platform Health', section: 'platform-health' },
-                { icon: 'credit-card', label: 'Platform Payments', section: 'platform-payments' },
+                { icon: 'credit-card', label: 'Payment Options', section: 'platform-payments' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'bell', label: 'Super Admin Alerts', section: 'alerts' },
                 { icon: 'message-square', label: 'Bulk SMS', section: 'sms' }
@@ -154,6 +155,9 @@ function updateSidebar(role) {
         finance_officer: {
             main: [
                 { icon: 'wallet', label: 'Finance Workspace', section: 'finance-fees' },
+                { icon: 'receipt', label: 'School Fee Payments', section: 'payments' },
+                { icon: 'shield-check', label: 'Verify Payments', section: 'payment-verification' },
+                { icon: 'credit-card', label: 'Payment Options', section: 'payment-settings' },
                 { icon: 'bar-chart-2', label: 'Analytics', section: 'analytics' },
                 { icon: 'bell', label: 'Alerts', section: 'alerts' }
             ],
@@ -346,6 +350,11 @@ let customSubjects = [];
 let schoolUpdateCallbacks = [];
 let clickCount = 0;
 
+function normalizeDashboardRole(role) {
+    const value = String(role || '').toLowerCase().replace('-', '_');
+    return value === 'super_admin' ? 'superadmin' : value;
+}
+
 // ============ SCHOOL SETTINGS ============
 async function loadSchoolSettings() {
     try {
@@ -527,10 +536,11 @@ async function showDashboard(role) {
     window.__shuleDashboardRunId = (window.__shuleDashboardRunId || 0) + 1;
     const __runId = window.__shuleDashboardRunId;
     const __storedUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : {};
-    const __storedRole = __storedUser?.role || localStorage.getItem('userRole');
-    if (__storedRole && role && __storedRole !== role && !(role === 'superadmin' && __storedRole === 'super_admin')) {
+    const __storedRole = normalizeDashboardRole(__storedUser?.role || localStorage.getItem('userRole'));
+    role = normalizeDashboardRole(role);
+    if (__storedRole && role && __storedRole !== role) {
         console.warn('Ignoring stale dashboard render for role:', role, 'current role:', __storedRole);
-        role = (__storedRole === 'super_admin') ? 'superadmin' : __storedRole;
+        role = __storedRole;
     }
     console.log('🔵 showDashboard called with role:', role);
 
@@ -561,6 +571,7 @@ async function showDashboard(role) {
         }
     }
 
+    role = normalizeDashboardRole(role);
     localStorage.setItem('userRole', role);
     currentRole = role;
 
@@ -603,24 +614,23 @@ async function showDashboard(role) {
             ]);
             dashboardData = { ...overview.data, schools: schools.data, pendingSchools: pending.data };
         } else if (role === 'admin') {
-            const [teachers, students, pendingTeachers] = await Promise.all([
-                api.admin.getTeachers().catch(err => ({ data: [] })),
-                api.admin.getStudents().catch(err => ({ data: [] })),
-                api.admin.getPendingApprovals().catch(err => ({ data: { teachers: [] } }))
-            ]);
-            dashboardData = { teachers: teachers.data, students: students.data, pendingTeachers: pendingTeachers.data?.teachers || [] };
+            const summary = await api.admin.getDashboardData().catch(err => ({ data: {} }));
+            const stats = summary.data || {};
+            dashboardData = {
+                stats,
+                studentsCount: Number(stats.students || 0),
+                teachersCount: Number(stats.teachers || 0),
+                parentsCount: Number(stats.parents || 0),
+                classesCount: Number(stats.classes || 0),
+                pendingTeachersCount: Number(stats.pendingApprovals || 0)
+            };
         } else if (role === 'finance_officer') {
             dashboardData = { financeOnly: true };
         } else if (role === 'teacher') {
-            const [students, subjects, assignments, todayDuty] = await Promise.all([
-                api.teacher.getMyStudents().catch(err => ({ data: [] })),
-                api.teacher.getMySubjects().catch(err => ({ data: [] })),
-                api.teacher.getMyAssignments().catch(err => ({ data: { classTeacher: null, subjects: [] } })),
-                hasSchoolFeature('duty') ? api.duty.getTodayDuty().catch(err => ({ data: {} })) : Promise.resolve({ data: null })
-            ]);
+            const assignments = await api.teacher.getMyAssignments().catch(err => ({ data: { classTeacher: null, subjects: [] } }));
             const assignmentData = assignments?.data || { classTeacher: null, subjects: [] };
             window.__teacherAssignments = assignmentData;
-            dashboardData = { students: students.data, subjects: subjects.data, assignments: assignmentData, todayDuty: todayDuty.data };
+            dashboardData = { assignments: assignmentData };
         } else if (role === 'parent') {
             const children = await api.parent.getChildren().catch(err => ({ data: [] }));
             let childSummary = null;
@@ -719,7 +729,11 @@ async function showDashboardSection(section) {
             payments: 'Payments',
             'finance-fees': currentRole === 'admin' ? 'Finance Overview' : 'Finance Workspace',
             'fee-structures': 'Finance & Fees',
-            'payment-settings': 'Finance & Fees',
+            'payment-settings': 'Payment Options',
+            'payment-verification': 'Payment Verification',
+            'platform-payments': 'Platform Payments',
+            'platform-payment-options': 'Platform Payment Options',
+            'platform-payment-approvals': 'Platform Payment Approvals',
             'subscription-billing': 'Subscription & Billing',
             progress: 'Academic Progress',
             'child-selector': 'Select Child',
@@ -826,6 +840,7 @@ async function showDashboardSection(section) {
 }
 
 async function renderDashboardSection(role, section) {
+    role = normalizeDashboardRole(role);
     // Alerts are a shared role-safe module. Render them here so every dashboard
     // receives the same working screen even if an older role renderer is cached.
     if (section === 'alerts') {
@@ -859,10 +874,14 @@ async function renderDashboardSection(role, section) {
             if (section === 'analytics') {
                 return await renderAnalyticsSection('finance_officer');
             }
-            if (section === 'dashboard' || section === 'finance-fees' || section === 'payments') {
-                return typeof window.v31RenderFinanceFees === 'function'
-                    ? await window.v31RenderFinanceFees()
-                    : '<div class="rounded-xl border bg-card p-6 text-red-600">Finance Workspace failed to load.</div>';
+            {
+                const financeTabs = { dashboard: 'overview', 'finance-fees': 'overview', payments: 'records', 'payment-verification': 'verification', 'payment-settings': 'settings', 'fee-structures': 'structures', 'finance-reports': 'reports' };
+                if (financeTabs[section]) {
+                    if (typeof window.v31RenderFinanceFeesSection === 'function') return await window.v31RenderFinanceFeesSection(financeTabs[section]);
+                    return typeof window.v31RenderFinanceFees === 'function'
+                        ? await window.v31RenderFinanceFees()
+                        : '<div class="rounded-xl border bg-card p-6 text-red-600">Finance Workspace failed to load.</div>';
+                }
             }
             if (section === 'profile') return await renderProfileSection();
             if (section === 'help') return typeof renderHelpSupport === 'function' ? await renderHelpSupport() : '<div class="rounded-xl border bg-card p-6">Help is loading.</div>';
