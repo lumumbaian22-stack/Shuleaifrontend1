@@ -837,6 +837,36 @@
   font-size: 15px;
 }
 
+.lp-learnfeed-download {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: center;
+  margin-top: 22px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.16);
+}
+
+.lp-learnfeed-download strong {
+  display: block;
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.lp-learnfeed-download p {
+  margin: 0;
+  color: rgba(226,232,240,.74);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lp-learnfeed-download .lp-btn {
+  white-space: nowrap;
+}
+
 .lp-role-tabs {
   width: min(720px, 100%);
   margin: 0 auto 22px;
@@ -1309,3 +1339,14 @@
 .dark .lp-demo-grid small, [data-theme="dark"] .lp-demo-grid small, body.dark-mode .lp-demo-grid small { color:#9fb1cc; }
 .lp-demo-note { border-radius:16px; padding:12px; background:rgba(37,99,235,.08); }
 @media (max-width:640px){ .lp-demo-grid { grid-template-columns:1fr; } }
+
+@media (max-width: 640px) {
+  .lp-learnfeed-download {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-learnfeed-download .lp-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
