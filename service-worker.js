@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-1512-real-analytics-scope-export-lock';
+const CACHE_NAME = 'shule-ai-2010-exact-payment-ui';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

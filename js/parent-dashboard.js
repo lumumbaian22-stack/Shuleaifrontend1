@@ -551,8 +551,9 @@ async function renderParentProgress() {
 async function renderParentPayments() {
     try {
         const school = getCurrentSchool();
-        const selectedChildId = dashboardData?.selectedChildId || dashboardData?.children?.[0]?.id;
-        const selectedChild = (dashboardData?.children || []).find(c => String(c.id) === String(selectedChildId)) || dashboardData?.children?.[0];
+        const children = dashboardData?.children || [];
+        const selectedChildId = dashboardData?.selectedChildId || children?.[0]?.id;
+        const selectedChild = children.find(c => String(c.id) === String(selectedChildId)) || children?.[0] || {};
         const historyFilter = localStorage.getItem('parent_payment_history_filter') || 'all';
         const subPhone = escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : '') || '');
         let platformChildPlans = [];
@@ -569,118 +570,66 @@ async function renderParentPayments() {
         try {
             const methodResponse = await (api.payments?.getParentMethods ? api.payments.getParentMethods({ studentId: selectedChildId }) : apiRequest('/api/payments/parent/methods'));
             parentPaymentMethods = methodResponse?.data || methodResponse || parentPaymentMethods;
-        } catch (e) {
-            console.warn('Parent payment methods failed', e.message);
-        }
+        } catch (e) { console.warn('Parent payment methods failed', e.message); }
+
         const fees = finance.accounts || [];
         const activeFee = fees.find(f => Number(f.balance || 0) > 0) || fees[0] || null;
         const balance = Number(activeFee?.balance ?? Math.max(0, Number(activeFee?.totalAmount||0) - Number((activeFee?.parentPaidAmount ?? activeFee?.paidAmount) || 0) - Number(activeFee?.creditAmount||0))) || 0;
         const parentPaid = Number(activeFee?.parentPaidAmount ?? activeFee?.paidAmount ?? 0);
         const credit = Number(activeFee?.creditAmount || 0);
-        const paidCovered = parentPaid + credit;
+        const totalBalance = children.reduce((sum, c) => sum + Number(c.outstandingBalance || c.balance || (String(c.id)===String(selectedChildId) ? balance : 0) || 0), 0) || Number(finance?.totals?.balance || balance || 0);
         const elimuId = selectedChild?.elimuid || selectedChild?.elimuId || selectedChild?.admissionNumber || finance.student?.elimuid || '—';
-        const feeSelectHtml = fees.length > 1 ? `
-            <label class="text-sm">Fee Account / Term
-                <select id="payment-fee" onchange="updateParentFeeSummaryFromSelect()" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                    ${fees.map(f => `<option value="${f.id}" data-total="${Number(f.totalAmount||0)}" data-parent-paid="${Number((f.parentPaidAmount ?? f.paidAmount) || 0)}" data-credit="${Number(f.creditAmount||0)}" data-balance="${Number(f.balance||0)}">${escapeHtml(f.term || 'Fees')} ${escapeHtml(String(f.year || ''))} • Total KES ${Number(f.totalAmount||0).toLocaleString()} • Paid KES ${Number((f.parentPaidAmount ?? f.paidAmount) || 0).toLocaleString()} • Credits KES ${Number(f.creditAmount||0).toLocaleString()} • Balance KES ${Number(f.balance||0).toLocaleString()}</option>`).join('')}
-                </select>
-            </label>` : `
-            <div class="text-sm rounded-lg border border-input bg-background px-3 py-2">
-                <span class="text-muted-foreground">Fee Account / Term</span><br>
-                <strong>${activeFee ? `${escapeHtml(activeFee.term || 'Fees')} ${escapeHtml(String(activeFee.year || ''))}` : 'No active fee account found'}</strong>
-                ${activeFee ? `<input type="hidden" id="payment-fee" value="${activeFee.id}">` : '<input type="hidden" id="payment-fee" value="">'}
-            </div>`;
+        const invoiceRows = fees.length ? fees.slice(0,4).map((f,idx)=>`<tr><td>INV-${String(f.id || idx+1).padStart(4,'0')}</td><td>${escapeHtml(f.term || 'School Fees')} ${escapeHtml(String(f.year || ''))}</td><td>KES ${Number(f.totalAmount || f.amount || 0).toLocaleString()}</td><td>${escapeHtml(f.dueDate ? String(f.dueDate).slice(0,10) : '—')}</td><td><span class="parent-pay-unpaid">${Number(f.balance||0)>0?'Unpaid':'Paid'}</span></td></tr>`).join('') : '<tr><td colspan="5">No active invoices found for this child.</td></tr>';
+        const childRows = children.length ? children.map(child => {
+          const isActive = String(child.id) === String(selectedChildId);
+          const childBalance = isActive ? balance : Number(child.outstandingBalance || child.balance || 0);
+          return `<button type="button" class="parent-child-card ${isActive?'active':''}" onclick="selectChild(${jsAttrArg(child.id)})"><span class="parent-child-avatar">${escapeHtml((child.User?.name || child.name || 'S').charAt(0))}</span><span><strong>${escapeHtml(child.User?.name || child.name || 'Student')}</strong><small>${escapeHtml(child.grade || child.className || '')}</small></span><em>Outstanding<br>KES ${childBalance.toLocaleString()}</em></button>`;
+        }).join('') : '<div class="payment-lock-alert">No linked children found.</div>';
+        const historyRows = payments.length ? payments.slice(0,8).map(payment => `<div class="parent-history-row"><span><strong>${escapeHtml(payment.transactionTypeLabel || payment.transactionType || 'Payment')}</strong><small>${formatDate(payment.createdAt)} • ${escapeHtml(payment.reference || '')}</small></span><em>KES ${Number(payment.amount || 0).toLocaleString()}<small>${escapeHtml(payment.statusLabel || payment.status || '')}</small></em></div>`).join('') : '<div class="payment-lock-alert">No payment history for this child yet.</div>';
 
-        return `
-            <div class="space-y-6 animate-fade-in" id="parent-payments-root" data-student-id="${escapeHtml(selectedChildId || '')}">
-                ${childSubHtml}
-                <div class="rounded-xl border bg-card p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
-                    <h2 id="parent-school-name-payments" class="text-xl font-semibold">${escapeHtml(selectedChild?.schoolName || school?.name || 'Your School')}</h2>
-                    <p class="text-sm text-muted-foreground">School Fees & Student-Specific Payment Verification</p>
+        return `<div class="parent-payment-ui animate-fade-in" id="parent-payments-root" data-student-id="${escapeHtml(selectedChildId || '')}">
+          <input id="payment-amount" type="number" value="${Number(balance || 0)}" style="display:none">
+          <select id="payment-child" style="display:none">${children.map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}></option>`).join('')}</select>
+          <input type="hidden" id="payment-fee" value="${activeFee?.id || ''}">
+          <div class="parent-payment-card">
+            <div class="parent-payment-top"><div><p>Total Outstanding Balance</p><h2>KES ${Number(totalBalance || balance || 0).toLocaleString()}</h2><span>${children.length} Children &nbsp; | &nbsp; ${fees.filter(f=>Number(f.balance||0)>0).length || 0} Unpaid Invoices</span></div><button type="button" onclick="setParentPaymentHistoryFilter('all')">View Statement</button></div>
+            <div class="parent-payment-layout">
+              <section>
+                <h3>Select Child</h3>
+                <div class="parent-child-list">${childRows}</div>
+                <h3>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || 'Selected Child')} — Outstanding Invoices <button type="button" onclick="setParentPaymentHistoryFilter('all')">View All</button></h3>
+                <div class="parent-invoice-table"><table><thead><tr><th>Invoice No.</th><th>Description</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>${invoiceRows}</tbody><tfoot><tr><td colspan="4">Total Outstanding</td><td>KES ${balance.toLocaleString()}</td></tr></tfoot></table></div>
+                <div class="parent-payment-hidden-fields">
+                  <label>M-Pesa Phone for STK<input type="tel" id="payment-phone" placeholder="2547XXXXXXXX" value="${escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : ''))}"></label>
+                  <label>Reference for bank/cash/manual payment<input type="text" id="payment-mpesa-code" placeholder="Receipt / bank ref / M-Pesa code" class="uppercase"></label>
                 </div>
-
-                <div class="grid gap-4 lg:grid-cols-3">
-                    <div class="rounded-xl border bg-card p-6 lg:col-span-2">
-                        <h3 class="font-semibold mb-1">Pay School Fees</h3>
-                        <p class="text-sm text-muted-foreground mb-4">Each balance and history is personal to the selected child only.</p>
-                        <div id="parent-school-payment-info-card" class="rounded-xl border bg-muted/30 p-4 mb-4">
-                            <div class="flex items-center justify-between gap-3 flex-wrap">
-                                <div>
-                                    <h4 class="font-semibold">School Payment Information</h4>
-                                    <p class="text-sm text-muted-foreground">Use the school details below, then choose one of the payment options enabled by school finance.</p>
-                                </div>
-                                <button type="button" onclick="refreshParentSchoolPaymentInfo()" class="px-3 py-2 rounded-lg border text-sm">Refresh Details</button>
-                            </div>
-                            <div id="parent-school-payment-info-body" class="mt-3 text-sm text-muted-foreground">Loading school payment details...</div>
-                        </div>
-                        <div class="grid gap-3 md:grid-cols-2">
-                            <label class="text-sm">Child
-                                <select id="payment-child" onchange="selectChild(this.value)" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                                    ${(dashboardData?.children || []).map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}>${escapeHtml(child.User?.name || child.name || 'Student')} • ${escapeHtml(child.grade || child.className || '')}</option>`).join('')}
-                                </select>
-                            </label>
-                            ${feeSelectHtml}
-                            <div class="rounded-lg bg-muted/40 p-3 md:col-span-2" id="parent-fee-summary-card">
-                                <div class="grid gap-2 md:grid-cols-5 text-sm">
-                                    <div><span class="text-muted-foreground">Elimu ID</span><br><strong>${escapeHtml(elimuId)}</strong></div>
-                                    <div><span class="text-muted-foreground">Total</span><br><strong id="parent-fee-total">KES ${Number(activeFee?.totalAmount || 0).toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Parent Paid</span><br><strong id="parent-fee-paid">KES ${parentPaid.toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Bursary/Credit</span><br><strong id="parent-fee-credit">KES ${credit.toLocaleString()}</strong></div>
-                                    <div><span class="text-muted-foreground">Balance</span><br><strong id="parent-fee-balance">KES ${balance.toLocaleString()}</strong></div>
-                                </div>
-                            </div>
-                            <label class="text-sm">Amount to Pay
-                                <input type="number" id="payment-amount" placeholder="e.g. 5000" max="${balance || ''}" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            </label>
-                            <label class="text-sm">M-Pesa Phone
-                                <input type="tel" id="payment-phone" placeholder="2547XXXXXXXX" value="${escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : ''))}" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                            </label>
-                            <div class="flex flex-wrap gap-2 md:col-span-2">
-                                <button type="button" onclick="setParentFeeAmount(${Math.ceil(balance/2)||0})" class="px-3 py-2 rounded-lg border text-sm">Half Balance</button>
-                                <button type="button" onclick="setParentFeeAmount(${balance||0})" class="px-3 py-2 rounded-lg border text-sm">Full Balance</button>
-                            </div>
-                            <label class="text-sm md:col-span-2">Payment reference/code after paying outside checkout
-                                <input type="text" id="payment-mpesa-code" placeholder="Payment reference e.g. QEH123ABC, bank slip, cash receipt" class="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm uppercase">
-                            </label>
-                            <div class="md:col-span-2">
-                                ${renderParentProviderMethods(parentPaymentMethods)}
-                            </div>
-                            ${renderParentLegacyPaymentButtons(parentPaymentMethods)}
-                        </div>
-                    </div>
-
-                    <div class="rounded-xl border bg-card p-6">
-                        <div class="flex items-center justify-between gap-2 mb-4">
-                            <h3 class="font-semibold">Payment History</h3>
-                            <select id="parent-payment-history-filter" onchange="setParentPaymentHistoryFilter(this.value)" class="rounded-lg border border-input bg-background px-2 py-1 text-xs">
-                                ${['all','pending','successful','failed','rejected','bursaries','credits'].map(v => `<option value="${v}" ${historyFilter===v?'selected':''}>${v === 'all' ? 'All' : v.charAt(0).toUpperCase()+v.slice(1)}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="space-y-2 max-h-96 overflow-y-auto" id="parent-student-payment-history">
-                            ${payments.length > 0 ? payments.map(payment => `
-                                <div class="flex justify-between items-center p-3 bg-muted/30 rounded-lg" data-payment-id="${payment.id}">
-                                    <div>
-                                        <p class="text-sm font-medium">${escapeHtml(payment.transactionTypeLabel || payment.transactionType || 'Payment')}</p>
-                                        <p class="text-xs text-muted-foreground">${formatDate(payment.createdAt)} • ${escapeHtml(payment.reference || '')}</p>
-                                        <p class="text-[11px] text-muted-foreground">${escapeHtml(payment.feeTerm || payment.Fee?.term || payment.metadata?.term || 'Fee')} ${escapeHtml(String(payment.feeYear || payment.Fee?.year || payment.metadata?.year || ''))} • ${escapeHtml(payment.method || '')}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="font-semibold">KES ${Number(payment.amount || 0).toLocaleString()}</p>
-                                        <span class="text-xs ${['completed','success','successful','approved'].includes(String(payment.status).toLowerCase()) ? 'text-green-600' : ['failed','rejected'].includes(String(payment.status).toLowerCase()) ? 'text-red-600' : 'text-yellow-600'}">${escapeHtml(payment.statusLabel || payment.status)}</span>
-                                    </div>
-                                </div>
-                            `).join('') : `<div class="text-center py-8"><i data-lucide="credit-card" class="h-12 w-12 mx-auto text-muted-foreground mb-3"></i><p class="text-sm text-muted-foreground">No ${historyFilter !== 'all' ? historyFilter + ' ' : ''}history for this student</p></div>`}
-                        </div>
-                    </div>
+                ${renderParentProviderMethods(parentPaymentMethods)}
+                <div class="parent-total-row"><span>Total Amount to Pay</span><strong>KES ${balance.toLocaleString()}</strong></div>
+                <button type="button" class="parent-pay-main-btn" onclick="processSchoolFeeProviderPayment(null,'${normalizeParentPaymentMethods(parentPaymentMethods)[0]?.method || 'mobile_money'}')">Pay KES ${balance.toLocaleString()}</button>
+                <div class="parent-payment-info-strip"><span>🛡️ Secure Payments</span><span>🧾 Instant Receipts</span><span>🎧 24/7 Support</span></div>
+              </section>
+              <aside>
+                <div class="parent-side-box manual-mpesa-box">
+                  <h3>Manual M-Pesa Verification <small>(School Fees)</small></h3>
+                  <p>Pay using the school Paybill/Till, then submit your M-Pesa confirmation code for verification.</p>
+                  <label>School Paybill / Till<input readonly value="${escapeHtml(parentPaymentMethods?.manualPaybill || parentPaymentMethods?.paybill || '123456')}"></label>
+                  <label>Account Name<input readonly value="${escapeHtml(selectedChild?.User?.name || selectedChild?.name || 'Student')}"></label>
+                  <label>Reference Format<input readonly value="${escapeHtml(elimuId && elimuId !== '—' ? elimuId + ' / Invoice Number' : 'ELIMU ID / Invoice Number')}"></label>
+                  <label>M-Pesa Code<input id="parent-manual-mpesa-code" class="uppercase" placeholder="Enter M-Pesa code" oninput="document.getElementById('payment-mpesa-code').value=this.value"></label>
+                  <button type="button" onclick="submitManualSchoolFeePayment('manual')">Submit for Verification</button>
                 </div>
-            </div>`;
+                <div class="parent-side-box"><h3>Payment History</h3>${historyRows}</div>
+              </aside>
+            </div>
+            ${childSubHtml ? `<div class="parent-subscription-wrap exact-platform-subscriptions">${childSubHtml}</div>` : ''}
+            <div class="parent-side-box important exact-parent-important"><h3>IMPORTANT FOR PARENTS</h3><p>✓ You only choose how to pay by method. You never choose a provider.</p><p>✓ School fees use the school active provider automatically.</p><p>✓ Platform subscriptions use the platform active provider automatically.</p></div>
+          </div>
+        </div>`;
     } catch (error) {
         console.error('Payments error:', error);
         return `<div class="text-center py-12 text-red-500">Error loading payments: ${error.message}</div>`;
     }
 }
-
-
 async function renderParentChat() {
     const selectedChild = dashboardData?.selectedChild?.student || 
                           (dashboardData?.children && dashboardData.children[0]?.User);
@@ -828,20 +777,41 @@ async function reportAbsence() {
 
 function renderParentChildSubscriptionCards(selectedChildId, selectedChild, phone='', livePlans=null) {
     const fallbackPlans = [
-        { code:'child_basic', name:'Basic', amount:100, features:['Report cards','Attendance','Progress'], ai:'No AI Tutor' },
-        { code:'child_premium', name:'Premium', amount:250, features:['Everything in Basic','AI Tutor: 6 messages/day','Child timetable if school has timetable'], ai:'6 AI messages/day' },
-        { code:'child_ultimate', name:'Ultimate', amount:500, features:['Everything in Premium','Extended AI Tutor','Live child analytics','Stronger child alerts','Child recommendations'], ai:'Extended AI access' }
+        { code:'child_basic', name:'Basic', amount:100, features:['Report Cards','Attendance','Progress'], badge:'Basic' },
+        { code:'child_premium', name:'Premium', amount:250, features:['AI Tutor','Analytics','Alerts'], badge:'Popular' },
+        { code:'child_ultimate', name:'Ultimate', amount:500, features:['Everything in Premium','Stronger AI','Recommendations'], badge:'Ultimate' }
     ];
-    const plans = (Array.isArray(livePlans) && livePlans.length ? livePlans : fallbackPlans).map(p => {
-        const code = p.code || p.planCode || p.name || 'child_basic';
-        const name = p.displayName || p.name || code.replace(/^child_/, '');
-        const amount = Number(p.monthlyPriceKes ?? p.price_kes ?? p.amount ?? p.price ?? 0) || 0;
-        const features = Array.isArray(p.features) && p.features.length ? p.features : fallbackPlans.find(x => String(x.code) === String(code))?.features || [];
-        const ai = String(code).includes('ultimate') ? 'Extended AI access' : String(code).includes('premium') ? '6 AI messages/day' : 'No AI Tutor';
-        return { code, name, amount, features, ai };
+    const plans = (Array.isArray(livePlans) && livePlans.length ? livePlans : fallbackPlans).slice(0,3).map((p, i) => {
+        const fallback = fallbackPlans[i] || fallbackPlans[0];
+        const code = p.code || p.planCode || fallback.code;
+        const name = p.displayName || p.name || fallback.name;
+        const amount = Number(p.monthlyPriceKes ?? p.price_kes ?? p.amount ?? p.price ?? fallback.amount) || fallback.amount;
+        const features = Array.isArray(p.features) && p.features.length ? p.features.slice(0,3) : fallback.features;
+        const badge = fallback.badge;
+        return { code, name, amount, features, badge };
     });
-    return `<div class="rounded-xl border bg-card p-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4"><div><h3 class="font-semibold text-lg">ShuleAI Child Subscription</h3><p class="text-sm text-muted-foreground">Per-child platform subscription. Selected child: <b>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || selectedChildId || 'Child')}</b></p></div><input id="parent-sub-phone" type="tel" value="${phone}" placeholder="2547XXXXXXXX" class="rounded-lg border bg-background px-3 py-2 text-sm md:w-56"></div><div class="grid gap-4 md:grid-cols-3">${plans.map(p => `<div class="rounded-xl border p-4 bg-background"><div class="flex justify-between items-start"><div><h4 class="font-bold">${escapeHtml(p.name)}</h4><p class="text-sm text-muted-foreground">KES ${Number(p.amount).toLocaleString()} / month</p></div><span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(p.ai)}</span></div><ul class="mt-3 text-sm space-y-1">${p.features.map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}</ul><button onclick="payChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-4 w-full rounded-lg bg-primary text-primary-foreground py-2">Pay ${escapeHtml(p.name)}</button><div class="mt-3"><input id="parent-sub-code-${escapeHtml(p.code)}" class="w-full rounded-lg border bg-background px-3 py-2 text-sm uppercase" placeholder="Manual M-Pesa code/reference"><button onclick="submitManualChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-2 w-full rounded-lg border py-2 text-sm">Submit Code for Approval</button></div></div>`).join('')}</div></div>`;
+    const studentName = escapeHtml(selectedChild?.User?.name || selectedChild?.name || selectedChildId || 'Child');
+    const planCards = plans.map((p, idx) => `<div class="platform-plan-card ${idx===1?'premium':idx===2?'ultimate':'basic'}">
+        <div class="platform-plan-head"><h4>${escapeHtml(p.name)}</h4>${idx===1?'<span>POPULAR</span>':''}</div>
+        <strong>KES ${Number(p.amount).toLocaleString()} <small>/ month</small></strong>
+        <ul>${p.features.map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}</ul>
+        <button type="button" onclick="payChildSubscription(${jsAttrArg(p.code)}, ${Number(p.amount)})">Subscribe</button>
+        <input id="parent-sub-code-${escapeHtml(p.code)}" class="platform-sub-code uppercase" placeholder="Manual M-Pesa code/reference">
+        <button type="button" class="manual-sub-btn" onclick="submitManualChildSubscription(${jsAttrArg(p.code)}, ${Number(p.amount)})">Submit Manual Reference</button>
+      </div>`).join('');
+    const methodCards = [
+        ['mobile_money','Mobile Money','(STK Push)','▣',"payChildSubscription("+jsAttrArg(plans[0]?.code || 'child_basic')+", "+Number(plans[0]?.amount || 100)+")"],
+        ['card','Card','(Visa, Mastercard)','▤',"initiateChildPlatformSubscriptionPayment({studentId: dashboardData?.selectedChildId, planCode: "+jsAttrArg(plans[0]?.code || 'child_basic')+", amount: "+Number(plans[0]?.amount || 100)+", phone: getParentPaymentPhone(), paymentMethod:'card'}).then(()=>showToast('Platform card checkout started','success')).catch(e=>showToast(e.message,'error'))"],
+        ['bank','Bank Transfer','(Direct to Bank)','▥',"submitManualChildSubscription("+jsAttrArg(plans[0]?.code || 'child_basic')+", "+Number(plans[0]?.amount || 100)+")"],
+        ['manual','Manual M-Pesa','Reference','▧',"submitManualChildSubscription("+jsAttrArg(plans[0]?.code || 'child_basic')+", "+Number(plans[0]?.amount || 100)+")"]
+    ].map(([cls,label,sub,icon,action]) => `<button type="button" onclick="${action}" class="payment-method-card parent-method-card ${cls==='mobile_money'?'green':cls==='card'?'blue':cls==='bank'?'orange':'purple'}"><span class="payment-method-icon">${icon}</span><span><strong>${label}</strong><small>${sub}</small></span></button>`).join('');
+    return `<section class="platform-subscription-section">
+        <div class="platform-subscription-title"><div><h3>Platform Subscription Plans</h3><p>For ${studentName}. Platform subscriptions use the platform active provider automatically.</p></div><input id="parent-sub-phone" type="tel" value="${phone}" placeholder="2547XXXXXXXX"></div>
+        <div class="platform-plan-grid">${planCards}</div>
+        <div class="platform-sub-methods"><div class="payment-lock-mini-head"><div><h4>Platform Subscription Payment Methods</h4><p>You choose the method. The platform active provider is used automatically.</p></div></div><div class="payment-method-grid four">${methodCards}</div></div>
+      </section>`;
 }
+
 async function initiateChildPlatformSubscriptionPayment({ studentId, planCode, amount, phone, paymentMethod = 'mobile_money' }) {
     const res = await api.payments.initiate({
         paymentType: 'platform',
@@ -956,31 +926,30 @@ function normalizeParentPaymentMethods(methodData = {}) {
 
 function renderParentProviderMethods(methodData = {}) {
     const methods = normalizeParentPaymentMethods(methodData);
-    const activeProvider = normalizeParentPaymentProvider(methodData.activeProvider || methodData.defaultProvider || methods[0]?.provider || '');
-    if (!methods.length) {
-        return '<div class="payment-lock-alert">No payment method is enabled yet. Ask the school Finance Officer to activate exactly one provider and select parent payment methods.</div>';
-    }
-    const cards = methods.map(method => {
-        const action = ['bank','cash','manual'].includes(method.method) || (method.prompt === 'manual_instructions' && method.provider !== 'mpesa' && method.provider !== 'daraja')
-            ? 'submitManualSchoolFeePayment(' + JSON.stringify(method.method) + ')'
-            : 'processSchoolFeeProviderPayment(null,' + JSON.stringify(method.method) + ')';
-        const actionLabel = method.prompt === 'checkout_url' ? 'Open Checkout' : (method.prompt === 'phone_prompt' ? 'Send STK Prompt' : 'Submit Reference');
-        return '<button type="button" onclick="' + escapeHtml(action) + '" class="payment-method-card">' +
-            '<span class="payment-method-icon">' + (method.method === 'mobile_money' ? '▣' : method.method === 'card' ? '▤' : method.method === 'bank' ? '▥' : '✓') + '</span>' +
-            '<span><strong>' + escapeHtml(method.label) + '</strong><small>' + escapeHtml(method.method === 'mobile_money' ? 'STK Push / mobile wallet' : method.method === 'card' ? 'Visa, Mastercard or checkout' : method.method === 'bank' ? 'Direct to bank' : 'Finance verification') + '</small></span>' +
-            '<em>' + escapeHtml(actionLabel) + '</em>' +
-            '</button>';
+    const enabled = new Set(methods.map(m => m.method));
+    // Keep the exact design requirement: parents see methods only, never providers.
+    // Show the four school-fee method cards consistently; the backend still enforces
+    // which method/provider is actually enabled.
+    const rows = [
+        { method:'mobile_money', label:'Mobile Money', sub:'(STK Push)', icon:'▣', cls:'green', action:"processSchoolFeeProviderPayment(null,'mobile_money')" },
+        { method:'card', label:'Card', sub:'(Visa, Mastercard)', icon:'▤', cls:'blue', action:"processSchoolFeeProviderPayment(null,'card')" },
+        { method:'bank', label:'Bank Transfer', sub:'(Direct to Bank)', icon:'▥', cls:'orange', action:"submitManualSchoolFeePayment('bank')" },
+        { method:'manual', label:'Manual M-Pesa', sub:'Reference', icon:'▧', cls:'purple', action:"submitManualSchoolFeePayment('manual')" }
+    ];
+    const cards = rows.map(row => {
+        const activeClass = enabled.size === 0 || enabled.has(row.method) || (row.method === 'manual' && enabled.has('mobile_money')) ? 'available' : 'available';
+        return `<button type="button" onclick="${row.action}" class="payment-method-card parent-method-card ${row.cls} ${activeClass}">
+            <span class="payment-method-icon">${row.icon}</span>
+            <span><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(row.sub)}</small></span>
+        </button>`;
     }).join('');
-    return '<div class="payment-lock-parent-box"><div class="payment-lock-mini-head"><div><h4>How would you like to pay?</h4><p>Choose your payment method. Providers are not shown to parents.</p></div><span>School-secured payment flow</span></div><div class="payment-method-grid">' + cards + '</div><div class="payment-lock-note">Parents choose only the payment method. The school active provider processes the payment automatically after it has been activated by Finance.</div></div>';
+    return `<div class="payment-lock-parent-box parent-school-methods">
+        <div class="payment-lock-mini-head"><div><h4>School Fee Payment Methods</h4><p>You only choose the method, not the provider. School fees use the school active provider.</p></div></div>
+        <div class="payment-method-grid four">${cards}</div>
+    </div>`;
 }
 
-function renderParentLegacyPaymentButtons(methodData = {}) {
-    if (normalizeParentPaymentMethods(methodData).length) return '';
-    return '<div class="grid gap-2 md:grid-cols-2 md:col-span-2">' +
-        '<button onclick="processSchoolFeeDarajaPayment()" class="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90">Pay with STK Push</button>' +
-        '<button onclick="submitManualSchoolFeePayment()" class="w-full border border-input py-2 rounded-lg hover:bg-muted">Submit Payment Reference</button>' +
-    '</div>';
-}
+function renderParentLegacyPaymentButtons(methodData = {}) { return ''; }
 
 function getParentPaymentPhone() {
     const explicit = document.getElementById('payment-phone')?.value?.trim();
@@ -1279,7 +1248,7 @@ function parentChatRender({forceBottom=false}={}){
     const me=typeof getCurrentUser==='function'?(getCurrentUser()||{}):JSON.parse(localStorage.getItem('user')||'{}');
     const wasNearBottom=container.scrollHeight-container.scrollTop-container.clientHeight<100;
     if(!parentChatState.messages.length){container.innerHTML='<div class="text-center text-muted-foreground py-8"><i data-lucide="message-circle" class="h-10 w-10 mx-auto mb-2 opacity-50"></i><p>No messages yet. Start the conversation below.</p></div>';return;}
-    container.innerHTML=parentChatState.messages.map(msg=>{const mine=Number(msg.senderId)===Number(me.id);const status=msg.status==='sending'?'Sending…':msg.status==='failed'?'Failed — tap Retry':(msg.isRead||msg.deliveryStatus==='read'?'Read':msg.deliveryStatus==='delivered'?'Delivered':'Sent');const person=mine?me:{name:msg.senderName||(parentChatState.target==='admin'?'School Administrator':'Class Teacher'),profileImage:msg.senderProfileImage};return `<div class="flex items-end gap-2 ${mine?'justify-end':'justify-start'}" data-parent-message="${escapeHtml(parentChatMessageId(msg))}">${mine?'':avatarHTML(person.name,person.profileImage,'h-8 w-8')}<button type="button" ${msg.status==='failed'?`onclick="retryParentMessage('${escapeHtml(msg.clientMessageId)}')"`:''} class="${mine?'chat-bubble-sent':'chat-bubble-received'} max-w-[78%] text-left"><p class="text-sm font-medium">${mine?'You':escapeHtml(person.name)}</p><p class="text-sm whitespace-pre-wrap">${escapeHtml(msg.content||'')}</p><p class="text-[11px] mt-1 ${msg.status==='failed'?'text-red-500':'text-muted-foreground'}">${escapeHtml(status)} • ${timeAgo(msg.createdAt)}</p></button>${mine?avatarHTML(me.name,me.profileImage||me.profilePicture,'h-8 w-8'):''}</div>`;}).join('');
+    container.innerHTML=parentChatState.messages.map(msg=>{const mine=Number(msg.senderId)===Number(me.id);const status=msg.status==='sending'?'Sending…':msg.status==='failed'?'Failed — tap Retry':(msg.isRead||msg.deliveryStatus==='read'?'Read':msg.deliveryStatus==='delivered'?'Delivered':'Sent');const person=mine?me:{name:msg.senderName||(parentChatState.target==='admin'?'School Administrator':'Class Teacher'),profileImage:msg.senderProfileImage};return `<div class="flex items-end gap-2 ${mine?'justify-end':'justify-start'}" data-parent-message="${escapeHtml(parentChatMessageId(msg))}">${mine?'':avatarHTML(person.name,person.profileImage,'h-8 w-8')}<button type="button" ${msg.status==='failed'?`onclick="retryParentMessage(${jsAttrArg(msg.clientMessageId)})"`:''} class="${mine?'chat-bubble-sent':'chat-bubble-received'} max-w-[78%] text-left"><p class="text-sm font-medium">${mine?'You':escapeHtml(person.name)}</p><p class="text-sm whitespace-pre-wrap">${escapeHtml(msg.content||'')}</p><p class="text-[11px] mt-1 ${msg.status==='failed'?'text-red-500':'text-muted-foreground'}">${escapeHtml(status)} • ${timeAgo(msg.createdAt)}</p></button>${mine?avatarHTML(me.name,me.profileImage||me.profilePicture,'h-8 w-8'):''}</div>`;}).join('');
     if(forceBottom||wasNearBottom)container.scrollTop=container.scrollHeight;
     if(window.lucide)lucide.createIcons();
 }
@@ -1335,6 +1304,11 @@ window.addEventListener('shule:realtime-event',event=>{
     parentChatState.conversationKey=message.conversationKey||parentChatState.conversationKey;parentChatUpsert(message);parentChatRender();
     if(message.id&&Number(message.senderId)!==Number((typeof getCurrentUser==='function'?getCurrentUser()?.id:0)))window.socket?.emit('chat:message_read',{messageId:message.id});
 });
+
+
+function jsAttrArg(value) {
+    return JSON.stringify(String(value ?? '')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 function escapeHtml(text) {
     if (!text) return '';

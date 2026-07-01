@@ -91,15 +91,19 @@ function collectPlatformPlanInputs(ownerType) {
     }).filter(p => p.code && p.name);
 }
 const PLATFORM_PAYMENT_AGENT_DEFS = [
-    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa checkout / STK for school and parent subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
+    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa checkout / STK for school and parent subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['paybill','Manual Paybill Number',''],['till','Manual Till Number',''],['accountName','Account / Business Name','ShuleAI'],['manualInstructions','Manual M-Pesa Instructions','Parents and schools can pay manually, then submit the M-Pesa reference for approval.'],['callbackUrl','Callback URL','']] },
     { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for Shule AI platform subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
     { provider:'paystack', label:'Paystack', description:'Paystack checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
     { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
     { provider:'stripe', label:'Stripe', description:'Stripe checkout for card subscription payments.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true],['successUrl','Success URL',''],['cancelUrl','Cancel URL','']] }
 ];
 
+function platformProviderLogo(provider){
+    const logos={mpesa:'m-pesa',stripe:'S',paystack:'▰',flutterwave:'✦',pesapal:'P',manual:'✓',bank:'🏦',cash:'KES',card:'▤'};
+    return logos[provider] || provider;
+}
 function platformProviderConfig(provider, providerSettings) {
-    return (providerSettings || {})?.providers?.[provider] || {};
+    const providers=(providerSettings || {})?.providers || {}; return providers[provider] || (provider==='mpesa'?providers.daraja:null) || {};
 }
 
 function renderPlatformPaymentAgentFields(provider, fields, providerSettings) {
@@ -109,31 +113,61 @@ function renderPlatformPaymentAgentFields(provider, fields, providerSettings) {
 
 function renderPlatformPaymentAgents(providerSettings = {}) {
     providerSettings = providerSettings || {};
-    const activeProvider = providerSettings.activeProvider || providerSettings.defaultProvider || '';
-    const activeLabel = (PLATFORM_PAYMENT_AGENT_DEFS.find(a => a.provider === activeProvider) || {}).label || 'None selected';
-    const methodDefaults = (provider) => provider === 'mpesa' ? ['mobile_money'] : provider === 'stripe' ? ['card'] : ['mobile_money','card','bank'];
-    const methodChecks = (provider) => {
-        const cfg = platformProviderConfig(provider, providerSettings);
-        const methods = Array.isArray(cfg.methods) && cfg.methods.length ? cfg.methods : methodDefaults(provider);
-        const checked = m => methods.includes(m) ? 'checked' : '';
-        return `<div class="payment-lock-method-checks"><label><input type="checkbox" data-platform-provider-method="mobile_money" ${checked('mobile_money')}> Mobile Money</label><label><input type="checkbox" data-platform-provider-method="card" ${checked('card')}> Card Payments</label><label><input type="checkbox" data-platform-provider-method="bank" ${checked('bank')}> Bank Transfer</label></div>`;
+    const savedProviderRaw = providerSettings.activeProvider || providerSettings.defaultProvider || '';
+    const savedProvider = String(savedProviderRaw).toLowerCase()==='daraja' ? 'mpesa' : (savedProviderRaw || 'mpesa');
+    const draftProvider = providerSettings._draftProvider || savedProvider || 'mpesa';
+    const activeProvider = draftProvider;
+    const activeAgent = PLATFORM_PAYMENT_AGENT_DEFS.find(a => a.provider === activeProvider) || PLATFORM_PAYMENT_AGENT_DEFS[0];
+    const activeLabel = (PLATFORM_PAYMENT_AGENT_DEFS.find(a => a.provider === savedProvider) || {}).label || 'M-Pesa';
+    const providerRow = (agent) => {
+        const selected = activeProvider === agent.provider;
+        const saved = savedProvider === agent.provider;
+        return `<button type="button" class="payment-lock-provider-line ${selected ? 'selected' : ''} ${saved ? 'active' : ''}" onclick="selectPlatformPaymentProvider('${agent.provider}')">
+          <span class="payment-lock-radio">${selected ? '●' : '○'}</span>
+          <span class="payment-provider-logo ${agent.provider}">${escapeHtml(platformProviderLogo(agent.provider))}</span>
+          <span class="provider-name"><strong>${escapeHtml(agent.label)}</strong><small>${selected ? 'Selected for editing' : 'Click to configure'}</small></span>
+          <em>${saved ? 'Active' : 'Inactive'}</em>${saved ? '' : '<b>Set Up</b>'}
+        </button>`;
     };
-    const row = (agent) => {
-        const active = activeProvider === agent.provider;
-        return `<details class="payment-lock-provider-card ${active ? 'active' : ''}" data-platform-provider="${agent.provider}" ${active ? 'open' : ''}>
-            <summary class="payment-lock-provider-summary"><span class="payment-lock-radio">${active ? '●' : '○'}</span><span><strong>${escapeHtml(agent.label)}</strong><small>${escapeHtml(agent.description)}</small></span><em>${active ? 'Active' : 'Set Up'}</em></summary>
-            <div class="payment-lock-provider-body">
-                <div class="payment-lock-exclusive-note">Only one platform provider can be active. Saving this provider as active disables all other providers automatically. M-Pesa is treated exactly like every other provider.</div>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-platform-provider-enabled ${active ? 'checked' : ''}> Make this the active platform provider</label>
-                <div class="grid gap-3 md:grid-cols-3 mt-3">${renderPlatformPaymentAgentFields(agent.provider, agent.fields, providerSettings)}</div>
-                <h4 class="payment-lock-subtitle">Platform payment methods allowed</h4>
-                ${methodChecks(agent.provider)}
-                <div class="mt-3 flex justify-end"><button onclick="savePlatformPaymentAgent('${agent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save ${escapeHtml(agent.label)}</button></div>
-            </div>
-        </details>`;
-    };
-    return `<div class="rounded-xl border bg-card p-6 payment-lock-settings-card"><h3 class="font-semibold mb-2">Platform Payment Providers</h3><p class="text-xs text-muted-foreground mb-4">All providers are equal. Super Admin chooses exactly one active provider for ShuleAI subscriptions and platform add-ons. Schools and parents never see private provider credentials.</p><div class="payment-lock-active-banner"><strong>Active Provider:</strong> ${escapeHtml(activeLabel)}<span>Other providers are automatically disabled.</span></div><div class="grid gap-3 mt-4">${PLATFORM_PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
+    return `<div class="payment-lock-page payment-lock-platform exact-payment-ui">
+      <div class="payment-lock-page-head purple"><div><h2>Platform Payment Settings</h2><p>Configure how the platform receives payments.</p></div><strong>One active provider only</strong></div>
+      <div class="exact-super-grid">
+        <section class="payment-lock-main-card">
+          <h3>1. Platform Providers</h3><p>Only one provider can be active at a time.</p>
+          <div class="payment-lock-provider-table">${PLATFORM_PAYMENT_AGENT_DEFS.map(providerRow).join('')}</div>
+          <div class="payment-lock-active-banner"><strong>Active Provider:</strong> ${escapeHtml(activeLabel)}<span>All others inactive.</span></div>
+        </section>
+        <section class="payment-lock-credential-card" data-platform-provider="${escapeHtml(activeAgent.provider)}">
+          <input type="checkbox" data-platform-provider-enabled checked style="display:none">
+          <h3>2. Provider Credentials (${escapeHtml(activeAgent.label)})</h3>
+          <p>Credentials belong only to the selected provider.</p>
+          <div class="payment-lock-fields">${renderPlatformPaymentAgentFields(activeAgent.provider, activeAgent.fields, providerSettings)}</div>
+          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Test Connection</button><span class="connected-dot">Connected ✓</span></div>
+        </section>
+        <section class="payment-lock-side-card platform-method-card">
+          <h3>3. Platform Payment Methods</h3><p>For subscriptions, add-ons, and platform transactions.</p>
+          <div class="payment-lock-method-list exact-method-list">
+            <label><span>▣ Mobile Money (STK Push)</span><input type="checkbox" data-platform-provider-method="mobile_money" checked></label>
+            <label><span>▤ Card Payments</span><input type="checkbox" data-platform-provider-method="card" checked></label>
+            <label><span>▥ Bank Transfer</span><input type="checkbox" data-platform-provider-method="bank" checked></label>
+            <label><span>▧ Manual M-Pesa Reference</span><input type="checkbox" data-platform-provider-method="manual" checked></label>
+          </div>
+        </section>
+        <section class="payment-lock-side-card platform-manual-card">
+          <h3>4. Manual M-Pesa Verification <small>(Reference Approval)</small></h3>
+          <label><span>Verification Mode</span><select><option>Manual Approval</option><option>Reference Approval</option></select></label>
+          <label><span>M-Pesa Till / Paybill</span><input value="${escapeHtml(platformProviderConfig('mpesa', providerSettings).paybill || '123456')}"></label>
+          <label><span>Account / Business Name</span><input value="${escapeHtml(platformProviderConfig('mpesa', providerSettings).accountName || 'ShuleAI Platform Ltd')}"></label>
+          <label><span>Reference Prefix</span><input value="${escapeHtml(platformProviderConfig('mpesa', providerSettings).referencePrefix || 'SUB-')}"></label>
+          <div class="payment-lock-warning">Verified payments will be marked as Paid after approval.</div>
+        </section>
+      </div>
+    </div>`;
 }
+window.selectPlatformPaymentProvider = function(provider){
+    window.__platformProviderDraft = provider;
+    if (typeof showDashboardSection === 'function') showDashboardSection('platform-payments');
+};
 async function renderSuperAdminPlatformPayments() {
     let settings = {}, providerSettings = null, queue = [], error = '';
     try {
@@ -143,12 +177,10 @@ async function renderSuperAdminPlatformPayments() {
             api.payments.getPlatformManualQueue().catch(e => ({ success:false, data:[], message:e.message }))
         ]);
         settings = settingsRes.data || {};
-        providerSettings = providersRes.data || null;
+        providerSettings = providersRes.data || null; if (providerSettings && window.__platformProviderDraft) providerSettings._draftProvider = window.__platformProviderDraft;
         queue = Array.isArray(queueRes.data) ? queueRes.data : (queueRes.data?.payments || queueRes.data?.requests || []);
         if (settingsRes.message || providersRes.message || queueRes.message) error = [settingsRes.message, providersRes.message, queueRes.message].filter(Boolean).join(' - ');
     } catch (e) { error = e.message || 'Could not load platform payments.'; }
-    const d = settings.darajaCredentials || {};
-    const mode = settings.paymentMode || 'manual';
     const queueRows = queue.length ? queue.map(p => {
         const who = p.schoolName || p.parentName || p.Parent?.User?.name || p.Student?.User?.name || p.User?.name || p.schoolCode || 'Platform payment';
         const ref = p.reference || p.mpesaCode || p.transactionCode || p.transactionId || '';
@@ -156,60 +188,18 @@ async function renderSuperAdminPlatformPayments() {
     }).join('') : '<tr><td colspan="6" class="p-8 text-center text-muted-foreground">No platform manual payment requests pending.</td></tr>';
     return `
     <div class="space-y-6 animate-fade-in">
-      <div><h2 class="text-2xl font-bold">Platform Payment Options</h2><p class="text-sm text-muted-foreground">Configure Shule AI collection options for school subscriptions and parent/student subscriptions, then approve manual payment references from the queue below.</p></div>
       ${error ? `<div class="rounded-xl border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-300">${escapeHtml(error)}</div>` : ''}
-      <div class="grid gap-4 lg:grid-cols-3">
-        <div class="rounded-xl border bg-card p-6 lg:col-span-1">
-          <h3 class="font-semibold mb-4">Platform Payment Settings</h3>
-          <label class="text-sm">Mode<select id="platform-payment-mode" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="manual" ${mode==='manual'?'selected':''}>Manual Reference only</option><option value="daraja" ${mode==='daraja'?'selected':''}>M-Pesa STK only</option><option value="both" ${mode==='both'?'selected':''}>Both Manual + M-Pesa</option></select></label>
-          <label class="mt-3 flex gap-2 items-center text-sm"><input id="platform-parent-enabled" type="checkbox" ${settings.parentSubscriptionsEnabled !== false ? 'checked' : ''}> Parent subscriptions enabled</label>
-          <label class="mt-2 flex gap-2 items-center text-sm"><input id="platform-school-enabled" type="checkbox" ${settings.schoolSubscriptionsEnabled !== false ? 'checked' : ''}> School/admin subscriptions enabled</label>
-        </div>
-        <div class="rounded-xl border bg-card p-6 lg:col-span-2">
-          <h3 class="font-semibold mb-4">Manual M-Pesa / Shule AI Account Details</h3>
-          <div class="grid gap-3 md:grid-cols-2">
-            <label class="text-sm">Account Name<input id="platform-account-name" value="${escapeHtml(settings.accountName || 'Shule AI')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-            <label class="text-sm">Paybill<input id="platform-paybill" value="${escapeHtml(settings.paybill || settings.shortcode || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-            <label class="text-sm">Till Number<input id="platform-till" value="${escapeHtml(settings.till || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-            <label class="text-sm">Account Reference Format<input id="platform-ref-format" value="${escapeHtml(settings.referenceFormat || 'SHULEAI-{schoolCode}/{studentId}')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-            <label class="text-sm md:col-span-2">Manual Instructions<textarea id="platform-manual-instructions" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(settings.manualInstructions || 'Pay to Shule AI, then submit the M-Pesa code for Super Admin approval.')}</textarea></label>
-          </div>
-        </div>
-      </div>
-      <div class="rounded-xl border bg-card p-6">
-        <h3 class="font-semibold mb-2">Subscription Amounts Shule AI Collects</h3>
-        <p class="text-xs text-muted-foreground mb-4">These prices sync to parent dashboards, school/admin billing screens, STK amounts and manual approval requests after saving.</p>
-        <div class="grid gap-4 lg:grid-cols-2">
-          <div>
-            <h4 class="font-semibold mb-3">Parent / Child Subscription Plans</h4>
-            <div class="grid gap-3">
-              ${renderPlatformPlanInputs('parent', settings.parentPlans || [])}
-            </div>
-          </div>
-          <div>
-            <h4 class="font-semibold mb-3">School / Admin Subscription Plans</h4>
-            <div class="grid gap-3">
-              ${renderPlatformPlanInputs('school', settings.schoolPlans || [])}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="rounded-xl border bg-card p-6">
-        <h3 class="font-semibold mb-4">Daraja STK Credentials</h3>
-        <div class="grid gap-3 md:grid-cols-3">
-          <label class="text-sm">Environment<select id="platform-daraja-env" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="sandbox" ${(d.mode||'sandbox')==='sandbox'?'selected':''}>Sandbox</option><option value="production" ${d.mode==='production'?'selected':''}>Production</option></select></label>
-          <label class="text-sm">Consumer Key<input id="platform-daraja-key" value="${escapeHtml(d.consumerKey || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-          <label class="text-sm">Consumer Secret<input id="platform-daraja-secret" type="password" value="${escapeHtml(d.consumerSecret || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-          <label class="text-sm">Shortcode<input id="platform-daraja-shortcode" value="${escapeHtml(d.shortcode || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-          <label class="text-sm">Passkey<input id="platform-daraja-passkey" type="password" value="${escapeHtml(d.passkey || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-          <label class="text-sm">Transaction Type<input id="platform-daraja-transaction-type" value="${escapeHtml(d.transactionType || 'CustomerPayBillOnline')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-          <label class="text-sm md:col-span-3">Callback URL<input id="platform-daraja-callback" value="${escapeHtml(d.callbackUrl || '')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label>
-        </div>
-        <div class="mt-4 flex justify-end"><button onclick="savePlatformPaymentSettings()" class="px-5 py-2 rounded-lg bg-primary text-primary-foreground">Save Platform Payment Settings</button></div>
-      </div>
       ${renderPlatformPaymentAgents(providerSettings)}
-      <div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">Manual Approval Queue</h3><p class="text-xs text-muted-foreground">Approve school/admin subscriptions and parent child-subscription references submitted manually.</p></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School/Parent</th><th class="p-3 text-left">Reference</th><th class="p-3 text-left">Amount</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Date</th><th class="p-3 text-right">Actions</th></tr></thead><tbody>${queueRows}</tbody></table></div>
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold mb-2">Subscription Amounts ShuleAI Collects</h3>
+        <p class="text-xs text-muted-foreground mb-4">These prices sync to parent dashboards, school/admin billing screens, active provider checkout amounts, and manual approval requests after saving.</p>
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div><h4 class="font-semibold mb-3">Parent / Child Subscription Plans</h4><div class="grid gap-3">${renderPlatformPlanInputs('parent', settings.parentPlans || [])}</div></div>
+          <div><h4 class="font-semibold mb-3">School / Admin Subscription Plans</h4><div class="grid gap-3">${renderPlatformPlanInputs('school', settings.schoolPlans || [])}</div></div>
+        </div>
+        <div class="mt-4 flex justify-end"><button onclick="savePlatformPaymentSettings()" class="px-5 py-2 rounded-lg bg-primary text-primary-foreground">Save Subscription Amounts</button></div>
+      </div>
+      <div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">Manual M-Pesa / Reference Approval Queue</h3><p class="text-xs text-muted-foreground">Approve school subscriptions and parent child-subscription M-Pesa references submitted manually.</p></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School/Parent</th><th class="p-3 text-left">Reference</th><th class="p-3 text-left">Amount</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Date</th><th class="p-3 text-right">Actions</th></tr></thead><tbody>${queueRows}</tbody></table></div>
     </div>`;
 }
 
@@ -547,6 +537,7 @@ window.savePlatformPaymentAgent = async function(provider) {
         const makeActive = !!card.querySelector('[data-platform-provider-enabled]')?.checked;
         const payload = { provider, enabled: makeActive, isDefault: makeActive, active: makeActive, methods, config: { ...config, methods } };
         await (api.payments.savePlatformProvider ? api.payments.savePlatformProvider(payload) : apiRequest('/api/payments/superadmin/providers', { method:'PUT', body:JSON.stringify(payload) }));
+        window.__platformProviderDraft = '';
         showToast?.('Platform payment agent saved', 'success');
         await showDashboardSection('platform-payments');
     } catch(e) { showToast?.(e.message || 'Could not save platform payment agent', 'error'); }

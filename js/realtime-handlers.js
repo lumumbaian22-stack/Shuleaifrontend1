@@ -13,7 +13,13 @@
     const type=String(evt?.type||''); if(!type)return;
     if(type.startsWith('chat:')){patchChat(evt);return;}
     if(type==='alert:created'||type==='alert:updated'||type==='alert:deleted'||type==='alerts:read_all'||type.includes('announcement')||type.includes('birthday')||type==='class:released')refreshAlert();
-    if(type.includes('payment')||type.includes('fee_balance'))debounce('finance',()=>Promise.allSettled([call('refreshParentPaymentsSilent'),call('loadParentPaymentHistory'),call('financeV31Refresh')]));
+    if(type.includes('payment')||type.includes('fee_balance'))debounce('finance',()=>{
+      const user=(typeof getCurrentUser==='function'?getCurrentUser():{})||{};
+      const role=String((typeof getCurrentRole==='function'?getCurrentRole():user.role)||'').toLowerCase().replace(/-/g,'_');
+      const jobs=[call('refreshParentPaymentsSilent'),call('loadParentPaymentHistory')];
+      if(['admin','finance_officer','super_admin','superadmin'].includes(role)) jobs.push(call('financeV31Refresh'));
+      return Promise.allSettled(jobs.filter(Boolean));
+    });
     if(type.includes('subscription'))debounce('subscription',()=>Promise.allSettled([call('refreshSubscriptionBilling'),call('loadParentSubscriptions')]));
     if(type.includes('attendance'))debounce('attendance',()=>Promise.allSettled([call('loadStudentAttendance'),call('loadLiveAttendance'),call('refreshMyStudents')]));
     if(type.includes('marks')||type.includes('report_card'))debounce('academics',()=>{

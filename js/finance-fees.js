@@ -4,16 +4,33 @@
   const w = window;
   const money = (n) => 'KES ' + Number(n || 0).toLocaleString();
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const jsArg = (v) => JSON.stringify(String(v ?? '')).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const FINANCE_PERMS={overview:'Overview',fee_structures:'Fee Structures',invoices:'Student Fee Accounts & Invoices',payments:'Payments & Receipts',verification:'Verification & Reconciliation',balances:'Balances, Defaulters & Bursaries',expenses:'Expenses',alerts:'Alerts',analytics:'Analytics',reports:'Reports',settings:'Settings',audit:'Audit Trail'};
   const state={tab:'overview',structures:[],classes:[],students:[],financeStaff:[],settings:{},providerSettings:null,accounts:[],paymentRecords:[],manualQueue:[],overview:null,expenses:[],financeAlerts:[],invoices:[],financeAnalytics:null,auditTrail:[],paymentLoadError:'',loading:false,filters:{className:'',term:'',year:String(new Date().getFullYear())}};
   function currentUser(){ try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch(_) { return {}; } }
   function currentRole(){ return String(currentUser().role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_'); }
   function isAdminFinanceRole(){ const r=currentRole(); return r==='admin' || r==='finance_officer' || r==='super_admin' || r==='superadmin'; }
-  function canManageFinanceStaff(){return currentRole()==='admin'||currentRole()==='super_admin'||currentRole()==='superadmin';}function isSchoolAdminView(){return currentRole()==='admin';}function isFinanceStaffView(){return currentRole()==='finance_officer';}function financeStaffTitle(){const u=currentUser();return u?.financeTitle||u?.preferences?.finance?.title||state?.overview?.permissions?.financeTitle||'Finance Officer';}function normalizedFinanceTitle(){return String(financeStaffTitle()||'').trim().toLowerCase();}function financeAllowed(p){const u=currentUser(),c=u?.financePermissions||u?.preferences?.finance?.permissions||[];if(!isFinanceStaffView())return true;if(normalizedFinanceTitle()==='bursar'&&['settings','analytics'].includes(p))return true;return!Array.isArray(c)||!c.length||c.includes(p);}const FINANCE_ROLE_PRESETS={"Finance Officer":['overview','fee_structures','invoices','payments','verification','balances','expenses','alerts','analytics','reports','settings','audit'],Bursar:['overview','fee_structures','invoices','payments','verification','balances','reports','settings','analytics','alerts'],Accountant:['overview','payments','verification','expenses','analytics','reports','audit']};
-  function blockNonAdminFinance(){ if(isAdminFinanceRole()) return false; console.warn('[Finance & Fees] Blocked admin finance render/refresh for role:', currentRole() || 'unknown'); return true; }
+  function canManageFinanceStaff(){return currentRole()==='admin'||currentRole()==='super_admin'||currentRole()==='superadmin';}function isSchoolAdminView(){return currentRole()==='admin';}function isFinanceStaffView(){return currentRole()==='finance_officer';}function financeStaffTitle(){const u=currentUser();return u?.financeTitle||u?.preferences?.finance?.title||state?.overview?.permissions?.financeTitle||'Finance Officer';}function normalizedFinanceTitle(){return String(financeStaffTitle()||'').trim().toLowerCase();}function financeAllowed(p){
+    const u=currentUser();
+    if(!isFinanceStaffView()) return true;
+    const candidates=[u?.financePermissions,u?.permissions?.finance,u?.preferences?.finance?.permissions,state?.overview?.permissions?.financePermissions,state?.overview?.permissions?.permissions];
+    const explicit=candidates.find(x=>Array.isArray(x)&&x.length);
+    if(Array.isArray(explicit)) return explicit.includes(p);
+    const safeDefaults=['overview','fee_structures','invoices','payments','verification','balances','reports','settings','alerts'];
+    return safeDefaults.includes(p);
+  }const FINANCE_ROLE_PRESETS={"Finance Officer":['overview','fee_structures','invoices','payments','verification','balances','expenses','alerts','analytics','reports','settings','audit'],Bursar:['overview','fee_structures','invoices','payments','verification','balances','reports','settings','analytics','alerts'],Accountant:['overview','payments','verification','expenses','analytics','reports','audit']};
+  function blockNonAdminFinance(){ return !isAdminFinanceRole(); }
 
   function apiSafe(){ return w.api || {}; }
-  async function call(fn, fallback){ try { const res = await fn(); return res?.data ?? res ?? fallback; } catch(e){ if(e?.message !== 'Forbidden') console.error('[Finance & Fees]', e); return fallback; } }
+  async function call(fn, fallback){
+    try { const res = await fn(); return res?.data ?? res ?? fallback; }
+    catch(e){
+      const msg=String(e?.message||'');
+      const permissionDenied=/forbidden|permission required|not allowed|unauthorized/i.test(msg);
+      if(!permissionDenied) console.error('[Finance & Fees]', e);
+      return fallback;
+    }
+  }
   function schoolSettings(){ return state.settings?.paymentSettings || state.settings || {}; }
   function bankSettings(){ return state.settings?.bankDetails || state.settings?.bank || {}; }
 
@@ -24,48 +41,106 @@
     { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
     { provider:'stripe', label:'Stripe', description:'Stripe checkout for card payments.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true],['successUrl','Success URL',''],['cancelUrl','Cancel URL','']] }
   ];
-  function paymentAgentConfig(provider){ return state.providerSettings?.providers?.[provider] || {}; }
+  function paymentAgentConfig(provider){ const providers=state.providerSettings?.providers||{}; return providers[provider] || (provider==='mpesa'?providers.daraja:null) || {}; }
   function renderPaymentAgentFields(provider, fields){ const cfg=paymentAgentConfig(provider); return fields.map(([name,label,placeholder,secret])=>`<label>${esc(label)}<input ${secret?'type="password" autocomplete="off"':''} data-provider-field="${esc(name)}" class="finance-v31-input" placeholder="${secret?'Leave blank to keep existing':esc(placeholder||'')}" value="${secret?'':esc(cfg[name]||'')}"></label>`).join(''); }
+  function providerLogo(provider){
+    const logos={mpesa:'m-pesa',stripe:'S',paystack:'▰',flutterwave:'✦',pesapal:'P',manual:'✓',bank:'🏦',cash:'KES',card:'▤'};
+    return logos[provider] || provider;
+  }
+  function paymentLinkingCard(ref){
+    const opts=[['elimuid','ELIMU ID','Recommended'],['admission_number','Admission Number',''],['assessment_number','Assessment Number',''],['student_name','Student Name',''],['parent_phone','Parent Phone Number','']];
+    return `<div class="payment-lock-side-card"><h3>4. Link Payments to Student Using</h3><p>Choose how payments will be matched to students.</p><select id="finance-reference" class="finance-v31-select payment-lock-hidden-select">${opts.map(([v,l])=>`<option value="${v}" ${ref===v?'selected':''}>${l}</option>`).join('')}</select><div class="payment-lock-radio-list">${opts.map(([v,l,b])=>`<label onclick="document.getElementById('finance-reference').value='${v}'"><input type="radio" name="finance-reference-radio" ${ref===v?'checked':''}> <span>${l}</span>${b?`<em>${b}</em>`:''}</label>`).join('')}</div><div class="payment-lock-info">Payments are linked using this rule. This helps prevent duplicates and wrong child matching.</div></div>`;
+  }
+  function paymentRulesCard(){
+    return `<div class="payment-lock-side-card"><h3>5. Payment Matching Rules</h3><p>How the system matches incoming payments.</p><label><input type="checkbox" checked> Auto-match using ELIMU ID</label><label><input type="checkbox" checked> Auto-match using Invoice Number</label><label><input type="checkbox" checked> Require exact amount match</label><label><input type="checkbox" checked> Prevent duplicate matches</label></div>`;
+  }
+  function paymentNotificationsCard(){
+    return `<div class="payment-lock-side-card"><h3>6. Notifications</h3><label><span>Payment Received (Parent)</span><input type="checkbox" checked></label><label><span>Invoice Paid (Finance Officer)</span><input type="checkbox" checked></label><label><span>Payment Failed</span><input type="checkbox" checked></label></div>`;
+  }
+
   function renderSchoolPaymentAgents(){
     const settings = state.providerSettings || {};
-    const activeProvider = settings.activeProvider || settings.defaultProvider || '';
-    const activeLabels = activeProvider ? PAYMENT_AGENT_DEFS.filter(a => a.provider === activeProvider).map(a => a.label) : [];
+    const savedProviderRaw = settings.activeProvider || settings.defaultProvider || '';
+    const savedProvider = String(savedProviderRaw).toLowerCase()==='daraja' ? 'mpesa' : (savedProviderRaw || 'mpesa');
+    const draftProvider = settings._draftProvider || savedProvider || 'mpesa';
+    const activeProvider = draftProvider;
+    const activeAgent = PAYMENT_AGENT_DEFS.find(a => a.provider === activeProvider) || PAYMENT_AGENT_DEFS[0];
+    const ref = (settings.linkingRule || schoolSettings().accountReferenceFormat || schoolSettings().referenceFormat || 'elimuid');
+    const providerLabel = (provider) => (PAYMENT_AGENT_DEFS.find(a => a.provider === provider) || {}).label || provider || 'None selected';
     const methodChecked = (provider, method) => {
       const cfg = paymentAgentConfig(provider);
       const selected = Array.isArray(cfg.methods) ? cfg.methods : [];
       if (selected.length) return selected.includes(method);
-      if (provider === 'mpesa') return method === 'mobile_money';
-      if (provider === 'stripe') return method === 'card';
-      if (['paystack','flutterwave','pesapal'].includes(provider)) return ['mobile_money','card','bank'].includes(method);
-      return ['mobile_money','bank','cash','card'].includes(method);
+      return true;
     };
+    const providerRow = (agent) => {
+      const selected = activeProvider === agent.provider;
+      const saved = savedProvider === agent.provider;
+      return `<button type="button" class="payment-lock-provider-line ${selected ? 'selected' : ''} ${saved ? 'active' : ''}" onclick="financeV31SelectProvider('${agent.provider}')">
+        <span class="payment-lock-radio">${selected ? '●' : '○'}</span>
+        <span class="payment-provider-logo ${agent.provider}">${esc(providerLogo(agent.provider))}</span>
+        <span class="provider-name"><strong>${esc(agent.label)}</strong><small>${selected ? 'Selected for editing' : 'Click to configure'}</small></span>
+        <em>${saved ? 'Active' : 'Inactive'}</em>
+        ${saved ? '' : '<b>Set Up</b>'}
+      </button>`;
+    };
+    const queue = (state.manualQueue || []).slice(0,3);
+    const queueRows = queue.length ? queue.map(p => `<tr><td>${esc(p.Student?.User?.name || p.studentName || p.studentId || 'Student')}</td><td>${esc(p.invoiceNumber || p.metadata?.invoiceNumber || p.reference || 'INV-2024')}</td><td>${money(p.amount)}</td><td>${esc(p.mpesaCode || p.reference || p.transactionCode || '—')}</td><td>${esc(p.Parent?.User?.phone || p.parentPhone || '—')}</td><td><span class="pay-status pending">${esc(p.status || 'Pending')}</span></td><td><button onclick="financeV31ApproveManual(${jsArg(p.id)})">Approve</button><button class="reject" onclick="financeV31RejectManual(${jsArg(p.id)})">Reject</button></td></tr>`).join('') :
+      `<tr><td>John Wanjiku</td><td>INV-2024-00123</td><td>KES 8,450.00</td><td>JK8X2T1B9</td><td>0712 345 678</td><td><span class="pay-status pending">Pending</span></td><td><button>Approve</button><button class="reject">Reject</button></td></tr>
+       <tr><td>Mary Wanjiku</td><td>INV-2024-00122</td><td>KES 4,000.00</td><td>7L3P9QW2N</td><td>0721 987 654</td><td><span class="pay-status pending">Pending</span></td><td><button>Approve</button><button class="reject">Reject</button></td></tr>
+       <tr><td>John Wanjiku</td><td>INV-2024-00120</td><td>KES 3,250.00</td><td>3Y7R5K2M1</td><td>0712 345 678</td><td><span class="pay-status pending">Pending</span></td><td><button>Approve</button><button class="reject">Reject</button></td></tr>`;
     const methodChecks = (provider) => `
-      <div class="payment-lock-method-checks">
-        <label><input type="checkbox" data-provider-method="mobile_money" ${methodChecked(provider,'mobile_money')?'checked':''}> Mobile Money</label>
-        <label><input type="checkbox" data-provider-method="card" ${methodChecked(provider,'card')?'checked':''}> Card Payments</label>
-        <label><input type="checkbox" data-provider-method="bank" ${methodChecked(provider,'bank')?'checked':''}> Bank Transfer</label>
-        <label><input type="checkbox" data-provider-method="cash" ${methodChecked(provider,'cash')?'checked':''}> Cash / Office</label>
+      <div class="payment-lock-method-list exact-method-list">
+        <label><span>▣ Mobile Money (STK Push)</span><input type="checkbox" data-provider-method="mobile_money" ${methodChecked(provider,'mobile_money')?'checked':''}></label>
+        <label><span>▤ Card Payments</span><input type="checkbox" data-provider-method="card" ${methodChecked(provider,'card')?'checked':''}></label>
+        <label><span>▥ Bank Transfer</span><input type="checkbox" data-provider-method="bank" ${methodChecked(provider,'bank')?'checked':''}></label>
+        <label><span>▧ Manual M-Pesa Reference</span><input type="checkbox" data-provider-method="manual" checked></label>
       </div>`;
-    const row = (agent) => {
-      const active = activeProvider === agent.provider;
-      return `<details class="payment-lock-provider-card ${active ? 'active' : ''}" data-school-provider="${agent.provider}" ${active ? 'open' : ''}>
-        <summary class="payment-lock-provider-summary">
-          <span class="payment-lock-radio">${active ? '●' : '○'}</span>
-          <span><strong>${esc(agent.label)}</strong><small>${esc(agent.description)}</small></span>
-          <em>${active ? 'Active' : 'Set Up'}</em>
-        </summary>
-        <div class="payment-lock-provider-body">
-          <div class="payment-lock-exclusive-note">Only one provider can be active. Saving this provider as active disables all other providers automatically. M-Pesa is treated exactly like every other provider.</div>
-          <label class="finance-v31-check"><input type="checkbox" data-provider-enabled ${active ? 'checked' : ''}> Make this the active provider parents will use</label>
-          <div class="finance-v31-form-row">${renderPaymentAgentFields(agent.provider, agent.fields)}</div>
-          <h4 class="payment-lock-subtitle">Payment methods parents can choose</h4>
-          ${methodChecks(agent.provider)}
-          <div class="mt-3 flex justify-end"><button type="button" class="finance-v31-btn primary" onclick="financeV31SaveProviderAgent('${agent.provider}')">Save ${esc(agent.label)}</button></div>
-        </div>
-      </details>`;
-    };
-    return `<div class="finance-v31-form-card spacious payment-lock-settings-card"><h3>1. Payment Providers</h3><p style="margin-top:-6px;color:var(--ff-muted);font-size:13px">All providers are equal. Finance Officer chooses exactly one active school-fee provider. Parents only receive payment methods, never provider credentials.</p><div class="payment-lock-active-banner"><strong>Active Provider:</strong> ${activeLabels[0] ? esc(activeLabels[0]) : 'None selected'}<span>Other providers are automatically disabled.</span></div><div class="finance-v31-settings-stack mt-3">${PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
+    return `<div class="payment-lock-page payment-lock-finance exact-payment-ui">
+      <div class="payment-lock-page-head orange"><div><h2>Payment Settings</h2><p>Configure how parents pay school fees.</p></div><strong>One active provider only</strong></div>
+      <div class="payment-lock-blue-note">All payment providers are treated equally in this system. Only one provider can be active at a time in this school. All others remain inactive until enabled.</div>
+      <div class="exact-finance-grid">
+        <section class="payment-lock-main-card">
+          <h3>1. Payment Providers</h3><p>Only one provider can be active at a time.</p>
+          <div class="payment-lock-provider-table">${PAYMENT_AGENT_DEFS.map(providerRow).join('')}</div>
+          <div class="payment-lock-active-banner"><strong>Active Provider:</strong> ${esc(providerLabel(savedProvider))}<span>All other providers disabled.</span></div>
+          <div class="payment-lock-green-note">M-Pesa is not a legacy or special-case provider. All providers are treated equally.</div>
+        </section>
+        ${paymentLinkingCard(ref)}
+        <section class="payment-lock-main-card manual-finance-card">
+          <h3>2. Manual M-Pesa Verification <small>(School Fees)</small></h3>
+          <div class="manual-toggle-row"><span>Enable Manual M-Pesa Verification</span><input type="checkbox" checked></div>
+          <div class="payment-lock-fields compact">
+            <label>Paybill / Till<input class="finance-v31-input" value="${esc(schoolSettings().paybill || schoolSettings().till || '123456')}"></label>
+            <label>Account Name<input class="finance-v31-input" value="${esc(bankSettings().accountName || 'Green Hill Academy')}"></label>
+            <label class="wide">Parent Instructions<input class="finance-v31-input" value="${esc(schoolSettings().manualInstructions || 'Pay using school Paybill/Till and submit exact M-Pesa code.')}"></label>
+          </div>
+          <div class="manual-rule-grid">
+            <div><strong>Reference Rule</strong><label><input type="radio" checked> ELIMU ID (Recommended)</label><label><input type="radio"> Admission Number</label><label><input type="radio"> Invoice Number</label><label><input type="radio"> Parent Phone</label></div>
+            <div><strong>Matching Controls</strong><label><input type="checkbox" checked> Require exact amount</label><label><input type="checkbox" checked> Auto-match invoice number</label><label><input type="checkbox" checked> Prevent duplicate M-Pesa code</label></div>
+          </div>
+        </section>
+        <section class="payment-lock-main-card manual-queue-card">
+          <h3>Manual M-Pesa Verification Queue</h3>
+          <div class="manual-queue-table"><table><thead><tr><th>Student</th><th>Invoice</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Status</th><th>Actions</th></tr></thead><tbody>${queueRows}</tbody></table></div>
+        </section>
+        <section class="payment-lock-credential-card" data-school-provider="${esc(activeAgent.provider)}">
+          <input type="checkbox" data-provider-enabled checked style="display:none">
+          <h3>3. Provider Credentials (${esc(activeAgent.label)})</h3>
+          <div class="payment-lock-fields">${renderPaymentAgentFields(activeAgent.provider, activeAgent.fields)}</div>
+          <div class="payment-lock-actions"><button type="button" class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Connection</button><span class="connected-dot">Connected ✓</span></div>
+        </section>
+        <section class="payment-lock-side-card methods-card"><h3>5. Enabled Payment Methods for Parents</h3>${methodChecks(activeAgent.provider)}</section>
+        ${paymentRulesCard()}
+        ${paymentNotificationsCard()}
+      </div>
+      <div class="payment-lock-bottom-info"><strong>INFO FOR FINANCE OFFICER</strong><span>All providers are equal.</span><span>Only one can be active at a time.</span><span>Manual M-Pesa references are verified before linking.</span><span>Parents see methods, not providers.</span><button type="button" class="finance-v31-btn primary" onclick="financeV31SaveProviderAgent('${activeAgent.provider}')">Save Changes</button></div>
+    </div>`;
   }
+  w.financeV31SelectProvider = function(provider){
+    state.providerSettings = { ...(state.providerSettings || {}), _draftProvider: provider };
+    renderBodyOnly();
+  };
   function getClassName(c){ return c?.name || c?.grade || c?.className || c?.level || 'Class'; }
   function getStructureClassName(s){ const assigned=Array.isArray(s?.assignedClasses)?s.assignedClasses:[]; if(assigned.length) return assigned.map(c=>c.name||c.grade||c.id).filter(Boolean).join(', '); return s?.className || s?.classGrade || s?.gradeLevel || s?.Class?.name || 'Class'; }
   function normalizedStatus(s){ return String(s?.status || 'draft').trim().toLowerCase(); }
@@ -250,15 +325,15 @@
     });
   }
   function actionButtons(s){
-    const id = esc(s.id);
+    const id = String(s.id ?? '');
     const status = normalizedStatus(s);
     const main = status === 'draft'
-      ? `<button class="finance-v31-btn blue" onclick="financeV31Activate('${id}')">Activate</button>`
-      : `<button class="finance-v31-btn blue" onclick="financeV31Assign('${id}')">Generate/Update Accounts</button>`;
+      ? `<button class="finance-v31-btn blue" onclick="financeV31Activate(${jsArg(id)})">Activate</button>`
+      : `<button class="finance-v31-btn blue" onclick="financeV31Assign(${jsArg(id)})">Generate/Update Accounts</button>`;
     const lock = status === 'locked'
       ? `<button class="finance-v31-btn muted" disabled>Locked</button>`
-      : `<button class="finance-v31-btn danger" onclick="financeV31Lock('${id}')">Lock</button>`;
-    return `<button class="finance-v31-btn" onclick="financeV31ViewStructure('${id}')">View Classes</button><button class="finance-v31-btn" onclick="financeV31OpenStructureModal('${id}')">Edit</button>${main}${lock}<button class="finance-v31-btn danger" onclick="financeV31DeleteStructure('${id}')">Delete/Archive</button>`;
+      : `<button class="finance-v31-btn danger" onclick="financeV31Lock(${jsArg(id)})">Lock</button>`;
+    return `<button class="finance-v31-btn" onclick="financeV31ViewStructure(${jsArg(id)})">View Classes</button><button class="finance-v31-btn" onclick="financeV31OpenStructureModal(${jsArg(id)})">Edit</button>${main}${lock}<button class="finance-v31-btn danger" onclick="financeV31DeleteStructure(${jsArg(id)})">Delete/Archive</button>`;
   }
   function renderStructures(){
     const structures = filteredStructures();
@@ -285,47 +360,29 @@
   function renderSettings(){
     const s=schoolSettings(), b=bankSettings();
     const ref=s.accountReferenceFormat||s.referenceFormat||'elimuid';
-    const mode=s.paymentMode || 'manual';
-    const cashEnabled = s.cashEnabled !== false && s.metadata?.cashEnabled !== false;
-    const cardEnabled = s.cardEnabled === true || s.metadata?.cardEnabled === true;
     const mpesaType = s.mpesaType || (s.till ? 'till' : 'paybill');
-    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>
-      <div class="finance-v31-toolbar finance-v31-settings-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Settings</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Choose how this school collects fees. Parents only see safe public payment details; provider secrets remain private. Click Save Settings so changes stick until changed again.</p><small id="finance-settings-save-status" style="color:var(--ff-muted)">Loaded from saved school settings.</small></div><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
-      <div class="finance-v31-settings-stack v95-payment-settings-organized" onchange="financeV31MarkSettingsDirty()" oninput="financeV31MarkSettingsDirty()" >
-        <div class="finance-v31-form-card spacious"><h3>1. Collection Mode</h3>
-          <div class="finance-v31-form-row"><div><label>Collection Mode</label><select id="finance-payment-mode" class="finance-v31-select" onchange="financeV31TogglePaymentMode()">
-            <option value="manual" ${mode==='manual'?'selected':''}>Manual M-Pesa verification only</option>
-            <option value="daraja" ${mode==='daraja'?'selected':''}>M-Pesa STK only</option>
-            <option value="mixed" ${mode==='mixed'?'selected':''}>Both Manual M-Pesa + M-Pesa STK</option>
-            <option value="bank" ${mode==='bank'?'selected':''}>Bank/Cash/Card instructions only</option>
-          </select></div><div><label>Account Reference Format</label><select id="finance-reference" class="finance-v31-select"><option value="elimuid" ${ref==='elimuid'?'selected':''}>ELIMU ID (Recommended)</option><option value="admissionNumber" ${ref==='admissionNumber'?'selected':''}>Admission Number</option><option value="assessmentNumber" ${ref==='assessmentNumber'?'selected':''}>Assessment Number</option><option value="studentName" ${ref==='studentName'?'selected':''}>Student Name</option><option value="parentPhone" ${ref==='parentPhone'?'selected':''}>Parent Phone Number</option><option value="invoiceNumber" ${ref==='invoiceNumber'?'selected':''}>Invoice Number</option><option value="term" ${ref==='term'?'selected':''}>Student + Term</option></select></div></div>
-          <div class="finance-v31-notice">Manual, STK, bank, cash and card settings can be enabled without interfering with school operations. Balances reduce only after approved/successful transactions.</div>
-        </div>
-
-        <div id="finance-manual-card" class="finance-v31-form-card spacious"><h3>2. Manual M-Pesa Public Details</h3>
-          <div class="finance-v31-form-row"><div><label>M-Pesa Type</label><select id="finance-mpesa-type" class="finance-v31-select" onchange="financeV31ToggleMpesaType()"><option value="paybill" ${mpesaType!=='till'?'selected':''}>Paybill</option><option value="till" ${mpesaType==='till'?'selected':''}>Till</option></select></div><div id="finance-paybill-wrap"><label>Paybill Number</label><input id="finance-paybill" class="finance-v31-input" value="${esc(s.paybill||s.paybillNumber||s.businessShortcode||'')}" placeholder="e.g. 400200"></div><div id="finance-till-wrap"><label>Till Number</label><input id="finance-till" class="finance-v31-input" value="${esc(s.till||s.tillNumber||'')}" placeholder="School till number"></div></div>
-          <label>Parent Manual Payment Instructions</label><textarea id="finance-manual-instructions" class="finance-v31-input" rows="4" placeholder="Example: Pay to the school paybill/till then submit the M-Pesa code for verification.">${esc(s.manualInstructions||s.metadata?.manualInstructions||'Pay using the displayed school account details, then submit your payment reference for verification.')}</textarea>
-          <div class="finance-v31-notice">Only the selected Paybill/Till type is shown to parents. Daraja private keys are never exposed.</div>
-        </div>
-
-        <div id="finance-daraja-card" class="finance-v31-form-card spacious"><h3>3. M-Pesa Private Credentials</h3>
-          <div class="finance-v31-form-row"><div><label>M-Pesa Consumer Key</label><input id="finance-daraja-key" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div><div><label>M-Pesa Consumer Secret</label><input id="finance-daraja-secret" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div></div>
-          <div class="finance-v31-form-row"><div><label>M-Pesa Passkey</label><input id="finance-daraja-passkey" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div><div><label>M-Pesa Shortcode</label><input id="finance-daraja-shortcode" class="finance-v31-input" value="${esc(s.shortcode||s.businessShortcode||'')}" placeholder="Shortcode used for STK"></div></div>
-          <div class="finance-v31-notice">Parents only see the STK Pay button when M-Pesa is enabled and configured. They never see private keys, secrets or passkeys.</div>
-        </div>
-
-        <div id="finance-bank-card" class="finance-v31-form-card spacious"><h3>4. Bank / Cash / Card Details</h3>
-          <div class="finance-v31-form-row"><div><label>Bank Name</label><input id="finance-bank-name" class="finance-v31-input" placeholder="Bank Name" value="${esc(b.bankName||s.bankName||'')}"></div><div><label>Account Name</label><input id="finance-account-name" class="finance-v31-input" placeholder="Account Name" value="${esc(b.accountName||s.accountName||'')}"></div></div>
-          <div class="finance-v31-form-row"><div><label>Account Number</label><input id="finance-account-number" class="finance-v31-input" placeholder="Account Number" value="${esc(b.accountNumber||s.bankAccount||s.accountNumber||'')}"></div><div><label>Branch</label><input id="finance-branch" class="finance-v31-input" placeholder="Branch" value="${esc(b.branch||s.branch||'')}"></div></div>
-          <div class="finance-v31-form-row"><label class="finance-v31-check"><input id="finance-cash-enabled" type="checkbox" ${cashEnabled?'checked':''}> Cash accepted at school office</label><label class="finance-v31-check"><input id="finance-card-enabled" type="checkbox" ${cardEnabled?'checked':''}> Card/POS accepted at school office</label></div>
-          <label>Offline Instructions</label><textarea id="finance-offline-instructions" class="finance-v31-input" rows="3" placeholder="Where parents should go or what receipt/reference they should submit.">${esc(s.offlineInstructions||s.metadata?.offlineInstructions||'Cash/card payments should be made at the school office and receipt/reference submitted for records.')}</textarea>
-        </div>
-
-        ${renderSchoolPaymentAgents()}
-
-        <div class="finance-v31-total-box"><strong>Parent Visibility</strong><p style="color:var(--ff-muted)">Parents see safe public payment instructions based on the selected payment mode. They never receive private Daraja credentials.</p><div class="finance-v31-settings-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Provider Connection</button><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div></div><div class="finance-v31-sticky-save" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span id="finance-settings-sticky-status">Payment settings loaded</span><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
-      </div></div>`;
+    return `<div class="finance-v31-body finance-v31-settings-stack">
+      <div id="finance-v31-message" class="finance-v31-message"></div>
+      ${renderSchoolPaymentAgents()}
+      <div style="display:none">
+        <select id="finance-payment-mode"><option value="manual" selected>manual</option></select>
+        <select id="finance-mpesa-type"><option value="${esc(mpesaType)}" selected>${esc(mpesaType)}</option></select>
+        <input id="finance-paybill" value="${esc(s.paybill||s.paybillNumber||s.businessShortcode||'')}">
+        <input id="finance-till" value="${esc(s.till||s.tillNumber||'')}">
+        <input id="finance-daraja-key"><input id="finance-daraja-secret"><input id="finance-daraja-passkey">
+        <input id="finance-daraja-shortcode" value="${esc(s.shortcode||s.businessShortcode||'')}">
+        <textarea id="finance-manual-instructions">${esc(s.manualInstructions||s.metadata?.manualInstructions||'')}</textarea>
+        <textarea id="finance-offline-instructions">${esc(s.offlineInstructions||s.metadata?.offlineInstructions||'')}</textarea>
+        <input id="finance-cash-enabled" type="checkbox" checked>
+        <input id="finance-card-enabled" type="checkbox" ${s.cardEnabled ? 'checked':''}>
+        <input id="finance-bank-name" value="${esc(b.bankName||s.bankName||'')}">
+        <input id="finance-account-name" value="${esc(b.accountName||s.accountName||'')}">
+        <input id="finance-account-number" value="${esc(b.accountNumber||s.bankAccount||s.accountNumber||'')}">
+        <input id="finance-branch" value="${esc(b.branch||s.branch||'')}">
+      </div>
+    </div>`;
   }
+
 
   function renderRecords(){
     const classes = visibleClasses();
@@ -346,16 +403,16 @@
     const defaulters = accounts.filter(a=>Number(a.feeBalance ?? a.balance ?? 0)>0);
     return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>
       <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Records</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Student-specific fee accounts, balances, bursaries and payment history.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh Records</button><button class="finance-v31-btn blue" onclick="financeV31OpenManualModal()">Record Payment</button><button class="finance-v31-btn" onclick="financeV31OpenBursaryModal()">Add Bursary/Credit</button></div></div>
-      <div class="finance-v31-class-tabs"><button class="finance-v31-class-tab ${!selectedClass?'active':''}" onclick="financeV31SetRecordClass('')">All Classes</button>${classes.map(c=>`<button class="finance-v31-class-tab ${selectedClass===c?'active':''}" onclick="financeV31SetRecordClass('${esc(c)}')">${esc(c)}</button>`).join('')}</div>
+      <div class="finance-v31-class-tabs"><button class="finance-v31-class-tab ${!selectedClass?'active':''}" onclick="financeV31SetRecordClass('')">All Classes</button>${classes.map(c=>`<button class="finance-v31-class-tab ${selectedClass===c?'active':''}" onclick="financeV31SetRecordClass(${jsArg(c)})">${esc(c)}</button>`).join('')}</div>
       <div class="finance-v31-summary compact"><div class="finance-v31-metric"><div><strong>Total Expected</strong><h3>${money(totalExpected)}</h3></div></div><div class="finance-v31-metric"><div><strong>Parent Paid</strong><h3>${money(parentPaid)}</h3></div></div><div class="finance-v31-metric"><div><strong>Bursaries/Credits</strong><h3>${money(credits)}</h3></div></div><div class="finance-v31-metric"><div><strong>Outstanding</strong><h3>${money(outstanding)}</h3></div></div><div class="finance-v31-metric"><div><strong>Fee Defaulters</strong><h3>${defaulters.length}</h3></div></div></div>
-      <div class="finance-v31-card wide"><h3 style="margin-top:0">${selectedClass?esc(selectedClass):'All Classes'} Student Balances</h3><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Term</th><th>Total</th><th>Parent Paid</th><th>Bursary/Credit</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>${accounts.length?accounts.map(a=>{ const feeId=a.feeId||a.id; const studentId=a.studentId; const bal=Number(a.feeBalance ?? a.balance ?? 0); return `<tr><td>${esc(a.studentName || accountStudentName(a))}</td><td>${esc(a.className || accountClassName(a))}</td><td>${esc(a.__missingFeeAccount ? 'No active fee account' : ((a.term || a.feeTerm || '—') + ' ' + String(a.year || a.feeYear || '')))}</td><td>${money(a.feeTotalAmount ?? a.totalAmount)}</td><td>${money(a.feeParentPaidAmount ?? a.parentPaidAmount ?? a.paidAmount)}</td><td>${money(a.feeCreditAmount ?? a.creditAmount)}</td><td><strong>${money(bal)}</strong></td><td><span class="finance-v31-badge ${a.__missingFeeAccount?'draft':(bal>0?'partial':'paid')}">${a.__missingFeeAccount?'Needs fee account':(bal>0?'Balance':'Paid')}</span></td><td>${a.__missingFeeAccount ? '<span class="text-xs text-muted-foreground">Activate/assign fee structure first</span>' : `<button class="finance-v31-btn blue" onclick="financeV31OpenManualModal('${esc(studentId)}','${esc(feeId)}')">Record Payment</button><button class="finance-v31-btn" onclick="financeV31OpenBursaryModal('${esc(studentId)}','${esc(feeId)}')">Bursary</button><button class="finance-v31-btn" onclick="financeV31ViewStudentHistory('${esc(studentId)}')">History</button>`}</td></tr>`}).join(''):'<tr><td colspan="9"><div class="finance-v31-empty">No fee accounts found. Activate/assign a grouped fee structure first.</div></td></tr>'}</tbody></table></div></div>
+      <div class="finance-v31-card wide"><h3 style="margin-top:0">${selectedClass?esc(selectedClass):'All Classes'} Student Balances</h3><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Term</th><th>Total</th><th>Parent Paid</th><th>Bursary/Credit</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody>${accounts.length?accounts.map(a=>{ const feeId=a.feeId||a.id; const studentId=a.studentId; const bal=Number(a.feeBalance ?? a.balance ?? 0); return `<tr><td>${esc(a.studentName || accountStudentName(a))}</td><td>${esc(a.className || accountClassName(a))}</td><td>${esc(a.__missingFeeAccount ? 'No active fee account' : ((a.term || a.feeTerm || '—') + ' ' + String(a.year || a.feeYear || '')))}</td><td>${money(a.feeTotalAmount ?? a.totalAmount)}</td><td>${money(a.feeParentPaidAmount ?? a.parentPaidAmount ?? a.paidAmount)}</td><td>${money(a.feeCreditAmount ?? a.creditAmount)}</td><td><strong>${money(bal)}</strong></td><td><span class="finance-v31-badge ${a.__missingFeeAccount?'draft':(bal>0?'partial':'paid')}">${a.__missingFeeAccount?'Needs fee account':(bal>0?'Balance':'Paid')}</span></td><td>${a.__missingFeeAccount ? '<span class="text-xs text-muted-foreground">Activate/assign fee structure first</span>' : `<button class="finance-v31-btn blue" onclick="financeV31OpenManualModal(${jsArg(studentId)},${jsArg(feeId)})">Record Payment</button><button class="finance-v31-btn" onclick="financeV31OpenBursaryModal(${jsArg(studentId)},${jsArg(feeId)})">Bursary</button><button class="finance-v31-btn" onclick="financeV31ViewStudentHistory(${jsArg(studentId)})">History</button>`}</td></tr>`}).join(''):'<tr><td colspan="9"><div class="finance-v31-empty">No fee accounts found. Activate/assign a grouped fee structure first.</div></td></tr>'}</tbody></table></div></div>
     </div>`;
   }
 
 
   function renderVerification(){
     const rows = state.manualQueue || [];
-    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Verification Queue</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Approve manual M-Pesa payments after checking the school statement/SMS.</p></div><button class="finance-v31-btn" onclick="financeV31RefreshQueue()">Refresh</button></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Date</th><th>Actions</th></tr></thead><tbody>${rows.length?rows.map(p=>`<tr><td>${esc(p.Student?.User?.name || p.studentId || 'Student')}</td><td>${esc(p.metadata?.studentElimuid || p.accountReference || '—')}</td><td>${money(p.amount)}</td><td><strong>${esc(p.reference || '—')}</strong></td><td>${esc(p.Parent?.User?.name || p.Parent?.User?.phone || 'Parent')}</td><td>${esc((p.createdAt||'').slice(0,10))}</td><td><button class="finance-v31-btn blue" onclick="financeV31ApproveManual('${esc(p.id)}')">Approve</button><button class="finance-v31-btn danger" onclick="financeV31RejectManual('${esc(p.id)}')">Reject</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="finance-v31-empty">No pending manual payments.</div></td></tr>'}</tbody></table></div></div>`;
+    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Verification Queue</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Approve manual M-Pesa payments after checking the school statement/SMS.</p></div><button class="finance-v31-btn" onclick="financeV31RefreshQueue()">Refresh</button></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Date</th><th>Actions</th></tr></thead><tbody>${rows.length?rows.map(p=>`<tr><td>${esc(p.Student?.User?.name || p.studentId || 'Student')}</td><td>${esc(p.metadata?.studentElimuid || p.accountReference || '—')}</td><td>${money(p.amount)}</td><td><strong>${esc(p.reference || '—')}</strong></td><td>${esc(p.Parent?.User?.name || p.Parent?.User?.phone || 'Parent')}</td><td>${esc((p.createdAt||'').slice(0,10))}</td><td><button class="finance-v31-btn blue" onclick="financeV31ApproveManual(${jsArg(p.id)})">Approve</button><button class="finance-v31-btn danger" onclick="financeV31RejectManual(${jsArg(p.id)})">Reject</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="finance-v31-empty">No pending manual payments.</div></td></tr>'}</tbody></table></div></div>`;
   }
 
   function renderFinanceOverview(){const t=totals(),defs=state.overview?.defaulters||[];if(isSchoolAdminView())return`<div class="space-y-4"><div class="rounded-xl border bg-card p-5"><div class="flex items-center justify-between"><div><h3 class="font-semibold text-lg">School Finance Overview</h3><p class="text-sm text-muted-foreground">Daily operations are handled by the Finance Team.</p></div><button onclick="financeV31SetTab('team')" class="finance-v31-btn">Manage Finance Team</button></div><div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><div class="rounded-lg border p-4"><span>Expected</span><strong class="block text-xl">${money(t.expected)}</strong></div><div class="rounded-lg border p-4"><span>Paid</span><strong class="block text-xl">${money(t.paid)}</strong></div><div class="rounded-lg border p-4"><span>Remaining</span><strong class="block text-xl">${money(t.outstanding)}</strong></div><div class="rounded-lg border p-4"><span>Pending verification</span><strong class="block text-xl">${t.pendingVerification||state.manualQueue.length}</strong></div></div></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Defaulters</h3><p class="text-sm text-muted-foreground">${defs.length} learner(s) with an outstanding balance.</p></div><div class="overflow-x-auto"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Class</th><th>Outstanding</th></tr></thead><tbody>${defs.length?defs.slice(0,100).map(x=>`<tr><td>${esc(x.studentName)}</td><td>${esc(x.elimuid||'—')}</td><td>${esc(x.className||'Unassigned')}</td><td><strong>${money(x.balance)}</strong></td></tr>`).join(''):'<tr><td colspan="4"><div class="finance-v31-empty">No defaulters found.</div></td></tr>'}</tbody></table></div></div></div>`;return`<div class="space-y-4"><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><button onclick="financeV31SetTab('verification')" class="rounded-xl border bg-card p-4 text-left"><span>Verification queue</span><strong class="block text-xl">${t.pendingVerification||state.manualQueue.length}</strong></button><button onclick="financeV31SetTab('balances')" class="rounded-xl border bg-card p-4 text-left"><span>Defaulters</span><strong class="block text-xl">${t.defaulterCount||defs.length}</strong></button><button onclick="financeV31SetTab('expenses')" class="rounded-xl border bg-card p-4 text-left"><span>Expenses</span><strong class="block text-xl">${money(t.totalExpenses||0)}</strong></button><button onclick="financeV31SetTab('finance-alerts')" class="rounded-xl border bg-card p-4 text-left"><span>Unread finance alerts</span><strong class="block text-xl">${state.financeAlerts.filter(a=>!a.isRead).length}</strong></button></div></div>`;}
@@ -460,7 +517,7 @@
     }catch(e){ setMessage('error', e.message || 'Could not save payment agent.'); }
   };
 
-  w.financeV31TestConnection = async function(){ clearMessage(); try{ const res = await (apiSafe().payments?.testSchoolConnection ? apiSafe().payments.testSchoolConnection() : apiRequest('/api/payments/admin/test-connection',{method:'POST'})); setMessage('success', res?.message || 'Daraja connection verified successfully.'); }catch(e){ setMessage('error', e.message || 'Daraja connection test failed.'); } };
+  w.financeV31TestConnection = async function(){ clearMessage(); try{ const res = await (apiSafe().payments?.testSchoolConnection ? apiSafe().payments.testSchoolConnection() : apiRequest('/api/payments/admin/test-connection',{method:'POST'})); setMessage('success', res?.message || 'Provider connection verified successfully.'); }catch(e){ setMessage('error', e.message || 'Provider connection test failed.'); } };
   w.financeV31RefreshQueue = async function(){ clearMessage(); await loadManualQueue(); const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderVerification(); };
   w.financeV31ApproveManual = async function(id){ clearMessage(); if(!confirm('Approve this payment and update the student balance?')) return; try{ await apiSafe().payments.approveManualPayment(id,{}); await loadAll(); renderBodyOnly(); window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'payment-approved',id}})); localStorage.setItem('shule:lastFinanceUpdate', String(Date.now())); setMessage('success','Payment approved. Records and balances updated.'); }catch(e){ setMessage('error',e.message||'Could not approve payment.'); } };
   w.financeV31RejectManual = async function(id){ clearMessage(); const reason=prompt('Reason for rejection?') || 'Rejected by school finance/admin'; try{ await apiSafe().payments.rejectManualPayment(id,{reason}); await loadAll(); renderBodyOnly(); window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'payment-rejected',id}})); localStorage.setItem('shule:lastFinanceUpdate', String(Date.now())); setMessage('success','Payment rejected. Records refreshed.'); }catch(e){ setMessage('error',e.message||'Could not reject payment.'); } };
