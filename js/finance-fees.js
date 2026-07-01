@@ -18,7 +18,7 @@
   function bankSettings(){ return state.settings?.bankDetails || state.settings?.bank || {}; }
 
   const PAYMENT_AGENT_DEFS = [
-    { provider:'daraja', label:'M-Pesa Daraja STK', description:'School fee STK prompts using the school shortcode.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
+    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa checkout / STK using the school shortcode.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
     { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for school fee payments.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
     { provider:'paystack', label:'Paystack', description:'Paystack checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
     { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
@@ -28,30 +28,43 @@
   function renderPaymentAgentFields(provider, fields){ const cfg=paymentAgentConfig(provider); return fields.map(([name,label,placeholder,secret])=>`<label>${esc(label)}<input ${secret?'type="password" autocomplete="off"':''} data-provider-field="${esc(name)}" class="finance-v31-input" placeholder="${secret?'Leave blank to keep existing':esc(placeholder||'')}" value="${secret?'':esc(cfg[name]||'')}"></label>`).join(''); }
   function renderSchoolPaymentAgents(){
     const settings = state.providerSettings || {};
-    const enabled = new Set(settings.enabledProviders || []);
-    const def = settings.defaultProvider || 'manual';
-    const enabledLabels = PAYMENT_AGENT_DEFS.filter(a => enabled.has(a.provider)).map(a => a.label);
+    const activeProvider = settings.activeProvider || settings.defaultProvider || '';
+    const activeLabels = activeProvider ? PAYMENT_AGENT_DEFS.filter(a => a.provider === activeProvider).map(a => a.label) : [];
+    const methodChecked = (provider, method) => {
+      const cfg = paymentAgentConfig(provider);
+      const selected = Array.isArray(cfg.methods) ? cfg.methods : [];
+      if (selected.length) return selected.includes(method);
+      if (provider === 'mpesa') return method === 'mobile_money';
+      if (provider === 'stripe') return method === 'card';
+      if (['paystack','flutterwave','pesapal'].includes(provider)) return ['mobile_money','card','bank'].includes(method);
+      return ['mobile_money','bank','cash','card'].includes(method);
+    };
+    const methodChecks = (provider) => `
+      <div class="payment-lock-method-checks">
+        <label><input type="checkbox" data-provider-method="mobile_money" ${methodChecked(provider,'mobile_money')?'checked':''}> Mobile Money</label>
+        <label><input type="checkbox" data-provider-method="card" ${methodChecked(provider,'card')?'checked':''}> Card Payments</label>
+        <label><input type="checkbox" data-provider-method="bank" ${methodChecked(provider,'bank')?'checked':''}> Bank Transfer</label>
+        <label><input type="checkbox" data-provider-method="cash" ${methodChecked(provider,'cash')?'checked':''}> Cash / Office</label>
+      </div>`;
     const row = (agent) => {
-      const active = enabled.has(agent.provider);
-      return `<details class="rounded-xl border bg-card p-4" data-school-provider="${agent.provider}">
-        <summary class="cursor-pointer list-none">
-          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div><strong>${esc(agent.label)}</strong><p class="text-sm text-muted-foreground">${esc(agent.description)}</p></div>
-            <div class="flex flex-wrap gap-3 text-sm">
-              <span class="finance-v31-chip ${active ? '' : 'muted'}">${active ? 'Enabled' : 'Disabled'}</span>
-              ${def === agent.provider ? '<span class="finance-v31-chip">Default</span>' : ''}
-              <span class="finance-v31-chip muted">Configure</span>
-            </div>
-          </div>
+      const active = activeProvider === agent.provider;
+      return `<details class="payment-lock-provider-card ${active ? 'active' : ''}" data-school-provider="${agent.provider}" ${active ? 'open' : ''}>
+        <summary class="payment-lock-provider-summary">
+          <span class="payment-lock-radio">${active ? '●' : '○'}</span>
+          <span><strong>${esc(agent.label)}</strong><small>${esc(agent.description)}</small></span>
+          <em>${active ? 'Active' : 'Set Up'}</em>
         </summary>
-        <div class="mt-4 border-t pt-4">
-          <div class="flex flex-wrap gap-4 text-sm mb-3"><label class="finance-v31-check"><input type="checkbox" data-provider-enabled ${active?'checked':''}> Enabled for parents</label><label class="finance-v31-check"><input type="radio" name="school-default-provider" data-provider-default ${def===agent.provider?'checked':''}> Make default</label></div>
+        <div class="payment-lock-provider-body">
+          <div class="payment-lock-exclusive-note">Only one provider can be active. Saving this provider as active disables all other providers automatically. M-Pesa is treated exactly like every other provider.</div>
+          <label class="finance-v31-check"><input type="checkbox" data-provider-enabled ${active ? 'checked' : ''}> Make this the active provider parents will use</label>
           <div class="finance-v31-form-row">${renderPaymentAgentFields(agent.provider, agent.fields)}</div>
+          <h4 class="payment-lock-subtitle">Payment methods parents can choose</h4>
+          ${methodChecks(agent.provider)}
           <div class="mt-3 flex justify-end"><button type="button" class="finance-v31-btn primary" onclick="financeV31SaveProviderAgent('${agent.provider}')">Save ${esc(agent.label)}</button></div>
         </div>
       </details>`;
     };
-    return `<div class="finance-v31-form-card spacious"><h3>5. Payment Providers</h3><p style="margin-top:-6px;color:var(--ff-muted);font-size:13px">Parents only see providers enabled here. Private keys stay hidden from parents.</p><div class="rounded-lg bg-muted/30 p-3 text-sm"><strong>Enabled now:</strong> ${enabledLabels.length ? enabledLabels.map(esc).join(', ') : 'Manual verification only'}</div><div class="finance-v31-settings-stack mt-3">${PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
+    return `<div class="finance-v31-form-card spacious payment-lock-settings-card"><h3>1. Payment Providers</h3><p style="margin-top:-6px;color:var(--ff-muted);font-size:13px">All providers are equal. Finance Officer chooses exactly one active school-fee provider. Parents only receive payment methods, never provider credentials.</p><div class="payment-lock-active-banner"><strong>Active Provider:</strong> ${activeLabels[0] ? esc(activeLabels[0]) : 'None selected'}<span>Other providers are automatically disabled.</span></div><div class="finance-v31-settings-stack mt-3">${PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
   }
   function getClassName(c){ return c?.name || c?.grade || c?.className || c?.level || 'Class'; }
   function getStructureClassName(s){ const assigned=Array.isArray(s?.assignedClasses)?s.assignedClasses:[]; if(assigned.length) return assigned.map(c=>c.name||c.grade||c.id).filter(Boolean).join(', '); return s?.className || s?.classGrade || s?.gradeLevel || s?.Class?.name || 'Class'; }
@@ -277,15 +290,15 @@
     const cardEnabled = s.cardEnabled === true || s.metadata?.cardEnabled === true;
     const mpesaType = s.mpesaType || (s.till ? 'till' : 'paybill');
     return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>
-      <div class="finance-v31-toolbar finance-v31-settings-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Settings</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Choose how this school collects fees. Parents only see safe public payment details; Daraja secrets remain private. Click Save Settings so changes stick until changed again.</p><small id="finance-settings-save-status" style="color:var(--ff-muted)">Loaded from saved school settings.</small></div><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
+      <div class="finance-v31-toolbar finance-v31-settings-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Settings</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Choose how this school collects fees. Parents only see safe public payment details; provider secrets remain private. Click Save Settings so changes stick until changed again.</p><small id="finance-settings-save-status" style="color:var(--ff-muted)">Loaded from saved school settings.</small></div><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
       <div class="finance-v31-settings-stack v95-payment-settings-organized" onchange="financeV31MarkSettingsDirty()" oninput="financeV31MarkSettingsDirty()" >
         <div class="finance-v31-form-card spacious"><h3>1. Collection Mode</h3>
           <div class="finance-v31-form-row"><div><label>Collection Mode</label><select id="finance-payment-mode" class="finance-v31-select" onchange="financeV31TogglePaymentMode()">
             <option value="manual" ${mode==='manual'?'selected':''}>Manual M-Pesa verification only</option>
-            <option value="daraja" ${mode==='daraja'?'selected':''}>Daraja STK Push only</option>
-            <option value="mixed" ${mode==='mixed'?'selected':''}>Both Manual M-Pesa + Daraja STK</option>
+            <option value="daraja" ${mode==='daraja'?'selected':''}>M-Pesa STK only</option>
+            <option value="mixed" ${mode==='mixed'?'selected':''}>Both Manual M-Pesa + M-Pesa STK</option>
             <option value="bank" ${mode==='bank'?'selected':''}>Bank/Cash/Card instructions only</option>
-          </select></div><div><label>Account Reference Format</label><select id="finance-reference" class="finance-v31-select"><option value="elimuid" ${ref==='elimuid'?'selected':''}>Elimu ID</option><option value="admissionNumber" ${ref==='admissionNumber'?'selected':''}>Student Admission Number</option><option value="studentId" ${ref==='studentId'?'selected':''}>Student ID</option><option value="term" ${ref==='term'?'selected':''}>Student + Term</option></select></div></div>
+          </select></div><div><label>Account Reference Format</label><select id="finance-reference" class="finance-v31-select"><option value="elimuid" ${ref==='elimuid'?'selected':''}>ELIMU ID (Recommended)</option><option value="admissionNumber" ${ref==='admissionNumber'?'selected':''}>Admission Number</option><option value="assessmentNumber" ${ref==='assessmentNumber'?'selected':''}>Assessment Number</option><option value="studentName" ${ref==='studentName'?'selected':''}>Student Name</option><option value="parentPhone" ${ref==='parentPhone'?'selected':''}>Parent Phone Number</option><option value="invoiceNumber" ${ref==='invoiceNumber'?'selected':''}>Invoice Number</option><option value="term" ${ref==='term'?'selected':''}>Student + Term</option></select></div></div>
           <div class="finance-v31-notice">Manual, STK, bank, cash and card settings can be enabled without interfering with school operations. Balances reduce only after approved/successful transactions.</div>
         </div>
 
@@ -295,10 +308,10 @@
           <div class="finance-v31-notice">Only the selected Paybill/Till type is shown to parents. Daraja private keys are never exposed.</div>
         </div>
 
-        <div id="finance-daraja-card" class="finance-v31-form-card spacious"><h3>3. Daraja STK Private Credentials</h3>
-          <div class="finance-v31-form-row"><div><label>Daraja Consumer Key</label><input id="finance-daraja-key" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div><div><label>Daraja Consumer Secret</label><input id="finance-daraja-secret" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div></div>
-          <div class="finance-v31-form-row"><div><label>Daraja Passkey</label><input id="finance-daraja-passkey" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div><div><label>Daraja Shortcode</label><input id="finance-daraja-shortcode" class="finance-v31-input" value="${esc(s.shortcode||s.businessShortcode||'')}" placeholder="Shortcode used for STK"></div></div>
-          <div class="finance-v31-notice">Parents only see the STK Pay button when Daraja is enabled and configured. They never see consumer keys, secrets or passkeys.</div>
+        <div id="finance-daraja-card" class="finance-v31-form-card spacious"><h3>3. M-Pesa Private Credentials</h3>
+          <div class="finance-v31-form-row"><div><label>M-Pesa Consumer Key</label><input id="finance-daraja-key" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div><div><label>M-Pesa Consumer Secret</label><input id="finance-daraja-secret" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div></div>
+          <div class="finance-v31-form-row"><div><label>M-Pesa Passkey</label><input id="finance-daraja-passkey" class="finance-v31-input" placeholder="Private: only for Daraja mode" autocomplete="off"></div><div><label>M-Pesa Shortcode</label><input id="finance-daraja-shortcode" class="finance-v31-input" value="${esc(s.shortcode||s.businessShortcode||'')}" placeholder="Shortcode used for STK"></div></div>
+          <div class="finance-v31-notice">Parents only see the STK Pay button when M-Pesa is enabled and configured. They never see private keys, secrets or passkeys.</div>
         </div>
 
         <div id="finance-bank-card" class="finance-v31-form-card spacious"><h3>4. Bank / Cash / Card Details</h3>
@@ -310,7 +323,7 @@
 
         ${renderSchoolPaymentAgents()}
 
-        <div class="finance-v31-total-box"><strong>Parent Visibility</strong><p style="color:var(--ff-muted)">Parents see safe public payment instructions based on the selected payment mode. They never receive private Daraja credentials.</p><div class="finance-v31-settings-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Daraja Connection</button><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div></div><div class="finance-v31-sticky-save" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span id="finance-settings-sticky-status">Payment settings loaded</span><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
+        <div class="finance-v31-total-box"><strong>Parent Visibility</strong><p style="color:var(--ff-muted)">Parents see safe public payment instructions based on the selected payment mode. They never receive private Daraja credentials.</p><div class="finance-v31-settings-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Provider Connection</button><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div></div><div class="finance-v31-sticky-save" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span id="finance-settings-sticky-status">Payment settings loaded</span><button class="finance-v31-btn primary" onclick="financeV31SavePaymentSettings()">Save Settings</button></div>
       </div></div>`;
   }
 
@@ -435,7 +448,9 @@
       const value = input.value?.trim() || '';
       if(value) config[key] = value;
     });
-    const payload = { provider, enabled: !!card.querySelector('[data-provider-enabled]')?.checked, isDefault: !!card.querySelector('[data-provider-default]')?.checked, config };
+    const methods = [...card.querySelectorAll('[data-provider-method]:checked')].map(input => input.getAttribute('data-provider-method')).filter(Boolean);
+    const makeActive = !!card.querySelector('[data-provider-enabled]')?.checked;
+    const payload = { provider, enabled: makeActive, isDefault: makeActive, active: makeActive, methods, accountReferenceFormat: document.getElementById('finance-reference')?.value || 'elimuid', linkingRule: document.getElementById('finance-reference')?.value || 'elimuid', matchingRules: { autoMatchElimuId: true, autoMatchInvoiceNumber: true, requireExactAmount: true }, notifications: { parentPaymentReceived: true, financeInvoicePaid: true, paymentFailed: true }, config: { ...config, methods } };
     try{
       const res = await (apiSafe().payments?.saveSchoolProvider ? apiSafe().payments.saveSchoolProvider(payload) : apiRequest('/api/payments/admin/providers',{method:'PUT',body:JSON.stringify(payload)}));
       setMessage('success', res?.message || 'Payment agent saved for this school.');

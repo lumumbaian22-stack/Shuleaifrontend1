@@ -840,17 +840,38 @@ function renderParentChildSubscriptionCards(selectedChildId, selectedChild, phon
         const ai = String(code).includes('ultimate') ? 'Extended AI access' : String(code).includes('premium') ? '6 AI messages/day' : 'No AI Tutor';
         return { code, name, amount, features, ai };
     });
-    return `<div class="rounded-xl border bg-card p-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4"><div><h3 class="font-semibold text-lg">Shule AI Child Subscription</h3><p class="text-sm text-muted-foreground">Per-child subscription. Selected child: <b>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || selectedChildId || 'Child')}</b></p></div><input id="parent-sub-phone" type="tel" value="${phone}" placeholder="2547XXXXXXXX" class="rounded-lg border bg-background px-3 py-2 text-sm md:w-56"></div><div class="grid gap-4 md:grid-cols-3">${plans.map(p => `<div class="rounded-xl border p-4 bg-background"><div class="flex justify-between items-start"><div><h4 class="font-bold">${escapeHtml(p.name)}</h4><p class="text-sm text-muted-foreground">KES ${Number(p.amount).toLocaleString()} / month</p></div><span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(p.ai)}</span></div><ul class="mt-3 text-sm space-y-1">${p.features.map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}</ul><button onclick="payChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-4 w-full rounded-lg bg-primary text-primary-foreground py-2">Try STK / Pay ${escapeHtml(p.name)}</button><div class="mt-3"><input id="parent-sub-code-${escapeHtml(p.code)}" class="w-full rounded-lg border bg-background px-3 py-2 text-sm uppercase" placeholder="Manual M-Pesa code/reference"><button onclick="submitManualChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-2 w-full rounded-lg border py-2 text-sm">Submit Code for Approval</button></div></div>`).join('')}</div></div>`;
+    return `<div class="rounded-xl border bg-card p-6"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4"><div><h3 class="font-semibold text-lg">ShuleAI Child Subscription</h3><p class="text-sm text-muted-foreground">Per-child platform subscription. Selected child: <b>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || selectedChildId || 'Child')}</b></p></div><input id="parent-sub-phone" type="tel" value="${phone}" placeholder="2547XXXXXXXX" class="rounded-lg border bg-background px-3 py-2 text-sm md:w-56"></div><div class="grid gap-4 md:grid-cols-3">${plans.map(p => `<div class="rounded-xl border p-4 bg-background"><div class="flex justify-between items-start"><div><h4 class="font-bold">${escapeHtml(p.name)}</h4><p class="text-sm text-muted-foreground">KES ${Number(p.amount).toLocaleString()} / month</p></div><span class="text-xs rounded-full bg-primary/10 text-primary px-2 py-1">${escapeHtml(p.ai)}</span></div><ul class="mt-3 text-sm space-y-1">${p.features.map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}</ul><button onclick="payChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-4 w-full rounded-lg bg-primary text-primary-foreground py-2">Pay ${escapeHtml(p.name)}</button><div class="mt-3"><input id="parent-sub-code-${escapeHtml(p.code)}" class="w-full rounded-lg border bg-background px-3 py-2 text-sm uppercase" placeholder="Manual M-Pesa code/reference"><button onclick="submitManualChildSubscription('${escapeHtml(p.code)}', ${Number(p.amount)})" class="mt-2 w-full rounded-lg border py-2 text-sm">Submit Code for Approval</button></div></div>`).join('')}</div></div>`;
 }
+async function initiateChildPlatformSubscriptionPayment({ studentId, planCode, amount, phone, paymentMethod = 'mobile_money' }) {
+    const res = await api.payments.initiate({
+        paymentType: 'platform',
+        platformPurpose: 'child_subscription',
+        purpose: 'child_subscription',
+        ownerType: 'child',
+        studentId: Number(studentId),
+        plan: planCode,
+        planCode,
+        amount: Number(amount),
+        phone,
+        paymentMethod,
+        billingCycle: 'monthly',
+        billingPeriod: 'monthly'
+    });
+    const data = res?.data || {};
+    if (data.checkoutUrl) window.open(data.checkoutUrl, '_blank', 'noopener');
+    return res;
+}
+
 async function payChildSubscription(planCode, amount) {
     const studentId = dashboardData?.selectedChildId || document.getElementById('payment-child')?.value;
     const phone = document.getElementById('parent-sub-phone')?.value?.trim() || getParentPaymentPhone();
     if (!studentId) return showToast('Select a child first', 'error');
-    if (!phone) return showToast('Enter M-Pesa phone number', 'error');
+    if (!phone) return showToast('Enter payment phone number', 'error');
     showLoading();
     try {
-        const res = await api.payments.parentSubscriptionSTK({ studentId: Number(studentId), plan: planCode, planCode, amount, phone, billingPeriod:'monthly' });
-        showToast(res.message || 'Subscription M-Pesa prompt sent.', 'success');
+        const res = await initiateChildPlatformSubscriptionPayment({ studentId, planCode, amount, phone, paymentMethod: 'mobile_money' });
+        showToast(res.message || 'Subscription payment started. Complete it using the active platform provider.', 'success');
+        window.dispatchEvent(new CustomEvent('shule:subscription-updated',{detail:{type:'parent-subscription-platform-provider'}}));
     } catch (e) { showToast(e.message || 'Could not start subscription payment', 'error'); }
     finally { hideLoading(); }
 }
@@ -869,66 +890,88 @@ async function submitManualChildSubscription(planCode, amount) {
 }
 
 function normalizeParentPaymentProvider(provider) {
-    return String(provider || '').trim().toLowerCase().replace(/\s+/g, '_');
+    const p = String(provider || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (['mpesa','m_pesa','mpesa_stk','stk','safaricom','daraja'].includes(p)) return 'mpesa';
+    if (['manual_mpesa','manual_verification','reference'].includes(p)) return 'manual';
+    return p;
+}
+
+function normalizeParentPaymentMethod(method) {
+    const m = String(method || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (['mpesa','m_pesa','mpesa_stk','stk','daraja','mobile','mobile_money'].includes(m)) return 'mobile_money';
+    if (['visa','mastercard','card_payment','cards','stripe'].includes(m)) return 'card';
+    if (['bank_transfer','bank_deposit'].includes(m)) return 'bank';
+    if (['cash_payment','office_cash'].includes(m)) return 'cash';
+    if (['manual_mpesa','manual_verification','reference'].includes(m)) return 'manual';
+    return m;
 }
 
 function parentProviderLabel(provider, fallback = '') {
     const p = normalizeParentPaymentProvider(provider);
-    const labels = { manual: 'Manual verification', bank: 'Bank transfer', cash: 'Cash office payment', card: 'Card/POS', daraja: 'M-Pesa STK Push', paystack: 'Paystack checkout', flutterwave: 'Flutterwave checkout', pesapal: 'Pesapal checkout', stripe: 'Stripe checkout' };
-    return fallback || labels[p] || String(provider || 'Payment option');
+    const labels = { manual: 'Manual verification', bank: 'Bank transfer', cash: 'Cash office payment', card: 'Card/POS', mpesa: 'M-Pesa', daraja: 'M-Pesa', paystack: 'Paystack', flutterwave: 'Flutterwave', pesapal: 'PesaPal', stripe: 'Stripe' };
+    return fallback || labels[p] || String(provider || 'Payment provider');
+}
+
+function parentMethodLabel(method, fallback = '') {
+    const m = normalizeParentPaymentMethod(method);
+    const labels = { mobile_money: 'Mobile Money', card: 'Card Payments', bank: 'Bank Transfer', cash: 'Cash at Office', manual: 'Manual Reference' };
+    return fallback || labels[m] || String(method || 'Payment method');
 }
 
 function parentProviderPrompt(provider, prompt = '') {
     const p = normalizeParentPaymentProvider(provider);
     if (prompt) return prompt;
     if (['paystack','flutterwave','pesapal','stripe'].includes(p)) return 'checkout_url';
-    if (p === 'daraja') return 'phone_prompt';
+    if (p === 'mpesa' || p === 'daraja') return 'phone_prompt';
     return 'manual_instructions';
 }
 
-function parentProviderDescription(provider, prompt = '') {
+function parentProviderDescription(method, prompt = '', provider = '') {
+    const m = normalizeParentPaymentMethod(method);
     const p = normalizeParentPaymentProvider(provider);
     const type = parentProviderPrompt(p, prompt);
-    if (type === 'checkout_url') return 'Open a secure checkout. Balances update only after provider confirmation.';
-    if (type === 'phone_prompt') return 'Enter your M-Pesa phone, then complete the prompt on your phone.';
-    if (p === 'bank') return 'Pay using the bank details above, then submit the reference for finance approval.';
-    if (p === 'cash') return 'Pay at the school office, then submit the receipt number for finance approval.';
-    if (p === 'card') return 'Pay using the school card/POS option, then submit the receipt reference.';
+    if (type === 'checkout_url') return parentMethodLabel(m) + ' will open in the school secure checkout flow. Balances update only after provider confirmation.';
+    if (type === 'phone_prompt') return 'Enter your M-Pesa phone, then complete the secure STK prompt. The provider remains hidden from parents and is controlled by Finance.';
+    if (m === 'bank') return 'Pay using the bank details above, then submit the reference for finance approval.';
+    if (m === 'cash') return 'Pay at the school office, then submit the receipt number for finance approval.';
+    if (m === 'card') return 'Use the enabled card/POS option, then submit or complete checkout as instructed.';
     return 'Submit your payment reference for school finance verification.';
 }
 
 function normalizeParentPaymentMethods(methodData = {}) {
+    const activeProvider = normalizeParentPaymentProvider(methodData.activeProvider || methodData.defaultProvider || '');
     const methods = Array.isArray(methodData.methods) ? methodData.methods : [];
+    const publicMethods = Array.isArray(methodData.publicMethods) ? methodData.publicMethods : [];
     const enabled = Array.isArray(methodData.enabledProviders) ? methodData.enabledProviders : [];
-    const rows = methods.length ? methods : enabled.map(provider => ({ provider }));
+    const rows = methods.length ? methods : (publicMethods.length ? publicMethods : enabled.map(provider => ({ provider, method: (provider === 'mpesa' || provider === 'daraja') ? 'mobile_money' : provider })));
     const seen = new Set();
     return rows.map(row => {
-        const provider = normalizeParentPaymentProvider(row?.provider || row);
-        if (!provider || seen.has(provider)) return null;
-        seen.add(provider);
-        return { provider, label: parentProviderLabel(provider, row?.label || ''), prompt: parentProviderPrompt(provider, row?.prompt || '') };
+        const provider = normalizeParentPaymentProvider(row?.provider || activeProvider || row?.paymentProvider || '');
+        const method = normalizeParentPaymentMethod(row?.method || row?.paymentMethod || row?.channel || row?.provider || row);
+        if (!method || seen.has(method)) return null;
+        seen.add(method);
+        return { method, provider, label: parentMethodLabel(method, row?.label || ''), providerLabel: parentProviderLabel(provider, row?.providerLabel || ''), prompt: parentProviderPrompt(provider, row?.prompt || '') };
     }).filter(Boolean);
 }
 
 function renderParentProviderMethods(methodData = {}) {
     const methods = normalizeParentPaymentMethods(methodData);
+    const activeProvider = normalizeParentPaymentProvider(methodData.activeProvider || methodData.defaultProvider || methods[0]?.provider || '');
     if (!methods.length) {
-        return '<div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Payment options could not be loaded. You can still use the M-Pesa/manual buttons below.</div>';
+        return '<div class="payment-lock-alert">No payment method is enabled yet. Ask the school Finance Officer to activate exactly one provider and select parent payment methods.</div>';
     }
     const cards = methods.map(method => {
-        const provider = method.provider;
-        const prompt = method.prompt;
-        const action = provider === 'daraja'
-            ? 'processSchoolFeeDarajaPayment()'
-            : (['manual','bank','cash','card'].includes(provider) ? 'submitManualSchoolFeePayment(' + JSON.stringify(provider) + ')' : 'processSchoolFeeProviderPayment(' + JSON.stringify(provider) + ')');
-        const actionLabel = prompt === 'checkout_url' ? 'Open ' + parentProviderLabel(provider) : (provider === 'daraja' ? 'Send STK Prompt' : 'Submit Reference');
-        return '<div class="rounded-lg border bg-background p-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">' +
-            '<div><div class="font-semibold">' + escapeHtml(method.label) + '</div>' +
-            '<p class="text-sm text-muted-foreground">' + escapeHtml(parentProviderDescription(provider, prompt)) + '</p></div>' +
-            '<button type="button" onclick="' + escapeHtml(action) + '" class="px-4 py-2 rounded-lg border text-sm hover:bg-muted whitespace-nowrap">' + escapeHtml(actionLabel) + '</button>' +
-            '</div>';
+        const action = ['bank','cash','manual'].includes(method.method) || (method.prompt === 'manual_instructions' && method.provider !== 'mpesa' && method.provider !== 'daraja')
+            ? 'submitManualSchoolFeePayment(' + JSON.stringify(method.method) + ')'
+            : 'processSchoolFeeProviderPayment(null,' + JSON.stringify(method.method) + ')';
+        const actionLabel = method.prompt === 'checkout_url' ? 'Open Checkout' : (method.prompt === 'phone_prompt' ? 'Send STK Prompt' : 'Submit Reference');
+        return '<button type="button" onclick="' + escapeHtml(action) + '" class="payment-method-card">' +
+            '<span class="payment-method-icon">' + (method.method === 'mobile_money' ? '▣' : method.method === 'card' ? '▤' : method.method === 'bank' ? '▥' : '✓') + '</span>' +
+            '<span><strong>' + escapeHtml(method.label) + '</strong><small>' + escapeHtml(method.method === 'mobile_money' ? 'STK Push / mobile wallet' : method.method === 'card' ? 'Visa, Mastercard or checkout' : method.method === 'bank' ? 'Direct to bank' : 'Finance verification') + '</small></span>' +
+            '<em>' + escapeHtml(actionLabel) + '</em>' +
+            '</button>';
     }).join('');
-    return '<div class="space-y-3"><div class="flex items-center justify-between gap-2 flex-wrap"><h4 class="font-semibold">Available School Payment Options</h4><span class="text-xs text-muted-foreground">Enabled by school finance</span></div>' + cards + '</div>';
+    return '<div class="payment-lock-parent-box"><div class="payment-lock-mini-head"><div><h4>How would you like to pay?</h4><p>Choose your payment method. Providers are not shown to parents.</p></div><span>School-secured payment flow</span></div><div class="payment-method-grid">' + cards + '</div><div class="payment-lock-note">Parents choose only the payment method. The school active provider processes the payment automatically after it has been activated by Finance.</div></div>';
 }
 
 function renderParentLegacyPaymentButtons(methodData = {}) {
@@ -973,11 +1016,10 @@ function setParentFeeAmount(amount) {
     if (input && amount > 0) input.value = amount;
 }
 
-async function processSchoolFeeProviderPayment(provider) {
-    const normalizedProvider = normalizeParentPaymentProvider(provider);
-    if (!normalizedProvider) return showToast('Choose a payment option first', 'error');
-    if (normalizedProvider === 'daraja') return processSchoolFeeDarajaPayment();
-    if (['manual','bank','cash','card'].includes(normalizedProvider)) return submitManualSchoolFeePayment(normalizedProvider);
+async function processSchoolFeeProviderPayment(provider = null, paymentMethod = '') {
+    const normalizedProvider = provider ? normalizeParentPaymentProvider(provider) : '';
+    const normalizedMethod = normalizeParentPaymentMethod(paymentMethod || provider || '');
+    if (['bank','cash','manual'].includes(normalizedMethod)) return submitManualSchoolFeePayment(normalizedMethod);
 
     const payload = getSelectedFeePaymentPayload();
     if (!payload.studentId) return showToast('Please select a child', 'error');
@@ -986,7 +1028,7 @@ async function processSchoolFeeProviderPayment(provider) {
     showLoading();
     try {
         const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : {};
-        const requestPayload = { paymentType: 'school_fee', provider: normalizedProvider, studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, email: currentUser?.email || '', name: currentUser?.name || '', purpose: 'school_fee' };
+        const requestPayload = { paymentType: 'school_fee', provider: normalizedProvider || undefined, paymentMethod: normalizedMethod || undefined, studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, email: currentUser?.email || '', name: currentUser?.name || '', purpose: 'school_fee' };
         const response = await (api.payments?.initiate ? api.payments.initiate(requestPayload) : apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(requestPayload) }));
         const data = response?.data || {};
         if (data.checkoutUrl) {
@@ -1002,7 +1044,7 @@ async function processSchoolFeeProviderPayment(provider) {
         await refreshParentPaymentPanelSoft();
     } catch (error) {
         console.error('School fee provider payment error:', error);
-        showToast(error.message || 'Could not start ' + parentProviderLabel(normalizedProvider) + ' payment.', 'error');
+        showToast(error.message || 'Could not start the selected payment method.', 'error');
     } finally { hideLoading(); }
 }
 
@@ -1013,13 +1055,18 @@ async function processSchoolFeeDarajaPayment() {
     if (!payload.phone) return showToast('Enter the M-Pesa phone number', 'error');
     showLoading();
     try {
-        const response = await api.payments.parentFeeSTK({
+        const response = await (api.payments?.initiate ? api.payments.initiate({
+            paymentType: 'school_fee',
+            paymentMethod: 'mobile_money',
             studentId: parseInt(payload.studentId),
             feeId: payload.feeId || undefined,
             amount: payload.amount,
-            phone: payload.phone
-        });
-        showToast(response.message || 'M-Pesa prompt sent. Complete payment on your phone.', 'success');
+            phone: payload.phone,
+            purpose: 'school_fee'
+        }) : api.payments.parentFeeSTK({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone }));
+        const data = response?.data || {};
+        if (data.checkoutUrl) window.open(data.checkoutUrl, '_blank', 'noopener');
+        showToast(response.message || (data.checkoutUrl ? 'Checkout opened. Complete payment there.' : 'Payment prompt sent. Complete payment to update the balance.'), 'success');
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-stk-started'}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
     } catch (error) {
@@ -1090,22 +1137,13 @@ async function processPayment() {
 
     showLoading();
     try {
-        const response = await (api.payments?.parentSubscriptionSTK ? api.payments.parentSubscriptionSTK({
+        const response = await initiateChildPlatformSubscriptionPayment({
             studentId: parseInt(studentId),
             amount: parseFloat(amount),
             phone,
-            plan,
             planCode: plan,
-            billingPeriod: 'monthly',
-            reference: `SUB-${Date.now()}`
-        }) : api.parent.upgradePlan({
-            studentId: parseInt(studentId),
-            amount: parseFloat(amount),
-            phone,
-            plan,
-            planCode: plan,
-            billingPeriod: 'monthly'
-        }));
+            paymentMethod: normalizeParentPaymentMethod(method) || 'mobile_money'
+        });
 
         if (response.success) {
             showToast(response.message || '✅ Subscription M-Pesa prompt sent. Complete payment on your phone.', 'success');
@@ -1142,13 +1180,12 @@ async function upgradePlan(planId, amountFromCard = 0) {
 
     showLoading();
     try {
-        const response = await api.parent.upgradePlan({
+        const response = await initiateChildPlatformSubscriptionPayment({
             studentId: parseInt(selectedChildId),
-            plan: planId,
             planCode: planId,
-            billingPeriod: 'monthly',
             amount,
-            phone
+            phone,
+            paymentMethod: 'mobile_money'
         });
 
         if (response.success) {

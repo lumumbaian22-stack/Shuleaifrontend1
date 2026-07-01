@@ -91,7 +91,7 @@ function collectPlatformPlanInputs(ownerType) {
     }).filter(p => p.code && p.name);
 }
 const PLATFORM_PAYMENT_AGENT_DEFS = [
-    { provider:'daraja', label:'M-Pesa Daraja STK', description:'Platform STK prompts for school and parent subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
+    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa checkout / STK for school and parent subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
     { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for Shule AI platform subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
     { provider:'paystack', label:'Paystack', description:'Paystack checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
     { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
@@ -109,26 +109,30 @@ function renderPlatformPaymentAgentFields(provider, fields, providerSettings) {
 
 function renderPlatformPaymentAgents(providerSettings = {}) {
     providerSettings = providerSettings || {};
-    const enabled = new Set(Array.isArray(providerSettings.enabledProviders) ? providerSettings.enabledProviders : []);
-    const defaultProvider = providerSettings.defaultProvider || 'manual';
-    const enabledLabels = PLATFORM_PAYMENT_AGENT_DEFS.filter(a => enabled.has(a.provider)).map(a => a.label);
+    const activeProvider = providerSettings.activeProvider || providerSettings.defaultProvider || '';
+    const activeLabel = (PLATFORM_PAYMENT_AGENT_DEFS.find(a => a.provider === activeProvider) || {}).label || 'None selected';
+    const methodDefaults = (provider) => provider === 'mpesa' ? ['mobile_money'] : provider === 'stripe' ? ['card'] : ['mobile_money','card','bank'];
+    const methodChecks = (provider) => {
+        const cfg = platformProviderConfig(provider, providerSettings);
+        const methods = Array.isArray(cfg.methods) && cfg.methods.length ? cfg.methods : methodDefaults(provider);
+        const checked = m => methods.includes(m) ? 'checked' : '';
+        return `<div class="payment-lock-method-checks"><label><input type="checkbox" data-platform-provider-method="mobile_money" ${checked('mobile_money')}> Mobile Money</label><label><input type="checkbox" data-platform-provider-method="card" ${checked('card')}> Card Payments</label><label><input type="checkbox" data-platform-provider-method="bank" ${checked('bank')}> Bank Transfer</label></div>`;
+    };
     const row = (agent) => {
-        const active = enabled.has(agent.provider);
-        return `<details class="rounded-xl border bg-background p-4" data-platform-provider="${agent.provider}">
-            <summary class="cursor-pointer list-none">
-                <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                    <div><strong>${escapeHtml(agent.label)}</strong><p class="text-sm text-muted-foreground">${escapeHtml(agent.description)}</p></div>
-                    <div class="flex flex-wrap gap-2 text-xs"><span class="px-2 py-1 rounded-full ${active ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}">${active ? 'Enabled' : 'Disabled'}</span>${defaultProvider === agent.provider ? '<span class="px-2 py-1 rounded-full bg-primary/10 text-primary">Default</span>' : ''}<span class="px-2 py-1 rounded-full bg-muted text-muted-foreground">Configure</span></div>
-                </div>
-            </summary>
-            <div class="mt-4 border-t pt-4">
-                <div class="flex flex-wrap gap-4 text-sm mb-3"><label class="flex items-center gap-2"><input type="checkbox" data-platform-provider-enabled ${active ? 'checked' : ''}> Enabled</label><label class="flex items-center gap-2"><input type="radio" name="platform-default-provider" data-platform-provider-default ${defaultProvider === agent.provider ? 'checked' : ''}> Default</label></div>
-                <div class="grid gap-3 md:grid-cols-3">${renderPlatformPaymentAgentFields(agent.provider, agent.fields, providerSettings)}</div>
+        const active = activeProvider === agent.provider;
+        return `<details class="payment-lock-provider-card ${active ? 'active' : ''}" data-platform-provider="${agent.provider}" ${active ? 'open' : ''}>
+            <summary class="payment-lock-provider-summary"><span class="payment-lock-radio">${active ? '●' : '○'}</span><span><strong>${escapeHtml(agent.label)}</strong><small>${escapeHtml(agent.description)}</small></span><em>${active ? 'Active' : 'Set Up'}</em></summary>
+            <div class="payment-lock-provider-body">
+                <div class="payment-lock-exclusive-note">Only one platform provider can be active. Saving this provider as active disables all other providers automatically. M-Pesa is treated exactly like every other provider.</div>
+                <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-platform-provider-enabled ${active ? 'checked' : ''}> Make this the active platform provider</label>
+                <div class="grid gap-3 md:grid-cols-3 mt-3">${renderPlatformPaymentAgentFields(agent.provider, agent.fields, providerSettings)}</div>
+                <h4 class="payment-lock-subtitle">Platform payment methods allowed</h4>
+                ${methodChecks(agent.provider)}
                 <div class="mt-3 flex justify-end"><button onclick="savePlatformPaymentAgent('${agent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save ${escapeHtml(agent.label)}</button></div>
             </div>
         </details>`;
     };
-    return `<div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-2">Platform Payment Providers</h3><p class="text-xs text-muted-foreground mb-4">Super Admin manages Shule AI provider keys. Private keys are encrypted on save.</p><div class="rounded-lg bg-muted/30 p-3 text-sm mb-4"><strong>Enabled now:</strong> ${enabledLabels.length ? enabledLabels.map(escapeHtml).join(', ') : 'Manual verification only'}</div><div class="grid gap-3">${PLATFORM_PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
+    return `<div class="rounded-xl border bg-card p-6 payment-lock-settings-card"><h3 class="font-semibold mb-2">Platform Payment Providers</h3><p class="text-xs text-muted-foreground mb-4">All providers are equal. Super Admin chooses exactly one active provider for ShuleAI subscriptions and platform add-ons. Schools and parents never see private provider credentials.</p><div class="payment-lock-active-banner"><strong>Active Provider:</strong> ${escapeHtml(activeLabel)}<span>Other providers are automatically disabled.</span></div><div class="grid gap-3 mt-4">${PLATFORM_PAYMENT_AGENT_DEFS.map(row).join('')}</div></div>`;
 }
 async function renderSuperAdminPlatformPayments() {
     let settings = {}, providerSettings = null, queue = [], error = '';
@@ -156,8 +160,8 @@ async function renderSuperAdminPlatformPayments() {
       ${error ? `<div class="rounded-xl border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-300">${escapeHtml(error)}</div>` : ''}
       <div class="grid gap-4 lg:grid-cols-3">
         <div class="rounded-xl border bg-card p-6 lg:col-span-1">
-          <h3 class="font-semibold mb-4">Platform Payment Mode</h3>
-          <label class="text-sm">Mode<select id="platform-payment-mode" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="manual" ${mode==='manual'?'selected':''}>Manual M-Pesa only</option><option value="daraja" ${mode==='daraja'?'selected':''}>Daraja STK only</option><option value="both" ${mode==='both'?'selected':''}>Both Manual + Daraja</option></select></label>
+          <h3 class="font-semibold mb-4">Platform Payment Settings</h3>
+          <label class="text-sm">Mode<select id="platform-payment-mode" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="manual" ${mode==='manual'?'selected':''}>Manual Reference only</option><option value="daraja" ${mode==='daraja'?'selected':''}>M-Pesa STK only</option><option value="both" ${mode==='both'?'selected':''}>Both Manual + M-Pesa</option></select></label>
           <label class="mt-3 flex gap-2 items-center text-sm"><input id="platform-parent-enabled" type="checkbox" ${settings.parentSubscriptionsEnabled !== false ? 'checked' : ''}> Parent subscriptions enabled</label>
           <label class="mt-2 flex gap-2 items-center text-sm"><input id="platform-school-enabled" type="checkbox" ${settings.schoolSubscriptionsEnabled !== false ? 'checked' : ''}> School/admin subscriptions enabled</label>
         </div>
@@ -539,7 +543,9 @@ window.savePlatformPaymentAgent = async function(provider) {
             const value = input.value?.trim() || '';
             if (value) config[key] = value;
         });
-        const payload = { provider, enabled: !!card.querySelector('[data-platform-provider-enabled]')?.checked, isDefault: !!card.querySelector('[data-platform-provider-default]')?.checked, config };
+        const methods = [...card.querySelectorAll('[data-platform-provider-method]:checked')].map(input => input.getAttribute('data-platform-provider-method')).filter(Boolean);
+        const makeActive = !!card.querySelector('[data-platform-provider-enabled]')?.checked;
+        const payload = { provider, enabled: makeActive, isDefault: makeActive, active: makeActive, methods, config: { ...config, methods } };
         await (api.payments.savePlatformProvider ? api.payments.savePlatformProvider(payload) : apiRequest('/api/payments/superadmin/providers', { method:'PUT', body:JSON.stringify(payload) }));
         showToast?.('Platform payment agent saved', 'success');
         await showDashboardSection('platform-payments');

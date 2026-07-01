@@ -2155,7 +2155,7 @@ async function renderAdminSubscriptionBilling() {
 window.openSchoolBillingModal = async function(defaultPlanCode = 'school_growth') {
     const plansRes = await api.subscription.getPlans('school').catch(() => ({ data: [] }));
     const plans = plansRes.data || [];
-    const options = plans.map(plan => `<option value="${escapeHtml(plan.code)}" ${plan.code === defaultPlanCode ? 'selected' : ''}>${escapeHtml(plan.displayName || plan.name)} — ${formatKes(plan.monthlyPriceKes || plan.price)}/month</option>`).join('');
+    const options = plans.map(plan => `<option value="${escapeHtml(plan.code)}" data-monthly="${Number(plan.monthlyPriceKes || plan.price || plan.amount || 0)}" data-termly="${Number(plan.termlyPriceKes || 0)}" data-yearly="${Number(plan.yearlyPriceKes || 0)}" ${plan.code === defaultPlanCode ? 'selected' : ''}>${escapeHtml(plan.displayName || plan.name)} — ${formatKes(plan.monthlyPriceKes || plan.price || plan.amount)}/month</option>`).join('');
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4';
     modal.id = 'school-billing-modal';
@@ -2177,17 +2177,35 @@ window.openSchoolBillingModal = async function(defaultPlanCode = 'school_growth'
 };
 
 window.submitSchoolSubscriptionSTK = async function() {
-    const planCode = document.getElementById('school-sub-plan')?.value;
-    const billingCycle = document.getElementById('school-sub-cycle')?.value || 'monthly';
+    const planSelect = document.getElementById('school-sub-plan');
+    const cycleSelect = document.getElementById('school-sub-cycle');
+    const planCode = planSelect?.value;
+    const billingCycle = cycleSelect?.value || 'monthly';
+    const selected = planSelect?.selectedOptions?.[0];
+    const amount = Number(selected?.dataset?.[billingCycle] || selected?.dataset?.monthly || 0);
     const phone = document.getElementById('school-sub-phone')?.value?.trim();
-    if (!phone) { alert('Enter M-PESA phone number'); return; }
+    if (!phone) { alert('Enter payment phone number'); return; }
+    if (!amount || amount <= 0) { alert('Could not determine the selected plan amount.'); return; }
     try {
-        const res = await api.payments.schoolSubscriptionSTK({ planCode, billingCycle, phone });
-        alert(res.message || 'M-PESA prompt sent. Approve payment on your phone.');
+        const res = await api.payments.initiate({
+            paymentType: 'platform',
+            platformPurpose: 'school_subscription',
+            purpose: 'school_subscription',
+            ownerType: 'school',
+            planCode,
+            plan: planCode,
+            billingCycle,
+            billingPeriod: billingCycle,
+            amount,
+            phone,
+            paymentMethod: 'mobile_money'
+        });
+        if (res?.data?.checkoutUrl) window.open(res.data.checkoutUrl, '_blank', 'noopener');
+        alert(res.message || 'Platform subscription payment started using the active platform provider.');
         document.getElementById('school-billing-modal')?.remove();
         setTimeout(() => showDashboardSection('subscription-billing'), 1200);
     } catch (error) {
-        alert(error.message || 'Could not start M-PESA payment.');
+        alert(error.message || 'Could not start platform subscription payment.');
     }
 };
 
