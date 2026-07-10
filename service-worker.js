@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-2010-exact-payment-ui';
+const CACHE_NAME = 'shule-ai-2016-regression-security-cleanup';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

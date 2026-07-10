@@ -142,7 +142,7 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
           <h3>2. Provider Credentials (${escapeHtml(activeAgent.label)})</h3>
           <p>Credentials belong only to the selected provider.</p>
           <div class="payment-lock-fields">${renderPlatformPaymentAgentFields(activeAgent.provider, activeAgent.fields, providerSettings)}</div>
-          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Test Connection</button><span class="connected-dot">Connected ✓</span></div>
+          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save Provider</button><button onclick="testPlatformPaymentConnection()" class="px-4 py-2 rounded-lg border text-sm">Test Connection</button><span class="connected-dot">Ready ✓</span></div>
         </section>
         <section class="payment-lock-side-card platform-method-card">
           <h3>3. Platform Payment Methods</h3><p>For subscriptions, add-ons, and platform transactions.</p>
@@ -541,6 +541,16 @@ window.savePlatformPaymentAgent = async function(provider) {
         showToast?.('Platform payment agent saved', 'success');
         await showDashboardSection('platform-payments');
     } catch(e) { showToast?.(e.message || 'Could not save platform payment agent', 'error'); }
+};
+
+window.testPlatformPaymentConnection = async function() {
+    try {
+        const res = await (api.payments?.testPlatformConnection ? api.payments.testPlatformConnection() : apiRequest('/api/payments/superadmin/test-connection', { method:'POST' }));
+        showToast?.(res?.message || 'Platform payment connection tested successfully.', 'success');
+        await showDashboardSection('platform-payments');
+    } catch (e) {
+        showToast?.(e.message || 'Platform payment connection failed.', 'error');
+    }
 };
 
 window.savePlatformPaymentSettings = async function() {

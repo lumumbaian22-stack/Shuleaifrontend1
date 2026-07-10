@@ -1,5 +1,7 @@
 // API Configuration
-const API_BASE_URL = (localStorage.getItem('SHULE_API_BASE_URL') || 'https://shuleaibackend-32h1.onrender.com').replace(/\/$/, '');
+const DEFAULT_API_BASE_URL = 'https://api.shuleai.live';
+const savedApiBaseUrl = localStorage.getItem('SHULE_API_BASE_URL');
+const API_BASE_URL = (window.SHULE_API_BASE_URL || (savedApiBaseUrl && !/shuleaibackend-32h1\.onrender\.com/i.test(savedApiBaseUrl) ? savedApiBaseUrl : DEFAULT_API_BASE_URL)).replace(/\/$/, '');
 
 // Token management
 let authToken = localStorage.getItem('authToken');
@@ -26,7 +28,8 @@ async function apiRequest(endpoint, options = {}) {
     authToken = getStoredAuthToken();
     const url = `${API_BASE_URL}${endpoint}`;
     const method = String(options.method || 'GET').toUpperCase();
-    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    const isFormData = options.body instanceof FormData;
+    const headers = { ...(isFormData ? {} : { 'Content-Type': 'application/json' }), ...options.headers };
     if (authToken) headers.Authorization = `Bearer ${authToken}`;
     const retryableWrite = /^\/api\/timetable\b/i.test(endpoint);
     const attempts = method === 'GET' ? 2 : (retryableWrite ? 3 : 1);
@@ -781,7 +784,7 @@ const homeworkAPI = {
     createAssignment: (data) => apiRequest('/api/homework/assign', { method: 'POST', body: JSON.stringify(data) }),
     getStudentAssignments: () => apiRequest('/api/homework/student'),
     submitAssignment: (assignmentId, data) => apiRequest(`/api/homework/submit/${assignmentId}`, { method: 'POST', body: JSON.stringify(data) }),
-    uploadSubmissionAttachment: (formData) => apiRequest('/api/homework/submission-attachments', { method: 'POST', body: formData })
+    uploadSubmissionAttachment: (formData) => uploadFile('/api/homework/submission-attachments', formData)
 };
 
 // Calendar
@@ -858,6 +861,7 @@ const paymentAPI = {
     status: (reference) => apiRequest(`/api/payments/${encodeURIComponent(reference)}/status`),
     reconcile: (reference) => apiRequest(`/api/payments/reconcile/${encodeURIComponent(reference)}`, { method: 'POST' }),
     testSchoolConnection: () => apiRequest('/api/payments/admin/test-connection', { method: 'POST' }),
+    testPlatformConnection: () => apiRequest('/api/payments/superadmin/test-connection', { method: 'POST' }),
     getPlatformSettings: () => apiRequest('/api/payments/superadmin/platform-settings'),
     updatePlatformSettings: (data) => apiRequest('/api/payments/superadmin/platform-settings', { method: 'PUT', body: JSON.stringify(data) }),
     parentFeeSTK: (data) => apiRequest('/api/payments/parent/fee/stk', { method: 'POST', body: JSON.stringify(data) }),

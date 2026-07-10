@@ -802,7 +802,7 @@ function renderParentChildSubscriptionCards(selectedChildId, selectedChild, phon
     const methodCards = [
         ['mobile_money','Mobile Money','(STK Push)','▣',"payChildSubscription("+jsAttrArg(plans[0]?.code || 'child_basic')+", "+Number(plans[0]?.amount || 100)+")"],
         ['card','Card','(Visa, Mastercard)','▤',"initiateChildPlatformSubscriptionPayment({studentId: dashboardData?.selectedChildId, planCode: "+jsAttrArg(plans[0]?.code || 'child_basic')+", amount: "+Number(plans[0]?.amount || 100)+", phone: getParentPaymentPhone(), paymentMethod:'card'}).then(()=>showToast('Platform card checkout started','success')).catch(e=>showToast(e.message,'error'))"],
-        ['bank','Bank Transfer','(Direct to Bank)','▥',"submitManualChildSubscription("+jsAttrArg(plans[0]?.code || 'child_basic')+", "+Number(plans[0]?.amount || 100)+")"],
+        ['bank','Bank Transfer','(Direct to Bank)','▥',"initiateChildPlatformSubscriptionPayment({studentId: dashboardData?.selectedChildId, planCode: "+jsAttrArg(plans[0]?.code || 'child_basic')+", amount: "+Number(plans[0]?.amount || 100)+", phone: getParentPaymentPhone(), paymentMethod:'bank'}).then(()=>showToast('Backend created bank transfer verification request','success')).catch(e=>showToast(e.message,'error'))"],
         ['manual','Manual M-Pesa','Reference','▧',"submitManualChildSubscription("+jsAttrArg(plans[0]?.code || 'child_basic')+", "+Number(plans[0]?.amount || 100)+")"]
     ].map(([cls,label,sub,icon,action]) => `<button type="button" onclick="${action}" class="payment-method-card parent-method-card ${cls==='mobile_money'?'green':cls==='card'?'blue':cls==='bank'?'orange':'purple'}"><span class="payment-method-icon">${icon}</span><span><strong>${label}</strong><small>${sub}</small></span></button>`).join('');
     return `<section class="platform-subscription-section">
@@ -840,7 +840,7 @@ async function payChildSubscription(planCode, amount) {
     showLoading();
     try {
         const res = await initiateChildPlatformSubscriptionPayment({ studentId, planCode, amount, phone, paymentMethod: 'mobile_money' });
-        showToast(res.message || 'Subscription payment started. Complete it using the active platform provider.', 'success');
+        showToast(res.message || 'Backend started subscription payment. It activates only after provider confirmation.', 'success');
         window.dispatchEvent(new CustomEvent('shule:subscription-updated',{detail:{type:'parent-subscription-platform-provider'}}));
     } catch (e) { showToast(e.message || 'Could not start subscription payment', 'error'); }
     finally { hideLoading(); }
@@ -988,7 +988,7 @@ function setParentFeeAmount(amount) {
 async function processSchoolFeeProviderPayment(provider = null, paymentMethod = '') {
     const normalizedProvider = provider ? normalizeParentPaymentProvider(provider) : '';
     const normalizedMethod = normalizeParentPaymentMethod(paymentMethod || provider || '');
-    if (['bank','cash','manual'].includes(normalizedMethod)) return submitManualSchoolFeePayment(normalizedMethod);
+    if (['manual','cash'].includes(normalizedMethod)) return submitManualSchoolFeePayment(normalizedMethod);
 
     const payload = getSelectedFeePaymentPayload();
     if (!payload.studentId) return showToast('Please select a child', 'error');
@@ -1002,11 +1002,11 @@ async function processSchoolFeeProviderPayment(provider = null, paymentMethod = 
         const data = response?.data || {};
         if (data.checkoutUrl) {
             window.open(data.checkoutUrl, '_blank', 'noopener');
-            showToast(response.message || parentProviderLabel(normalizedProvider) + ' checkout opened. Complete payment there.', 'success');
+            showToast(response.message || 'Backend opened checkout. Complete payment there; the UI updates only after provider confirmation.', 'success');
         } else if (data.promptType === 'checkout_url') {
             showToast(response.message || parentProviderLabel(normalizedProvider) + ' is enabled, but no checkout link was returned. Ask finance to complete provider checkout setup.', 'error');
         } else {
-            showToast(response.message || 'Payment request created. Follow the provider instructions to finish.', 'success');
+            showToast(response.message || 'Backend created the payment request. It will show as paid only after provider confirmation or approval.', 'success');
         }
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-provider-payment-started', provider: normalizedProvider}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
@@ -1035,7 +1035,7 @@ async function processSchoolFeeDarajaPayment() {
         }) : api.payments.parentFeeSTK({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone }));
         const data = response?.data || {};
         if (data.checkoutUrl) window.open(data.checkoutUrl, '_blank', 'noopener');
-        showToast(response.message || (data.checkoutUrl ? 'Checkout opened. Complete payment there.' : 'Payment prompt sent. Complete payment to update the balance.'), 'success');
+        showToast(response.message || (data.checkoutUrl ? 'Backend opened checkout. Complete payment there.' : 'Backend sent the payment prompt. It is not marked paid until provider confirmation.'), 'success');
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-stk-started'}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
     } catch (error) {
