@@ -93,6 +93,10 @@ async function refreshAuthToken() {
         if (response.ok) {
             authToken = data.token;
             localStorage.setItem('authToken', authToken);
+            if (data.refreshToken) {
+                refreshToken = data.refreshToken;
+                localStorage.setItem('refreshToken', refreshToken);
+            }
             return true;
         }
     } catch (error) {
@@ -395,7 +399,7 @@ const adminAPI = {
     createCustomSubject:(data)=>apiRequest('/api/admin/curriculum/custom-subjects',{method:'POST',body:JSON.stringify(data||{})}),
     deleteCustomSubject:(id)=>apiRequest(`/api/admin/curriculum/custom-subjects/${encodeURIComponent(id)}`,{method:'DELETE'}),
     getAssessmentSettings: () => apiRequest('/api/admin/assessment-settings'),
-    saveAssessmentSettings: (assessmentSettings) => apiRequest('/api/admin/assessment-settings', { method: 'PUT', body: JSON.stringify({ assessmentSettings }) }),
+    saveAssessmentSettings: (assessmentSettings, reportCardSettings = null) => apiRequest('/api/admin/assessment-settings', { method: 'PUT', body: JSON.stringify({ assessmentSettings, ...(reportCardSettings ? { reportCardSettings } : {}) }) }),
     getEligibleSubjectsForClass: (classId) => apiRequest(`/api/admin/curriculum/classes/${classId}/subjects`),
     previewClassGeneration: () => apiRequest('/api/admin/curriculum/classes/generation-preview'),
     generateClassesFromSettings: (previewToken) => apiRequest('/api/admin/curriculum/classes/generate', { method:'POST', body:JSON.stringify({ previewToken }) }),
@@ -983,13 +987,13 @@ function resolveMediaUrl(url) {
 
     // V111: Data/blob URLs are complete media URLs. Do NOT prefix them with the backend.
     // This fixes broken requests like:
-    // https://shuleaibackend-32h1.onrender.com/data:image/png;base64,...
+    // https://api.shuleai.live/data:image/png;base64,...
     const embeddedDataUrlIndex = raw.search(/data:image\/[a-zA-Z0-9.+-]+;base64,/i);
     if (embeddedDataUrlIndex >= 0) {
         return raw.slice(embeddedDataUrlIndex);
     }
     if (/^(data|blob):/i.test(raw)) return raw;
-    if (/^http:\/\/shuleaibackend-32h1\.onrender\.com/i.test(raw)) raw = raw.replace(/^http:/i, 'https:');
+    if (/^http:\/\/api\.shuleai\.live/i.test(raw)) raw = raw.replace(/^http:/i, 'https:');
 
     // Render's /uploads folder is ephemeral. Old profile/signature URLs saved here
     // become 404 after redeploy. Durable media must come from /api/media/:token

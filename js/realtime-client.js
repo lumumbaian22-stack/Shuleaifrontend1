@@ -5,7 +5,7 @@
   const LEGACY_CHAT_EVENTS=['private-message','new-private-message','new-message','new-student-message','new-group-message','message:new','message:created'];
   function token(){return localStorage.getItem('authToken')||localStorage.getItem('token');}
   function user(){try{return JSON.parse(localStorage.getItem('user')||'{}');}catch(_){return {};}}
-  function base(){return (localStorage.getItem('SHULE_API_BASE_URL')||window.SHULE_API_BASE_URL||'https://shuleaibackend-32h1.onrender.com').replace(/\/api\/?$/,'');}
+  function base(){return (localStorage.getItem('SHULE_API_BASE_URL')||window.SHULE_API_BASE_URL||'https://api.shuleai.live').replace(/\/api\/?$/,'');}
   function status(value){document.documentElement.dataset.realtime=value;window.dispatchEvent(new CustomEvent('shule:realtime-status',{detail:{status:value}}));}
   function route(evt){
     if(!evt||!evt.type)return;

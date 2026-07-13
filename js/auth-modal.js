@@ -649,7 +649,8 @@ async function handleStudentLogin() {
 
         if (response.success) {
             authToken = response.data.token;        // Update global authToken
-            if(typeof safeSessionSet==='function'){safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));safeSessionSet('userRole','student');}else{localStorage.setItem('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}localStorage.setItem('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));localStorage.setItem('userRole','student');}
+            refreshToken = response.data.refreshToken || null;
+            if(typeof safeSessionSet==='function'){safeSessionSet('authToken',authToken);if(refreshToken)safeSessionSet('refreshToken',refreshToken);else localStorage.removeItem('refreshToken');try{localStorage.removeItem('token')}catch(_){}safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));safeSessionSet('userRole','student');}else{localStorage.setItem('authToken',authToken);if(refreshToken)localStorage.setItem('refreshToken',refreshToken);else localStorage.removeItem('refreshToken');try{localStorage.removeItem('token')}catch(_){}localStorage.setItem('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));localStorage.setItem('userRole','student');}
 
             if (response.data.user.firstLogin) {
                 closeAuthModal();
@@ -733,6 +734,9 @@ async function handleFirstPasswordChange(elimuid) {
         });
 
         if (response.success) {
+            if (response.data && response.data.user) {
+                try { safeSessionSet('user', JSON.stringify(stripLargeMediaForStorage(response.data.user))); } catch (_) {}
+            }
             showToast('Password set successfully! Please login with your new password.', 'success');
             openStudentLoginModal();
         }

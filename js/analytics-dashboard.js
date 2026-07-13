@@ -18,6 +18,147 @@
   function titleize(key){ return String(key||'').replace(/^(chart:|list:)/,'').replace(/([A-Z])/g,' $1').replace(/^./,m=>m.toUpperCase()); }
   function currentRole(){ return state.role || getCurrentRole?.() || getCurrentUser?.()?.role || localStorage.getItem('userRole') || 'admin'; }
 
+  const EXPORT_REGISTRY = {
+    'KPI Summary': { key:'kpis', category:'overview' },
+    'Attendance Trend (by Month)': { key:'chart:attendanceTrend', category:'attendance' },
+    'Attendance Trend': { key:'chart:attendanceTrend', category:'attendance' },
+    'Attendance Pattern': { key:'chart:attendancePattern', category:'attendance' },
+    'Attendance Heatmap': { key:'chart:attendanceHeatmap', category:'attendance' },
+    'Class Performance (Average Score %)': { key:'chart:classPerformance', category:'academic' },
+    'Class Performance Trend': { key:'chart:performanceTrend', category:'academic' },
+    'Subject Performance (Average Score %)': { key:'chart:subjectPerformance', category:'academic' },
+    'Subject Performance': { key:'chart:subjectPerformance', category:'academic' },
+    'Subject Mastery Breakdown': { key:'list:topSubjects', category:'academic' },
+    'Performance by Stream': { key:'list:streamPerformance', category:'academic' },
+    'Performance by Subject': { key:'list:subjectPerformance', category:'academic' },
+    'Assessment Breakdown': { key:'chart:assessmentBreakdown', category:'academic' },
+    'Assessment Performance': { key:'list:assessmentPerformance', category:'academic' },
+    'Top Classes': { key:'list:topClasses', category:'academic' },
+    'At-Risk Classes': { key:'list:atRiskClasses', category:'academic' },
+    'Top Subjects': { key:'list:topSubjects', category:'academic' },
+    'Top Students': { key:'list:topStudents', category:'academic' },
+    'Student Leaderboard': { key:'list:topStudents', category:'academic' },
+    'Students Needing Support': { key:'list:riskStudents', category:'academic' },
+    'Student Risk Alerts': { key:'list:riskStudents', category:'academic' },
+    'Strengths vs Support Areas': { key:'chart:strengthsSplit', category:'academic' },
+    'Recent Assessments': { key:'list:recentAssessments', category:'academic' },
+    'Recommendations': { key:'list:recommendations', category:'academic' },
+    'Upcoming / Recent Tasks': { key:'list:tasks', category:'academic' },
+    'Badges & Achievements': { key:'list:badges', category:'academic' },
+    'Class Leaderboard': { key:'list:leaderboard', category:'academic' },
+    'Homework Completion': { key:'chart:homeworkSplit', category:'academic' },
+    'Timetable Summary': { key:'list:timetable', category:'reports' },
+    'Report Publication Status': { key:'chart:reportStatus', category:'reports' },
+    'Marks Entry Readiness': { key:'chart:reportStatus', category:'reports' },
+    'Top Teachers': { key:'list:topTeachers', category:'teachers' },
+    'Teacher Effectiveness Summary': { key:'chart:teacherPerformance', category:'teachers' },
+    'Operational Insights': { key:'list:operational', category:'overview' },
+    'Recent Alerts & Insights': { key:'list:alerts', category:'overview' },
+    'Recent Alerts': { key:'list:recentAlerts', category:'overview' },
+    'Actionable Insights': { key:'list:actionableInsights', category:'overview' },
+    'Monthly Growth Overview': { key:'chart:growth', category:'overview' },
+    'School Plan Distribution': { key:'chart:planDistribution', category:'overview' },
+    'Revenue Trend (KES)': { key:'chart:revenueTrend', category:'finance' },
+    'Region Distribution': { key:'chart:geographic', category:'overview' },
+    'Top Performing Schools': { key:'list:topSchools', category:'overview' },
+    'At-Risk Schools': { key:'list:atRiskSchools', category:'overview' },
+    'Platform Usage': { key:'list:usage', category:'overview' },
+    'Subscription Status': { key:'chart:planDistribution', category:'finance' },
+    'Approval Summary': { key:'list:approvals', category:'overview' },
+    'Platform Insights': { key:'list:insights', category:'overview' },
+    'School Comparison': { key:'list:schoolComparison', category:'overview' },
+    'Collection Trend (by Month)': { key:'chart:collectionTrend', category:'finance' },
+    'Payment Channel Split': { key:'chart:paymentMethods', category:'finance' },
+    'Paid vs Outstanding': { key:'chart:feeSplit', category:'finance' },
+    'Defaulters List': { key:'list:defaulters', category:'finance' },
+    'Expense Categories': { key:'chart:expenseCategories', category:'finance' },
+    'Quick Finance Insights': { key:'list:alerts', category:'finance' },
+    'Fee Performance by Class': { key:'list:classFeePerformance', category:'finance' },
+    'Bursary / Credit Summary': { key:'list:bursarySummary', category:'finance' },
+    'Reconciliation Status': { key:'list:reconciliation', category:'finance' },
+    'Collection & Operational Notes': { key:'list:operational', category:'finance' },
+    'Student Risk / Arrears': { key:'list:riskStudents', category:'finance' }
+  };
+  const SECTION_CATEGORY = Object.fromEntries(Object.values(EXPORT_REGISTRY).map(x => [x.key, x.category]));
+  const SECTION_LABEL = Object.fromEntries(Object.entries(EXPORT_REGISTRY).map(([label,x]) => [x.key, label]));
+  Object.assign(SECTION_CATEGORY, {
+    'chart:attendanceTrend':'attendance','chart:attendancePattern':'attendance','chart:attendanceHeatmap':'attendance',
+    'chart:collectionTrend':'finance','chart:paymentMethods':'finance','chart:feeSplit':'finance','chart:expenseCategories':'finance','list:defaulters':'finance','list:classFeePerformance':'finance','list:bursarySummary':'finance','list:reconciliation':'finance',
+    'chart:teacherPerformance':'teachers','list:topTeachers':'teachers',
+    'chart:reportStatus':'reports','list:timetable':'reports',
+    'chart:classPerformance':'academic','chart:subjectPerformance':'academic','chart:performanceTrend':'academic','chart:assessmentBreakdown':'academic','chart:strengthsSplit':'academic','chart:homeworkSplit':'academic','list:topStudents':'academic','list:riskStudents':'academic','list:topClasses':'academic','list:atRiskClasses':'academic','list:topSubjects':'academic','list:streamPerformance':'academic','list:subjectPerformance':'academic','list:recentAssessments':'academic','list:recommendations':'academic','list:tasks':'academic','list:badges':'academic','list:achievements':'academic','list:leaderboard':'academic','list:assessmentPerformance':'academic'
+  });
+  function exportInfoForTitle(title){ return EXPORT_REGISTRY[String(title||'').trim()] || null; }
+  function categoryForSectionKey(key){ return SECTION_CATEGORY[key] || (key === 'kpis' ? 'overview' : 'overview'); }
+  function sectionAvailable(key){ return !!(state.data?.exportSections || []).some(s => s.key === key); }
+  const EMPTY_DIAGNOSTICS = {
+    'Attendance Trend (by Month)': { state:'Waiting for attendance', icon:'calendar-check', required:'Attendance records for the selected date range.', action:'Mark attendance for several school days, then refresh analytics.' },
+    'Attendance Trend': { state:'Waiting for attendance', icon:'calendar-check', required:'Attendance records for the selected learner/date range.', action:'Mark attendance first; this card fills once attendance exists.' },
+    'Attendance Pattern': { state:'Waiting for attendance', icon:'calendar-check', required:'Present/absent/late attendance statuses.', action:'Record attendance for this class or learner.' },
+    'Attendance Heatmap': { state:'Needs several attendance days', icon:'grid-3x3', required:'Attendance across multiple days/weeks.', action:'Use after at least a few days of attendance have been marked.' },
+    'Class Performance (Average Score %)': { state:'Waiting for marks', icon:'clipboard-list', required:'Academic records connected to classes.', action:'Enter marks for students in classes for the selected term/year.' },
+    'Class Performance Trend': { state:'Waiting for marks', icon:'clipboard-list', required:'Published or saved class academic records.', action:'Enter marks for your assigned class.' },
+    'Subject Performance (Average Score %)': { state:'Waiting for subject marks', icon:'book-open', required:'Marks with subject/learning-area names.', action:'Enter subject marks for the selected scope.' },
+    'Subject Performance': { state:'Waiting for subject marks', icon:'book-open', required:'Subject marks for this class/learner.', action:'Enter subject scores first.' },
+    'Subject Mastery Breakdown': { state:'Waiting for subject marks', icon:'book-open', required:'Subject averages from academic records.', action:'Enter marks by learning area/subject.' },
+    'Performance by Stream': { state:'Needs stream data', icon:'layers', required:'Classes/students with stream values and marks.', action:'Set streams on classes/students and enter marks.' },
+    'Performance by Subject': { state:'Waiting for subject marks', icon:'book-open', required:'Subject marks for the selected learner.', action:'Enter and save assessments first.' },
+    'Assessment Breakdown': { state:'Waiting for assessments', icon:'pie-chart', required:'Assessment names/types connected to marks.', action:'Record CAT/midterm/end-term assessments.' },
+    'Assessment Performance': { state:'Waiting for assessments', icon:'clipboard-check', required:'Assessment results grouped by assessment name/type.', action:'Enter assessment records for this scope.' },
+    'Top Classes': { state:'Waiting for class marks', icon:'trophy', required:'Class-linked academic records.', action:'Enter marks for at least one class.' },
+    'At-Risk Classes': { state:'No at-risk classes found', icon:'shield-check', required:'Class averages below the risk threshold.', action:'This is good if all classes are performing above risk level.' },
+    'Top Subjects': { state:'Waiting for subject marks', icon:'trophy', required:'Subject averages from academic records.', action:'Enter marks by subject/learning area.' },
+    'Top Students': { state:'Waiting for student marks', icon:'trophy', required:'Student academic records in the selected scope.', action:'Enter marks for students first.' },
+    'Student Leaderboard': { state:'Waiting for class marks', icon:'bar-chart-3', required:'Classmate marks in the selected class.', action:'Enter marks for several students in the class.' },
+    'Students Needing Support': { state:'No support-risk students found', icon:'shield-check', required:'Low-score or low-attendance risk signals.', action:'This is good if no learner currently matches the risk rule.' },
+    'Student Risk Alerts': { state:'No risk alerts found', icon:'shield-check', required:'Low marks, arrears, or attendance risk indicators.', action:'This card fills only when a learner matches risk rules.' },
+    'Strengths vs Support Areas': { state:'Waiting for learning data', icon:'activity', required:'Subject performance split into strengths/support areas.', action:'Enter subject marks to generate the split.' },
+    'Recent Assessments': { state:'Waiting for assessments', icon:'file-text', required:'Saved assessment records for the selected learner.', action:'Enter CAT/midterm/end-term marks.' },
+    'Recommendations': { state:'Waiting for insights', icon:'lightbulb', required:'Marks or risk data to generate recommendations.', action:'Recommendations appear after academic records exist.' },
+    'Upcoming / Recent Tasks': { state:'No tasks yet', icon:'clipboard-list', required:'Homework/home-task assignments.', action:'Create or assign tasks for learners.' },
+    'Badges & Achievements': { state:'No badges yet', icon:'award', required:'Awarded badges or achievement events.', action:'Badges appear after achievements are awarded.' },
+    'Class Leaderboard': { state:'Waiting for class data', icon:'bar-chart-3', required:'Marks from students in the same class.', action:'Enter class marks first.' },
+    'Recent Alerts': { state:'No alerts yet', icon:'bell', required:'Alerts for this learner/account.', action:'Alerts appear when the system creates notifications.' },
+    'Timetable Summary': { state:'Needs timetable', icon:'calendar-days', required:'Published timetable for the selected class/term.', action:'Publish a timetable for this class.' },
+    'Report Publication Status': { state:'Waiting for reports', icon:'file-check', required:'Draft or published report snapshots.', action:'Generate or publish report cards for this term.' },
+    'Marks Entry Readiness': { state:'Waiting for report readiness data', icon:'file-check', required:'Report/marks status records.', action:'Enter marks and generate class reports.' },
+    'Top Teachers': { state:'Waiting for teacher-linked marks', icon:'users', required:'Academic records linked to teacher IDs/classes.', action:'Enter marks through teacher accounts or assign teachers to classes/subjects.' },
+    'Teacher Effectiveness Summary': { state:'Waiting for teacher-linked marks', icon:'users', required:'Teacher-linked academic records.', action:'Assign teachers and enter marks connected to them.' },
+    'Operational Insights': { state:'Waiting for school activity', icon:'activity', required:'Students, teachers, attendance, fees, or reports.', action:'This fills as normal school activity is recorded.' },
+    'Recent Alerts & Insights': { state:'No insights yet', icon:'bell', required:'Alerts generated from school activity.', action:'Insights appear after attendance, fees, marks, or report activity exists.' },
+    'Actionable Insights': { state:'No actions yet', icon:'lightbulb', required:'Class risks, pending marks, or task signals.', action:'This fills as classroom activity is recorded.' },
+    'Collection Trend (by Month)': { state:'Waiting for payments', icon:'circle-dollar-sign', required:'Completed fee payments with dates.', action:'Record or reconcile payments to build a trend.' },
+    'Payment Channel Split': { state:'Waiting for payments', icon:'credit-card', required:'Completed payments with provider/method.', action:'Receive payments through configured providers.' },
+    'Paid vs Outstanding': { state:'Waiting for fee records', icon:'wallet', required:'Fee invoices/balances and payments.', action:'Create fee invoices/structures and record payments.' },
+    'Defaulters List': { state:'No defaulters found', icon:'shield-check', required:'Overdue unpaid fee invoices/balances.', action:'This is good if no students currently owe overdue fees.' },
+    'Expense Categories': { state:'Waiting for expenses', icon:'receipt', required:'Finance expenses categorized by type.', action:'Record expenses to see category analytics.' },
+    'Quick Finance Insights': { state:'No finance insights yet', icon:'lightbulb', required:'Fee, payment, arrears, or expense activity.', action:'Insights appear after finance activity is recorded.' },
+    'Fee Performance by Class': { state:'Waiting for fee data', icon:'wallet', required:'Fee expectations/payments grouped by class.', action:'Create fee invoices and receive payments.' },
+    'Bursary / Credit Summary': { state:'No bursary/credit data', icon:'hand-coins', required:'Bursary, credit, or adjustment records.', action:'Record credits/bursaries if the school uses them.' },
+    'Reconciliation Status': { state:'Waiting for reconciliation data', icon:'scale', required:'Payment reconciliation records/statuses.', action:'Reconcile provider payments to fill this card.' },
+    'Collection & Operational Notes': { state:'Waiting for finance activity', icon:'activity', required:'Fee/payment/expense records.', action:'This fills as finance activity grows.' },
+    'Student Risk / Arrears': { state:'No arrears risk found', icon:'shield-check', required:'Outstanding balances or arrears-risk rules.', action:'This is good if no linked learners are in arrears.' },
+    'Monthly Growth Overview': { state:'Waiting for platform growth', icon:'trending-up', required:'School signup dates over time.', action:'This fills as schools are added.' },
+    'School Plan Distribution': { state:'Waiting for subscriptions', icon:'pie-chart', required:'School subscription plans.', action:'Assign plans/subscriptions to schools.' },
+    'Revenue Trend (KES)': { state:'Waiting for platform payments', icon:'circle-dollar-sign', required:'Completed platform subscription payments.', action:'This fills when schools pay subscriptions.' },
+    'Region Distribution': { state:'Waiting for school locations', icon:'map-pin', required:'School county/region/location fields.', action:'Add school location details.' },
+    'Top Performing Schools': { state:'Waiting for school metrics', icon:'trophy', required:'Schools with users/marks/engagement/revenue.', action:'This fills as schools use the platform.' },
+    'At-Risk Schools': { state:'No at-risk schools found', icon:'shield-check', required:'Inactive/low-engagement schools.', action:'This is good if no school matches the risk rule.' },
+    'Platform Usage': { state:'Waiting for login activity', icon:'activity', required:'User last-login/activity records.', action:'This fills as users log in and use the system.' },
+    'Subscription Status': { state:'Waiting for subscriptions', icon:'badge-check', required:'School subscription records.', action:'Create or activate school subscriptions.' },
+    'Approval Summary': { state:'No approvals yet', icon:'shield-check', required:'Approval request records.', action:'This fills when schools/admins/teachers request approval.' },
+    'Platform Insights': { state:'No platform insights yet', icon:'lightbulb', required:'Platform usage, revenue, or approval activity.', action:'This fills as the platform is used.' },
+    'School Comparison': { state:'Waiting for school data', icon:'building-2', required:'Multiple schools with users/activity/revenue.', action:'This fills when schools are onboarded and active.' }
+  };
+  function currentAnalyticsType(){ return state.analyticsType || document.querySelector('[data-v152-filter="analyticsType"]')?.value || 'overview'; }
+  function visibleExportKeys(includeKpis = true){
+    const data = state.data || {};
+    const sections = data.exportSections || [];
+    const selected = currentAnalyticsType();
+    const keys = sections.filter(s => selected === 'overview' || s.key === 'kpis' && includeKpis || categoryForSectionKey(s.key) === selected).map(s => s.key);
+    return [...new Set(keys)];
+  }
+
   function cssVar(name,fallback){ try{return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||fallback;}catch(_){return fallback;} }
   function colors(){ return { teal:cssVar('--shule-chart-teal','#11B5B1'),blue:cssVar('--shule-chart-blue','#2F80ED'),green:cssVar('--shule-chart-green','#22C55E'),orange:cssVar('--shule-chart-orange','#F59E0B'),red:cssVar('--shule-chart-red','#EF4444'),purple:cssVar('--shule-chart-purple','#8B5CF6'),grid:cssVar('--shule-chart-grid','rgba(100,116,139,.18)'),text:cssVar('--shule-chart-text','#475569') }; }
   function destroyChart(id){ try{chartBag[id]?.destroy?.();}catch(_){} chartBag[id]=null; const c=document.getElementById(id); try{window.Chart?.getChart?.(c)?.destroy?.();}catch(_){} }
@@ -81,9 +222,26 @@
   }
   function header(role,data){ return `<header class="v152-head"><div class="v152-heading"><span><i data-lucide="trending-up"></i></span><div><h2>${esc(data.title||'Analytics')}</h2><p>${esc(data.subtitle||'Live analytics')}</p></div></div>${filterBar(role,data)}</header>`; }
   function kpis(data){ return `<div class="v152-kpis">${(data.kpis||[]).map(k=>`<article class="v152-kpi tone-${esc(k.tone||'teal')}"><span><i data-lucide="${esc(k.icon||'activity')}"></i></span><div><small>${esc(k.label)}</small><strong>${fmt(k.value)}</strong>${k.hint?`<em>${esc(k.hint)}</em>`:''}</div></article>`).join('')}</div>`; }
-  function categoryForTitle(title){const t=String(title||'').toLowerCase();if(/attendance|present|absent/.test(t))return'attendance';if(/fee|finance|collection|payment|defaulter|expense|bursary|credit|reconciliation|arrears|revenue/.test(t))return'finance';if(/teacher|staff/.test(t))return'teachers';if(/report|marks|publication|readiness/.test(t))return'reports';if(/class|subject|student|assessment|performance|mastery|leaderboard|learning|homework|task|badge|achievement|strength|support/.test(t))return'academic';return'overview';}
-  function card(title,body,cls='',action=''){ return `<section class="v152-card ${cls}" data-analytics-category="${categoryForTitle(title)}"><header><h3>${esc(title)}</h3>${action?`<button type="button">${esc(action)}</button>`:''}</header>${body}</section>`; }
-  function empty(message='No real data is available for the selected scope yet.'){ return `<div class="v152-empty"><i data-lucide="database"></i><p>${esc(message)}</p></div>`; }
+  function categoryForTitle(title){ const info=exportInfoForTitle(title); if(info?.category) return info.category; const t=String(title||'').toLowerCase();if(/attendance|present|absent/.test(t))return'attendance';if(/fee|finance|collection|payment|defaulter|expense|bursary|credit|reconciliation|arrears|revenue/.test(t))return'finance';if(/teacher|staff/.test(t))return'teachers';if(/report|marks|publication|readiness/.test(t))return'reports';if(/class|subject|student|assessment|performance|mastery|leaderboard|learning|homework|task|badge|achievement|strength|support/.test(t))return'academic';return'overview';}
+  function isEmptyBlock(body){ return /^<div class="v152-empty/.test(String(body||'').trim()); }
+  function emptyDiagnostic(title){
+    const info=exportInfoForTitle(title);
+    const key=info?.key||'';
+    const diag=EMPTY_DIAGNOSTICS[title] || { state: info ? 'Waiting for data' : 'Mapping needs review', icon: info ? 'database' : 'triangle-alert', required: info ? 'Backend data for this analytics section.' : 'A registered export/data key for this visual card.', action: info ? 'Add the required activity/data, then refresh analytics.' : 'Developer should add this card to the analytics registry.' };
+    const category=info?.category || categoryForTitle(title);
+    const connected=!!info;
+    const available=key ? sectionAvailable(key) : false;
+    const tone=connected ? (available ? 'ready' : 'waiting') : 'error';
+    return `<div class="v152-empty v152-empty-diagnostic tone-${tone}" data-v152-empty-state="${esc(tone)}" data-v152-empty-key="${esc(key)}"><span class="v152-empty-icon"><i data-lucide="${esc(diag.icon||'database')}"></i></span><b>${esc(diag.state)}</b><p>${esc(diag.required)}</p><small>${esc(diag.action)}</small><em>${connected ? `Connected · ${category}` : 'Not connected to export registry'}</em></div>`;
+  }
+  function card(title,body,cls='',action=''){
+    const info=exportInfoForTitle(title); const exportKey=info?.key||''; const hasData=exportKey ? sectionAvailable(exportKey) : false;
+    if(isEmptyBlock(body) || (exportKey && !hasData && /<canvas\s/i.test(String(body||'')))) body = emptyDiagnostic(title);
+    const exportButton=exportKey ? (hasData ? `<button type="button" title="Download only ${esc(title)}" onclick="event.stopPropagation();window.v152GenerateExport('pdf',['${esc(exportKey)}'])"><i data-lucide="download"></i><span>Download</span></button>` : `<button type="button" class="is-disabled" disabled title="No exportable data yet for ${esc(title)}"><i data-lucide="database"></i><span>No data</span></button>`) : (action?`<button type="button">${esc(action)}</button>`:'');
+    const status=exportKey ? (hasData?'ready':'waiting') : 'unmapped';
+    return `<section class="v152-card ${cls}" data-analytics-category="${categoryForTitle(title)}" data-v152-data-status="${status}" ${exportKey?`data-v152-card-export-key="${esc(exportKey)}"`:''}><header><h3>${esc(title)}</h3><div class="v152-card-tools"><small class="v152-data-badge ${status}">${status==='ready'?'Data ready':status==='waiting'?'Waiting for data':'Needs mapping'}</small>${exportButton}</div></header>${body}</section>`;
+  }
+  function empty(message='No real data is available for the selected scope yet.'){ return `<div class="v152-empty" data-v152-empty-state="generic"><i data-lucide="database"></i><p>${esc(message)}</p></div>`; }
   function chart(id){ return `<div class="v152-chart"><canvas id="${id}"></canvas><div id="${id}-fallback"></div></div>`; }
   function doughnut(id){ return `<div class="v152-chart doughnut"><canvas id="${id}"></canvas><div id="${id}-fallback"></div></div>`; }
   function progress(rows=[],key='average',labelKey='name',suffix='%'){ if(!rows.length)return empty(); return `<div class="v152-progress">${rows.map((r,i)=>{const v=number(r[key]??r.value??r.score);return `<div><span>${i+1}. ${esc(r[labelKey]||r.student||r.teacher||r.subject||'Item')}</span><i><b style="width:${Math.min(100,v)}%"></b></i><strong>${fmt(v)}${suffix}</strong></div>`;}).join('')}</div>`; }
@@ -144,12 +302,13 @@
   function body(data){ if(data.variant==='platform')return platformBody(data); if(data.variant==='finance')return financeBody(data); if(data.variant==='class')return teacherBody(data); if(data.variant==='child'||data.variant==='student')return childBody(data); return schoolBody(data); }
 
   function exportPanel(data){
-    const role=currentRole(), types=scopeTypesFor(role,data), selected=data.scope?.type||types[0]?.[0], sections=data.exportSections||[];
-    return `<div class="v152-export-overlay ${state.exportOpen?'open':''}" data-v152-export-overlay onclick="if(event.target===this)window.v152CloseExport()"><aside class="v152-export-panel"><header><div><h3>Export Analytics</h3><p>Choose scope, format and sections before generating the file.</p></div><button onclick="window.v152CloseExport()"><i data-lucide="x"></i></button></header>
+    const role=currentRole(), types=scopeTypesFor(role,data), selected=data.scope?.type||types[0]?.[0], sections=data.exportSections||[], selectedType=currentAnalyticsType();
+    const sectionRows = sections.map(s => ({...s, category: s.category || categoryForSectionKey(s.key), label: s.label || SECTION_LABEL[s.key] || titleize(s.key)}));
+    return `<div class="v152-export-overlay ${state.exportOpen?'open':''}" data-v152-export-overlay onclick="if(event.target===this)window.v152CloseExport()"><aside class="v152-export-panel"><header><div><h3>Export Analytics</h3><p>Choose scope, format and exact analytics sections before generating the file.</p></div><button onclick="window.v152CloseExport()"><i data-lucide="x"></i></button></header>
       <div class="v152-export-scroll"><fieldset><legend>Export Scope</legend>${types.map(([id,name])=>`<label class="v152-radio"><input type="radio" name="v152-export-scope" value="${id}" ${selected===id?'checked':''} onchange="window.v152ExportScopeChanged()"><span><b>${esc(name)}</b><small>${id==='school'?'All authorized school data':`Choose a ${esc(id)} from your authorized scope`}</small></span></label>`).join('')}<select data-v152-export-target ${selected==='school'||selected==='platform'?'hidden':''}>${scopeTargetOptions(data,selected,data.scope?.id)}</select></fieldset>
       <fieldset><legend>Export Format</legend><div class="v152-format-grid">${[['pdf','file-text','PDF Document'],['xlsx','sheet','Excel Workbook'],['csv','table-2','CSV File'],['print','printer','Print / Preview']].map(([id,icon,name],i)=>`<label><input type="radio" name="v152-export-format" value="${id}" ${i===0?'checked':''}><span><i data-lucide="${icon}"></i>${name}</span></label>`).join('')}</div></fieldset>
-      <fieldset><legend>Include in Export <button type="button" onclick="window.v152ToggleAllExport(true)">Select All</button></legend><div class="v152-checks">${sections.map(s=>`<label><input type="checkbox" data-v152-export-section value="${esc(s.key)}" checked><span>${esc(s.label)} <small>${fmt(s.count)}</small></span></label>`).join('')||'<p>No exportable analytics are available for this scope.</p>'}</div></fieldset>
-      <div class="v152-export-preview"><b>Export Preview</b><p>Scope: <span data-v152-preview-scope>${esc(data.scope?.label||'Current analytics')}</span></p><p>Items selected: <span data-v152-preview-count>${sections.length}</span></p><p>All exported data is generated from the live, authorized backend scope.</p></div></div>
+      <fieldset><legend>Include in Export <span class="v152-export-selectors"><button type="button" onclick="window.v152ToggleVisibleExport()">Select Visible</button><button type="button" onclick="window.v152ToggleAllExport(false)">Select None</button><button type="button" onclick="window.v152ToggleAllExport(true)">Select All</button></span></legend><div class="v152-checks">${sectionRows.map(s=>{const visible=selectedType==='overview'||s.key==='kpis'||s.category===selectedType;return `<label data-v152-export-option-category="${esc(s.category)}"><input type="checkbox" data-v152-export-section data-v152-export-category="${esc(s.category)}" value="${esc(s.key)}" ${visible?'checked':''}><span>${esc(s.label)} <small>${esc(s.category)} · ${fmt(s.count)}</small></span></label>`}).join('')||'<p>No exportable analytics are available for this scope.</p>'}</div></fieldset>
+      <div class="v152-export-preview"><b>Export Preview</b><p>Scope: <span data-v152-preview-scope>${esc(data.scope?.label||'Current analytics')}</span></p><p>Items selected: <span data-v152-preview-count>${visibleExportKeys(true).length}</span></p><p>All exported data is generated from the live, authorized backend scope.</p></div></div>
       <footer><button class="secondary" onclick="window.v152CloseExport()">Cancel</button><button class="primary" onclick="window.v152GenerateExport()"><i data-lucide="download"></i>Generate Export</button></footer></aside></div>`;
   }
   function renderShell(role,data){ return `<div class="v152-shell" data-variant="${esc(data.variant||'school')}">${header(role,data)}${kpis(data)}${body(data)}<footer class="v152-updated"><span>All data is tenant-scoped and loaded from the backend database.</span><span>Last updated: ${esc(updated(data.updatedAt))}</span><button onclick="window.v152RefreshAnalytics({manual:true})"><i data-lucide="refresh-cw"></i></button><em data-v152-refresh-note></em></footer>${exportPanel(data)}</div>`; }
@@ -184,7 +343,7 @@
     try{window.lucide?.createIcons?.();}catch(_){}
   }
 
-  function applyCategoryFilter(){const selected=state.analyticsType||document.querySelector('[data-v152-filter="analyticsType"]')?.value||'overview';document.querySelectorAll('.v152-card[data-analytics-category]').forEach(card=>{card.hidden=selected!=='overview'&&card.dataset.analyticsCategory!==selected;});}
+  function applyCategoryFilter(){const selected=currentAnalyticsType();document.querySelectorAll('.v152-card[data-analytics-category]').forEach(card=>{card.hidden=selected!=='overview'&&card.dataset.analyticsCategory!==selected;});updateExportPreview();}
 
   async function renderAnalyticsSection(role){ state.role=role; state.query=''; try{const data=await fetchAnalytics();setTimeout(()=>{drawVariantCharts(data);applyCategoryFilter();},50);return renderShell(role,data);}catch(error){console.error('[v152 analytics]',error);return `<div class="v152-load-error"><i data-lucide="triangle-alert"></i><h2>Analytics could not load</h2><p>${esc(error.message||'Unknown error')}</p><button onclick="showDashboardSection('analytics')">Retry</button></div>`;} }
   async function refreshAnalytics(options={}){
@@ -205,29 +364,42 @@
   function openExport(){state.exportOpen=true;document.querySelector('[data-v152-export-overlay]')?.classList.add('open');document.body.classList.add('v152-modal-open');updateExportPreview();try{lucide?.createIcons?.();}catch(_){} }
   function closeExport(){state.exportOpen=false;document.querySelector('[data-v152-export-overlay]')?.classList.remove('open');document.body.classList.remove('v152-modal-open');}
   function exportScopeChanged(){ const data=state.data||{}; const type=document.querySelector('input[name="v152-export-scope"]:checked')?.value||data.scope?.type||'school'; const target=document.querySelector('[data-v152-export-target]'); if(target){target.hidden=type==='school'||type==='platform';target.innerHTML=scopeTargetOptions(data,type,type===data.scope?.type?data.scope?.id:'');}updateExportPreview(); }
-  function updateExportPreview(){ const count=document.querySelectorAll('[data-v152-export-section]:checked').length; const target=document.querySelector('[data-v152-preview-count]'); if(target)target.textContent=String(count); const type=document.querySelector('input[name="v152-export-scope"]:checked')?.value||state.data?.scope?.type; const option=document.querySelector('[data-v152-export-target] option:checked'); const scope=document.querySelector('[data-v152-preview-scope]'); if(scope)scope.textContent=(type==='school'?'Whole School':type==='platform'?'All Schools':option?.textContent||titleize(type)); }
-  function toggleAllExport(on){document.querySelectorAll('[data-v152-export-section]').forEach(c=>c.checked=on);updateExportPreview();}
-  async function generateExport(preferredFormat=null){
+  function updateExportPreview(){
+    const count=document.querySelectorAll('[data-v152-export-section]:checked').length;
+    const target=document.querySelector('[data-v152-preview-count]'); if(target)target.textContent=String(count);
+    const type=document.querySelector('input[name="v152-export-scope"]:checked')?.value||state.data?.scope?.type;
+    const option=document.querySelector('[data-v152-export-target] option:checked');
+    const scope=document.querySelector('[data-v152-preview-scope]'); if(scope)scope.textContent=(type==='school'?'Whole School':type==='platform'?'All Schools':option?.textContent||titleize(type));
+  }
+  function toggleAllExport(on){document.querySelectorAll('[data-v152-export-section]').forEach(c=>c.checked=!!on);updateExportPreview();}
+  function toggleVisibleExport(){ const selected=currentAnalyticsType(); document.querySelectorAll('[data-v152-export-section]').forEach(c=>{ const cat=c.dataset.v152ExportCategory || categoryForSectionKey(c.value); c.checked = selected==='overview' || c.value==='kpis' || cat===selected; }); updateExportPreview(); }
+  async function generateExport(preferredFormat=null, includeOverride=null){
     const button=document.querySelector('.v152-export-panel footer .primary'); if(button){button.disabled=true;button.innerHTML='<span class="v152-spinner"></span>Generating…';}
     try{
-      const quick = !!preferredFormat;
+      const quick = !!preferredFormat || Array.isArray(includeOverride);
       const format=preferredFormat || document.querySelector('input[name="v152-export-format"]:checked')?.value || 'pdf';
       const currentScope = state.data?.scope || {};
       const scopeType=quick ? (currentScope.type || state.data?.variant || 'school') : (document.querySelector('input[name="v152-export-scope"]:checked')?.value||currentScope.type||'school');
       const scopeId=quick ? (currentScope.id || '') : ((scopeType==='school'||scopeType==='platform')?'':document.querySelector('[data-v152-export-target]')?.value||'');
       if(!scopeId&&scopeType!=='school'&&scopeType!=='platform'&&!quick)throw new Error(`Select the ${scopeType} to export.`);
-      const include=quick ? (state.data?.exportSections||[]).map(x=>x.key) : [...document.querySelectorAll('[data-v152-export-section]:checked')].map(x=>x.value); if(!include.length)throw new Error('No exportable analytics sections are available for this view.');
-      const filters=Object.fromEntries(paramsFromUi().entries()); filters.scopeType=scopeType; filters.scopeId=scopeId;
+      let include = [];
+      if (Array.isArray(includeOverride)) include = includeOverride;
+      else if (preferredFormat) include = visibleExportKeys(true);
+      else include = [...document.querySelectorAll('[data-v152-export-section]:checked')].map(x=>x.value);
+      include = [...new Set(include)].filter(Boolean);
+      if(!include.length)throw new Error('Select at least one analytics section to export.');
+      const filters=Object.fromEntries(paramsFromUi().entries()); filters.scopeType=scopeType; filters.scopeId=scopeId; filters.analyticsType=currentAnalyticsType();
       const token=localStorage.getItem('authToken')||localStorage.getItem('token')||'';
-      const response=await fetch(`${API_BASE_URL}/api/analytics/export`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify({format,scopeType,scopeId,include,filters,childId:filters.childId||state.data?.student?.id})});
+      const response=await fetch(`${API_BASE_URL}/api/analytics/export`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify({format,scopeType,scopeId,include,filters,analyticsType:filters.analyticsType,childId:filters.childId||state.data?.student?.id})});
       if(!response.ok){let message='Export failed';try{message=(await response.json()).message||message;}catch(_){}throw new Error(message);}
       const disposition=response.headers.get('content-disposition')||'';const filename=disposition.match(/filename="?([^";]+)"?/i)?.[1]||`shule-ai-analytics.${format==='print'?'html':format}`;
       const blob=await response.blob();const url=URL.createObjectURL(blob);
       if(format==='print'){window.open(url,'_blank','noopener');setTimeout(()=>URL.revokeObjectURL(url),120000);}else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
-      showToast?.('Analytics export generated successfully.','success');if(!preferredFormat)closeExport();
+      showToast?.('Analytics export generated successfully.','success');if(!preferredFormat&&!Array.isArray(includeOverride))closeExport();
     }catch(error){showToast?.(error.message||'Analytics export failed.','error');}
     finally{if(button){button.disabled=false;button.innerHTML='<i data-lucide="download"></i>Generate Export';try{lucide?.createIcons?.();}catch(_){}}}
   }
+
 
   try{const redraw=()=>{if(document.querySelector('.v152-shell')){clearTimeout(window.__v152ThemeTimer);window.__v152ThemeTimer=setTimeout(redrawCharts,120);}};new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:['class','data-theme']});window.addEventListener('shule:theme-changed',redraw);}catch(_){}
 
@@ -238,6 +410,7 @@
   window.v152CloseExport=closeExport;
   window.v152ExportScopeChanged=exportScopeChanged;
   window.v152ToggleAllExport=toggleAllExport;
+  window.v152ToggleVisibleExport=toggleVisibleExport;
   window.v152GenerateExport=generateExport;
   window.v152RedrawAnalyticsCharts=redrawCharts;
 })();

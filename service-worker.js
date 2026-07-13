@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-2017-health-cors-stability';
+const CACHE_NAME = 'shule-ai-2022-cbc-report-card-docx-template-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

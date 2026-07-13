@@ -97,6 +97,8 @@ async function superAdminLogin(email, password, secretKey) {
         
         
         authToken = response.data.token;
+        refreshToken = response.data.refreshToken || null;
+        if (refreshToken) safeSessionSet('refreshToken', refreshToken); else localStorage.removeItem('refreshToken');
         currentUser = response.data.user;
         
         clearSessionScopedDashboardState();
@@ -190,6 +192,8 @@ async function studentLogin(elimuid, password) {
         if (!response.success) throw new Error(response.message);
         
         authToken = response.data.token;
+        refreshToken = response.data.refreshToken || null;
+        if (refreshToken) safeSessionSet('refreshToken', refreshToken); else localStorage.removeItem('refreshToken');
         currentUser = response.data.user;
         
         safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}
@@ -218,6 +222,8 @@ async function login(emailOrPhone, password, role) {
         userData = mergeTeacherProfile(userData, profile);
 
         authToken = response.data.token;
+        refreshToken = response.data.refreshToken || null;
+        if (refreshToken) safeSessionSet('refreshToken', refreshToken); else localStorage.removeItem('refreshToken');
         currentUser = userData;
         currentSchool = response.data.school;
 
