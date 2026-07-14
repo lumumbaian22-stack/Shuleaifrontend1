@@ -175,7 +175,19 @@
 
   function paramsFromUi(){
     const params=new URLSearchParams();
-    document.querySelectorAll('[data-v152-filter]').forEach(el=>{ const value=el.value; if(value!==undefined&&value!==null&&value!==''&&value!=='undefined') params.set(el.dataset.v152Filter,value); });
+    // Only read filters from the currently rendered analytics shell. This prevents stale hidden filters
+    // from another dashboard/role from being sent to /api/analytics/dashboard.
+    const root=document.querySelector('.v152-shell') || document;
+    root.querySelectorAll('[data-v152-filter]').forEach(el=>{ const value=el.value; if(value!==undefined&&value!==null&&value!==''&&value!=='undefined') params.set(el.dataset.v152Filter,value); });
+    const type=params.get('scopeType');
+    const id=params.get('scopeId');
+    if(type && id && state.data){
+      const allowed=(getScopeOptions(state.data,type)||[]).map(x=>String(x.id));
+      if(allowed.length && !allowed.includes(String(id))){
+        params.delete('scopeId');
+        if(type!=='class' || roleKey(currentRole())!=='teacher') params.set('scopeType','school');
+      }
+    }
     return params;
   }
   function getScopeOptions(data,type){
@@ -197,7 +209,7 @@
     return [['platform','All Schools']];
   }
 
-  async function fetchAnalytics(){ const query=state.query||paramsFromUi().toString(); const result=await apiRequest(`/api/analytics/dashboard${query?`?${query}`:''}`); state.data=result.data||{}; return state.data; }
+  async function fetchAnalytics(){ const query=paramsFromUi().toString(); state.query=query; const result=await apiRequest(`/api/analytics/dashboard${query?`?${query}`:''}`); state.data=result.data||{}; return state.data; }
 
   function filterBar(role,data){
     const r=roleKey(role), f=data.filters||{}, scope=data.scope||{}, types=scopeTypesFor(role,data);

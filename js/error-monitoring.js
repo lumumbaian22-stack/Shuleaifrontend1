@@ -1,5 +1,5 @@
 (function(){
-  const build = window.SHULE_BUILD_VERSION || 'v2025-canonical-analytics-data-cleanup-lock';
+  const build = window.SHULE_BUILD_VERSION || '2027-runtime-integrity-defined-symbols-lock';
   function apiBase(){
     try { return window.SHULE_API_BASE || window.API_BASE_URL || localStorage.getItem('shule_api_base') || 'https://api.shuleai.live/api'; }
     catch (_) { return 'https://api.shuleai.live/api'; }

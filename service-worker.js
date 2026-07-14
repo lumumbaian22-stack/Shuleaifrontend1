@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-2025-canonical-analytics-data-cleanup-lock';
+const CACHE_NAME = 'shule-ai-2027-runtime-integrity-defined-symbols-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 
