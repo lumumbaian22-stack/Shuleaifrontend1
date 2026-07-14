@@ -233,7 +233,7 @@ const superAdminAPI = {
     clearCache: function() { return this.clearPlatformCache(); },
     runBackup: function() { return this.runSystemBackup(); },
     resetSettings: function() { return this.resetPlatformSettings(); },
-    getAnalytics: () => apiRequest(`/api/super-admin/analytics?_=${Date.now()}`),
+    getAnalytics: () => apiRequest(`/api/analytics/dashboard?_=${Date.now()}`),
     getSchoolDetail: (schoolId) => apiRequest(`/api/super-admin/schools/${schoolId}/detail`),
     updateSchoolAccessControls: (schoolId, data) => apiRequest(`/api/super-admin/schools/${schoolId}/access-controls`, { method: 'PUT', body: JSON.stringify(data) }),
     getPaymentRequests: (params = {}) => apiRequest(`/api/super-admin/payment-requests${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
@@ -379,7 +379,7 @@ const adminAPI = {
             return { success: true, data: found };
         }
     },
-    getAnalytics: () => apiRequest(`/api/admin/analytics?_=${Date.now()}`),
+    getAnalytics: () => apiRequest(`/api/analytics/dashboard?_=${Date.now()}`),
     batchAssignSubjects: (classIdOrData, assignments = null) => {
         const payload = (typeof classIdOrData === 'object' && assignments === null)
             ? classIdOrData
@@ -473,7 +473,7 @@ const teacherAPI = {
     uploadStudentsCSV: (formData, onProgress) => uploadFile('/api/upload/students', formData, onProgress),
     publishMarks: (data) => apiRequest('/api/teacher/marks/publish', { method: 'POST', body: JSON.stringify(data) }),
     updateMark: (recordId, data) => apiRequest(`/api/teacher/marks/${recordId}`, { method: 'PUT', body: JSON.stringify(data) }),
-    getAnalytics: () => apiRequest(`/api/teacher/analytics?_=${Date.now()}`),
+    getAnalytics: () => apiRequest(`/api/analytics/dashboard?_=${Date.now()}`),
     getGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassStudentsForSubject: (params = {}) => apiRequest('/api/teacher/class-students' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassReportSnapshots: (params = {}) => { const q = cleanQueryParams(params); return apiRequest('/api/teacher/reports/snapshots' + (q ? `?${q}` : '')); },
@@ -530,7 +530,7 @@ const parentAPI = {
     getFees: (studentId) => apiRequest(`/api/parent/fees/${studentId}`),
     getChildClassPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/class-performance`),
     getChildSubjectPerformance: (studentId) => apiRequest(`/api/parent/child/${studentId}/subject-performance`),
-    getAnalytics: (childId) => apiRequest(`/api/parent/analytics?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`),
+    getAnalytics: (childId) => apiRequest(`/api/analytics/dashboard?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}`),
     getChildSubjectSelection: (childId) => apiRequest(`/api/parent/child/${childId}/subject-selection`),
     saveChildSubjectSelection: (childId, data) => apiRequest(`/api/parent/child/${childId}/subject-selection`, { method:'PUT', body:JSON.stringify(data || {}) }),
     getChildEnrollmentHistory: (childId) => apiRequest(`/api/lifecycle/children/${childId}/enrollments`),
@@ -573,7 +573,7 @@ const studentAPI = {
     getClassPerformance: () => apiRequest('/api/student/class-performance'),
     getSubjectPerformance: () => apiRequest('/api/student/subject-performance'),
     getGPA: () => apiRequest('/api/student/gpa'),
-    getAnalytics: () => apiRequest(`/api/student/analytics?_=${Date.now()}`),
+    getAnalytics: () => apiRequest(`/api/analytics/dashboard?_=${Date.now()}`),
     getSubjectSelection: () => apiRequest('/api/student/subject-selection'),
     saveSubjectSelection: (data) => apiRequest('/api/student/subject-selection', { method:'PUT', body:JSON.stringify(data || {}) }),
     getEnrollmentHistory: () => apiRequest('/api/lifecycle/me/enrollments'),

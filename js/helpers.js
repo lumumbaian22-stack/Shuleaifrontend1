@@ -81,6 +81,17 @@ function getCurrentRole() {
     return localStorage.getItem('userRole');
 }
 
+function currentReportRole() {
+    try {
+        const role = (typeof getCurrentRole === 'function' ? getCurrentRole() : '') || getCurrentUser()?.role || localStorage.getItem('userRole') || localStorage.getItem('role') || '';
+        return String(role || '').toLowerCase().replace(/-/g, '_');
+    } catch (_) {
+        return String(localStorage.getItem('userRole') || localStorage.getItem('role') || '').toLowerCase().replace(/-/g, '_');
+    }
+}
+window.currentReportRole = window.currentReportRole || currentReportRole;
+
+
 function saveUser(userData) {
     if (!userData) return;
     if (userData.role === 'teacher') {
@@ -346,7 +357,7 @@ async function openReportCard(studentId) {
     showLoading();
     try {
         // Class teachers preview drafts through the existing protected preview endpoint.
-        if (currentReportRole() === 'teacher' && window.__teacherReportPreviewContext) {
+        if ((typeof currentReportRole === 'function' ? currentReportRole() : (typeof getCurrentRole === 'function' ? getCurrentRole() : localStorage.getItem('userRole'))) === 'teacher' && window.__teacherReportPreviewContext) {
             const html = await buildReportCardHTML(studentId);
             if (!reportWindow) throw new Error('Your browser blocked the report preview window');
             reportWindow.document.open(); reportWindow.document.write(html); reportWindow.document.close(); reportWindow.focus();

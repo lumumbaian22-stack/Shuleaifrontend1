@@ -67,6 +67,8 @@
     'Approval Summary': { key:'list:approvals', category:'overview' },
     'Platform Insights': { key:'list:insights', category:'overview' },
     'School Comparison': { key:'list:schoolComparison', category:'overview' },
+    'Data Quality Warnings': { key:'list:dataQualityWarnings', category:'overview' },
+    'Recommended Actions': { key:'list:recommendedActions', category:'overview' },
     'Collection Trend (by Month)': { key:'chart:collectionTrend', category:'finance' },
     'Payment Channel Split': { key:'chart:paymentMethods', category:'finance' },
     'Paid vs Outstanding': { key:'chart:feeSplit', category:'finance' },
@@ -220,6 +222,17 @@
       </div>
     </div>`;
   }
+
+  function intelligencePanel(data){
+    const intel=data.intelligence||{};
+    const warnings=data.lists?.dataQualityWarnings||[];
+    const actions=data.lists?.recommendedActions||[];
+    if(!intel.healthScore && !warnings.length && !actions.length) return '';
+    const warningHtml=warnings.slice(0,3).map(w=>`<li class="tone-${esc(w.severity||'medium')}"><b>${esc(w.title||'Warning')}</b><span>${esc(w.message||'')}</span><small>${esc(w.action||'')}</small></li>`).join('') || '<li><b>No major warnings</b><span>Data checks did not find an urgent issue.</span></li>';
+    const actionHtml=actions.slice(0,4).map(a=>`<li><b>${esc(a.priority||'Action')}</b><span>${esc(a.action||'')}</span><small>${esc(a.reason||'')}</small></li>`).join('');
+    return `<section class="v152-intelligence"><div class="v152-score"><small>School Health Score</small><strong>${esc(intel.healthScore||'—')}<em>/100</em></strong><span>${esc(intel.status||'Current status')}</span></div><div class="v152-intel-main"><div class="v152-intel-grid"><article><small>Strongest area</small><b>${esc(intel.strongestArea||'—')}</b></article><article><small>Main concern</small><b>${esc(intel.mainConcern||'—')}</b></article><article><small>Trend</small><b>${esc(intel.trend||'—')}</b></article><article><small>Confidence</small><b>${esc(intel.confidence||'—')}</b></article></div><div class="v152-intel-lists"><div><h3>Data Quality Warnings</h3><ul>${warningHtml}</ul></div><div><h3>Recommended Actions</h3><ul>${actionHtml}</ul></div></div></div></section>`;
+  }
+
   function header(role,data){ return `<header class="v152-head"><div class="v152-heading"><span><i data-lucide="trending-up"></i></span><div><h2>${esc(data.title||'Analytics')}</h2><p>${esc(data.subtitle||'Live analytics')}</p></div></div>${filterBar(role,data)}</header>`; }
   function kpis(data){ return `<div class="v152-kpis">${(data.kpis||[]).map(k=>`<article class="v152-kpi tone-${esc(k.tone||'teal')}"><span><i data-lucide="${esc(k.icon||'activity')}"></i></span><div><small>${esc(k.label)}</small><strong>${fmt(k.value)}</strong>${k.hint?`<em>${esc(k.hint)}</em>`:''}</div></article>`).join('')}</div>`; }
   function categoryForTitle(title){ const info=exportInfoForTitle(title); if(info?.category) return info.category; const t=String(title||'').toLowerCase();if(/attendance|present|absent/.test(t))return'attendance';if(/fee|finance|collection|payment|defaulter|expense|bursary|credit|reconciliation|arrears|revenue/.test(t))return'finance';if(/teacher|staff/.test(t))return'teachers';if(/report|marks|publication|readiness/.test(t))return'reports';if(/class|subject|student|assessment|performance|mastery|leaderboard|learning|homework|task|badge|achievement|strength|support/.test(t))return'academic';return'overview';}
@@ -311,7 +324,7 @@
       <div class="v152-export-preview"><b>Export Preview</b><p>Scope: <span data-v152-preview-scope>${esc(data.scope?.label||'Current analytics')}</span></p><p>Items selected: <span data-v152-preview-count>${visibleExportKeys(true).length}</span></p><p>All exported data is generated from the live, authorized backend scope.</p></div></div>
       <footer><button class="secondary" onclick="window.v152CloseExport()">Cancel</button><button class="primary" onclick="window.v152GenerateExport()"><i data-lucide="download"></i>Generate Export</button></footer></aside></div>`;
   }
-  function renderShell(role,data){ return `<div class="v152-shell" data-variant="${esc(data.variant||'school')}">${header(role,data)}${kpis(data)}${body(data)}<footer class="v152-updated"><span>All data is tenant-scoped and loaded from the backend database.</span><span>Last updated: ${esc(updated(data.updatedAt))}</span><button onclick="window.v152RefreshAnalytics({manual:true})"><i data-lucide="refresh-cw"></i></button><em data-v152-refresh-note></em></footer>${exportPanel(data)}</div>`; }
+  function renderShell(role,data){ return `<div class="v152-shell" data-variant="${esc(data.variant||'school')}">${header(role,data)}${kpis(data)}${intelligencePanel(data)}${body(data)}<footer class="v152-updated"><span>All data is tenant-scoped and loaded from the backend database.</span><span>Last updated: ${esc(updated(data.updatedAt))}</span><button onclick="window.v152RefreshAnalytics({manual:true})"><i data-lucide="refresh-cw"></i></button><em data-v152-refresh-note></em></footer>${exportPanel(data)}</div>`; }
 
   function drawVariantCharts(data){
     if(data.variant==='platform'){
