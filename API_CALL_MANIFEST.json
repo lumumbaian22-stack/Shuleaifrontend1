@@ -1,805 +1,10 @@
 {
-  "build": "2027-runtime-integrity-defined-symbols-lock",
+  "build": "2031-student-ai-chatbot-onboarding-project-learning-assistant-lock",
+  "count": 508,
   "apiCalls": [
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar/${id}"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/timetable?weekStartDate=${weekStart}"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/timetable/${currentTimetableId}/publish"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/admin/students/${encodeURIComponent(studentId)}/subject-selection/verify"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/timetable/generate"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/alerts/suggest-announcement"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/admin/teachers"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/admin/students"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/alerts"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/owner/branding"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/owner/branding"
-    },
     {
       "file": "frontend/js/analytics-dashboard.js",
       "path": "/api/analytics/dashboard${query?"
-    },
-    {
-      "file": "frontend/js/analytics-dashboard.js",
-      "path": "/api/analytics/export"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/approve"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/reject"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/suspend"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/reactivate"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/requests/${requestId}/approve"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/requests/${requestId}/reject"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/bank-details/${schoolId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/stats"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/detail"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/access-controls"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/payment-requests${Object.keys(params).length ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/super-admin/payment-requests/${requestId}/review"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/approve"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/suspend"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/reactivate"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/deactivate"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/activate"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers${Object.keys(params).length?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/approve"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/reject"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/cancel"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/rollback"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/students/${studentId}/enrollments"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${batchId}/decisions/${decisionId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${id}/confirm"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${id}/rollback"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/assign-teacher"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/remove-teacher"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/students"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/subjects"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/subject-assign/${assignmentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/suspend"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/reactivate"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/expel"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${classId}/${date}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/corrections"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/corrections"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/custom-subjects/${encodeURIComponent(id)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/classes/${classId}/subjects"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/subject-selection"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/subject-selection"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/messages/${parentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/admin/finance-staff/${userId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers${Object.keys(params).length?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/cancel"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/students/${studentId}/enrollments"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${classId}/${date}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/draft"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/lock"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/release"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/private-messages/${otherUserId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/${parentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/${otherUserId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/read/${otherUserId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/${messageId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/students/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/classes/${classId}/students"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/marks/${recordId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/students/${studentId}/report-card-preview"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/subject-selection-requests/${selectionId}/review"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/attendance/today"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/summary"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/report-card-details"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/students/${studentId}/fee-accounts"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/students/${studentId}/history${Object.keys(params).length ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/messages/${otherUserId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/marks"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/fees/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/class-performance"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/subject-performance"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${childId}/subject-selection"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${childId}/subject-selection"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/children/${childId}/enrollments"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/timetable/parent/child/${encodeURIComponent(studentId)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/student/recommendations${query ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/student/careers${query ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/student/messages/${otherUserId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/duty/compliance-report${date ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/duty/late-arrivals${date ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard${q ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/tables${q ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/tables/${encodeURIComponent(section)}${q ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/student/${studentId}?curriculum=${curriculum || ''}&period=${period || 'term'}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/class/${classId}${subject ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/analytics/compare/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/upload/template/${type}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/public/duty/today?schoolId=${schoolId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/public/duty/week?schoolId=${schoolId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/public/school/${schoolId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/alerts/${id}/read"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/help/articles?role=${role}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/help/search?q=${query}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tasks/${taskId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tasks/${taskId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tasks/${taskId}/complete"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/user/students/${studentId}/details"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/homework/submit/${assignmentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/calendar/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/timetable/teacher/${teacherId}?weekStart=${weekStart}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/timetable/class/${classId}?weekStart=${weekStart}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/timetable/${id}/publish"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/gamification/leaderboard/${classId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/gamification/badges/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tutor/progress/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tutor/session/${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tutor/sessions/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tutor/reports/parent/${parentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/tutor/reports/teacher/${classId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/search?q=${encodeURIComponent(q)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}/activate"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}/lock"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}/assign"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/student-accounts/${feeId}/adjust"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/methods${q ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/${encodeURIComponent(reference)}/status"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/reconcile/${encodeURIComponent(reference)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/records${q ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/finance"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/history${Object.keys(params).length ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/manual-payment"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/bursary"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/manual-queue/${paymentId}/approve"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/manual-queue/${paymentId}/reject"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/platform-manual-queue/${paymentId}/review"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/payments/stk/${checkoutRequestId}/status"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/birthdays/upcoming?days=${encodeURIComponent(days)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/birthdays/students/${studentId}/privacy"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history${Object.keys(params).length ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history/${id}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history/${id}/correct"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history/${id}/share"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/overview${q?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/alerts?limit=${encodeURIComponent(limit)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/invoices${q?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/analytics${q?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/audit-trail${q?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/expenses${q?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/expenses/${encodeURIComponent(id)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/expenses/${encodeURIComponent(id)}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/finance/report${q?"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/home-tasks/today?studentId=${studentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/home-tasks/${taskId}/complete"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/subscription/plans${ownerType ? "
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/subscription/child/${encodeURIComponent(studentId)}/status"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments/${departmentId}/group"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments/${departmentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments/${departmentId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/direct/${userId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/messages/${messageId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/messages/${messageId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/student/direct/${userId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/messages"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/members"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/members"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/messages"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/threads/${threadId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/threads/${threadId}/replies"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}/award"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/messages/${messageId}/award"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/messages/${messageId}/react"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}/pin"
     },
     {
       "file": "frontend/js/api.js",
@@ -859,11 +64,47 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}/approve"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}/reject"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}/suspend"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}/reactivate"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/super-admin/schools"
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/super-admin/requests"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/requests/${requestId}/approve"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/requests/${requestId}/reject"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/bank-details/${schoolId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -880,6 +121,10 @@
     {
       "file": "frontend/js/api.js",
       "path": "/api/super-admin/requests/history"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}/stats"
     },
     {
       "file": "frontend/js/api.js",
@@ -915,6 +160,26 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/analytics/dashboard?_=${Date.now()}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}/detail"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/schools/${schoolId}/access-controls"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/payment-requests${Object.keys(params).length ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/super-admin/payment-requests/${requestId}/review"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/admin/teachers"
     },
     {
@@ -928,6 +193,30 @@
     {
       "file": "frontend/js/api.js",
       "path": "/api/admin/approvals/pending"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/teachers/${teacherId}/approve"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/teachers/${teacherId}/suspend"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/teachers/${teacherId}/reactivate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/teachers/${teacherId}/deactivate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/teachers/${teacherId}/activate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/teachers/${teacherId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -967,6 +256,34 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers${Object.keys(params).length?"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers/${id}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers/${id}/approve"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers/${id}/reject"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers/${id}/cancel"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers/${id}/rollback"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/students/${studentId}/enrollments"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/lifecycle/promotions"
     },
     {
@@ -975,11 +292,79 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/promotions/${id}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/promotions/${batchId}/decisions/${decisionId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/promotions/${id}/confirm"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/promotions/${id}/rollback"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/${classId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/${classId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/admin/available-teachers"
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/${classId}/assign-teacher"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/${classId}/remove-teacher"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/${classId}/students"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/${classId}/subjects"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/admin/classes/subject-assign"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/subject-assign/${assignmentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}/suspend"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}/reactivate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}/expel"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1015,11 +400,35 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/attendance/sessions/${classId}/${date}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/attendance/sessions/${sessionId}/corrections"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/attendance/sessions/${sessionId}/corrections"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/teachers/${teacherId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/admin/dashboard"
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/admin/classes/${classId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/admin/classes"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/dashboard?_=${Date.now()}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1059,11 +468,19 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/admin/curriculum/custom-subjects/${encodeURIComponent(id)}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/admin/assessment-settings"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/admin/assessment-settings"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/curriculum/classes/${classId}/subjects"
     },
     {
       "file": "frontend/js/api.js",
@@ -1079,11 +496,23 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}/subject-selection"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/students/${studentId}/subject-selection"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/admin/billing/payment-confirmation"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/admin/parent-conversations"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/admin/messages/${parentId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1099,6 +528,10 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/admin/finance-staff/${userId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/lifecycle/transfer-options"
     },
     {
@@ -1108,6 +541,18 @@
     {
       "file": "frontend/js/api.js",
       "path": "/api/lifecycle/transfer-requests"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers${Object.keys(params).length?"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/transfers/${id}/cancel"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/students/${studentId}/enrollments"
     },
     {
       "file": "frontend/js/api.js",
@@ -1124,6 +569,22 @@
     {
       "file": "frontend/js/api.js",
       "path": "/api/teacher/attendance"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/attendance/sessions/${classId}/${date}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/attendance/sessions/${sessionId}/draft"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/attendance/sessions/${sessionId}/lock"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/attendance/sessions/${sessionId}/release"
     },
     {
       "file": "frontend/js/api.js",
@@ -1151,11 +612,19 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/teacher/private-messages/${otherUserId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/teacher/group-message"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/teacher/private-message"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/teacher/messages/${parentId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1175,6 +644,26 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/teacher/messages/${otherUserId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/teacher/messages/read/${otherUserId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/teacher/messages/${messageId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/teacher/students/${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/teacher/classes/${classId}/students"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/teacher/my-class"
     },
     {
@@ -1191,6 +680,14 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/teacher/marks/${recordId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/dashboard?_=${Date.now()}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/teacher/gradebook"
     },
     {
@@ -1203,7 +700,15 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/teacher/students/${studentId}/report-card-preview"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/teacher/subject-selection-requests"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/teacher/subject-selection-requests/${selectionId}/review"
     },
     {
       "file": "frontend/js/api.js",
@@ -1212,6 +717,18 @@
     {
       "file": "frontend/js/api.js",
       "path": "/api/parent/children/link"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${studentId}/attendance/today"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${studentId}/summary"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${studentId}/report-card-details"
     },
     {
       "file": "frontend/js/api.js",
@@ -1231,6 +748,14 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/payments/parent/students/${studentId}/fee-accounts"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/parent/students/${studentId}/history${Object.keys(params).length ? "
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/parent/plans"
     },
     {
@@ -1243,7 +768,55 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/parent/message-targets?studentId=${encodeURIComponent(studentId || '')}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/parent/conversations"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/messages/${otherUserId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${studentId}/marks"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/fees/${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${studentId}/class-performance"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${studentId}/subject-performance"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/dashboard?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${childId}/subject-selection"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/parent/child/${childId}/subject-selection"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/children/${childId}/enrollments"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/timetable/parent/child/${encodeURIComponent(studentId)}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1252,6 +825,14 @@
     {
       "file": "frontend/js/api.js",
       "path": "/api/student/grades"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/student/recommendations${query ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/student/careers${query ? "
     },
     {
       "file": "frontend/js/api.js",
@@ -1283,6 +864,10 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/student/messages/${otherUserId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/student/group-messages"
     },
     {
@@ -1304,6 +889,10 @@
     {
       "file": "frontend/js/api.js",
       "path": "/api/student/gpa"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/dashboard?_=${Date.now()}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1351,6 +940,14 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/duty/compliance-report${date ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/duty/late-arrivals${date ? "
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/duty/check-in/verified"
     },
     {
@@ -1383,11 +980,51 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/analytics/dashboard${q ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/tables${q ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/tables/${encodeURIComponent(section)}${q ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/student/${studentId}?curriculum=${curriculum || ''}&period=${period || 'term'}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/analytics/class/${classId}${subject ? "
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/analytics/school"
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/analytics/compare/${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/upload/template/${type}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/upload/history"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/public/duty/today?schoolId=${schoolId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/public/duty/week?schoolId=${schoolId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/public/school/${schoolId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1423,6 +1060,10 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/alerts/${id}/read"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/alerts/read-all"
     },
     {
@@ -1455,11 +1096,35 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/help/articles?role=${role}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/help/search?q=${query}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/tasks"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/tasks"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/tasks/${taskId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/tasks/${taskId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/tasks/${taskId}/complete"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/user/students/${studentId}/details"
     },
     {
       "file": "frontend/js/api.js",
@@ -1475,15 +1140,43 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/homework/submit/${assignmentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/calendar"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/calendar"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/calendar/${id}"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/timetable/generate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/timetable/teacher/${teacherId}?weekStart=${weekStart}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/timetable/class/${classId}?weekStart=${weekStart}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/timetable/${id}/publish"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/gamification/leaderboard/${classId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/gamification/badges/${studentId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1503,11 +1196,23 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/tutor/progress/${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/tutor/session/${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/tutor/sessions"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/tutor/sessions"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/tutor/sessions/${id}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1515,15 +1220,55 @@
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures"
+      "path": "/api/tutor/reports/parent/${parentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/tutor/reports/teacher/${classId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/search?q=${encodeURIComponent(q)}"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/fee-structures"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures/${id}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures/${id}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures/${id}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures/${id}/activate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures/${id}/lock"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures/${id}/assign"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/fee-structures/student-accounts"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/fee-structures/student-accounts/${feeId}/adjust"
     },
     {
       "file": "frontend/js/api.js",
@@ -1547,15 +1292,43 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/providers/${encodeURIComponent(provider)}/setup-notifications"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/payments/superadmin/providers"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/payments/superadmin/providers"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/superadmin/providers/${encodeURIComponent(provider)}/setup-notifications"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/providers/available${q ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/parent/methods${q ? "
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/payments/initiate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/parent/initiate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/${encodeURIComponent(reference)}/status"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/reconcile/${encodeURIComponent(reference)}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1587,11 +1360,39 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/records${q ? "
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/payments/admin/context"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/payments/admin/finance-summary"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/students/${studentId}/finance"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/students/${studentId}/history${Object.keys(params).length ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/students/${studentId}/manual-payment"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/students/${studentId}/bursary"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/manual-queue/${paymentId}/approve"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/payments/admin/manual-queue/${paymentId}/reject"
     },
     {
       "file": "frontend/js/api.js",
@@ -1611,6 +1412,10 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/payments/superadmin/platform-manual-queue/${paymentId}/review"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/payments/school/subscription/stk"
     },
     {
@@ -1623,11 +1428,23 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/payments/stk/${checkoutRequestId}/status"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/birthdays/upcoming?days=${encodeURIComponent(days)}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/lifecycle/birthdays/settings"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/lifecycle/birthdays/settings"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/lifecycle/birthdays/students/${studentId}/privacy"
     },
     {
       "file": "frontend/js/api.js",
@@ -1635,11 +1452,79 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/report-cards/history${Object.keys(params).length ? "
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/reports/comments"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/reports/comments"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/reports/comments/generate"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/reports/comments/headteacher"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/report-cards/history/${id}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/report-cards/history/${id}/correct"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/report-cards/history/${id}/share"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/finance/modules"
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/finance/overview${q?"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/alerts?limit=${encodeURIComponent(limit)}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/invoices${q?"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/analytics${q?"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/audit-trail${q?"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/expenses${q?"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/finance/expenses"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/expenses/${encodeURIComponent(id)}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/expenses/${encodeURIComponent(id)}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/finance/report${q?"
     },
     {
       "file": "frontend/js/api.js",
@@ -1659,6 +1544,18 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/home-tasks/today?studentId=${studentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/home-tasks/${taskId}/complete"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/subscription/plans${ownerType ? "
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/subscription/my-status"
     },
     {
@@ -1675,6 +1572,10 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/subscription/child/${encodeURIComponent(studentId)}/status"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/subscription/child/request"
     },
     {
@@ -1687,7 +1588,19 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/departments/${departmentId}/group"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/chat-v9/departments"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/departments/${departmentId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/departments/${departmentId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1707,7 +1620,23 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/teacher/direct/${userId}"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/chat-v9/teacher/direct"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/messages/${messageId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/messages/${messageId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/student/direct/${userId}"
     },
     {
       "file": "frontend/js/api.js",
@@ -1715,63 +1644,67 @@
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/teacher/groups/${groupId}/messages"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/teacher/groups/${groupId}/members"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/teacher/groups/${groupId}/members"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/chat-v9/teacher/available-members"
     },
     {
       "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/teacher/groups/${groupId}/messages"
+    },
+    {
+      "file": "frontend/js/api.js",
       "path": "/api/chat-v9/classroom/threads"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/chat-v9/classroom/threads"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/classroom/threads/${threadId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/classroom/threads/${threadId}/replies"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/classroom/replies/${replyId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/classroom/replies/${replyId}"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/classroom/replies/${replyId}/award"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/teacher/messages/${messageId}/award"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/teacher/messages/${messageId}/react"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "path": "/api/chat-v9/classroom/replies/${replyId}/pin"
     },
     {
       "file": "frontend/js/api.js",
       "path": "/api/chat-v9/achievements/me"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/teacher/upload/marks"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/upload/students"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/upload/students"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/upload/marks"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/upload/attendance"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/upload/validate"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/user/profile-picture"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/user/signature"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/homework/submission-attachments"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/attachments"
-    },
-    {
-      "file": "frontend/js/api.js",
-      "path": "/api/auth/refresh-token"
     },
     {
       "file": "frontend/js/approved-student-teacher-ui.js",
@@ -1780,10 +1713,6 @@
     {
       "file": "frontend/js/branding-manager.js",
       "path": "/api/owner/branding"
-    },
-    {
-      "file": "frontend/js/finance-fees.js",
-      "path": "/api/fee-structures/${id}"
     },
     {
       "file": "frontend/js/finance-fees.js",
@@ -1823,11 +1752,19 @@
     },
     {
       "file": "frontend/js/finance-fees.js",
+      "path": "/api/fee-structures/${id}"
+    },
+    {
+      "file": "frontend/js/finance-fees.js",
       "path": "/api/payments/admin/providers"
     },
     {
       "file": "frontend/js/finance-fees.js",
       "path": "/api/payments/admin/test-connection"
+    },
+    {
+      "file": "frontend/js/finance-fees.js",
+      "path": "/api/payments/admin/providers/${encodeURIComponent(provider)}/setup-notifications"
     },
     {
       "file": "frontend/js/helpers.js",
@@ -1838,16 +1775,8 @@
       "path": "/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}"
     },
     {
-      "file": "frontend/js/helpers.js",
-      "path": "/api/report-cards/history/${reportId}/pdf"
-    },
-    {
       "file": "frontend/js/locked-features-ui.js",
       "path": "/api/subscription/child/${child.id}/status"
-    },
-    {
-      "file": "frontend/js/locked-features-ui.js",
-      "path": "/api/report-cards/history/${reportId}/pdf"
     },
     {
       "file": "frontend/js/notifications.js",
@@ -1863,19 +1792,19 @@
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/home-tasks/today?studentId=${childId}"
-    },
-    {
-      "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/home-tasks/${taskId}/complete"
-    },
-    {
-      "file": "frontend/js/parent-dashboard.js",
       "path": "/api/payments/parent/methods"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
       "path": "/api/payments/initiate"
+    },
+    {
+      "file": "frontend/js/parent-dashboard.js",
+      "path": "/api/home-tasks/today?studentId=${childId}"
+    },
+    {
+      "file": "frontend/js/parent-dashboard.js",
+      "path": "/api/home-tasks/${taskId}/complete"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
@@ -1903,7 +1832,15 @@
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
+      "path": "/api/student/grades"
+    },
+    {
+      "file": "frontend/js/student-dashboard-extended.js",
       "path": "/api/student/recommendations?${new URLSearchParams(params).toString()}"
+    },
+    {
+      "file": "frontend/js/student-dashboard-extended.js",
+      "path": "/api/student/dashboard"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
@@ -1912,18 +1849,6 @@
     {
       "file": "frontend/js/student-dashboard-extended.js",
       "path": "/api/gamification/badges/${studentId}"
-    },
-    {
-      "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/homework/submit/${assignmentId}"
-    },
-    {
-      "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/student/grades"
-    },
-    {
-      "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/student/dashboard"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
@@ -1938,8 +1863,8 @@
       "path": "/api/homework/submission-attachments"
     },
     {
-      "file": "frontend/js/student-lifecycle-ui.js",
-      "path": "/api/lifecycle/promotions/${id}/export/${format}"
+      "file": "frontend/js/student-dashboard-extended.js",
+      "path": "/api/homework/submit/${assignmentId}"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
@@ -1966,36 +1891,12 @@
       "path": "/api/payments/superadmin/test-connection"
     },
     {
+      "file": "frontend/js/superadmin-dashboard.js",
+      "path": "/api/payments/superadmin/providers/${encodeURIComponent(provider)}/setup-notifications"
+    },
+    {
       "file": "frontend/js/tasks.js",
       "path": "/api/tasks"
-    },
-    {
-      "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/teacher/class-students?${new URLSearchParams({ classId, subject: effectiveSubject }).toString()}"
-    },
-    {
-      "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/teacher/class-students?${new URLSearchParams({ classId: currentMarksClassId, subject }).toString()}"
-    },
-    {
-      "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/timetable/teacher/${teacherId}?weekStart=${weekStart}"
-    },
-    {
-      "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/${Number(taskId)}"
-    },
-    {
-      "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/submissions/${Number(assignmentId)}/review"
-    },
-    {
-      "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/${Number(taskId)}"
-    },
-    {
-      "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/${Number(taskId)}/discussion"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
@@ -2015,7 +1916,19 @@
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
+      "path": "/api/teacher/class-students?${new URLSearchParams({ classId, subject: effectiveSubject }).toString()}"
+    },
+    {
+      "file": "frontend/js/teacher-dashboard.js",
+      "path": "/api/teacher/class-students?${new URLSearchParams({ classId: currentMarksClassId, subject }).toString()}"
+    },
+    {
+      "file": "frontend/js/teacher-dashboard.js",
       "path": "/api/teacher/my-assignments"
+    },
+    {
+      "file": "frontend/js/teacher-dashboard.js",
+      "path": "/api/timetable/teacher/${teacherId}?weekStart=${weekStart}"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
@@ -2031,11 +1944,23 @@
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/teacher/subject-requests"
+      "path": "/api/homework/teacher/${Number(taskId)}"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/user/profile-picture"
+      "path": "/api/homework/teacher/submissions/${Number(assignmentId)}/review"
+    },
+    {
+      "file": "frontend/js/teacher-dashboard.js",
+      "path": "/api/homework/teacher/${Number(taskId)}"
+    },
+    {
+      "file": "frontend/js/teacher-dashboard.js",
+      "path": "/api/homework/teacher/${Number(taskId)}/discussion"
+    },
+    {
+      "file": "frontend/js/teacher-dashboard.js",
+      "path": "/api/teacher/subject-requests"
     },
     {
       "file": "frontend/js/ui-helpers.js",
@@ -2052,9 +1977,62 @@
     {
       "file": "frontend/js/runtime-integrity-guards.js",
       "path": "/api/duty/teacher-workload"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/calendar"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/calendar"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/calendar/${id}"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/timetable?weekStartDate=${weekStart}"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/timetable/generate"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/timetable/${currentTimetableId}/publish"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/alerts/suggest-announcement"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/admin/teachers"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/admin/students"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/alerts"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/calendar"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/owner/branding"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/owner/branding"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "path": "/api/admin/students/${encodeURIComponent(studentId)}/subject-selection/verify"
     }
-  ],
-  "staticMatched": 513,
-  "staticUnmatched": 0,
-  "unmatchedPreview": []
+  ]
 }

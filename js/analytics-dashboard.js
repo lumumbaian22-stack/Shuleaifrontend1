@@ -79,7 +79,11 @@
     'Bursary / Credit Summary': { key:'list:bursarySummary', category:'finance' },
     'Reconciliation Status': { key:'list:reconciliation', category:'finance' },
     'Collection & Operational Notes': { key:'list:operational', category:'finance' },
-    'Student Risk / Arrears': { key:'list:riskStudents', category:'finance' }
+    'Student Risk / Arrears': { key:'list:riskStudents', category:'finance' },
+    'KEMIS Readiness': { key:'list:kemisReadiness', category:'compliance' },
+    'Enrollment by Gender': { key:'list:enrollmentByGender', category:'compliance' },
+    'Enrollment by Class': { key:'list:enrollmentByClass', category:'compliance' },
+    'Compliance Missing Data': { key:'list:complianceMissing', category:'compliance' }
   };
   const SECTION_CATEGORY = Object.fromEntries(Object.values(EXPORT_REGISTRY).map(x => [x.key, x.category]));
   const SECTION_LABEL = Object.fromEntries(Object.entries(EXPORT_REGISTRY).map(([label,x]) => [x.key, label]));
@@ -225,7 +229,7 @@
       ${r==='parent'?`<label>Child<select data-v152-filter="childId">${(data.options?.children||[]).map(c=>`<option value="${esc(c.id)}" ${Number(c.id)===Number(data.student?.id)?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>`:''}
       ${['admin','finance_officer','teacher'].includes(r)?`<label>Analytics Scope<select data-v152-filter="scopeType" data-v152-scope-type>${types.map(([id,name])=>`<option value="${id}" ${selectedType===id?'selected':''}>${esc(name)}</option>`).join('')}</select></label>`:''}
       ${['admin','finance_officer','teacher'].includes(r)&&selectedType!=='school'&&selectedType!=='platform'?`<label>Choose ${esc(selectedType)}<select data-v152-filter="scopeId" data-v152-scope-target>${scopeTargetOptions(data,selectedType,scope.id||f.scopeId)}</select></label>`:''}
-      <label>Analytics Type<select data-v152-filter="analyticsType"><option value="overview" ${(f.analyticsType||state.analyticsType)==='overview'?'selected':''}>Overview</option><option value="academic" ${(f.analyticsType||state.analyticsType)==='academic'?'selected':''}>Academic</option><option value="attendance" ${(f.analyticsType||state.analyticsType)==='attendance'?'selected':''}>Attendance</option><option value="finance" ${(f.analyticsType||state.analyticsType)==='finance'?'selected':''}>Finance</option><option value="teachers" ${(f.analyticsType||state.analyticsType)==='teachers'?'selected':''}>Teachers</option><option value="reports" ${(f.analyticsType||state.analyticsType)==='reports'?'selected':''}>Reports</option></select></label>
+      <label>Analytics Type<select data-v152-filter="analyticsType"><option value="overview" ${(f.analyticsType||state.analyticsType)==='overview'?'selected':''}>Overview</option><option value="academic" ${(f.analyticsType||state.analyticsType)==='academic'?'selected':''}>Academic</option><option value="attendance" ${(f.analyticsType||state.analyticsType)==='attendance'?'selected':''}>Attendance</option><option value="finance" ${(f.analyticsType||state.analyticsType)==='finance'?'selected':''}>Finance</option><option value="teachers" ${(f.analyticsType||state.analyticsType)==='teachers'?'selected':''}>Teachers</option><option value="reports" ${(f.analyticsType||state.analyticsType)==='reports'?'selected':''}>Reports</option>${['admin','superadmin'].includes(r)?`<option value="compliance" ${(f.analyticsType||state.analyticsType)==='compliance'?'selected':''}>KEMIS / Compliance</option>`:''}</select></label>
       <div class="v152-export-actions" role="group" aria-label="Export current analytics view">
         <button type="button" class="v152-export-btn" title="Export current view to PDF" onclick="window.v152GenerateExport('pdf')"><i data-lucide="file-text"></i><span>PDF</span></button>
         <button type="button" class="v152-export-btn" title="Export current view to Excel" onclick="window.v152GenerateExport('xlsx')"><i data-lucide="sheet"></i><span>Excel</span></button>
@@ -236,6 +240,7 @@
   }
 
   function intelligencePanel(data){
+    if (data.showIntelligencePanel === false || !['platform','school'].includes(String(data.variant||'').toLowerCase())) return '';
     const intel=data.intelligence||{};
     const warnings=data.lists?.dataQualityWarnings||[];
     const actions=data.lists?.recommendedActions||[];
@@ -247,7 +252,7 @@
 
   function header(role,data){ return `<header class="v152-head"><div class="v152-heading"><span><i data-lucide="trending-up"></i></span><div><h2>${esc(data.title||'Analytics')}</h2><p>${esc(data.subtitle||'Live analytics')}</p></div></div>${filterBar(role,data)}</header>`; }
   function kpis(data){ return `<div class="v152-kpis">${(data.kpis||[]).map(k=>`<article class="v152-kpi tone-${esc(k.tone||'teal')}"><span><i data-lucide="${esc(k.icon||'activity')}"></i></span><div><small>${esc(k.label)}</small><strong>${fmt(k.value)}</strong>${k.hint?`<em>${esc(k.hint)}</em>`:''}</div></article>`).join('')}</div>`; }
-  function categoryForTitle(title){ const info=exportInfoForTitle(title); if(info?.category) return info.category; const t=String(title||'').toLowerCase();if(/attendance|present|absent/.test(t))return'attendance';if(/fee|finance|collection|payment|defaulter|expense|bursary|credit|reconciliation|arrears|revenue/.test(t))return'finance';if(/teacher|staff/.test(t))return'teachers';if(/report|marks|publication|readiness/.test(t))return'reports';if(/class|subject|student|assessment|performance|mastery|leaderboard|learning|homework|task|badge|achievement|strength|support/.test(t))return'academic';return'overview';}
+  function categoryForTitle(title){ const info=exportInfoForTitle(title); if(info?.category) return info.category; const t=String(title||'').toLowerCase();if(/attendance|present|absent/.test(t))return'attendance';if(/kemis|nemis|upi|capitation|enrollment|sne|compliance/.test(t))return'compliance';if(/fee|finance|collection|payment|defaulter|expense|bursary|credit|reconciliation|arrears|revenue/.test(t))return'finance';if(/teacher|staff/.test(t))return'teachers';if(/report|marks|publication|readiness/.test(t))return'reports';if(/class|subject|student|assessment|performance|mastery|leaderboard|learning|homework|task|badge|achievement|strength|support/.test(t))return'academic';return'overview';}
   function isEmptyBlock(body){ return /^<div class="v152-empty/.test(String(body||'').trim()); }
   function emptyDiagnostic(title){
     const info=exportInfoForTitle(title);
@@ -290,6 +295,9 @@
       ${card('Subject Mastery Breakdown',progress(data.lists?.topSubjects||[],'average','name'),'span-4')}
       ${card('Student Risk Alerts',table(data.lists?.riskStudents||[],[{label:'Student',render:r=>esc(r.student||r.name)},{label:'Average',render:r=>`${fmt(r.average)}%`},{label:'Attendance',render:r=>r.attendance!==undefined?`${fmt(r.attendance)}%`:'—'}]),'span-4')}
       ${card('Report Publication Status',doughnut('v152-reports'),'span-4')}
+      ${card('KEMIS Readiness',table(data.lists?.kemisReadiness||[],[{label:'Metric',key:'name'},{label:'Value',key:'value'},{label:'Status',key:'status'}]),'span-4')}
+      ${card('Enrollment by Gender',table(data.lists?.enrollmentByGender||[],[{label:'Gender',key:'name'},{label:'Learners',key:'value'}]),'span-4')}
+      ${card('Compliance Missing Data',insights(data.lists?.complianceMissing||[]),'span-4')}
       ${card('Recent Alerts & Insights',insights(data.lists?.alerts||[]),'span-12')}
     </div>`;
   }

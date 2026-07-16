@@ -579,7 +579,19 @@ async function renderParentPayments() {
         const credit = Number(activeFee?.creditAmount || 0);
         const totalBalance = children.reduce((sum, c) => sum + Number(c.outstandingBalance || c.balance || (String(c.id)===String(selectedChildId) ? balance : 0) || 0), 0) || Number(finance?.totals?.balance || balance || 0);
         const elimuId = selectedChild?.elimuid || selectedChild?.elimuId || selectedChild?.admissionNumber || finance.student?.elimuid || '—';
-        const invoiceRows = fees.length ? fees.slice(0,4).map((f,idx)=>`<tr><td>INV-${String(f.id || idx+1).padStart(4,'0')}</td><td>${escapeHtml(f.term || 'School Fees')} ${escapeHtml(String(f.year || ''))}</td><td>KES ${Number(f.totalAmount || f.amount || 0).toLocaleString()}</td><td>${escapeHtml(f.dueDate ? String(f.dueDate).slice(0,10) : '—')}</td><td><span class="parent-pay-unpaid">${Number(f.balance||0)>0?'Unpaid':'Paid'}</span></td></tr>`).join('') : '<tr><td colspan="5">No active invoices found for this child.</td></tr>';
+        const feeBalance = f => Number(f?.balance ?? Math.max(0, Number(f?.totalAmount || f?.amount || 0) - Number((f?.parentPaidAmount ?? f?.paidAmount) || 0) - Number(f?.creditAmount || 0))) || 0;
+        const invoiceRows = fees.length ? fees.slice(0,8).map((f,idx)=>{
+          const rowBalance = feeBalance(f);
+          return `<tr><td>INV-${String(f.id || idx+1).padStart(4,'0')}</td><td>${escapeHtml(f.term || 'School Fees')} ${escapeHtml(String(f.year || ''))}</td><td>KES ${Number(f.totalAmount || f.amount || 0).toLocaleString()}</td><td>KES ${rowBalance.toLocaleString()}</td><td>${escapeHtml(f.dueDate ? String(f.dueDate).slice(0,10) : '—')}</td><td><span class="parent-pay-unpaid">${rowBalance>0?'Unpaid':'Paid'}</span></td><td>${rowBalance>0?`<button type="button" onclick="document.getElementById('payment-fee').value='${String(f.id)}'; updateParentFeeSummaryFromSelect(); setParentFeeAmount(${rowBalance});">Pay this</button>`:'—'}</td></tr>`;
+        }).join('') : '<tr><td colspan="7">No active invoices found for this child.</td></tr>';
+        const feeOptions = fees.length ? fees.map((f,idx)=>{
+          const rowBalance = feeBalance(f);
+          const total = Number(f.totalAmount || f.amount || 0);
+          const paid = Number((f.parentPaidAmount ?? f.paidAmount) || 0);
+          const creditValue = Number(f.creditAmount || 0);
+          const label = `INV-${String(f.id || idx+1).padStart(4,'0')} • ${f.term || 'School Fees'} ${f.year || ''} • Balance KES ${rowBalance.toLocaleString()}`;
+          return `<option value="${escapeHtml(f.id || '')}" data-total="${total}" data-paid="${paid}" data-credit="${creditValue}" data-balance="${rowBalance}" data-currency="${escapeHtml(f.currency || 'KES')}" ${activeFee && String(activeFee.id)===String(f.id)?'selected':''}>${escapeHtml(label)}</option>`;
+        }).join('') : '<option value="" data-balance="0">No active fee account</option>';
         const childRows = children.length ? children.map(child => {
           const isActive = String(child.id) === String(selectedChildId);
           const childBalance = isActive ? balance : Number(child.outstandingBalance || child.balance || 0);
@@ -588,9 +600,7 @@ async function renderParentPayments() {
         const historyRows = payments.length ? payments.slice(0,8).map(payment => `<div class="parent-history-row"><span><strong>${escapeHtml(payment.transactionTypeLabel || payment.transactionType || 'Payment')}</strong><small>${formatDate(payment.createdAt)} • ${escapeHtml(payment.reference || '')}</small></span><em>KES ${Number(payment.amount || 0).toLocaleString()}<small>${escapeHtml(payment.statusLabel || payment.status || '')}</small></em></div>`).join('') : '<div class="payment-lock-alert">No payment history for this child yet.</div>';
 
         return `<div class="parent-payment-ui animate-fade-in" id="parent-payments-root" data-student-id="${escapeHtml(selectedChildId || '')}">
-          <input id="payment-amount" type="number" value="${Number(balance || 0)}" style="display:none">
           <select id="payment-child" style="display:none">${children.map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}></option>`).join('')}</select>
-          <input type="hidden" id="payment-fee" value="${activeFee?.id || ''}">
           <div class="parent-payment-card">
             <div class="parent-payment-top"><div><p>Total Outstanding Balance</p><h2>KES ${Number(totalBalance || balance || 0).toLocaleString()}</h2><span>${children.length} Children &nbsp; | &nbsp; ${fees.filter(f=>Number(f.balance||0)>0).length || 0} Unpaid Invoices</span></div><button type="button" onclick="setParentPaymentHistoryFilter('all')">View Statement</button></div>
             <div class="parent-payment-layout">
@@ -598,14 +608,32 @@ async function renderParentPayments() {
                 <h3>Select Child</h3>
                 <div class="parent-child-list">${childRows}</div>
                 <h3>${escapeHtml(selectedChild?.User?.name || selectedChild?.name || 'Selected Child')} — Outstanding Invoices <button type="button" onclick="setParentPaymentHistoryFilter('all')">View All</button></h3>
-                <div class="parent-invoice-table"><table><thead><tr><th>Invoice No.</th><th>Description</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>${invoiceRows}</tbody><tfoot><tr><td colspan="4">Total Outstanding</td><td>KES ${balance.toLocaleString()}</td></tr></tfoot></table></div>
-                <div class="parent-payment-hidden-fields">
-                  <label>M-Pesa Phone for STK<input type="tel" id="payment-phone" placeholder="2547XXXXXXXX" value="${escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : ''))}"></label>
-                  <label>Reference for bank/cash/manual payment<input type="text" id="payment-mpesa-code" placeholder="Receipt / bank ref / M-Pesa code" class="uppercase"></label>
+                <div class="parent-invoice-table"><table><thead><tr><th>Invoice No.</th><th>Description</th><th>Amount</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead><tbody>${invoiceRows}</tbody><tfoot><tr><td colspan="6">Selected Outstanding</td><td>KES ${balance.toLocaleString()}</td></tr></tfoot></table></div>
+                <div class="parent-checkout-box">
+                  <h3>Pay School Fees <small>Choose amount before payment</small></h3>
+                  <label>Fee item / invoice
+                    <select id="payment-fee" onchange="updateParentFeeSummaryFromSelect()">${feeOptions}</select>
+                  </label>
+                  <div class="parent-amount-actions">
+                    <button type="button" onclick="setParentFeeAmountMode('full')">Pay Full Balance</button>
+                    <button type="button" onclick="setParentFeeAmountMode('half')">Pay Half</button>
+                    <button type="button" onclick="setParentFeeAmountMode('custom')">Custom Amount</button>
+                  </div>
+                  <label>Amount to pay (KES)
+                    <input id="payment-amount" type="number" min="1" max="${Number(balance || 0)}" value="${Number(balance || 0)}" placeholder="Enter amount to pay" oninput="updateParentPaymentSummaryDisplay()">
+                  </label>
+                  <div class="parent-payment-hidden-fields visible">
+                    <label>M-Pesa Phone for STK<input type="tel" id="payment-phone" placeholder="2547XXXXXXXX" value="${escapeHtml((typeof getCurrentUser === 'function' ? (getCurrentUser()?.phone || getCurrentUser()?.phoneNumber || '') : ''))}"></label>
+                    <label>Reference for bank/cash/manual payment<input type="text" id="payment-mpesa-code" placeholder="Receipt / bank ref / M-Pesa code" class="uppercase"></label>
+                  </div>
+                  <div class="parent-pay-summary-card">
+                    <span>Amount to Pay <strong id="parent-pay-amount-label">KES ${Number(balance || 0).toLocaleString()}</strong></span>
+                    <span>Remaining After Payment <strong id="parent-pay-remaining-label">KES 0</strong></span>
+                  </div>
                 </div>
                 ${renderParentProviderMethods(parentPaymentMethods)}
-                <div class="parent-total-row"><span>Total Amount to Pay</span><strong>KES ${balance.toLocaleString()}</strong></div>
-                <button type="button" class="parent-pay-main-btn" onclick="processSchoolFeeProviderPayment(null,'${normalizeParentPaymentMethods(parentPaymentMethods)[0]?.method || 'mobile_money'}')">Pay KES ${balance.toLocaleString()}</button>
+                <div class="parent-total-row"><span>Amount to Pay</span><strong id="parent-total-pay-label">KES ${balance.toLocaleString()}</strong></div>
+                <button type="button" class="parent-pay-main-btn" id="parent-pay-now-main" onclick="processSchoolFeeProviderPayment(null,'${normalizeParentPaymentMethods(parentPaymentMethods)[0]?.method || 'mobile_money'}')">Pay KES ${balance.toLocaleString()}</button>
                 <div class="parent-payment-info-strip"><span>🛡️ Secure Payments</span><span>🧾 Instant Receipts</span><span>🎧 24/7 Support</span></div>
               </section>
               <aside>
@@ -937,12 +965,13 @@ function renderParentProviderMethods(methodData = {}) {
         { method:'manual', label:'Manual M-Pesa', sub:'Reference', icon:'▧', cls:'purple', action:"submitManualSchoolFeePayment('manual')" }
     ];
     const cards = rows.map(row => {
-        const activeClass = enabled.size === 0 || enabled.has(row.method) || (row.method === 'manual' && enabled.has('mobile_money')) ? 'available' : 'available';
-        return `<button type="button" onclick="${row.action}" class="payment-method-card parent-method-card ${row.cls} ${activeClass}">
+        const isAvailable = enabled.has(row.method) || (row.method === 'manual' && (enabled.has('manual') || enabled.has('bank') || enabled.has('cash')));
+        if (!isAvailable) return '';
+        return `<button type="button" onclick="${row.action}" class="payment-method-card parent-method-card ${row.cls} available">
             <span class="payment-method-icon">${row.icon}</span>
             <span><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(row.sub)}</small></span>
         </button>`;
-    }).join('');
+    }).join('') || `<div class="payment-lock-alert">No online payment method is ready yet. Use manual verification or contact the school finance office.</div>`;
     return `<div class="payment-lock-parent-box parent-school-methods">
         <div class="payment-lock-mini-head"><div><h4>School Fee Payment Methods</h4><p>You only choose the method, not the provider. School fees use the school active provider.</p></div></div>
         <div class="payment-method-grid four">${cards}</div>
@@ -973,17 +1002,51 @@ function getSelectedFeePaymentPayload() {
     const feeSelect = document.getElementById('payment-fee');
     const amountInput = document.getElementById('payment-amount');
     const phoneInput = document.getElementById('payment-phone');
+    const selectedFee = feeSelect?.selectedOptions?.[0];
     const studentId = childSelect?.value || dashboardData?.selectedChildId;
-    const feeId = feeSelect?.value || null;
-    const amount = Number(amountInput?.value || 0);
+    const feeId = feeSelect?.value || selectedFee?.value || null;
+    const amount = Number(String(amountInput?.value || '0').replace(/,/g, ''));
     const phone = phoneInput?.value?.trim() || getParentPaymentPhone();
-    return { studentId, feeId, amount, phone };
+    const balance = Number(selectedFee?.dataset?.balance || amountInput?.max || 0);
+    const currency = selectedFee?.dataset?.currency || 'KES';
+    return { studentId, feeId, amount, phone, balance, currency };
 }
+
+function updateParentPaymentSummaryDisplay() {
+    const payload = getSelectedFeePaymentPayload();
+    const amount = Number(payload.amount || 0);
+    const balance = Number(payload.balance || 0);
+    const remaining = Math.max(0, balance - amount);
+    const amountLabel = document.getElementById('parent-pay-amount-label');
+    const remainingLabel = document.getElementById('parent-pay-remaining-label');
+    const mainBtn = document.getElementById('parent-pay-now-main');
+    const totalLabel = document.getElementById('parent-total-pay-label');
+    if (amountLabel) amountLabel.textContent = `${payload.currency || 'KES'} ${amount.toLocaleString()}`;
+    if (remainingLabel) remainingLabel.textContent = `${payload.currency || 'KES'} ${remaining.toLocaleString()}`;
+    if (totalLabel) totalLabel.textContent = `${payload.currency || 'KES'} ${amount.toLocaleString()}`;
+    if (mainBtn) mainBtn.textContent = amount > 0 ? `Pay ${payload.currency || 'KES'} ${amount.toLocaleString()}` : 'Enter amount to pay';
+}
+window.updateParentPaymentSummaryDisplay = updateParentPaymentSummaryDisplay;
 
 function setParentFeeAmount(amount) {
     const input = document.getElementById('payment-amount');
-    if (input && amount > 0) input.value = amount;
+    const clean = Number(amount || 0);
+    if (input && clean > 0) {
+        input.value = clean;
+        updateParentPaymentSummaryDisplay();
+        input.focus();
+    }
 }
+
+function setParentFeeAmountMode(mode) {
+    const select = document.getElementById('payment-fee');
+    const balance = Number(select?.selectedOptions?.[0]?.dataset?.balance || 0);
+    const input = document.getElementById('payment-amount');
+    if (mode === 'full') return setParentFeeAmount(balance);
+    if (mode === 'half') return setParentFeeAmount(Math.ceil(balance / 2));
+    if (input) { input.value = ''; input.focus(); updateParentPaymentSummaryDisplay(); }
+}
+window.setParentFeeAmountMode = setParentFeeAmountMode;
 
 async function processSchoolFeeProviderPayment(provider = null, paymentMethod = '') {
     const normalizedProvider = provider ? normalizeParentPaymentProvider(provider) : '';
@@ -994,11 +1057,12 @@ async function processSchoolFeeProviderPayment(provider = null, paymentMethod = 
     if (!payload.studentId) return showToast('Please select a child', 'error');
     if (!payload.feeId) return showToast('Select a fee account first', 'error');
     if (!payload.amount || payload.amount <= 0) return showToast('Enter the amount you want to pay', 'error');
+    if (payload.balance > 0 && payload.amount > payload.balance) return showToast(`Amount cannot exceed the selected balance of ${payload.currency || 'KES'} ${payload.balance.toLocaleString()}`, 'error');
     showLoading();
     try {
         const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : {};
         const requestPayload = { paymentType: 'school_fee', provider: normalizedProvider || undefined, paymentMethod: normalizedMethod || undefined, studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, email: currentUser?.email || '', name: currentUser?.name || '', purpose: 'school_fee' };
-        const response = await (api.payments?.initiate ? api.payments.initiate(requestPayload) : apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(requestPayload) }));
+        const response = await (api.payments?.initiateParentFee ? api.payments.initiateParentFee(requestPayload) : (api.payments?.initiate ? api.payments.initiate(requestPayload) : apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(requestPayload) })));
         const data = response?.data || {};
         if (data.checkoutUrl) {
             window.open(data.checkoutUrl, '_blank', 'noopener');
@@ -1021,10 +1085,11 @@ async function processSchoolFeeDarajaPayment() {
     const payload = getSelectedFeePaymentPayload();
     if (!payload.studentId) return showToast('Please select a child', 'error');
     if (!payload.amount || payload.amount <= 0) return showToast('Enter the amount you want to pay', 'error');
+    if (payload.balance > 0 && payload.amount > payload.balance) return showToast(`Amount cannot exceed the selected balance of ${payload.currency || 'KES'} ${payload.balance.toLocaleString()}`, 'error');
     if (!payload.phone) return showToast('Enter the M-Pesa phone number', 'error');
     showLoading();
     try {
-        const response = await (api.payments?.initiate ? api.payments.initiate({
+        const response = await (api.payments?.initiateParentFee ? api.payments.initiateParentFee({
             paymentType: 'school_fee',
             paymentMethod: 'mobile_money',
             studentId: parseInt(payload.studentId),
@@ -1032,7 +1097,7 @@ async function processSchoolFeeDarajaPayment() {
             amount: payload.amount,
             phone: payload.phone,
             purpose: 'school_fee'
-        }) : api.payments.parentFeeSTK({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone }));
+        }) : (api.payments?.initiate ? api.payments.initiate({ paymentType: 'school_fee', paymentMethod: 'mobile_money', studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, purpose: 'school_fee' }) : api.payments.parentFeeSTK({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone })));
         const data = response?.data || {};
         if (data.checkoutUrl) window.open(data.checkoutUrl, '_blank', 'noopener');
         showToast(response.message || (data.checkoutUrl ? 'Backend opened checkout. Complete payment there.' : 'Backend sent the payment prompt. It is not marked paid until provider confirmation.'), 'success');
@@ -1050,6 +1115,7 @@ async function submitManualSchoolFeePayment(method = 'manual_mpesa') {
     const paymentReference = document.getElementById('payment-mpesa-code')?.value?.trim()?.toUpperCase();
     if (!payload.studentId) return showToast('Please select a child', 'error');
     if (!payload.amount || payload.amount <= 0) return showToast('Enter the amount paid', 'error');
+    if (payload.balance > 0 && payload.amount > payload.balance) return showToast(`Amount cannot exceed the selected balance of ${payload.currency || 'KES'} ${payload.balance.toLocaleString()}`, 'error');
     if (!paymentReference) return showToast('Enter the payment reference/code after paying', 'error');
     showLoading();
     try {
@@ -1228,7 +1294,7 @@ window.completeTask = async function(taskId, difficulty) {
 };
 
 
-const parentChatState = window.__parentChatState || { conversationKey:null, messages:[], target:'teacher', childId:null };
+const parentChatState = window.__parentChatState || { conversationKey:null, messages:[], target:'teacher', childId:null, targets:null };
 window.__parentChatState = parentChatState;
 
 function parentChatMessageId(message){ return String(message?.id || message?.messageId || message?.clientMessageId || message?.metadata?.clientMessageId || ''); }
@@ -1243,6 +1309,22 @@ function parentChatUpsert(raw){
     else parentChatState.messages.push(message);
     parentChatState.messages.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
 }
+async function loadParentMessageTargets(childId){
+    try{
+        const res = await api.parent.getMessageTargets(childId);
+        parentChatState.targets = res.data || null;
+        const select = document.getElementById('parent-recipient-type');
+        if (select && parentChatState.targets) {
+            const ct = parentChatState.targets.classTeacher || {};
+            const admin = parentChatState.targets.admin || {};
+            select.innerHTML = `${ct.available ? `<option value="teacher">📚 Class Teacher (${escapeHtml(ct.name || 'Class Teacher')})</option>` : `<option value="teacher" disabled>📚 Class Teacher not assigned</option>`}${admin.available ? `<option value="admin">🏫 ${escapeHtml(admin.name || 'School Administrator')}</option>` : ''}`;
+            if (!ct.available && admin.available) select.value = 'admin';
+            if (ct.available && parentChatState.target === 'teacher') select.value = 'teacher';
+        }
+        return parentChatState.targets;
+    }catch(error){ console.warn('Parent message targets failed', error.message); parentChatState.targets = null; return null; }
+}
+
 function parentChatRender({forceBottom=false}={}){
     const container=document.getElementById('parent-chat-messages'); if(!container)return;
     const me=typeof getCurrentUser==='function'?(getCurrentUser()||{}):JSON.parse(localStorage.getItem('user')||'{}');
@@ -1255,8 +1337,9 @@ function parentChatRender({forceBottom=false}={}){
 
 window.loadParentRecipientConversation = async function() {
     const container=document.getElementById('parent-chat-messages'); if(!container)return;
-    parentChatState.target=document.getElementById('parent-recipient-type')?.value||'teacher';
     parentChatState.childId=String(dashboardData?.selectedChildId||'');
+    await loadParentMessageTargets(parentChatState.childId);
+    parentChatState.target=document.getElementById('parent-recipient-type')?.value||'teacher';
     parentChatState.messages=[]; parentChatState.conversationKey=null;
     container.innerHTML='<div class="py-8 text-center text-muted-foreground">Loading conversation…</div>';
     try{
@@ -1276,6 +1359,10 @@ async function sendParentMessage() {
     const message=input?.value?.trim();
     if(!childId)return showToast('Please select a child first','error');
     if(!message)return showToast('Please enter a message','error');
+    if(!parentChatState.targets || String(parentChatState.targets.studentId||'')!==String(childId)) await loadParentMessageTargets(childId);
+    if(parentChatState.target==='teacher' && parentChatState.targets?.classTeacher?.available===false){
+        return showToast(parentChatState.targets.classTeacher.reason || 'Class teacher is not assigned for this child yet. Please message the school admin.', 'warning');
+    }
     const clientMessageId=(crypto.randomUUID?.()||`parent-${Date.now()}-${Math.random().toString(16).slice(2)}`);
     const me=typeof getCurrentUser==='function'?(getCurrentUser()||{}):JSON.parse(localStorage.getItem('user')||'{}');
     parentChatUpsert({clientMessageId,senderId:me.id,senderName:'You',content:message,createdAt:new Date().toISOString(),status:'sending',conversationKey:parentChatState.conversationKey});
@@ -1472,6 +1559,7 @@ function updateParentFeeSummaryFromSelect() {
     const total = Number(option?.dataset?.total || 0);
     const paid = Number(option?.dataset?.paid || 0);
     const balance = Number(option?.dataset?.balance || Math.max(0, total - paid));
+    const credit = Number(option?.dataset?.credit || 0);
     const totalEl = document.getElementById('parent-fee-total');
     const paidEl = document.getElementById('parent-fee-paid');
     const creditEl = document.getElementById('parent-fee-credit');
@@ -1481,7 +1569,11 @@ function updateParentFeeSummaryFromSelect() {
     if (paidEl) paidEl.textContent = `KES ${paid.toLocaleString()}`;
     if (creditEl) creditEl.textContent = `KES ${credit.toLocaleString()}`;
     if (balanceEl) balanceEl.textContent = `KES ${balance.toLocaleString()}`;
-    if (amountEl) amountEl.max = balance || '';
+    if (amountEl) {
+        amountEl.max = balance || '';
+        if (!Number(amountEl.value || 0) || Number(amountEl.value || 0) > balance) amountEl.value = balance > 0 ? balance : '';
+    }
+    if (typeof updateParentPaymentSummaryDisplay === 'function') updateParentPaymentSummaryDisplay();
 }
 window.updateParentFeeSummaryFromSelect = updateParentFeeSummaryFromSelect;
 

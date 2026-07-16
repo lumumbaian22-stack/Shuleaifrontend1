@@ -47,6 +47,28 @@
     const logos={mpesa:'m-pesa',stripe:'S',paystack:'▰',flutterwave:'✦',pesapal:'P',manual:'✓',bank:'🏦',cash:'KES',card:'▤'};
     return logos[provider] || provider;
   }
+
+  function providerStatus(provider){
+    const cfg = paymentAgentConfig(provider) || {};
+    const statuses = state.providerSettings?.providerStatuses || [];
+    const fromList = statuses.find(x => String(x.provider) === String(provider)) || {};
+    const status = cfg.readiness || cfg.status || fromList.status || (cfg.enabled ? 'needs_credentials' : 'disabled');
+    const message = cfg.statusMessage || cfg.lastError || fromList.message || (status === 'ready' ? 'Ready' : 'Setup required');
+    const notificationUrl = cfg.notificationUrl || cfg.webhookUrl || cfg.callbackUrl || defaultProviderNotificationUrl(provider);
+    return { status, message, notificationUrl, lastVerifiedAt: cfg.lastVerifiedAt || cfg.webhookVerifiedAt || '' };
+  }
+  function defaultProviderNotificationUrl(provider){
+    const base = (window.API_BASE_URL || localStorage.getItem('shule_api_base') || 'https://api.shuleai.live').replace(/\/$/, '');
+    if(provider === 'mpesa') return base + '/api/payments/mpesa/callback';
+    return base + '/api/payments/webhook/' + provider;
+  }
+  function statusClass(status){
+    status = String(status||'').toLowerCase();
+    if(status === 'ready' || status === 'verified' || status === 'registered_automatically') return 'ready';
+    if(status.includes('error')) return 'error';
+    if(status.includes('dashboard') || status.includes('credential') || status.includes('setup')) return 'warning';
+    return 'neutral';
+  }
   function paymentLinkingCard(ref){
     const opts=[['elimuid','ELIMU ID','Recommended'],['admission_number','Admission Number',''],['assessment_number','Assessment Number',''],['student_name','Student Name',''],['parent_phone','Parent Phone Number','']];
     return `<div class="payment-lock-side-card"><h3>4. Link Payments to Student Using</h3><p>Choose how payments will be matched to students.</p><select id="finance-reference" class="finance-v31-select payment-lock-hidden-select">${opts.map(([v,l])=>`<option value="${v}" ${ref===v?'selected':''}>${l}</option>`).join('')}</select><div class="payment-lock-radio-list">${opts.map(([v,l,b])=>`<label onclick="document.getElementById('finance-reference').value='${v}'"><input type="radio" name="finance-reference-radio" ${ref===v?'checked':''}> <span>${l}</span>${b?`<em>${b}</em>`:''}</label>`).join('')}</div><div class="payment-lock-info">Payments are linked using this rule. This helps prevent duplicates and wrong child matching.</div></div>`;
@@ -76,19 +98,18 @@
     const providerRow = (agent) => {
       const selected = activeProvider === agent.provider;
       const saved = savedProvider === agent.provider;
+      const ps = providerStatus(agent.provider);
       return `<button type="button" class="payment-lock-provider-line ${selected ? 'selected' : ''} ${saved ? 'active' : ''}" onclick="financeV31SelectProvider('${agent.provider}')">
         <span class="payment-lock-radio">${selected ? '●' : '○'}</span>
         <span class="payment-provider-logo ${agent.provider}">${esc(providerLogo(agent.provider))}</span>
-        <span class="provider-name"><strong>${esc(agent.label)}</strong><small>${selected ? 'Selected for editing' : 'Click to configure'}</small></span>
+        <span class="provider-name"><strong>${esc(agent.label)}</strong><small>${selected ? 'Selected for editing' : 'Click to configure'} • ${esc(ps.status)}</small></span>
         <em>${saved ? 'Active' : 'Inactive'}</em>
         ${saved ? '' : '<b>Set Up</b>'}
       </button>`;
     };
     const queue = (state.manualQueue || []).slice(0,3);
-    const queueRows = queue.length ? queue.map(p => `<tr><td>${esc(p.Student?.User?.name || p.studentName || p.studentId || 'Student')}</td><td>${esc(p.invoiceNumber || p.metadata?.invoiceNumber || p.reference || 'INV-2024')}</td><td>${money(p.amount)}</td><td>${esc(p.mpesaCode || p.reference || p.transactionCode || '—')}</td><td>${esc(p.Parent?.User?.phone || p.parentPhone || '—')}</td><td><span class="pay-status pending">${esc(p.status || 'Pending')}</span></td><td><button onclick="financeV31ApproveManual(${jsArg(p.id)})">Approve</button><button class="reject" onclick="financeV31RejectManual(${jsArg(p.id)})">Reject</button></td></tr>`).join('') :
-      `<tr><td>John Wanjiku</td><td>INV-2024-00123</td><td>KES 8,450.00</td><td>JK8X2T1B9</td><td>0712 345 678</td><td><span class="pay-status pending">Pending</span></td><td><button>Approve</button><button class="reject">Reject</button></td></tr>
-       <tr><td>Mary Wanjiku</td><td>INV-2024-00122</td><td>KES 4,000.00</td><td>7L3P9QW2N</td><td>0721 987 654</td><td><span class="pay-status pending">Pending</span></td><td><button>Approve</button><button class="reject">Reject</button></td></tr>
-       <tr><td>John Wanjiku</td><td>INV-2024-00120</td><td>KES 3,250.00</td><td>3Y7R5K2M1</td><td>0712 345 678</td><td><span class="pay-status pending">Pending</span></td><td><button>Approve</button><button class="reject">Reject</button></td></tr>`;
+    const queueRows = queue.length ? queue.map(p => `<tr><td>${esc(p.Student?.User?.name || p.studentName || p.studentId || 'Student')}</td><td>${esc(p.invoiceNumber || p.metadata?.invoiceNumber || p.reference || 'Invoice')}</td><td>${money(p.amount)}</td><td>${esc(p.mpesaCode || p.reference || p.transactionCode || '—')}</td><td>${esc(p.Parent?.User?.phone || p.parentPhone || '—')}</td><td><span class="pay-status pending">${esc(p.status || 'Pending')}</span></td><td><button onclick="financeV31ApproveManual(${jsArg(p.id)})">Approve</button><button class="reject" onclick="financeV31RejectManual(${jsArg(p.id)})">Reject</button></td></tr>`).join('') :
+      `<tr><td colspan="7" class="text-center muted">No manual payment confirmations are waiting for approval.</td></tr>`;
     const methodChecks = (provider) => `
       <div class="payment-lock-method-list exact-method-list">
         <label><span>▣ Mobile Money (STK Push)</span><input type="checkbox" data-provider-method="mobile_money" ${methodChecked(provider,'mobile_money')?'checked':''}></label>
@@ -128,7 +149,8 @@
           <input type="checkbox" data-provider-enabled checked style="display:none">
           <h3>3. Provider Credentials (${esc(activeAgent.label)})</h3>
           <div class="payment-lock-fields">${renderPaymentAgentFields(activeAgent.provider, activeAgent.fields)}</div>
-          <div class="payment-lock-actions"><button type="button" class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Connection</button><span class="connected-dot">Connected ✓</span></div>
+          ${(()=>{ const ps = providerStatus(activeAgent.provider); return `<div class="payment-lock-info provider-status-${statusClass(ps.status)}"><strong>Status:</strong> ${esc(ps.status)}<br><small>${esc(ps.message)}</small><div style="margin-top:6px"><strong>Notification URL:</strong> <code>${esc(ps.notificationUrl)}</code></div>${ps.lastVerifiedAt ? `<div><small>Last verified: ${esc(new Date(ps.lastVerifiedAt).toLocaleString())}</small></div>` : ''}</div>`; })()}
+          <div class="payment-lock-actions"><button type="button" class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Connection</button><button type="button" class="finance-v31-btn" onclick="financeV31SetupProviderNotifications('${activeAgent.provider}')">Setup / Verify Notification URL</button><button type="button" class="finance-v31-btn" onclick="financeV31CopyProviderUrl('${activeAgent.provider}')">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
         </section>
         <section class="payment-lock-side-card methods-card"><h3>5. Enabled Payment Methods for Parents</h3>${methodChecks(activeAgent.provider)}</section>
         ${paymentRulesCard()}
@@ -505,7 +527,7 @@
       const value = input.value?.trim() || '';
       if(value) config[key] = value;
     });
-    const methods = [...card.querySelectorAll('[data-provider-method]:checked')].map(input => input.getAttribute('data-provider-method')).filter(Boolean);
+    const methods = [...document.querySelectorAll('[data-provider-method]:checked')].map(input => input.getAttribute('data-provider-method')).filter(Boolean);
     const makeActive = !!card.querySelector('[data-provider-enabled]')?.checked;
     const payload = { provider, enabled: makeActive, isDefault: makeActive, active: makeActive, methods, accountReferenceFormat: document.getElementById('finance-reference')?.value || 'elimuid', linkingRule: document.getElementById('finance-reference')?.value || 'elimuid', matchingRules: { autoMatchElimuId: true, autoMatchInvoiceNumber: true, requireExactAmount: true }, notifications: { parentPaymentReceived: true, financeInvoicePaid: true, paymentFailed: true }, config: { ...config, methods } };
     try{
@@ -518,6 +540,22 @@
   };
 
   w.financeV31TestConnection = async function(){ clearMessage(); try{ const res = await (apiSafe().payments?.testSchoolConnection ? apiSafe().payments.testSchoolConnection() : apiRequest('/api/payments/admin/test-connection',{method:'POST'})); setMessage('success', res?.message || 'Provider connection verified successfully.'); }catch(e){ setMessage('error', e.message || 'Provider connection test failed.'); } };
+
+  w.financeV31SetupProviderNotifications = async function(provider){
+    clearMessage();
+    try{
+      const res = await (apiSafe().payments?.setupSchoolProviderNotifications ? apiSafe().payments.setupSchoolProviderNotifications(provider, {}) : apiRequest(`/api/payments/admin/providers/${encodeURIComponent(provider)}/setup-notifications`, { method:'POST', body:'{}' }));
+      setMessage('success', res?.message || 'Provider notification URL setup/verification complete.');
+      if(typeof showToast==='function') showToast(res?.message || 'Notification setup completed', 'success');
+      await loadSettings();
+      renderBodyOnly();
+    }catch(e){ setMessage('error', e.message || 'Notification setup failed. Check credentials and provider dashboard.'); }
+  };
+  w.financeV31CopyProviderUrl = async function(provider){
+    const url = providerStatus(provider).notificationUrl || defaultProviderNotificationUrl(provider);
+    try{ await navigator.clipboard.writeText(url); setMessage('success','Notification URL copied: '+url); }
+    catch(_){ prompt('Copy this notification URL', url); }
+  };
   w.financeV31RefreshQueue = async function(){ clearMessage(); await loadManualQueue(); const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderVerification(); };
   w.financeV31ApproveManual = async function(id){ clearMessage(); if(!confirm('Approve this payment and update the student balance?')) return; try{ await apiSafe().payments.approveManualPayment(id,{}); await loadAll(); renderBodyOnly(); window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'payment-approved',id}})); localStorage.setItem('shule:lastFinanceUpdate', String(Date.now())); setMessage('success','Payment approved. Records and balances updated.'); }catch(e){ setMessage('error',e.message||'Could not approve payment.'); } };
   w.financeV31RejectManual = async function(id){ clearMessage(); const reason=prompt('Reason for rejection?') || 'Rejected by school finance/admin'; try{ await apiSafe().payments.rejectManualPayment(id,{reason}); await loadAll(); renderBodyOnly(); window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'payment-rejected',id}})); localStorage.setItem('shule:lastFinanceUpdate', String(Date.now())); setMessage('success','Payment rejected. Records refreshed.'); }catch(e){ setMessage('error',e.message||'Could not reject payment.'); } };

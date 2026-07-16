@@ -102,6 +102,18 @@ function platformProviderLogo(provider){
     const logos={mpesa:'m-pesa',stripe:'S',paystack:'▰',flutterwave:'✦',pesapal:'P',manual:'✓',bank:'🏦',cash:'KES',card:'▤'};
     return logos[provider] || provider;
 }
+
+function defaultPlatformNotificationUrl(provider){
+    const base = (window.API_BASE_URL || localStorage.getItem('shule_api_base') || 'https://api.shuleai.live').replace(/\/$/, '');
+    if(provider === 'mpesa') return base + '/api/payments/mpesa/callback';
+    return base + '/api/payments/webhook/' + provider;
+}
+function platformProviderStatus(provider, providerSettings = {}){
+    const cfg = platformProviderConfig(provider, providerSettings) || {};
+    const statuses = providerSettings.providerStatuses || [];
+    const fromList = statuses.find(x => String(x.provider) === String(provider)) || {};
+    return { status: cfg.readiness || cfg.status || fromList.status || (cfg.enabled ? 'needs_credentials' : 'disabled'), message: cfg.statusMessage || cfg.lastError || fromList.message || 'Setup required', notificationUrl: cfg.notificationUrl || cfg.webhookUrl || cfg.callbackUrl || defaultPlatformNotificationUrl(provider), lastVerifiedAt: cfg.lastVerifiedAt || cfg.webhookVerifiedAt || '' };
+}
 function platformProviderConfig(provider, providerSettings) {
     const providers=(providerSettings || {})?.providers || {}; return providers[provider] || (provider==='mpesa'?providers.daraja:null) || {};
 }
@@ -122,10 +134,11 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
     const providerRow = (agent) => {
         const selected = activeProvider === agent.provider;
         const saved = savedProvider === agent.provider;
+        const ps = platformProviderStatus(agent.provider, providerSettings);
         return `<button type="button" class="payment-lock-provider-line ${selected ? 'selected' : ''} ${saved ? 'active' : ''}" onclick="selectPlatformPaymentProvider('${agent.provider}')">
           <span class="payment-lock-radio">${selected ? '●' : '○'}</span>
           <span class="payment-provider-logo ${agent.provider}">${escapeHtml(platformProviderLogo(agent.provider))}</span>
-          <span class="provider-name"><strong>${escapeHtml(agent.label)}</strong><small>${selected ? 'Selected for editing' : 'Click to configure'}</small></span>
+          <span class="provider-name"><strong>${escapeHtml(agent.label)}</strong><small>${selected ? 'Selected for editing' : 'Click to configure'} • ${escapeHtml(ps.status)}</small></span>
           <em>${saved ? 'Active' : 'Inactive'}</em>${saved ? '' : '<b>Set Up</b>'}
         </button>`;
     };
@@ -142,7 +155,8 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
           <h3>2. Provider Credentials (${escapeHtml(activeAgent.label)})</h3>
           <p>Credentials belong only to the selected provider.</p>
           <div class="payment-lock-fields">${renderPlatformPaymentAgentFields(activeAgent.provider, activeAgent.fields, providerSettings)}</div>
-          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save Provider</button><button onclick="testPlatformPaymentConnection()" class="px-4 py-2 rounded-lg border text-sm">Test Connection</button><span class="connected-dot">Ready ✓</span></div>
+          ${(()=>{ const ps = platformProviderStatus(activeAgent.provider, providerSettings); return `<div class="payment-lock-info"><strong>Status:</strong> ${escapeHtml(ps.status)}<br><small>${escapeHtml(ps.message)}</small><div style="margin-top:6px"><strong>Notification URL:</strong> <code>${escapeHtml(ps.notificationUrl)}</code></div>${ps.lastVerifiedAt ? `<div><small>Last verified: ${escapeHtml(new Date(ps.lastVerifiedAt).toLocaleString())}</small></div>` : ''}</div>`; })()}
+          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save Provider</button><button onclick="testPlatformPaymentConnection()" class="px-4 py-2 rounded-lg border text-sm">Test Connection</button><button onclick="setupPlatformPaymentNotifications('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Setup / Verify Notification URL</button><button onclick="copyPlatformPaymentUrl('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
         </section>
         <section class="payment-lock-side-card platform-method-card">
           <h3>3. Platform Payment Methods</h3><p>For subscriptions, add-ons, and platform transactions.</p>
@@ -533,7 +547,7 @@ window.savePlatformPaymentAgent = async function(provider) {
             const value = input.value?.trim() || '';
             if (value) config[key] = value;
         });
-        const methods = [...card.querySelectorAll('[data-platform-provider-method]:checked')].map(input => input.getAttribute('data-platform-provider-method')).filter(Boolean);
+        const methods = [...document.querySelectorAll('[data-platform-provider-method]:checked')].map(input => input.getAttribute('data-platform-provider-method')).filter(Boolean);
         const makeActive = !!card.querySelector('[data-platform-provider-enabled]')?.checked;
         const payload = { provider, enabled: makeActive, isDefault: makeActive, active: makeActive, methods, config: { ...config, methods } };
         await (api.payments.savePlatformProvider ? api.payments.savePlatformProvider(payload) : apiRequest('/api/payments/superadmin/providers', { method:'PUT', body:JSON.stringify(payload) }));
@@ -551,6 +565,21 @@ window.testPlatformPaymentConnection = async function() {
     } catch (e) {
         showToast?.(e.message || 'Platform payment connection failed.', 'error');
     }
+};
+
+window.setupPlatformPaymentNotifications = async function(provider) {
+    try {
+        const res = await (api.payments?.setupPlatformProviderNotifications ? api.payments.setupPlatformProviderNotifications(provider, {}) : apiRequest(`/api/payments/superadmin/providers/${encodeURIComponent(provider)}/setup-notifications`, { method:'POST', body:'{}' }));
+        showToast?.(res?.message || 'Platform provider notification setup completed.', 'success');
+        await showDashboardSection('platform-payments');
+    } catch (e) {
+        showToast?.(e.message || 'Platform provider notification setup failed.', 'error');
+    }
+};
+window.copyPlatformPaymentUrl = async function(provider) {
+    const url = defaultPlatformNotificationUrl(provider);
+    try { await navigator.clipboard.writeText(url); showToast?.('Notification URL copied', 'success'); }
+    catch (_) { prompt('Copy this notification URL', url); }
 };
 
 window.savePlatformPaymentSettings = async function() {

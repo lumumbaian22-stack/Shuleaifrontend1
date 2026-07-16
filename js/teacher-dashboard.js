@@ -72,6 +72,7 @@ async function renderTeacherSection(section){
       case 'attendance': return await renderTeacherAttendance();
       case 'release-class': return await renderTeacherReleaseClass();
       case 'grades': return await renderTeacherMarksEntry();
+      case 'report-comments': return await renderTeacherReportComments();
       case 'report-history': return await window.renderReportHistoryCentre('teacher');
       case 'birthdays': return await window.renderBirthdayCentre('teacher');
       case 'subject-requests': return await renderTeacherSubjectRequests();
@@ -1544,6 +1545,45 @@ async function sendParentReply(parentId) {
   } catch(e) { showToast(e.message, 'error'); }
 }
 
+
+// ============ REPORT COMMENTS / REMARKS WORKFLOW ============
+async function renderTeacherReportComments(){
+  const year = new Date().getFullYear();
+  let assignments = null;
+  try { assignments = (await api.teacher.getMyAssignments()).data || {}; } catch(_) {}
+  const cls = assignments?.classTeacher || getTeacherAssignedClass?.() || {};
+  if (!cls?.id) return '<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Report Comments</h2><p class="text-muted-foreground mt-2">Only a class teacher with an assigned class can prepare learner report comments.</p></div>';
+  let gradebook = null;
+  try { gradebook = (await api.teacher.getClassGradebook({ classId: cls.id, term:'Term 1', year })).data || {}; } catch(e) { return `<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">${escapeHtml(e.message||'Could not load class learners.')}</div>`; }
+  const students = gradebook.students || [];
+  return `<div class="space-y-5"><section class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold">Report Comments</h2><p class="text-sm text-muted-foreground">Add or generate subject remarks, class teacher comments and recommendations before publishing report cards. System suggestions require teacher/admin approval.</p><div class="grid gap-3 md:grid-cols-3 mt-4"><label class="text-sm">Term<select id="report-comment-term" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></label><label class="text-sm">Year<input id="report-comment-year" type="number" value="${year}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="text-sm">Learner<select id="report-comment-student" onchange="loadTeacherReportCommentEditor()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="">Select learner</option>${students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name||s.user?.name||'Student')}</option>`).join('')}</select></label></div></section><section id="report-comment-editor" class="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Select a learner to edit comments.</section></div>`;
+}
+async function loadTeacherReportCommentEditor(){
+  const studentId=document.getElementById('report-comment-student')?.value;
+  const term=document.getElementById('report-comment-term')?.value||'Term 1';
+  const year=document.getElementById('report-comment-year')?.value||new Date().getFullYear();
+  const box=document.getElementById('report-comment-editor'); if(!box||!studentId)return;
+  box.innerHTML='Loading comments…';
+  try{
+    const res=await api.lifecycle.getReportComments({studentId,term,year});
+    const d=res.data||{}; const sr=d.subjectRemarks||{};
+    box.innerHTML=`<div class="space-y-4"><div class="flex justify-between items-center"><h3 class="font-semibold">Draft report comments</h3><button onclick="generateTeacherReportComments()" class="px-3 py-2 rounded border text-sm">Generate system suggestions</button></div><label class="block text-sm">Strengths<textarea id="rc-strengths" rows="2" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.strengths||'')}</textarea></label><label class="block text-sm">Areas needing support<textarea id="rc-support" rows="2" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.areasNeedingSupport||'')}</textarea></label><label class="block text-sm">Recommendation<textarea id="rc-recommendation" rows="2" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.recommendation||'')}</textarea></label><label class="block text-sm">Class Teacher Comment<textarea id="rc-class-comment" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.classTeacherComment||'')}</textarea></label><label class="block text-sm">Promotion Status<input id="rc-promotion" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" value="${escapeHtml(d.promotionStatus||'')}"></label><label class="block text-sm">Attendance Remark<input id="rc-attendance" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" value="${escapeHtml(d.attendanceRemark||'')}"></label><label class="block text-sm">Behaviour / Conduct<input id="rc-behaviour" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" value="${escapeHtml(d.behaviourComment||'')}"></label><label class="block text-sm">Subject remarks JSON <small class="text-muted-foreground">optional advanced edit</small><textarea id="rc-subject-remarks" rows="4" class="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-mono text-xs">${escapeHtml(JSON.stringify(sr,null,2))}</textarea></label><div class="flex gap-2"><button onclick="saveTeacherReportComments()" class="px-4 py-2 rounded bg-primary text-white">Save Draft Comments</button><button onclick="showDashboardSection('grades')" class="px-4 py-2 rounded border">Back to Marks</button></div></div>`;
+  }catch(e){ box.innerHTML=`<div class="text-red-700">${escapeHtml(e.message||'Could not load comments.')}</div>`; }
+}
+async function generateTeacherReportComments(){
+  const studentId=document.getElementById('report-comment-student')?.value;
+  const term=document.getElementById('report-comment-term')?.value||'Term 1';
+  const year=document.getElementById('report-comment-year')?.value||new Date().getFullYear();
+  try{const res=await api.lifecycle.generateReportComments({studentId,term,year,strengths:document.getElementById('rc-strengths')?.value||'',areasNeedingSupport:document.getElementById('rc-support')?.value||''});const d=res.data||{};if(document.getElementById('rc-class-comment'))document.getElementById('rc-class-comment').value=d.classTeacherComment||'';if(document.getElementById('rc-recommendation'))document.getElementById('rc-recommendation').value=d.recommendation||'';if(document.getElementById('rc-subject-remarks'))document.getElementById('rc-subject-remarks').value=JSON.stringify(d.subjectRemarks||{},null,2);showToast('Suggestions generated. Review and save before publishing.','success');}catch(e){showToast(e.message||'Could not generate suggestions','error');}
+}
+async function saveTeacherReportComments(){
+  const studentId=document.getElementById('report-comment-student')?.value;
+  const term=document.getElementById('report-comment-term')?.value||'Term 1';
+  const year=document.getElementById('report-comment-year')?.value||new Date().getFullYear();
+  let subjectRemarks={};try{subjectRemarks=JSON.parse(document.getElementById('rc-subject-remarks')?.value||'{}');}catch(_){return showToast('Subject remarks JSON is invalid','error');}
+  try{await api.lifecycle.saveReportComments({studentId,term,year,subjectRemarks,strengths:document.getElementById('rc-strengths')?.value||'',areasNeedingSupport:document.getElementById('rc-support')?.value||'',recommendation:document.getElementById('rc-recommendation')?.value||'',classTeacherComment:document.getElementById('rc-class-comment')?.value||'',promotionStatus:document.getElementById('rc-promotion')?.value||'',attendanceRemark:document.getElementById('rc-attendance')?.value||'',behaviourComment:document.getElementById('rc-behaviour')?.value||''});showToast('Report comments saved. They will be included in draft preview and published snapshots.','success');}catch(e){showToast(e.message||'Could not save comments','error');}
+}
+
 // ============ SETTINGS & HELP ============
 async function renderTeacherSettings() {
   const user = getCurrentUser();
@@ -2410,6 +2450,10 @@ window.reportAbsenceForStudent = reportAbsenceForStudent;
 window.openMessageParent = openMessageParent;
 window.renderTeacherSection = renderTeacherSection;
 window.renderTeacherSubjectRequests = renderTeacherSubjectRequests;
+window.renderTeacherReportComments = renderTeacherReportComments;
+window.loadTeacherReportCommentEditor = loadTeacherReportCommentEditor;
+window.generateTeacherReportComments = generateTeacherReportComments;
+window.saveTeacherReportComments = saveTeacherReportComments;
 window.showCreateHomeworkModal = showCreateHomeworkModal;
 window.renderTeacherDashboard = renderTeacherDashboard;
 window.renderTeacherStudents = renderTeacherStudents;

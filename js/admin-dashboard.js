@@ -534,6 +534,8 @@ async function renderAdminSection(section) {
                 return await window.renderBirthdayCentre('admin');
             case 'report-history':
                 return await window.renderReportHistoryCentre('admin');
+            case 'report-comments-admin':
+                return await renderAdminReportComments();
             case 'academic-year-transition':
                 return await window.renderAcademicYearTransition();
             case 'attendance-corrections':
@@ -1734,7 +1736,7 @@ async function renderAdminReportSettings() {
       <td class="p-2 text-center"><input type="checkbox" class="assess-active" ${r.isActive?'checked':''}></td>
       <td class="p-2"><button type="button" class="px-2 py-1 rounded border text-xs" onclick="this.closest('tr').remove()">Remove</button></td>
     </tr>`;
-    return `<div class="space-y-6 animate-fade-in"><div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">School Settings → Academic & Report Card Settings</p><h2 class="text-2xl font-bold">Report Card Settings</h2><p class="text-sm text-muted-foreground mt-1">Add openers/custom tests, choose which tests show on reports, which count, their weights, and class/curriculum applicability. Published reports keep an immutable copy of the settings used.</p></div><button onclick="showDashboardSection('settings')" class="px-4 py-2 rounded-lg border hover:bg-accent">Back to School Settings</button></div>
+    return `<div class="space-y-6 animate-fade-in"><div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">School Settings → Academic & Report Card Settings</p><h2 class="text-2xl font-bold">Report Card Settings</h2><p class="text-sm text-muted-foreground mt-1">Add openers/custom tests, choose which tests show on reports, which count, their weights, and class/curriculum applicability. Published reports keep an immutable copy of the settings used.</p></div><div class="flex gap-2"><button onclick="showDashboardSection('report-comments-admin')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Review Report Comments</button><button onclick="showDashboardSection('settings')" class="px-4 py-2 rounded-lg border hover:bg-accent">Back to School Settings</button></div></div>
       <div class="rounded-xl border bg-card p-4"><h3 class="font-semibold">Dynamic Assessment Columns</h3><p class="text-sm text-muted-foreground mt-1">Use classLevel for school-wide or specific classes/levels. Counted weights should total 100%; if not, the engine normalizes with a warning.</p><button type="button" onclick="addAssessmentSettingRow()" class="mt-3 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Add Custom Test / Opener</button></div>
       <div class="rounded-xl border bg-card overflow-auto"><table class="w-full text-sm min-w-[1100px]"><thead class="bg-muted/40"><tr><th class="p-2 text-left">Assessment / Test</th><th class="p-2">Type</th><th class="p-2">Show</th><th class="p-2">Count</th><th class="p-2">Weight %</th><th class="p-2">Order</th><th class="p-2">Class/Level</th><th class="p-2">Curriculum</th><th class="p-2">Max</th><th class="p-2">Active</th><th class="p-2"></th></tr></thead><tbody id="assessment-settings-body">${rows.map(rowHtml).join('')}</tbody></table></div>
       <div class="rounded-xl border bg-card p-4 space-y-5"><div><h3 class="font-semibold">Official CBC Report Card Template</h3><p class="text-sm text-muted-foreground mt-1">Uses the uploaded CBC template layout: school header, verification, student info row, academic table, summaries, core values, feedback, comments, term information, signatures and footer. Draft and final use this same design.</p></div><div class="grid gap-3 md:grid-cols-3"><label class="text-sm">Motto<input id="rc-motto" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('motto')}"></label><label class="text-sm">Registration No<input id="rc-registrationNumber" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('registrationNumber')}"></label><label class="text-sm">Curriculum Label<input id="rc-curriculumLabel" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('curriculumLabel','CBC')}"></label><label class="text-sm md:col-span-2">Postal Address / P.O. Box<input id="rc-postalAddress" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('postalAddress')}"></label><label class="text-sm">County / Location<input id="rc-county" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('county')}"></label><label class="text-sm">Phone<input id="rc-phone" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('phone')}"></label><label class="text-sm">Email<input id="rc-email" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('email')}"></label><label class="text-sm">Website<input id="rc-website" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('website')}"></label><label class="text-sm">Report Type Label<input id="rc-reportTypeLabel" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('reportTypeLabel','End Term Report')}"></label><label class="text-sm">Verification URL<input id="rc-verifyUrl" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('verifyUrl','verify.shuleai.com')}"></label><label class="text-sm">Default Promotion Status<input id="rc-defaultPromotionStatus" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('defaultPromotionStatus')}" placeholder="Optional"></label><label class="text-sm">Closing Date<input id="rc-closingDate" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('closingDate')}" placeholder="Optional"></label><label class="text-sm">Opens Next Term<input id="rc-opensNextTerm" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('opensNextTerm')}" placeholder="Optional"></label><label class="text-sm">Fee Balance Display<input id="rc-feeBalance" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${rVal('feeBalance')}" placeholder="Optional/fallback only"></label><label class="text-sm">No-logo fallback<select id="rc-logoFallback" class="mt-1 w-full rounded border bg-background px-3 py-2"><option value="school_initials" ${rcs.logoFallback==='shuleai_logo'?'':'selected'}>School initials</option><option value="shuleai_logo" ${rcs.logoFallback==='shuleai_logo'?'selected':''}>ShuleAI official logo</option></select></label><label class="text-sm">Watermark<select id="rc-watermarkType" class="mt-1 w-full rounded border bg-background px-3 py-2">${['school_logo','school_initials','school_name','shuleai_logo','none'].map(v=>`<option value="${v}" ${String(rcs.watermarkType||'school_logo')===v?'selected':''}>${v.replace(/_/g,' ')}</option>`).join('')}</select></label></div><div><p class="text-xs uppercase tracking-wide text-muted-foreground mb-2">Visible sections</p><div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">${[['showMotto','Motto'],['showRegistrationNumber','Registration no.'],['showPostalAddress','Postal address'],['showPhone','Phone'],['showEmail','Email'],['showWebsite','Website'],['showCurriculum','Curriculum'],['showStudentPhoto','Student photo'],['showPromotionStatus','Promotion status'],['showAttendance','Attendance'],['showCoreValues','Core values'],['showTeacherFeedback','Teacher feedback'],['showTeacherComment','Teacher comment'],['showHeadteacherComment','Headteacher comment'],['showTermInformation','Term information'],['showSignatures','Signatures'],['showStamp','School stamp'],['showVerificationCode','Verification code']].map(([id,label])=>`<label class="flex items-center gap-2"><input id="rc-${id}" type="checkbox" ${checked(id, !['showWebsite'].includes(id))}> ${label}</label>`).join('')}</div></div></div>
@@ -1790,6 +1792,63 @@ function addAssessmentSettingRow() {
   </tr>`);
 }
 window.addAssessmentSettingRow = addAssessmentSettingRow;
+
+
+// ============ ADMIN REPORT COMMENT REVIEW ============
+async function renderAdminReportComments() {
+  let rows = [];
+  try {
+    const res = await api.admin.getStudents();
+    const raw = res?.data?.students || res?.data?.items || res?.data || res?.students || [];
+    rows = Array.isArray(raw) ? raw : [];
+  } catch (error) {
+    return `<div class="rounded-xl border bg-card p-6 text-red-600">Could not load students for report comment review: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+  }
+  const year = new Date().getFullYear();
+  return `<div class="space-y-5 animate-fade-in"><section class="rounded-xl border bg-card p-6"><div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">Academic & Report Cards</p><h2 class="text-2xl font-bold">Review Report Comments</h2><p class="text-sm text-muted-foreground mt-1">Review class teacher comments and add the headteacher/admin comment before publishing. Suggestions never publish automatically.</p></div><button onclick="showDashboardSection('report-settings')" class="px-4 py-2 rounded-lg border">Back to Report Settings</button></div><div class="grid gap-3 md:grid-cols-3 mt-5"><label class="text-sm">Term<select id="admin-report-comment-term" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></label><label class="text-sm">Year<input id="admin-report-comment-year" type="number" value="${year}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="text-sm">Learner<select id="admin-report-comment-student" onchange="loadAdminReportCommentEditor()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="">Select learner</option>${rows.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.User?.name || s.name || s.studentName || 'Student')} — ${escapeHtml(s.grade || s.className || '')}</option>`).join('')}</select></label></div></section><section id="admin-report-comment-editor" class="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Select a learner to review comments.</section></div>`;
+}
+async function loadAdminReportCommentEditor() {
+  const target = document.getElementById('admin-report-comment-editor'); if (!target) return;
+  const studentId = document.getElementById('admin-report-comment-student')?.value;
+  const term = document.getElementById('admin-report-comment-term')?.value || 'Term 1';
+  const year = document.getElementById('admin-report-comment-year')?.value || new Date().getFullYear();
+  if (!studentId) { target.innerHTML = 'Select a learner to review comments.'; return; }
+  target.innerHTML = 'Loading comments…';
+  try {
+    const res = await api.lifecycle.getReportComments({ studentId, term, year });
+    const c = res?.data || {};
+    const subjectRows = Object.entries(c.subjectRemarks || {}).map(([subject, remark]) => `<tr><td class="p-2 border">${escapeHtml(subject)}</td><td class="p-2 border">${escapeHtml(remark)}</td></tr>`).join('') || '<tr><td colspan="2" class="p-3 text-muted-foreground">No subject remarks saved yet.</td></tr>';
+    target.innerHTML = `<div class="space-y-4"><div><h3 class="font-semibold text-lg">Report Comment Review</h3><p class="text-xs text-muted-foreground">Draft comments can be reviewed here. The final report snapshot freezes approved comments when published.</p></div><div class="rounded-lg border overflow-hidden"><table class="w-full text-sm"><thead><tr class="bg-muted"><th class="p-2 text-left">Subject</th><th class="p-2 text-left">Teacher Remark</th></tr></thead><tbody>${subjectRows}</tbody></table></div><div class="grid gap-3 md:grid-cols-2"><label class="text-sm">Strengths<textarea id="admin-rc-strengths" rows="3" class="mt-1 w-full rounded border bg-background px-3 py-2">${escapeHtml(c.strengths || '')}</textarea></label><label class="text-sm">Areas Needing Support<textarea id="admin-rc-support" rows="3" class="mt-1 w-full rounded border bg-background px-3 py-2">${escapeHtml(c.areasNeedingSupport || '')}</textarea></label><label class="text-sm md:col-span-2">Class Teacher Comment<textarea id="admin-rc-class-comment" rows="3" class="mt-1 w-full rounded border bg-background px-3 py-2">${escapeHtml(c.classTeacherComment || '')}</textarea></label><label class="text-sm md:col-span-2">Headteacher / Principal Comment<textarea id="admin-rc-head-comment" rows="4" class="mt-1 w-full rounded border bg-background px-3 py-2">${escapeHtml(c.headteacherComment || '')}</textarea></label><label class="text-sm">Promotion Status<input id="admin-rc-promotion" class="mt-1 w-full rounded border bg-background px-3 py-2" value="${escapeHtml(c.promotionStatus || '')}"></label><label class="text-sm flex items-end gap-2"><input id="admin-rc-use-ai" type="checkbox"> Use AI if available, otherwise free system rules</label></div><div class="flex flex-wrap justify-end gap-2"><button onclick="generateAdminHeadteacherComment()" class="px-4 py-2 rounded border">Generate Suggestion</button><button onclick="saveAdminReportComments()" class="px-4 py-2 rounded bg-primary text-primary-foreground">Save Headteacher Comment</button></div></div>`;
+  } catch (error) { target.innerHTML = `<div class="text-red-600">${escapeHtml(error.message || 'Comments could not load.')}</div>`; }
+}
+async function generateAdminHeadteacherComment() {
+  const studentId = document.getElementById('admin-report-comment-student')?.value;
+  const term = document.getElementById('admin-report-comment-term')?.value || 'Term 1';
+  const year = document.getElementById('admin-report-comment-year')?.value || new Date().getFullYear();
+  if (!studentId) return showToast('Select a learner first', 'error');
+  try {
+    const res = await api.lifecycle.generateReportComments({ studentId, term, year, useAI: !!document.getElementById('admin-rc-use-ai')?.checked, strengths: document.getElementById('admin-rc-strengths')?.value || '', areasNeedingSupport: document.getElementById('admin-rc-support')?.value || '' });
+    const d = res?.data || {};
+    if (document.getElementById('admin-rc-head-comment')) document.getElementById('admin-rc-head-comment').value = d.headteacherComment || '';
+    if (document.getElementById('admin-rc-promotion') && d.promotionStatus) document.getElementById('admin-rc-promotion').value = d.promotionStatus;
+    showToast(d.aiFallback ? 'AI unavailable; system suggestion used.' : 'Suggestion generated. Review before saving.', 'success');
+  } catch (error) { showToast(error.message || 'Suggestion failed', 'error'); }
+}
+async function saveAdminReportComments() {
+  const studentId = document.getElementById('admin-report-comment-student')?.value;
+  const term = document.getElementById('admin-report-comment-term')?.value || 'Term 1';
+  const year = document.getElementById('admin-report-comment-year')?.value || new Date().getFullYear();
+  if (!studentId) return showToast('Select a learner first', 'error');
+  try {
+    await api.lifecycle.saveHeadteacherComment({ studentId, term, year, headteacherComment: document.getElementById('admin-rc-head-comment')?.value || '', promotionStatus: document.getElementById('admin-rc-promotion')?.value || '' });
+    showToast('Headteacher/admin comment saved for report review.', 'success');
+  } catch (error) { showToast(error.message || 'Could not save comment', 'error'); }
+}
+window.renderAdminReportComments = renderAdminReportComments;
+window.loadAdminReportCommentEditor = loadAdminReportCommentEditor;
+window.generateAdminHeadteacherComment = generateAdminHeadteacherComment;
+window.saveAdminReportComments = saveAdminReportComments;
+
 function v132AnnouncementOption(title, platformMessage, smsMessage, tone) { return { title, platformMessage, smsMessage, tone }; }
 function normalizeAnnouncementOptionsFromResponse(res, fallback) {
     const raw = res?.data?.suggestion || res?.suggestion || res?.data || res || {};
@@ -1829,7 +1888,13 @@ async function generateAnnouncementSuggestion() {
     window.__announcementOptions = options;
     if (panel) {
         panel.classList.remove('hidden');
-        panel.innerHTML = `<div class="space-y-3"><p class="text-xs font-semibold text-muted-foreground">Choose one. AI does not send automatically.</p>${options.map((o,i)=>`<div class="rounded-lg border bg-background p-3"><div class="flex items-center justify-between"><b>Option ${i+1}: ${escapeHtml(o.tone)}</b><div class="flex gap-2"><button type="button" onclick="useAnnouncementSuggestion(${i}, 'platform')" class="text-xs px-3 py-1 rounded border">Use platform</button><button type="button" onclick="useAnnouncementSuggestion(${i}, 'sms')" class="text-xs px-3 py-1 rounded bg-primary text-primary-foreground">Use SMS</button></div></div><p class="mt-2 font-semibold">${escapeHtml(o.title)}</p><p class="text-sm mt-1"><b>Platform:</b> ${escapeHtml(o.platformMessage)}</p><p class="text-xs mt-1 text-muted-foreground"><b>SMS:</b> ${escapeHtml(o.smsMessage)}</p></div>`).join('')}</div>`;
+        const channel = document.getElementById('announcement-channel')?.value || 'platform';
+        const buttonsFor = (i) => channel === 'platform'
+          ? `<button type="button" onclick="useAnnouncementSuggestion(${i}, 'platform')" class="text-xs px-3 py-1 rounded border">Use platform</button>`
+          : channel === 'sms'
+            ? `<button type="button" onclick="useAnnouncementSuggestion(${i}, 'sms')" class="text-xs px-3 py-1 rounded bg-primary text-primary-foreground">Use SMS</button>`
+            : `<button type="button" onclick="useAnnouncementSuggestion(${i}, 'platform')" class="text-xs px-3 py-1 rounded border">Use platform</button><button type="button" onclick="useAnnouncementSuggestion(${i}, 'sms')" class="text-xs px-3 py-1 rounded bg-primary text-primary-foreground">Use SMS</button>`;
+        panel.innerHTML = `<div class="space-y-3"><p class="text-xs font-semibold text-muted-foreground">Choose one. AI/system suggestions never send automatically.</p>${options.map((o,i)=>`<div class="rounded-lg border bg-background p-3"><div class="flex items-center justify-between gap-3"><b>Option ${i+1}: ${escapeHtml(o.tone)}</b><div class="flex gap-2">${buttonsFor(i)}</div></div><p class="mt-2 font-semibold">${escapeHtml(o.title)}</p>${channel !== 'sms' ? `<p class="text-sm mt-1"><b>Platform:</b> ${escapeHtml(o.platformMessage)}</p>` : ''}${channel !== 'platform' ? `<p class="text-xs mt-1 text-muted-foreground"><b>SMS:</b> ${escapeHtml(o.smsMessage)}</p>` : ''}</div>`).join('')}</div>`;
     }
 }
 function useAnnouncementSuggestion(index, preferredChannel) {
@@ -2263,6 +2328,7 @@ window.renderAdminSettings = function() {
     const configuredCustomClasses = Array.isArray(classGeneration.customClasses) ? classGeneration.customClasses : [];
     const configuredPerLevelStreams = classGeneration.perLevelStreams && typeof classGeneration.perLevelStreams === 'object' ? classGeneration.perLevelStreams : {};
     const structureType = engine.structureType || schoolSettings.schoolStructure || schoolSettings.settings?.schoolStructure || 'mixed';
+    const aiSettings = schoolSettings.settings?.aiLearningAssistant || {};
     const enabled = new Set(engine.enabledLevels || schoolSettings.enabledLevels || []);
     const levelList = (schoolSettings.curriculumSetup?.enabledLevels || []).map(l => l.label).join(', ');
     return `
@@ -2285,6 +2351,23 @@ window.renderAdminSettings = function() {
                         <button onclick="showDashboardSection('report-settings')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Open Report Card Settings</button>
                     </div>
                     <div class="mt-4 grid gap-3 md:grid-cols-3 text-sm"><div class="rounded-lg bg-muted/30 p-3"><b>Assessment columns</b><p class="text-muted-foreground">CAT, Midterm, End Term, SBA/Project/Practical.</p></div><div class="rounded-lg bg-muted/30 p-3"><b>Template + signatures</b><p class="text-muted-foreground">Logo, watermark, class teacher/headteacher signatures.</p></div><div class="rounded-lg bg-muted/30 p-3"><b>Calculation rules</b><p class="text-muted-foreground">Counting tests, excluded subjects, position and grading display.</p></div></div>
+                </div>
+                <div class="rounded-xl border bg-card p-6">
+                    <h3 class="font-semibold mb-1">AI Learning Assistant Settings</h3>
+                    <p class="text-sm text-muted-foreground mb-4">Controls the student AI assistant only. It does not change payments, reports, analytics, or messaging.</p>
+                    <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 text-sm">
+                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-assistant-enabled" type="checkbox" class="mt-1" ${aiSettings.enabled === false ? '' : 'checked'}><span><b>Enable student AI assistant</b><span class="block text-xs text-muted-foreground">Students can use the Learning Assistant when their child plan allows AI.</span></span></label>
+                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-project-help-mode" type="checkbox" class="mt-1" ${aiSettings.projectHelpMode === false ? '' : 'checked'}><span><b>Project-help mode</b><span class="block text-xs text-muted-foreground">Guides projects step by step without copy-submit work.</span></span></label>
+                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-study-ahead-mode" type="checkbox" class="mt-1" ${aiSettings.studyAheadMode === false ? '' : 'checked'}><span><b>Allow safe study-ahead</b><span class="block text-xs text-muted-foreground">Students can learn advanced topics unless unsafe or against policy.</span></span></label>
+                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-chat-history-enabled" type="checkbox" class="mt-1" ${aiSettings.allowChatHistory === false ? '' : 'checked'}><span><b>Allow chat history</b><span class="block text-xs text-muted-foreground">Students can continue previous learning chats.</span></span></label>
+                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-teacher-summaries-enabled" type="checkbox" class="mt-1" ${aiSettings.allowTeacherSummaries === true ? 'checked' : ''}><span><b>Teacher learning summaries</b><span class="block text-xs text-muted-foreground">Optional; does not expose full private chats by default.</span></span></label>
+                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-block-exams" type="checkbox" class="mt-1" ${aiSettings.blockDuringExams === true ? 'checked' : ''}><span><b>Block during exams if needed</b><span class="block text-xs text-muted-foreground">School can temporarily restrict AI assistant use.</span></span></label>
+                    </div>
+                    <div class="grid gap-3 md:grid-cols-3 mt-4 text-sm">
+                        <label>School daily limit per student<input id="ai-daily-question-limit" type="number" min="0" value="${Number(aiSettings.dailyQuestionLimit || 0)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><span class="text-xs text-muted-foreground">0 means use subscription plan limit.</span></label>
+                        <label>Monthly school AI limit<input id="ai-monthly-school-limit" type="number" min="0" value="${Number(aiSettings.monthlySchoolLimit || 0)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><span class="text-xs text-muted-foreground">0 means no extra school cap.</span></label>
+                        <label>Language support<select id="ai-language-support" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school_default" ${aiSettings.languageSupport === 'school_default' || !aiSettings.languageSupport ? 'selected' : ''}>School default</option><option value="english" ${aiSettings.languageSupport === 'english' ? 'selected' : ''}>English</option><option value="english_kiswahili" ${aiSettings.languageSupport === 'english_kiswahili' ? 'selected' : ''}>English + Kiswahili support</option></select></label>
+                    </div>
                 </div>
                 <div class="rounded-xl border bg-card p-6">
                     <h3 class="font-semibold mb-1">Class Generation Preferences</h3>
@@ -2356,7 +2439,18 @@ window.saveAllSettings = async function() {
     if (!schoolName) { showToast('School name is required', 'error'); return; }
     showLoading();
     try {
-        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, enabledLevelGroups, customSubjects: customSubjects || [], classGeneration:{ streams, customClasses, perLevelStreams } });
+        const aiLearningAssistant = {
+            enabled: document.getElementById('ai-assistant-enabled')?.checked !== false,
+            projectHelpMode: document.getElementById('ai-project-help-mode')?.checked !== false,
+            studyAheadMode: document.getElementById('ai-study-ahead-mode')?.checked !== false,
+            allowChatHistory: document.getElementById('ai-chat-history-enabled')?.checked !== false,
+            allowTeacherSummaries: document.getElementById('ai-teacher-summaries-enabled')?.checked === true,
+            blockDuringExams: document.getElementById('ai-block-exams')?.checked === true,
+            dailyQuestionLimit: Number(document.getElementById('ai-daily-question-limit')?.value || 0),
+            monthlySchoolLimit: Number(document.getElementById('ai-monthly-school-limit')?.value || 0),
+            languageSupport: document.getElementById('ai-language-support')?.value || 'school_default'
+        };
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, enabledLevelGroups, customSubjects: customSubjects || [], classGeneration:{ streams, customClasses, perLevelStreams }, aiLearningAssistant });
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];

@@ -810,14 +810,14 @@ async function sendStudentChatMessage() {
 function renderStudentAITutor() {
     const curriculum = (window.schoolSettings && window.schoolSettings.curriculum) || 'cbc';
     const context = v66GetStudentTutorContext();
-    if (v66IsAuthenticatedStudentContext()) setTimeout(() => { v66LoadStudentTutorContext(); loadTutorSessionListV146(); }, 0);
+    if (v66IsAuthenticatedStudentContext()) setTimeout(() => { v66LoadStudentTutorContext(); loadTutorOnboardingV2031(); loadTutorSuggestionsV2031(); loadTutorSessionListV146(); }, 0);
 
     return `
         <div class="max-w-6xl mx-auto space-y-6 animate-fade-in">
             <div class="flex flex-wrap justify-between items-center gap-3">
                 <div>
-                    <h2 class="text-2xl font-bold">Shule AI Tutor</h2>
-                    <p class="text-sm text-muted-foreground">Student-only AI tutoring. Access starts from an active Premium or Ultimate child subscription.</p>
+                    <h2 class="text-2xl font-bold">ShuleAI Learning Assistant</h2>
+                    <p class="text-sm text-muted-foreground">Ask questions, revise, solve step by step, study ahead safely, and get guided help with school projects.</p>
                 </div>
                 <div class="rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground" id="ai-student-level-badge">
                     ${escapeHtml(context.displayText)}
@@ -832,10 +832,12 @@ function renderStudentAITutor() {
                         <i data-lucide="bot" class="h-6 w-6 text-white"></i>
                     </div>
                     <div>
-                        <h3 class="font-semibold text-lg">Shule AI Tutor</h3>
+                        <h3 class="font-semibold text-lg">ShuleAI Learning Assistant</h3>
                         <p class="text-xs text-muted-foreground" id="ai-tutor-context-line">Curriculum: ${CURRICULUMS[curriculum]?.name || 'CBC'} • ${escapeHtml(context.displayText)}</p>
                     </div>
                 </div>
+
+                <div id="ai-onboarding-v2031" class="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">Checking learning assistant introduction…</div>
 
                 <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
                     <label class="space-y-1">
@@ -854,13 +856,16 @@ function renderStudentAITutor() {
                             <option value="homework">Give homework</option>
                             <option value="weakness">Show weak areas</option>
                             <option value="plan">Study plan</option>
+                                <option value="project">Project help</option>
+                                <option value="research">Research guide</option>
+                                <option value="study_ahead">Study ahead</option>
                         </select>
                     </label>
                     <button onclick="loadTutorProgress()" class="self-end rounded-lg border px-3 py-2 text-sm hover:bg-accent">Load Progress</button>
                 </div>
 
                 <div class="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-                    <p><b class="text-foreground">Try:</b> “explain fractions”, “quiz me in science”, “summarize nouns”, “make revision plan”, “show my weak areas”.</p>
+                    <p><b class="text-foreground">Try:</b> “explain fractions”, “help me with my school project”, “teach me the advanced version”, “quiz me in science”, “make a revision plan”.</p>
                     <p><b class="text-foreground">Access:</b> Basic does not include AI Tutor. Your parent must activate Premium for 6 messages/day or Ultimate for extended AI access.</p>
                 </div>
                 <div id="ai-progress-panel" class="text-xs space-y-2"></div>
@@ -869,15 +874,15 @@ function renderStudentAITutor() {
                     <div class="flex-1 overflow-y-auto space-y-4 mb-4 p-4 bg-muted/20 rounded-lg" id="ai-chat-container">
                         <div class="flex justify-start">
                             <div class="chat-bubble-received max-w-[80%]">
-                                <p class="text-sm">Hi! I’m Shule AI Tutor. I’ll use your registered class/grade and active child subscription to help you learn step by step.</p>
+                                <p class="text-sm">Hi! I’m ShuleAI Learning Assistant. I will use your registered class, curriculum, and learning records as the starting point, but you can also study ahead safely. Ask me for step-by-step answers, project help, revision, or practice.</p>
                             </div>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-2 mb-2">
-                        ${['Explain this', 'Quiz me', 'Summarize topic', 'Revision plan', 'Give homework', 'Show weak areas'].map(label => `<button onclick="fillTutorCommand('${label}')" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">${label}</button>`).join('')}
+                    <div class="flex flex-wrap gap-2 mb-2" id="ai-suggestions-v2031">
+                        ${['Explain this', 'Quiz me', 'Project help', 'Study ahead', 'Complex maths', 'Revision plan', 'Show weak areas'].map(label => `<button onclick="fillTutorCommand('${label}')" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">${label}</button>`).join('')}
                     </div>
                     <div class="flex gap-2">
-                        <input type="text" id="ai-question-input" placeholder="Ask me anything or type a command..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" onkeydown="if(event.key==='Enter'){askAITutor()}">
+                        <input type="text" id="ai-question-input" placeholder="Ask a question, request project help, or type: teach me the advanced version..." class="flex-1 rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" onkeydown="if(event.key==='Enter'){askAITutor()}">
                         <button onclick="askAITutor()" class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 flex items-center gap-2">
                             <i data-lucide="send" class="h-4 w-4"></i>
                             Ask
@@ -964,15 +969,72 @@ function fillTutorCommand(label) {
     if (!input) return;
     const subject = document.getElementById('ai-subject-select')?.value || 'Mathematics';
     const map = {
-        'Explain this': `Explain ${subject} in simple steps`,
-        'Quiz me': `Quiz me in ${subject}`,
-        'Summarize topic': `Summarize a key topic in ${subject}`,
-        'Revision plan': `Make a revision plan for ${subject}`,
-        'Give homework': `Give homework for ${subject}`,
-        'Show weak areas': `Show my weak areas in ${subject}`
+        'Explain this': `Explain ${subject} in simple steps and give me one practice question`,
+        'Quiz me': `Create 5 quiz questions for ${subject} and mark my answers one by one`,
+        'Summarize topic': `Summarize a key topic in ${subject} with examples`,
+        'Revision plan': `Make a revision plan for ${subject} this week`,
+        'Give homework': `Help me understand my homework in ${subject} step by step`,
+        'Show weak areas': `Show my weak areas in ${subject} and how I can improve`,
+        'Project help': `Help me plan a school project for ${subject}. Ask me for the topic and guide me step by step`,
+        'Study ahead': `Teach me the advanced version of ${subject}, starting from the simple idea first`,
+        'Complex maths': `Solve this maths question completely with formula, steps, final answer, check, and practice question: `
     };
     input.value = map[label] || label;
     input.focus();
+}
+
+async function loadTutorOnboardingV2031() {
+    const box = document.getElementById('ai-onboarding-v2031');
+    if (!box || !api?.tutor?.getOnboarding) return;
+    try {
+        const res = await api.tutor.getOnboarding();
+        const data = res.data || {};
+        const intro = data.onboarding || {};
+        if (data.completed) {
+            box.classList.add('hidden');
+            return;
+        }
+        box.classList.remove('hidden');
+        box.innerHTML = `
+            <div class="space-y-3">
+                <div class="flex items-start gap-3">
+                    <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">🤖</div>
+                    <div>
+                        <h4 class="font-semibold text-foreground">${escapeHtml(intro.title || 'Welcome to ShuleAI Learning Assistant')}</h4>
+                        <p class="mt-1 text-sm text-muted-foreground whitespace-pre-line">${escapeHtml(intro.message || '')}</p>
+                    </div>
+                </div>
+                <div class="grid gap-2 md:grid-cols-2">
+                    ${(intro.bullets || []).map(x => `<div class="rounded-lg bg-background border p-2 text-xs">${escapeHtml(x)}</div>`).join('')}
+                </div>
+                <button onclick="completeTutorOnboardingV2031()" class="rounded-lg bg-primary px-4 py-2 text-sm text-white">${escapeHtml(intro.buttonLabel || 'Start Learning')}</button>
+            </div>`;
+    } catch (e) {
+        box.innerHTML = `<p class="text-sm text-muted-foreground">Learning assistant introduction could not load. You can still ask questions safely.</p>`;
+    }
+}
+
+window.completeTutorOnboardingV2031 = async function() {
+    try {
+        if (api?.tutor?.completeOnboarding) await api.tutor.completeOnboarding();
+        const box = document.getElementById('ai-onboarding-v2031');
+        if (box) box.classList.add('hidden');
+        if (typeof showToast === 'function') showToast('Start learning with ShuleAI.', 'success');
+    } catch (e) {
+        if (typeof showToast === 'function') showToast(e.message || 'Could not complete onboarding', 'error');
+    }
+};
+
+async function loadTutorSuggestionsV2031() {
+    const host = document.getElementById('ai-suggestions-v2031');
+    if (!host || !api?.tutor?.getSuggestions) return;
+    try {
+        const res = await api.tutor.getSuggestions();
+        const suggestions = res.data?.suggestions || [];
+        if (suggestions.length) {
+            host.innerHTML = suggestions.slice(0, 8).map(label => `<button onclick="fillTutorCommand('${String(label).replace(/'/g, '&#39;')}')" class="text-xs rounded-full border px-3 py-1 hover:bg-accent">${escapeHtml(label)}</button>`).join('');
+        }
+    } catch (_) {}
 }
 
 setTimeout(() => { if (v66IsAuthenticatedStudentContext()) updateTutorSubjects(); }, 0);
@@ -1500,7 +1562,7 @@ window.askAITutor = async function() {
 
     const typingDiv = document.createElement('div');
     typingDiv.className = 'flex justify-start';
-    typingDiv.innerHTML = `<div class="chat-bubble-received"><p class="text-sm text-muted-foreground">Shule AI Tutor is thinking...</p></div>`;
+    typingDiv.innerHTML = `<div class="chat-bubble-received"><p class="text-sm text-muted-foreground">ShuleAI Learning Assistant is thinking step by step...</p></div>`;
     container.appendChild(typingDiv);
     container.scrollTop = container.scrollHeight;
 
@@ -1523,7 +1585,7 @@ window.askAITutor = async function() {
         container.innerHTML += `
             <div class="flex justify-start">
                 <div class="chat-bubble-received max-w-[82%]">
-                    <p class="text-sm font-medium">Shule AI Tutor <span class="text-xs text-muted-foreground">• ${escapeHtml(data.aiLabel || 'Generated by Shule AI')} • ${escapeHtml(data.subject || subject || 'Subject')} • ${escapeHtml(data.command || 'ask')}</span></p>
+                    <p class="text-sm font-medium">ShuleAI Learning Assistant <span class="text-xs text-muted-foreground">• ${escapeHtml(data.aiLabel || 'Generated by Shule AI')} • ${escapeHtml(data.subject || subject || 'Subject')} • ${escapeHtml(data.command || 'ask')}</span></p>
                     <p class="text-sm whitespace-pre-line mt-1"><b>${escapeHtml(data.answer || 'Answer')}</b></p>
                     <p class="text-sm whitespace-pre-line mt-2">${escapeHtml(data.explanation || '')}</p>
                     ${data.nextQuestion ? `<div class="mt-3 rounded-lg bg-muted/40 p-2 text-sm"><b>Next:</b> ${escapeHtml(data.nextQuestion)}</div>` : ''}
@@ -1574,7 +1636,7 @@ window.startNewTutorChatV146 = async function(){
 };
 window.openTutorSessionV146 = async function(id){
     const container=document.getElementById('ai-chat-container');if(container)container.innerHTML='<p class="text-sm text-muted-foreground">Loading chat…</p>';
-    try{const res=await api.tutor.getSessionById(id);const data=res.data||{};window.__activeTutorSessionId=id;const rows=data.messages||[];if(container)container.innerHTML=rows.length?rows.map(m=>`<div class="flex ${m.role==='student'?'justify-end':'justify-start'}"><div class="${m.role==='student'?'chat-bubble-sent':'chat-bubble-received'} max-w-[82%]"><p class="text-xs font-semibold">${m.role==='student'?'You':'Shule AI Tutor'}</p><p class="text-sm whitespace-pre-line">${escapeHtml(m.message||m.content||'')}</p></div></div>`).join(''):'<div class="text-sm text-muted-foreground">This chat is empty.</div>';if(container)container.scrollTop=container.scrollHeight;await loadTutorSessionListV146();}catch(e){if(container)container.innerHTML=`<p class="text-red-600">${escapeHtml(e.message)}</p>`;}
+    try{const res=await api.tutor.getSessionById(id);const data=res.data||{};window.__activeTutorSessionId=id;const rows=data.messages||[];if(container)container.innerHTML=rows.length?rows.map(m=>`<div class="flex ${m.role==='student'?'justify-end':'justify-start'}"><div class="${m.role==='student'?'chat-bubble-sent':'chat-bubble-received'} max-w-[82%]"><p class="text-xs font-semibold">${m.role==='student'?'You':'ShuleAI Learning Assistant'}</p><p class="text-sm whitespace-pre-line">${escapeHtml(m.message||m.content||'')}</p></div></div>`).join(''):'<div class="text-sm text-muted-foreground">This chat is empty.</div>';if(container)container.scrollTop=container.scrollHeight;await loadTutorSessionListV146();}catch(e){if(container)container.innerHTML=`<p class="text-red-600">${escapeHtml(e.message)}</p>`;}
 };
 
 window.renderStudentAITutor = renderStudentAITutor;

@@ -523,6 +523,7 @@ const parentAPI = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
+    getMessageTargets: (studentId) => apiRequest(`/api/parent/message-targets?studentId=${encodeURIComponent(studentId || '')}`),
     getConversations: (params = {}) => apiRequest('/api/parent/conversations' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getMessages: (otherUserId, params = {}) => 
         apiRequest(`/api/parent/messages/${otherUserId}` + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
@@ -818,12 +819,16 @@ const gamificationAPI = {
 // Enhanced AI Tutor
 const tutorAPI = {
     getConfig: () => apiRequest('/api/tutor/config'),
+    getOnboarding: () => apiRequest('/api/tutor/onboarding'),
+    completeOnboarding: () => apiRequest('/api/tutor/onboarding/complete', { method: 'POST', body: JSON.stringify({ completed: true }) }),
+    getSuggestions: () => apiRequest('/api/tutor/suggestions'),
     ask: (data) => apiRequest('/api/tutor/ask', { method: 'POST', body: JSON.stringify(data) }),
     getProgress: (studentId = '') => apiRequest(`/api/tutor/progress/${studentId}`),
     getSession: (studentId = '') => apiRequest(`/api/tutor/session/${studentId}`),
     listSessions: () => apiRequest('/api/tutor/sessions'),
     createSession: (data = {}) => apiRequest('/api/tutor/sessions', { method:'POST', body:JSON.stringify(data) }),
     getSessionById: (id) => apiRequest(`/api/tutor/sessions/${id}`),
+    deleteSession: (id) => apiRequest(`/api/tutor/sessions/${id}`, { method:'DELETE' }),
     submitPracticeAnswer: (data) => apiRequest('/api/tutor/practice/answer', { method: 'POST', body: JSON.stringify(data) }),
     getParentReport: (parentId = '') => apiRequest(`/api/tutor/reports/parent/${parentId}`),
     getTeacherReport: (classId = '') => apiRequest(`/api/tutor/reports/teacher/${classId}`)
@@ -858,10 +863,14 @@ const paymentAPI = {
     getProviders: () => apiRequest('/api/payments/providers'),
     getSchoolProviders: () => apiRequest('/api/payments/admin/providers'),
     saveSchoolProvider: (data) => apiRequest('/api/payments/admin/providers', { method: 'PUT', body: JSON.stringify(data) }),
+    setupSchoolProviderNotifications: (provider, data = {}) => apiRequest(`/api/payments/admin/providers/${encodeURIComponent(provider)}/setup-notifications`, { method: 'POST', body: JSON.stringify(data) }),
     getPlatformProviders: () => apiRequest('/api/payments/superadmin/providers'),
     savePlatformProvider: (data) => apiRequest('/api/payments/superadmin/providers', { method: 'PUT', body: JSON.stringify(data) }),
+    setupPlatformProviderNotifications: (provider, data = {}) => apiRequest(`/api/payments/superadmin/providers/${encodeURIComponent(provider)}/setup-notifications`, { method: 'POST', body: JSON.stringify(data) }),
+    getAvailableProviders: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/payments/providers/available${q ? `?${q}` : ''}`); },
     getParentMethods: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/payments/parent/methods${q ? `?${q}` : ''}`); },
     initiate: (data) => apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(data) }),
+    initiateParentFee: (data) => apiRequest('/api/payments/parent/initiate', { method: 'POST', body: JSON.stringify(data) }),
     status: (reference) => apiRequest(`/api/payments/${encodeURIComponent(reference)}/status`),
     reconcile: (reference) => apiRequest(`/api/payments/reconcile/${encodeURIComponent(reference)}`, { method: 'POST' }),
     testSchoolConnection: () => apiRequest('/api/payments/admin/test-connection', { method: 'POST' }),
@@ -900,6 +909,10 @@ const lifecycleAPI = {
     updateBirthdayPrivacy: (studentId, data) => apiRequest(`/api/lifecycle/birthdays/students/${studentId}/privacy`, { method:'PATCH', body:JSON.stringify(data || {}) }),
     processBirthdayReminders: () => apiRequest('/api/lifecycle/birthdays/process', { method:'POST', body:JSON.stringify({}) }),
     getReportHistory: (params = {}) => apiRequest(`/api/report-cards/history${Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : ''}`),
+    getReportComments: (params = {}) => apiRequest('/api/reports/comments' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    saveReportComments: (data) => apiRequest('/api/reports/comments', { method:'POST', body:JSON.stringify(data || {}) }),
+    generateReportComments: (data) => apiRequest('/api/reports/comments/generate', { method:'POST', body:JSON.stringify(data || {}) }),
+    saveHeadteacherComment: (data) => apiRequest('/api/reports/comments/headteacher', { method:'POST', body:JSON.stringify(data || {}) }),
     getReportSnapshot: (id) => apiRequest(`/api/report-cards/history/${id}`),
     correctReportSnapshot: (id, data) => apiRequest(`/api/report-cards/history/${id}/correct`, { method:'POST', body:JSON.stringify(data || {}) }),
     shareReportSnapshot: (id, data) => apiRequest(`/api/report-cards/history/${id}/share`, { method:'POST', body:JSON.stringify(data || {}) })
