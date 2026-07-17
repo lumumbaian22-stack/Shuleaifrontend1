@@ -918,9 +918,8 @@ function parentMethodLabel(method, fallback = '') {
 
 function parentProviderPrompt(provider, prompt = '') {
     const p = normalizeParentPaymentProvider(provider);
-    if (prompt) return prompt;
-    if (['paystack','flutterwave','pesapal','stripe'].includes(p)) return 'checkout_url';
     if (p === 'mpesa' || p === 'daraja') return 'phone_prompt';
+    if (prompt === 'phone_prompt') return 'phone_prompt';
     return 'manual_instructions';
 }
 
@@ -928,28 +927,21 @@ function parentProviderDescription(method, prompt = '', provider = '') {
     const m = normalizeParentPaymentMethod(method);
     const p = normalizeParentPaymentProvider(provider);
     const type = parentProviderPrompt(p, prompt);
-    if (type === 'checkout_url') return parentMethodLabel(m) + ' will open in the school secure checkout flow. Balances update only after provider confirmation.';
-    if (type === 'phone_prompt') return 'Enter your M-Pesa phone, then complete the secure STK prompt. The provider remains hidden from parents and is controlled by Finance.';
+    if (type === 'phone_prompt' || m === 'mobile_money') return 'Enter your M-Pesa phone, then complete the secure STK prompt. No checkout URL is shown to parents.';
     if (m === 'bank') return 'Pay using the bank details above, then submit the reference for finance approval.';
     if (m === 'cash') return 'Pay at the school office, then submit the receipt number for finance approval.';
-    if (m === 'card') return 'Use the enabled card/POS option, then submit or complete checkout as instructed.';
     return 'Submit your payment reference for school finance verification.';
 }
 
 function normalizeParentPaymentMethods(methodData = {}) {
     const activeProvider = normalizeParentPaymentProvider(methodData.activeProvider || methodData.defaultProvider || '');
-    const methods = Array.isArray(methodData.methods) ? methodData.methods : [];
-    const publicMethods = Array.isArray(methodData.publicMethods) ? methodData.publicMethods : [];
-    const enabled = Array.isArray(methodData.enabledProviders) ? methodData.enabledProviders : [];
-    const rows = methods.length ? methods : (publicMethods.length ? publicMethods : enabled.map(provider => ({ provider, method: (provider === 'mpesa' || provider === 'daraja') ? 'mobile_money' : provider })));
-    const seen = new Set();
-    return rows.map(row => {
-        const provider = normalizeParentPaymentProvider(row?.provider || activeProvider || row?.paymentProvider || '');
-        const method = normalizeParentPaymentMethod(row?.method || row?.paymentMethod || row?.channel || row?.provider || row);
-        if (!method || seen.has(method)) return null;
-        seen.add(method);
-        return { method, provider, label: parentMethodLabel(method, row?.label || ''), providerLabel: parentProviderLabel(provider, row?.providerLabel || ''), prompt: parentProviderPrompt(provider, row?.prompt || '') };
-    }).filter(Boolean);
+    const providers = methodData.providers || {};
+    const activeCfg = providers[activeProvider] || {};
+    const stkReady = activeCfg.parentReady === true || activeCfg.supportsStkPush === true || (Array.isArray(methodData.parentStkProviders) && methodData.parentStkProviders.includes(activeProvider));
+    const rows = [];
+    if (stkReady && (activeProvider === 'mpesa' || activeCfg.supportsStkPush === true)) rows.push({ provider: activeProvider, method: 'mobile_money', prompt: 'phone_prompt', label: 'STK Push' });
+    rows.push({ provider: 'manual', method: 'manual', prompt: 'manual_instructions', label: 'Manual Verification' });
+    return rows;
 }
 
 function renderParentProviderMethods(methodData = {}) {
@@ -959,10 +951,8 @@ function renderParentProviderMethods(methodData = {}) {
     // Show the four school-fee method cards consistently; the backend still enforces
     // which method/provider is actually enabled.
     const rows = [
-        { method:'mobile_money', label:'Mobile Money', sub:'(STK Push)', icon:'▣', cls:'green', action:"processSchoolFeeProviderPayment(null,'mobile_money')" },
-        { method:'card', label:'Card', sub:'(Visa, Mastercard)', icon:'▤', cls:'blue', action:"processSchoolFeeProviderPayment(null,'card')" },
-        { method:'bank', label:'Bank Transfer', sub:'(Direct to Bank)', icon:'▥', cls:'orange', action:"submitManualSchoolFeePayment('bank')" },
-        { method:'manual', label:'Manual M-Pesa', sub:'Reference', icon:'▧', cls:'purple', action:"submitManualSchoolFeePayment('manual')" }
+        { method:'mobile_money', label:'Send STK Push', sub:'(M-Pesa phone prompt)', icon:'▣', cls:'green', action:"processSchoolFeeProviderPayment(null,'mobile_money')" },
+        { method:'manual', label:'Manual Verification', sub:'Reference / proof', icon:'▧', cls:'purple', action:"submitManualSchoolFeePayment('manual')" }
     ];
     const cards = rows.map(row => {
         const isAvailable = enabled.has(row.method) || (row.method === 'manual' && (enabled.has('manual') || enabled.has('bank') || enabled.has('cash')));
@@ -973,7 +963,7 @@ function renderParentProviderMethods(methodData = {}) {
         </button>`;
     }).join('') || `<div class="payment-lock-alert">No online payment method is ready yet. Use manual verification or contact the school finance office.</div>`;
     return `<div class="payment-lock-parent-box parent-school-methods">
-        <div class="payment-lock-mini-head"><div><h4>School Fee Payment Methods</h4><p>You only choose the method, not the provider. School fees use the school active provider.</p></div></div>
+        <div class="payment-lock-mini-head"><div><h4>School Fee Payment</h4><p>Parents stay inside ShuleAI. Online school-fee payments use STK Push only; manual verification remains available.</p></div></div>
         <div class="payment-method-grid four">${cards}</div>
     </div>`;
 }
@@ -1062,15 +1052,12 @@ async function processSchoolFeeProviderPayment(provider = null, paymentMethod = 
     try {
         const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : {};
         const requestPayload = { paymentType: 'school_fee', provider: normalizedProvider || undefined, paymentMethod: normalizedMethod || undefined, studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, email: currentUser?.email || '', name: currentUser?.name || '', purpose: 'school_fee' };
-        const response = await (api.payments?.initiateParentFee ? api.payments.initiateParentFee(requestPayload) : (api.payments?.initiate ? api.payments.initiate(requestPayload) : apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(requestPayload) })));
+        const response = await (api.payments?.initiateParentStk ? api.payments.initiateParentStk(requestPayload) : (api.payments?.initiateParentFee ? api.payments.initiateParentFee(requestPayload) : apiRequest('/api/payments/parent/stk/initiate', { method: 'POST', body: JSON.stringify(requestPayload) })));
         const data = response?.data || {};
-        if (data.checkoutUrl) {
-            window.open(data.checkoutUrl, '_blank', 'noopener');
-            showToast(response.message || 'Backend opened checkout. Complete payment there; the UI updates only after provider confirmation.', 'success');
-        } else if (data.promptType === 'checkout_url') {
-            showToast(response.message || parentProviderLabel(normalizedProvider) + ' is enabled, but no checkout link was returned. Ask finance to complete provider checkout setup.', 'error');
+        if (data.checkoutUrl || data.promptType === 'checkout_url') {
+            showToast('This school is not configured for parent STK Push yet. Please use manual verification or contact finance.', 'error');
         } else {
-            showToast(response.message || 'Backend created the payment request. It will show as paid only after provider confirmation or approval.', 'success');
+            showToast(response.message || 'STK Push sent. Check your phone and enter your M-Pesa PIN. It will show as paid only after provider confirmation.', 'success');
         }
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-provider-payment-started', provider: normalizedProvider}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
@@ -1089,7 +1076,7 @@ async function processSchoolFeeDarajaPayment() {
     if (!payload.phone) return showToast('Enter the M-Pesa phone number', 'error');
     showLoading();
     try {
-        const response = await (api.payments?.initiateParentFee ? api.payments.initiateParentFee({
+        const response = await (api.payments?.initiateParentStk ? api.payments.initiateParentStk({
             paymentType: 'school_fee',
             paymentMethod: 'mobile_money',
             studentId: parseInt(payload.studentId),
@@ -1099,8 +1086,7 @@ async function processSchoolFeeDarajaPayment() {
             purpose: 'school_fee'
         }) : (api.payments?.initiate ? api.payments.initiate({ paymentType: 'school_fee', paymentMethod: 'mobile_money', studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, purpose: 'school_fee' }) : api.payments.parentFeeSTK({ studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone })));
         const data = response?.data || {};
-        if (data.checkoutUrl) window.open(data.checkoutUrl, '_blank', 'noopener');
-        showToast(response.message || (data.checkoutUrl ? 'Backend opened checkout. Complete payment there.' : 'Backend sent the payment prompt. It is not marked paid until provider confirmation.'), 'success');
+        showToast(response.message || 'STK Push sent. Check your phone and enter your M-Pesa PIN. It is not marked paid until provider confirmation.', 'success');
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-stk-started'}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
     } catch (error) {

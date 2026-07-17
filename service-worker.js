@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-2031-student-ai-chatbot-onboarding-project-learning-assistant-lock';
+const CACHE_NAME = 'shule-ai-2031-payment-callback-ipn-stk-setup-final-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

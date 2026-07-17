@@ -2328,7 +2328,6 @@ window.renderAdminSettings = function() {
     const configuredCustomClasses = Array.isArray(classGeneration.customClasses) ? classGeneration.customClasses : [];
     const configuredPerLevelStreams = classGeneration.perLevelStreams && typeof classGeneration.perLevelStreams === 'object' ? classGeneration.perLevelStreams : {};
     const structureType = engine.structureType || schoolSettings.schoolStructure || schoolSettings.settings?.schoolStructure || 'mixed';
-    const aiSettings = schoolSettings.settings?.aiLearningAssistant || {};
     const enabled = new Set(engine.enabledLevels || schoolSettings.enabledLevels || []);
     const levelList = (schoolSettings.curriculumSetup?.enabledLevels || []).map(l => l.label).join(', ');
     return `
@@ -2351,23 +2350,6 @@ window.renderAdminSettings = function() {
                         <button onclick="showDashboardSection('report-settings')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Open Report Card Settings</button>
                     </div>
                     <div class="mt-4 grid gap-3 md:grid-cols-3 text-sm"><div class="rounded-lg bg-muted/30 p-3"><b>Assessment columns</b><p class="text-muted-foreground">CAT, Midterm, End Term, SBA/Project/Practical.</p></div><div class="rounded-lg bg-muted/30 p-3"><b>Template + signatures</b><p class="text-muted-foreground">Logo, watermark, class teacher/headteacher signatures.</p></div><div class="rounded-lg bg-muted/30 p-3"><b>Calculation rules</b><p class="text-muted-foreground">Counting tests, excluded subjects, position and grading display.</p></div></div>
-                </div>
-                <div class="rounded-xl border bg-card p-6">
-                    <h3 class="font-semibold mb-1">AI Learning Assistant Settings</h3>
-                    <p class="text-sm text-muted-foreground mb-4">Controls the student AI assistant only. It does not change payments, reports, analytics, or messaging.</p>
-                    <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3 text-sm">
-                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-assistant-enabled" type="checkbox" class="mt-1" ${aiSettings.enabled === false ? '' : 'checked'}><span><b>Enable student AI assistant</b><span class="block text-xs text-muted-foreground">Students can use the Learning Assistant when their child plan allows AI.</span></span></label>
-                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-project-help-mode" type="checkbox" class="mt-1" ${aiSettings.projectHelpMode === false ? '' : 'checked'}><span><b>Project-help mode</b><span class="block text-xs text-muted-foreground">Guides projects step by step without copy-submit work.</span></span></label>
-                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-study-ahead-mode" type="checkbox" class="mt-1" ${aiSettings.studyAheadMode === false ? '' : 'checked'}><span><b>Allow safe study-ahead</b><span class="block text-xs text-muted-foreground">Students can learn advanced topics unless unsafe or against policy.</span></span></label>
-                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-chat-history-enabled" type="checkbox" class="mt-1" ${aiSettings.allowChatHistory === false ? '' : 'checked'}><span><b>Allow chat history</b><span class="block text-xs text-muted-foreground">Students can continue previous learning chats.</span></span></label>
-                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-teacher-summaries-enabled" type="checkbox" class="mt-1" ${aiSettings.allowTeacherSummaries === true ? 'checked' : ''}><span><b>Teacher learning summaries</b><span class="block text-xs text-muted-foreground">Optional; does not expose full private chats by default.</span></span></label>
-                        <label class="flex items-start gap-2 rounded-lg border p-3"><input id="ai-block-exams" type="checkbox" class="mt-1" ${aiSettings.blockDuringExams === true ? 'checked' : ''}><span><b>Block during exams if needed</b><span class="block text-xs text-muted-foreground">School can temporarily restrict AI assistant use.</span></span></label>
-                    </div>
-                    <div class="grid gap-3 md:grid-cols-3 mt-4 text-sm">
-                        <label>School daily limit per student<input id="ai-daily-question-limit" type="number" min="0" value="${Number(aiSettings.dailyQuestionLimit || 0)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><span class="text-xs text-muted-foreground">0 means use subscription plan limit.</span></label>
-                        <label>Monthly school AI limit<input id="ai-monthly-school-limit" type="number" min="0" value="${Number(aiSettings.monthlySchoolLimit || 0)}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><span class="text-xs text-muted-foreground">0 means no extra school cap.</span></label>
-                        <label>Language support<select id="ai-language-support" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="school_default" ${aiSettings.languageSupport === 'school_default' || !aiSettings.languageSupport ? 'selected' : ''}>School default</option><option value="english" ${aiSettings.languageSupport === 'english' ? 'selected' : ''}>English</option><option value="english_kiswahili" ${aiSettings.languageSupport === 'english_kiswahili' ? 'selected' : ''}>English + Kiswahili support</option></select></label>
-                    </div>
                 </div>
                 <div class="rounded-xl border bg-card p-6">
                     <h3 class="font-semibold mb-1">Class Generation Preferences</h3>
@@ -2439,18 +2421,7 @@ window.saveAllSettings = async function() {
     if (!schoolName) { showToast('School name is required', 'error'); return; }
     showLoading();
     try {
-        const aiLearningAssistant = {
-            enabled: document.getElementById('ai-assistant-enabled')?.checked !== false,
-            projectHelpMode: document.getElementById('ai-project-help-mode')?.checked !== false,
-            studyAheadMode: document.getElementById('ai-study-ahead-mode')?.checked !== false,
-            allowChatHistory: document.getElementById('ai-chat-history-enabled')?.checked !== false,
-            allowTeacherSummaries: document.getElementById('ai-teacher-summaries-enabled')?.checked === true,
-            blockDuringExams: document.getElementById('ai-block-exams')?.checked === true,
-            dailyQuestionLimit: Number(document.getElementById('ai-daily-question-limit')?.value || 0),
-            monthlySchoolLimit: Number(document.getElementById('ai-monthly-school-limit')?.value || 0),
-            languageSupport: document.getElementById('ai-language-support')?.value || 'school_default'
-        };
-        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, enabledLevelGroups, customSubjects: customSubjects || [], classGeneration:{ streams, customClasses, perLevelStreams }, aiLearningAssistant });
+        const response = await api.admin.updateSchoolSettings({ curriculum, schoolName, structureType, schoolStructure: structureType, enabledLevels, enabledLevelGroups, customSubjects: customSubjects || [], classGeneration:{ streams, customClasses, perLevelStreams } });
         if (response && response.success) {
             window.schoolSettings = response.data;
             window.customSubjects = response.data.settings?.customSubjects || [];

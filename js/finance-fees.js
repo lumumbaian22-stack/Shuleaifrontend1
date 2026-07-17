@@ -35,11 +35,11 @@
   function bankSettings(){ return state.settings?.bankDetails || state.settings?.bank || {}; }
 
   const PAYMENT_AGENT_DEFS = [
-    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa checkout / STK using the school shortcode.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['callbackUrl','Callback URL','']] },
-    { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for school fee payments.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
-    { provider:'paystack', label:'Paystack', description:'Paystack checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
-    { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
-    { provider:'stripe', label:'Stripe', description:'Stripe checkout for card payments.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true],['successUrl','Success URL',''],['cancelUrl','Cancel URL','']] }
+    { provider:'mpesa', label:'M-Pesa', description:'Native Safaricom Daraja STK Push for parent fees.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode','']] },
+    { provider:'pesapal', label:'Pesapal', description:'Pesapal IPN setup; parent STK is enabled only after account/API STK test passes.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID / notification_id','auto-filled after setup']] },
+    { provider:'paystack', label:'Paystack', description:'Paystack webhook setup; parent STK only after Kenya mobile-money test passes.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true]] },
+    { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave mobile-money setup; parent STK only after phone-prompt test passes.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Webhook Secret / Secret Hash','',true]] },
+    { provider:'stripe', label:'Stripe', description:'Stripe is not parent-STK capable. Keep for future card/platform mode only.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true]] }
   ];
   function paymentAgentConfig(provider){ const providers=state.providerSettings?.providers||{}; return providers[provider] || (provider==='mpesa'?providers.daraja:null) || {}; }
   function renderPaymentAgentFields(provider, fields){ const cfg=paymentAgentConfig(provider); return fields.map(([name,label,placeholder,secret])=>`<label>${esc(label)}<input ${secret?'type="password" autocomplete="off"':''} data-provider-field="${esc(name)}" class="finance-v31-input" placeholder="${secret?'Leave blank to keep existing':esc(placeholder||'')}" value="${secret?'':esc(cfg[name]||'')}"></label>`).join(''); }
@@ -55,7 +55,8 @@
     const status = cfg.readiness || cfg.status || fromList.status || (cfg.enabled ? 'needs_credentials' : 'disabled');
     const message = cfg.statusMessage || cfg.lastError || fromList.message || (status === 'ready' ? 'Ready' : 'Setup required');
     const notificationUrl = cfg.notificationUrl || cfg.webhookUrl || cfg.callbackUrl || defaultProviderNotificationUrl(provider);
-    return { status, message, notificationUrl, lastVerifiedAt: cfg.lastVerifiedAt || cfg.webhookVerifiedAt || '' };
+    const websiteDomain = cfg.websiteDomain || (()=>{ try{return new URL((window.API_BASE_URL || 'https://api.shuleai.live')).hostname;}catch(_){return 'api.shuleai.live';} })();
+    return { status, message, notificationUrl, websiteDomain, stkCallbackUrl: cfg.stkCallbackUrl || (provider==='mpesa'?defaultProviderNotificationUrl('mpesa'):''), validationUrl: cfg.validationUrl || '', confirmationUrl: cfg.confirmationUrl || '', supportsStkPush: cfg.supportsStkPush === true, parentReady: cfg.parentReady === true, lastStkTestStatus: cfg.lastStkTestStatus || 'not_tested', lastVerifiedAt: cfg.lastVerifiedAt || cfg.webhookVerifiedAt || '' };
   }
   function defaultProviderNotificationUrl(provider){
     const base = (window.API_BASE_URL || localStorage.getItem('shule_api_base') || 'https://api.shuleai.live').replace(/\/$/, '');
@@ -149,8 +150,8 @@
           <input type="checkbox" data-provider-enabled checked style="display:none">
           <h3>3. Provider Credentials (${esc(activeAgent.label)})</h3>
           <div class="payment-lock-fields">${renderPaymentAgentFields(activeAgent.provider, activeAgent.fields)}</div>
-          ${(()=>{ const ps = providerStatus(activeAgent.provider); return `<div class="payment-lock-info provider-status-${statusClass(ps.status)}"><strong>Status:</strong> ${esc(ps.status)}<br><small>${esc(ps.message)}</small><div style="margin-top:6px"><strong>Notification URL:</strong> <code>${esc(ps.notificationUrl)}</code></div>${ps.lastVerifiedAt ? `<div><small>Last verified: ${esc(new Date(ps.lastVerifiedAt).toLocaleString())}</small></div>` : ''}</div>`; })()}
-          <div class="payment-lock-actions"><button type="button" class="finance-v31-btn blue" onclick="financeV31TestConnection()">Test Connection</button><button type="button" class="finance-v31-btn" onclick="financeV31SetupProviderNotifications('${activeAgent.provider}')">Setup / Verify Notification URL</button><button type="button" class="finance-v31-btn" onclick="financeV31CopyProviderUrl('${activeAgent.provider}')">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
+          ${(()=>{ const ps = providerStatus(activeAgent.provider); return `<div class="payment-lock-info provider-status-${statusClass(ps.status)}"><strong>Status:</strong> ${esc(ps.status)}<br><small>${esc(ps.message)}</small><div style="margin-top:8px"><strong>Website Domain:</strong> <code>${esc(ps.websiteDomain)}</code></div><div><strong>Notification / Callback URL:</strong> <code>${esc(ps.notificationUrl)}</code></div>${activeAgent.provider==='mpesa'?`<div><strong>C2B Validation:</strong> <code>${esc(ps.validationUrl || defaultProviderNotificationUrl('mpesa').replace('/callback','/validation'))}</code></div><div><strong>C2B Confirmation:</strong> <code>${esc(ps.confirmationUrl || defaultProviderNotificationUrl('mpesa').replace('/callback','/confirmation'))}</code></div>`:''}<div style="margin-top:6px"><strong>Parent STK:</strong> ${ps.parentReady?'Ready':'Hidden until STK test succeeds'} • <strong>Last STK test:</strong> ${esc(ps.lastStkTestStatus)}</div>${ps.lastVerifiedAt ? `<div><small>Last verified: ${esc(new Date(ps.lastVerifiedAt).toLocaleString())}</small></div>` : ''}<div><small>Checkout/test links are internal. Parents only see amount, phone number, Send STK Push, status, and receipt.</small></div></div>`; })()}
+          <div class="payment-lock-actions"><button type="button" class="finance-v31-btn blue" onclick="financeV31TestConnection('${activeAgent.provider}')">Test Connection</button><button type="button" class="finance-v31-btn" onclick="financeV31SetupProviderNotifications('${activeAgent.provider}')">Setup / Verify Notification URL</button><button type="button" class="finance-v31-btn" onclick="financeV31TestStk('${activeAgent.provider}')">Test STK Push</button><button type="button" class="finance-v31-btn" onclick="financeV31CopyProviderUrl('${activeAgent.provider}')">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
         </section>
         <section class="payment-lock-side-card methods-card"><h3>5. Enabled Payment Methods for Parents</h3>${methodChecks(activeAgent.provider)}</section>
         ${paymentRulesCard()}
@@ -539,7 +540,19 @@
     }catch(e){ setMessage('error', e.message || 'Could not save payment agent.'); }
   };
 
-  w.financeV31TestConnection = async function(){ clearMessage(); try{ const res = await (apiSafe().payments?.testSchoolConnection ? apiSafe().payments.testSchoolConnection() : apiRequest('/api/payments/admin/test-connection',{method:'POST'})); setMessage('success', res?.message || 'Provider connection verified successfully.'); }catch(e){ setMessage('error', e.message || 'Provider connection test failed.'); } };
+  w.financeV31TestConnection = async function(provider){ clearMessage(); try{ const res = await (apiSafe().payments?.testSchoolConnection ? apiSafe().payments.testSchoolConnection() : apiRequest('/api/payments/admin/test-connection',{method:'POST'})); setMessage('success', res?.message || 'Provider connection verified successfully.'); }catch(e){ setMessage('error', e.message || 'Provider connection test failed.'); } };
+
+  w.financeV31TestStk = async function(provider){
+    clearMessage();
+    const phone = prompt('Enter admin/finance test phone for KSh 1 STK Push. This test will NOT update student balances.', '2547');
+    if(!phone) return;
+    try{
+      const res = await (apiSafe().payments?.testSchoolProviderStk ? apiSafe().payments.testSchoolProviderStk(provider, { phone, amount: 1 }) : apiRequest(`/api/payments/admin/providers/${encodeURIComponent(provider)}/test-stk`, { method:'POST', body: JSON.stringify({ phone, amount: 1 }) }));
+      setMessage('success', res?.message || 'STK test started. Check the phone.');
+      await loadSettings();
+      renderBodyOnly();
+    }catch(e){ setMessage('error', e.message || 'STK test failed.'); }
+  };
 
   w.financeV31SetupProviderNotifications = async function(provider){
     clearMessage();

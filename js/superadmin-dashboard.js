@@ -91,11 +91,11 @@ function collectPlatformPlanInputs(ownerType) {
     }).filter(p => p.code && p.name);
 }
 const PLATFORM_PAYMENT_AGENT_DEFS = [
-    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa checkout / STK for school and parent subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['paybill','Manual Paybill Number',''],['till','Manual Till Number',''],['accountName','Account / Business Name','ShuleAI'],['manualInstructions','Manual M-Pesa Instructions','Parents and schools can pay manually, then submit the M-Pesa reference for approval.'],['callbackUrl','Callback URL','']] },
-    { provider:'pesapal', label:'Pesapal', description:'Pesapal checkout for Shule AI platform subscriptions.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID',''],['callbackUrl','Callback URL',''],['checkoutUrl','Checkout URL / test link','']] },
-    { provider:'paystack', label:'Paystack', description:'Paystack checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
-    { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave checkout for card, bank and mobile money where available.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Encryption Key','',true],['callbackUrl','Callback URL',''],['returnUrl','Return URL','']] },
-    { provider:'stripe', label:'Stripe', description:'Stripe checkout for card subscription payments.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true],['successUrl','Success URL',''],['cancelUrl','Cancel URL','']] }
+    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa STK for platform subscriptions and payment tests.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['paybill','Manual Paybill Number',''],['till','Manual Till Number',''],['accountName','Account / Business Name','ShuleAI'],['manualInstructions','Manual M-Pesa Instructions','Parents and schools can pay manually, then submit the M-Pesa reference for approval.']] },
+    { provider:'pesapal', label:'Pesapal', description:'Pesapal IPN setup for platform payments.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID / notification_id','auto-filled after setup']] },
+    { provider:'paystack', label:'Paystack', description:'Paystack webhook setup; STK/mobile-money requires verified account test.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true]] },
+    { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave webhook setup; STK/mobile-money requires verified account test.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Webhook Secret / Secret Hash','',true]] },
+    { provider:'stripe', label:'Stripe', description:'Stripe is not parent-STK capable; keep for future card/platform mode only.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true]] }
 ];
 
 function platformProviderLogo(provider){
@@ -112,7 +112,7 @@ function platformProviderStatus(provider, providerSettings = {}){
     const cfg = platformProviderConfig(provider, providerSettings) || {};
     const statuses = providerSettings.providerStatuses || [];
     const fromList = statuses.find(x => String(x.provider) === String(provider)) || {};
-    return { status: cfg.readiness || cfg.status || fromList.status || (cfg.enabled ? 'needs_credentials' : 'disabled'), message: cfg.statusMessage || cfg.lastError || fromList.message || 'Setup required', notificationUrl: cfg.notificationUrl || cfg.webhookUrl || cfg.callbackUrl || defaultPlatformNotificationUrl(provider), lastVerifiedAt: cfg.lastVerifiedAt || cfg.webhookVerifiedAt || '' };
+    return { status: cfg.readiness || cfg.status || fromList.status || (cfg.enabled ? 'needs_credentials' : 'disabled'), message: cfg.statusMessage || cfg.lastError || fromList.message || 'Setup required', notificationUrl: cfg.notificationUrl || cfg.webhookUrl || cfg.callbackUrl || defaultPlatformNotificationUrl(provider), websiteDomain: cfg.websiteDomain || 'api.shuleai.live', lastStkTestStatus: cfg.lastStkTestStatus || 'not_tested', parentReady: cfg.parentReady === true, lastVerifiedAt: cfg.lastVerifiedAt || cfg.webhookVerifiedAt || '' };
 }
 function platformProviderConfig(provider, providerSettings) {
     const providers=(providerSettings || {})?.providers || {}; return providers[provider] || (provider==='mpesa'?providers.daraja:null) || {};
@@ -155,8 +155,8 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
           <h3>2. Provider Credentials (${escapeHtml(activeAgent.label)})</h3>
           <p>Credentials belong only to the selected provider.</p>
           <div class="payment-lock-fields">${renderPlatformPaymentAgentFields(activeAgent.provider, activeAgent.fields, providerSettings)}</div>
-          ${(()=>{ const ps = platformProviderStatus(activeAgent.provider, providerSettings); return `<div class="payment-lock-info"><strong>Status:</strong> ${escapeHtml(ps.status)}<br><small>${escapeHtml(ps.message)}</small><div style="margin-top:6px"><strong>Notification URL:</strong> <code>${escapeHtml(ps.notificationUrl)}</code></div>${ps.lastVerifiedAt ? `<div><small>Last verified: ${escapeHtml(new Date(ps.lastVerifiedAt).toLocaleString())}</small></div>` : ''}</div>`; })()}
-          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save Provider</button><button onclick="testPlatformPaymentConnection()" class="px-4 py-2 rounded-lg border text-sm">Test Connection</button><button onclick="setupPlatformPaymentNotifications('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Setup / Verify Notification URL</button><button onclick="copyPlatformPaymentUrl('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
+          ${(()=>{ const ps = platformProviderStatus(activeAgent.provider, providerSettings); return `<div class="payment-lock-info"><strong>Status:</strong> ${escapeHtml(ps.status)}<br><small>${escapeHtml(ps.message)}</small><div style="margin-top:6px"><strong>Website Domain:</strong> <code>${escapeHtml(ps.websiteDomain)}</code></div><div><strong>Notification / Callback URL:</strong> <code>${escapeHtml(ps.notificationUrl)}</code></div><div><strong>STK Test:</strong> ${escapeHtml(ps.lastStkTestStatus)} • <strong>Parent/platform STK:</strong> ${ps.parentReady?'Ready':'Not ready'}</div>${ps.lastVerifiedAt ? `<div><small>Last verified: ${escapeHtml(new Date(ps.lastVerifiedAt).toLocaleString())}</small></div>` : ''}<div><small>No checkout/test URL is shown until a real test transaction is created.</small></div></div>`; })()}
+          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save Provider</button><button onclick="testPlatformPaymentConnection()" class="px-4 py-2 rounded-lg border text-sm">Test Connection</button><button onclick="setupPlatformPaymentNotifications('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Setup / Verify Notification URL</button><button onclick="testPlatformProviderStk('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Test STK Push</button><button onclick="copyPlatformPaymentUrl('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
         </section>
         <section class="payment-lock-side-card platform-method-card">
           <h3>3. Platform Payment Methods</h3><p>For subscriptions, add-ons, and platform transactions.</p>
@@ -575,6 +575,16 @@ window.setupPlatformPaymentNotifications = async function(provider) {
     } catch (e) {
         showToast?.(e.message || 'Platform provider notification setup failed.', 'error');
     }
+};
+
+window.testPlatformProviderStk = async function(provider) {
+    const phone = prompt('Enter test phone for KSh 1 STK Push. This does not update balances.', '2547');
+    if (!phone) return;
+    try {
+        const res = await (api.payments?.testPlatformProviderStk ? api.payments.testPlatformProviderStk(provider, { phone, amount: 1 }) : apiRequest(`/api/payments/superadmin/providers/${encodeURIComponent(provider)}/test-stk`, { method:'POST', body:JSON.stringify({ phone, amount: 1 }) }));
+        showToast?.(res?.message || 'Platform STK test started.', 'success');
+        await showDashboardSection('platform-payments');
+    } catch(e) { showToast?.(e.message || 'Platform STK test failed.', 'error'); }
 };
 window.copyPlatformPaymentUrl = async function(provider) {
     const url = defaultPlatformNotificationUrl(provider);
