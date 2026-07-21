@@ -1,0 +1,2569 @@
+// teacher-dashboard.js - COMPLETE CORRECTED VERSION
+let replyingTo = null;
+let currentStaffChatType = 'group';
+let currentStaffChatPartner = null;
+let currentMarksClassName = '';
+let currentMarksClassId = null, currentMarksSubject = null, currentMarksStudents = [];
+let currentMarksCanPublish = false, currentMarksRole = 'subject_teacher', currentMarksAvailableSubjects = [];
+let currentMarksTerm = 'Term 1', currentMarksYear = new Date().getFullYear();
+
+// ============ ROLE DETECTION ============
+function getTeacherAssignmentSnapshot() {
+  const raw = window.__teacherAssignments || window.dashboardData?.assignments || {};
+  return raw?.data || raw || {};
+}
+
+function getTeacherRole() {
+  const user = getCurrentUser();
+  if (!user || user.role !== 'teacher') return 'subject_teacher';
+  const assignment = getTeacherAssignmentSnapshot();
+  const hasClass = !!(assignment?.classTeacher?.id || assignment?.classTeacher?.classId);
+  const hasSubjects = Array.isArray(assignment?.subjects) && assignment.subjects.length > 0;
+  if (hasClass && hasSubjects) return 'both';
+  if (hasClass) return 'class_teacher';
+  if (hasSubjects) return 'subject_teacher';
+  const teacher = user.teacher || {};
+  return (teacher.classId || user.classId || teacher.isClassTeacher || teacher.role === 'class_teacher') ? 'class_teacher' : 'subject_teacher';
+}
+
+function isClassTeacher() {
+  const role = getTeacherRole();
+  return role === 'class_teacher' || role === 'both';
+}
+
+function isSubjectTeacher() {
+  const role = getTeacherRole();
+  return role === 'subject_teacher' || role === 'both';
+}
+
+function getTeacherRoleDescription() {
+  const role = getTeacherRole();
+  if (role === 'both') return 'You are a Class Teacher and Subject Teacher. Class tools apply only to your assigned class; marks tools apply only to your assigned subjects.';
+  if (role === 'class_teacher') return 'You are the Class Teacher. You review full-class marks, monitor attendance, and publish final report cards.';
+  return 'You are a Subject Teacher. You can enter marks only for your assigned subjects and classes.';
+}
+
+function getTeacherAssignedClass() {
+  const user = getCurrentUser();
+  if (!user || user.role !== 'teacher') return null;
+  const assignment = getTeacherAssignmentSnapshot();
+  const cls = assignment?.classTeacher;
+  if (cls && (cls.id || cls.classId)) {
+    return { id: cls.id || cls.classId, name: cls.name || cls.className || 'Assigned Class', grade: cls.grade || '', stream: cls.stream || '', studentCount: cls.studentCount || 0 };
+  }
+  const teacher = user.teacher || {};
+  if (teacher.classId || user.classId) {
+    return { id: teacher.classId || user.classId, name: teacher.className || user.className || 'Assigned Class', studentCount: teacher.studentCount || 0 };
+  }
+  return null;
+}
+
+// ============ RENDER TEACHER SECTIONS ============
+async function renderTeacherSection(section){
+  try{const classOnly=new Set(['students','attendance','report-history','birthdays','release-class','student-lifecycle','class-transfers']);if(classOnly.has(section)&&!isClassTeacher())return '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">This section appears automatically when the school assigns you as a class teacher.</p></div>';
+    switch(section) {
+      case 'dashboard': return await renderTeacherDashboard();
+      case 'competency': return await renderTeacherCompetency();
+      case 'my-timetable': return await (window.v12RenderTeacherTimetable || window.renderTeacherTimetable)();
+      case 'homework': return await (window.v12RenderTeacherHomework || window.renderTeacherHomework)();
+      case 'students': return await renderTeacherStudents();
+      case 'student-lifecycle':
+      case 'class-transfers': return await window.renderClassTransferCentre('teacher');
+      case 'attendance': return await renderTeacherAttendance();
+      case 'release-class': return await renderTeacherReleaseClass();
+      case 'grades': return await renderTeacherMarksEntry();
+      case 'report-comments': return await renderTeacherReportComments();
+      case 'report-history': return await window.renderReportHistoryCentre('teacher');
+      case 'birthdays': return await window.renderBirthdayCentre('teacher');
+      case 'subject-requests': return await renderTeacherSubjectRequests();
+      case 'tasks': return await renderTeacherTasks();
+      case 'duty': return await (window.v12RenderTeacherDuty || window.renderTeacherDuty)();
+      case 'duty-preferences': return renderTeacherDutyPreferences();
+      case 'staff-chat': return await renderTeacherV9Messages();
+      case 'parent-chat': return await renderTeacherParentChat();
+      case 'settings': return await renderProfileSection()
+      case 'help': return await renderHelpSection('teacher');
+      case 'profile': return await renderProfileSection();
+      case 'alerts': return await (window.v12RenderAlertsCenter || window.renderAlertsCenter)('teacher');
+            default: return await renderTeacherDashboard();
+    }
+  } catch (error) {
+    console.error('Error rendering teacher section:', error);
+    return `<div class="text-center py-12 text-red-500">Error loading section: ${error.message}</div>`;
+  }
+}
+
+
+async function renderTeacherAssignmentLabelCard() {
+  try {
+    const res = await api.teacher.getMyAssignments();
+    const data = res.data || {};
+    window.__teacherAssignments = data;
+    if (window.dashboardData) window.dashboardData.assignments = data;
+    const classTeacher = data.classTeacher || null;
+    const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+    const subjectPreview = subjects.slice(0, 4).map(s => `${s.className || 'Class'} — ${s.subject}`).join(' · ');
+    return `<div class="rounded-xl border bg-card p-5"><div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">Teacher assignment</p><h3 class="text-xl font-bold">${classTeacher ? `Class Teacher: ${escapeHtml(classTeacher.name)}` : 'Class Teacher: Not assigned'}</h3><p class="text-sm text-muted-foreground mt-1">${classTeacher ? `Actual assigned class: ${escapeHtml(classTeacher.name)}${classTeacher.grade ? ` • ${escapeHtml(classTeacher.grade)}` : ''}` : (subjectPreview || 'No subject assignment has been configured yet.')}</p></div><div class="flex gap-2 flex-wrap">${classTeacher ? '<span class="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">Class Teacher</span>' : ''}${subjects.length ? `<span class="px-3 py-1 rounded-full border text-sm">${subjects.length} subject assignment(s)</span>` : ''}</div></div></div>`;
+  } catch (_) { return ''; }
+}
+
+// ============ DASHBOARD ============
+async function renderTeacherDashboard() {
+  const user = getCurrentUser();
+  const role = getTeacherRole();
+  const teacherClass = getTeacherAssignedClass();
+  const hasClass = teacherClass !== null;
+  const className = teacherClass?.name || 'No class assigned';
+  
+  let stats = { studentCount: 0, classAverage: 0, attendanceToday: '0/0', pendingTasks: 0 };
+  let performanceData = { subjectAverages: [], attendanceTrend: [] };
+  try {
+    const statsRes = await api.teacher.getTeacherStats();
+    if (statsRes.success) stats = statsRes.data;
+    const perfRes = await api.teacher.getPerformanceData();
+    if (perfRes.success) performanceData = perfRes.data;
+  } catch(e) { console.error(e); }
+
+  const assignmentCard = await renderTeacherAssignmentLabelCard();
+
+  const html = `
+    <div class="space-y-6 animate-fade-in">
+      ${assignmentCard}
+      <div class="rounded-xl border bg-card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div class="flex items-center flex-wrap gap-2">
+              <h2 class="text-2xl font-bold">Welcome, ${escapeHtml(user?.name || 'Teacher')}!</h2>
+              <span class="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded-full">${role === 'both' ? 'Class & Subject Teacher' : role === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}</span>
+            </div>
+            <p class="text-muted-foreground mt-1 text-sm">${getTeacherRoleDescription()}</p>
+            ${hasClass ? `<div class="mt-3 p-3 bg-primary/10 rounded-lg inline-block"><span class="text-sm font-medium">📚 Your Class: </span><span class="text-sm font-bold text-primary">${escapeHtml(className)}</span> <span class="text-xs text-muted-foreground ml-2">(${stats.studentCount} students)</span></div>` : ''}
+          </div>
+          ${isClassTeacher() ? `<button onclick="showCSVUploadModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 shadow-sm"><i data-lucide="upload" class="h-4 w-4"></i> Upload Students (CSV)</button>` : ''}
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        ${isClassTeacher() ? `<div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">My Students</p><h3 class="text-2xl font-bold mt-1">${stats.studentCount || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><i data-lucide="users" class="h-6 w-6 text-blue-600 dark:text-blue-400"></i></div></div></div>` : ''}
+        <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">${isClassTeacher() ? 'Class Average' : 'Subject Average'}</p><h3 class="text-2xl font-bold mt-1">${stats.classAverage || 0}%</h3></div><div class="h-12 w-12 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><i data-lucide="trending-up" class="h-6 w-6 text-violet-600 dark:text-violet-400"></i></div></div></div>
+        ${isClassTeacher()?`<div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Attendance Today</p><h3 class="text-2xl font-bold mt-1">${stats.attendanceToday||'0/0'}</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600 dark:text-amber-400"></i></div></div></div>`:''}
+        <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm text-muted-foreground">Pending Tasks</p><h3 class="text-2xl font-bold mt-1">${stats.pendingTasks || 0}</h3></div><div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><i data-lucide="check-square" class="h-6 w-6 text-red-600 dark:text-red-400"></i></div></div></div>
+      </div>
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border bg-card p-6">
+          <h3 class="font-semibold mb-4">Subject Performance Summary</h3>
+          <div class="space-y-2">
+            ${(performanceData.subjectAverages || []).length ? performanceData.subjectAverages.slice(0, 5).map(s => `
+              <div class="flex items-center justify-between text-sm border-b pb-2">
+                <span>${escapeHtml(s.subject || 'Subject')}</span>
+                <span class="font-semibold">${Math.round(s.average || 0)}%</span>
+              </div>
+            `).join('') : '<p class="text-muted-foreground text-sm">No performance data yet</p>'}
+          </div>
+        </div>
+        <div class="rounded-xl border bg-card p-6">
+          <h3 class="font-semibold mb-4">Attendance Summary</h3>
+          <div class="space-y-2">
+            ${(performanceData.attendanceTrend || []).length ? performanceData.attendanceTrend.slice(-7).map(a => `
+              <div class="flex items-center justify-between text-sm border-b pb-2">
+                <span>${typeof moment !== 'undefined' ? moment(a.date).format('MMM D') : formatDate(a.date)}</span>
+                <span class="font-semibold">${Math.round(a.rate || 0)}%</span>
+              </div>
+            `).join('') : '<p class="text-muted-foreground text-sm">No attendance data yet</p>'}
+          </div>
+        </div>
+      </div>
+      ${`<div class="rounded-xl border bg-card p-6" id="duty-card"><div class="flex justify-between items-start"><div><h3 class="font-semibold">Today's Duty</h3><p class="text-sm text-muted-foreground" id="duty-location">Loading...</p></div><span class="duty-status px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-full" id="duty-status">Not Checked In</span></div><div class="mt-4 flex gap-3"><button onclick="handleCheckIn()" class="flex-1 bg-primary text-primary-foreground py-2 rounded-lg" id="check-in-btn">Check In</button><button onclick="handleCheckOut()" class="flex-1 border bg-background py-2 rounded-lg" id="check-out-btn" disabled>Check Out</button></div><div class="mt-3 text-xs text-muted-foreground">Duty is included for every active school.</div></div>`}
+    </div>
+  `;
+
+  setTimeout(()=>{loadTodayDuty();},100);
+
+  return html;
+}
+
+// ============ TEACHER STUDENTS (CORRECTED - NO DUPLICATES) ============
+async function loadMyStudents() {
+  try {
+    const response = await api.teacher.getMyStudents();
+    return response.data || { students: [], isClassTeacher: false, subjects: [] };
+  } catch(e) {
+    console.error(e);
+    return { students: [], isClassTeacher: false, subjects: [] };
+  }
+}
+
+
+async function renderTeacherStudents() {
+    const data = await loadMyStudents();
+    const students = data.students || [];
+    const isClassTeacherFlag = !!data.isClassTeacher;
+    const subjects = data.subjects || [];
+    const classId = data.classId || data.class?.id || getTeacherAssignedClass()?.id || '';
+    if (!isClassTeacherFlag) {
+      return `<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">My Students is reserved for class teachers. Use Grades and Attendance for your assigned subjects/classes.</p></div>`;
+    }
+    let reviewPanel = '';
+    try {
+      let classTeacher = data.class || null;
+      if (!classTeacher?.id) {
+        const assignments = await api.teacher.getMyAssignments().catch(() => null);
+        classTeacher = assignments?.data?.classTeacher || classTeacher;
+      }
+      if (classTeacher?.id || classId) reviewPanel = renderClassTeacherReviewShell({ ...(classTeacher || {}), id: classTeacher?.id || classId, name: classTeacher?.name || data.class?.name || getTeacherAssignedClass()?.name || 'My Class' });
+    } catch (e) {
+      reviewPanel = `<div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200">Class report controls could not load: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+    }
+    if (classId) setTimeout(() => { try { if (typeof openClassReportTab === 'function') openClassReportTab('current', String(classId)); } catch (_) {} }, 120);
+    return `<div class="space-y-6">${reviewPanel}${renderStudentsTable(students, true, subjects, classId)}</div>`;
+}
+
+function renderClassTeacherReviewShell(classTeacher) {
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear - 1, currentYear, currentYear + 1];
+  const classId = classTeacher.id || classTeacher.classId || '';
+  return `
+    <section class="rounded-2xl border bg-card p-5 shadow-sm" data-class-report-shell="${escapeHtml(classId)}">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-muted-foreground">Class Teacher Control Center</p>
+          <h2 class="text-xl font-bold">${escapeHtml(classTeacher.name || 'My Class')} Report Review</h2>
+          <p class="text-sm text-muted-foreground">Review the current draft, fix marks inline, then publish official report cards. Published archives stay separate.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <select id="class-report-term" class="rounded-lg border px-3 py-2 bg-background" onchange="clearClassReportPanels()">${['Term 1','Term 2','Term 3'].map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+          <select id="class-report-year" class="rounded-lg border px-3 py-2 bg-background" onchange="clearClassReportPanels()">${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}</select>
+          <select id="class-report-assessment" class="rounded-lg border px-3 py-2 bg-background" onchange="clearClassReportPanels()">
+            <option value="">All assessments</option>
+            <option value="CAT 1">CAT 1</option>
+            <option value="CAT 2">CAT 2</option>
+            <option value="Midterm">Midterm</option>
+            <option value="Endterm">Endterm</option>
+            <option value="Final Exam">Final Exam</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2 border-b pb-3">
+        <button id="class-report-tab-current" onclick="openClassReportTab('current','${classId}')" class="px-4 py-2 rounded-lg bg-primary text-white">Current Draft Review</button>
+        <button id="class-report-tab-archive" onclick="openClassReportTab('archive','${classId}')" class="px-4 py-2 rounded-lg border bg-background hover:bg-muted">Published Archive</button>
+        <button id="class-report-tab-issues" onclick="openClassReportTab('issues','${classId}')" class="px-4 py-2 rounded-lg border bg-background hover:bg-muted">Data Issues</button>
+      </div>
+      <div id="class-report-current-panel" class="mt-5"></div>
+      <div id="class-report-archive-panel" class="hidden mt-5"></div>
+      <div id="class-report-issues-panel" class="hidden mt-5"></div>
+    </section>`;
+}
+
+function clearClassReportPanels() {
+  ['class-report-current-panel','class-report-archive-panel','class-report-issues-panel'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.innerHTML = '';
+  });
+}
+
+function setClassReportActiveTab(tab) {
+  const pairs = [['current','class-report-current-panel'],['archive','class-report-archive-panel'],['issues','class-report-issues-panel']];
+  pairs.forEach(([name, panelId]) => {
+    const panel = document.getElementById(panelId);
+    const btn = document.getElementById(`class-report-tab-${name}`);
+    if (panel) panel.classList.toggle('hidden', name !== tab);
+    if (btn) {
+      btn.className = name === tab
+        ? 'px-4 py-2 rounded-lg bg-primary text-white'
+        : 'px-4 py-2 rounded-lg border bg-background hover:bg-muted';
+    }
+  });
+}
+
+async function openClassReportTab(tab, classId) {
+  setClassReportActiveTab(tab);
+  if (tab === 'current') return toggleClassReportReview(classId, { forceOpen:true });
+  if (tab === 'archive') return refreshSavedClassReports(classId, { targetId:'class-report-archive-panel' });
+  if (tab === 'issues') return loadClassReportIssues(classId);
+}
+
+async function toggleClassReportReview(classId, options = {}) {
+  classId = classId || window.__activeClassReportClassId || window.dashboardData?.teacher?.classId || window.dashboardData?.profile?.classId || getCurrentUser?.()?.teacher?.classId || getCurrentUser?.()?.classId || '';
+  if (classId && String(classId) !== 'undefined') window.__activeClassReportClassId = classId;
+  const panel = document.getElementById('class-report-current-panel') || document.getElementById('class-report-review-panel');
+  if (!panel) return;
+  if (!options.forceOpen && panel.id === 'class-report-review-panel' && !panel.classList.contains('hidden') && panel.innerHTML.trim()) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  panel.innerHTML = `<div class="py-8 text-center text-muted-foreground">Loading current draft review...</div>`;
+  try {
+    const term = document.getElementById('class-report-term')?.value || 'Term 1';
+    const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+    const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+    const gradebook = await api.teacher.getGradebook({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
+    const data = gradebook?.data || {};
+    panel.innerHTML = renderClassTeacherReportReview(data, term, year);
+    const issuesPanel = document.getElementById('class-report-issues-panel');
+    if (issuesPanel) issuesPanel.innerHTML = renderClassReportIssues(data);
+  } catch (e) {
+    panel.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-4 text-sm text-red-700 dark:text-red-200">Could not load current draft report: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+  }
+}
+
+function classReportIssues(gradebook) {
+  const subjects = gradebook.subjects || [];
+  const students = gradebook.students || [];
+  const byName = {};
+  students.forEach(st => { const key = String(st.name || '').trim().toLowerCase(); if (key) (byName[key] ||= []).push(st); });
+  const duplicateGroups = Object.values(byName).filter(list => list.length > 1);
+  const missingMarks = [];
+  students.forEach(st => {
+    const missing = subjects.filter(sub => st.scores?.[sub] === null || st.scores?.[sub] === undefined || st.scores?.[sub] === '');
+    if (missing.length) missingMarks.push({ student: st, missing });
+  });
+  return { duplicateGroups, missingMarks, total: duplicateGroups.length + missingMarks.length };
+}
+
+function renderClassReportIssues(gradebook) {
+  const issues = classReportIssues(gradebook || {});
+  if (!issues.total) return `<div class="rounded-xl border bg-green-50 dark:bg-green-950/20 p-5 text-green-800 dark:text-green-200"><strong>No blocking data issues found.</strong><p class="text-sm mt-1">You can still preview and publish the class report cards.</p></div>`;
+  return `<div class="space-y-4">
+    <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4"><strong>${issues.total} issue group(s) found</strong><p class="text-sm text-muted-foreground mt-1">These are warnings. You may fix them, or publish anyway with confirmation.</p></div>
+    ${issues.duplicateGroups.length ? `<section class="rounded-xl border bg-card p-4"><h3 class="font-semibold text-red-700 dark:text-red-300">Possible duplicate names</h3><div class="mt-3 space-y-2">${issues.duplicateGroups.map(group => `<div class="rounded-lg bg-muted/30 p-3"><strong>${escapeHtml(group[0].name || 'Student')}</strong><div class="text-xs text-muted-foreground mt-1">${group.map(st => `${escapeHtml(st.elimuid || st.admissionNumber || 'No Elimu ID')} · ID ${escapeHtml(st.id)}`).join(' | ')}</div></div>`).join('')}</div></section>` : ''}
+    ${issues.missingMarks.length ? `<section class="rounded-xl border bg-card p-4"><h3 class="font-semibold text-amber-700 dark:text-amber-300">Students with missing marks</h3><div class="mt-3 grid gap-2 md:grid-cols-2">${issues.missingMarks.map(item => `<div class="rounded-lg bg-muted/30 p-3"><strong>${escapeHtml(item.student.name || 'Student')}</strong><div class="text-xs text-muted-foreground">${escapeHtml(item.student.elimuid || item.student.admissionNumber || '')}</div><div class="text-xs mt-1">Missing: ${escapeHtml(item.missing.join(', '))}</div></div>`).join('')}</div></section>` : ''}
+  </div>`;
+}
+
+async function loadClassReportIssues(classId) {
+  const panel = document.getElementById('class-report-issues-panel');
+  if (!panel) return;
+  panel.innerHTML = `<div class="py-8 text-center text-muted-foreground">Checking data issues...</div>`;
+  try {
+    const term = document.getElementById('class-report-term')?.value || 'Term 1';
+    const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+    const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+    const gradebook = await api.teacher.getGradebook({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
+    panel.innerHTML = renderClassReportIssues(gradebook?.data || {});
+  } catch (e) {
+    panel.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-4 text-sm text-red-700 dark:text-red-200">Could not check issues: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+  }
+}
+
+function renderClassTeacherReportReview(gradebook, term, year) {
+    window.__classReportPreviewedStudents = window.__classReportPreviewedStudents || new Set();
+    const subjects = gradebook.subjects || [];
+    const students = gradebook.students || [];
+    const classId = gradebook.classId || '';
+    const issues = classReportIssues(gradebook);
+    const readyStudents = students.filter(s => subjects.length && subjects.every(sub => s.scores && s.scores[sub] !== null && s.scores[sub] !== undefined && s.scores[sub] !== ''));
+    return `
+      <div class="space-y-4">
+        <div class="grid gap-3 md:grid-cols-4">
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Students</p><h3 class="text-2xl font-bold">${students.length}</h3></div>
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Subjects</p><h3 class="text-2xl font-bold">${subjects.length}</h3></div>
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Ready</p><h3 class="text-2xl font-bold text-green-600">${readyStudents.length}</h3></div>
+          <div class="rounded-xl bg-muted/40 p-3"><p class="text-xs text-muted-foreground">Issues</p><h3 class="text-2xl font-bold ${issues.total ? 'text-amber-600' : 'text-green-600'}">${issues.total}</h3></div>
+        </div>
+        ${issues.total ? `<div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200"><strong>Unresolved issues found.</strong> You can fix marks inline, check the Data Issues tab, or publish anyway after confirming.</div>` : ''}
+        <div class="overflow-x-auto border rounded-xl">
+          <table class="w-full text-sm min-w-[850px]" id="class-report-review-table" data-class-id="${escapeHtml(classId)}">
+            <thead class="bg-muted/50"><tr><th class="px-3 py-2 text-left">Student</th><th class="px-3 py-2 text-center">Completion</th><th class="px-3 py-2 text-center">Average</th><th class="px-3 py-2 text-center">Grade</th><th class="px-3 py-2 text-center">Status</th><th class="px-3 py-2 text-right">Actions</th></tr></thead>
+            <tbody class="divide-y">
+              ${students.map(st => renderClassReportStudentRow(st, subjects, classId)).join('') || `<tr><td colspan="6" class="px-3 py-8 text-center text-muted-foreground">No marks submitted yet for this term/year.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border p-4">
+          <div class="space-y-2"><p class="text-sm text-muted-foreground">Inline edits save to the real marks database and will be included when you publish. Missing marks are allowed only after explicit confirmation.</p><label class="flex items-center gap-2 text-sm font-medium"><input id="class-report-reviewed-checkbox" type="checkbox" class="rounded"> I have checked the class report cards and understand what will be published.</label></div>
+          <button onclick="publishClassReportFromStudents('${classId}')" class="px-4 py-2 rounded-lg bg-primary text-white" ${students.length ? '' : 'disabled'}>${issues.total ? 'Publish Anyway' : 'Publish Report Cards'}</button>
+        </div>
+      </div>`;
+}
+
+function renderClassReportStudentRow(st, subjects, classId) {
+  const missing = subjects.filter(sub => st.scores?.[sub] === null || st.scores?.[sub] === undefined || st.scores?.[sub] === '');
+  const completion = `${subjects.length - missing.length}/${subjects.length}`;
+  const status = missing.length ? `<span class="rounded-full px-2 py-1 bg-amber-100 text-amber-800">Missing ${missing.length}</span>` : `<span class="rounded-full px-2 py-1 bg-green-100 text-green-700">Ready</span>`;
+  return `<tr data-student-id="${escapeHtml(st.id)}" data-student-name="${escapeHtml(st.name || '')}"><td class="px-3 py-3 font-medium">${escapeHtml(st.name || 'Student')}<div class="text-xs text-muted-foreground">${escapeHtml(st.elimuid || st.admissionNumber || '')}</div></td><td class="px-3 py-3 text-center font-semibold">${completion}</td><td class="px-3 py-3 text-center font-semibold" id="class-review-avg-${st.id}">${st.overallAverage == null ? '—' : st.overallAverage + '%'}</td><td class="px-3 py-3 text-center" id="class-review-grade-${st.id}">${escapeHtml(st.finalGrade || '—')}</td><td class="px-3 py-3 text-center" id="class-review-status-${st.id}">${status}</td><td class="px-3 py-3 text-right"><div class="flex justify-end gap-2"><button type="button" class="px-3 py-1.5 rounded border" onclick="toggleClassReviewSubjects('${st.id}')">Expand / Edit</button><button type="button" class="px-3 py-1.5 rounded border" onclick="openClassTeacherReportCardPreview('${st.id}','${classId}')">Preview PDF</button></div></td></tr><tr id="class-review-subjects-${st.id}" class="hidden bg-muted/20"><td colspan="6" class="px-4 py-4">${renderInlineSubjectEditor(st, subjects, classId, 'class-review')}</td></tr>`;
+}
+
+function renderInlineSubjectEditor(st, subjects, classId, context = 'class-review') {
+  const term = document.getElementById('class-report-term')?.value || 'Term 1';
+  const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+  const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+  return `<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${subjects.map(sub => {
+    const val = st.scores?.[sub];
+    const recordId = st.recordIds?.[sub] || '';
+    const grade = st.grades?.[sub] || (val == null ? '' : getGradeFromScore(Number(val), window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null));
+    return `<label class="rounded-lg border bg-card p-3"><span class="block text-xs font-semibold text-muted-foreground mb-1">${escapeHtml(sub)}</span><div class="flex items-center gap-2"><input class="inline-student-mark w-24 rounded border bg-background px-2 py-1" data-context="${escapeHtml(context)}" data-record-id="${escapeHtml(recordId)}" data-class-id="${escapeHtml(classId)}" data-student-id="${escapeHtml(st.id)}" data-subject="${escapeHtml(sub)}" data-term="${escapeHtml(term)}" data-year="${escapeHtml(year)}" data-assessment-name="${escapeHtml(assessmentName)}" value="${val == null ? '' : escapeHtml(String(val))}" type="number" min="0" max="100" onchange="saveClassReviewMark(this)"><span id="inline-grade-${context}-${st.id}-${slugifyForId(sub)}" class="text-xs rounded-full px-2 py-1 bg-muted">${escapeHtml(grade || '—')}</span></div></label>`;
+  }).join('')}</div>`;
+}
+
+function slugifyForId(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'subject';
+}
+
+function toggleClassReviewSubjects(studentId) {
+  const row = document.getElementById(`class-review-subjects-${studentId}`);
+  if (row) row.classList.toggle('hidden');
+}
+
+function updateClassReviewRow(studentId) {
+  const inputs = [...document.querySelectorAll(`.inline-student-mark[data-student-id="${studentId}"]`)];
+  const scores = inputs.map(i => Number(i.value)).filter(n => Number.isFinite(n));
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+  const avgEl = document.getElementById(`class-review-avg-${studentId}`);
+  const gradeEl = document.getElementById(`class-review-grade-${studentId}`);
+  const statusEl = document.getElementById(`class-review-status-${studentId}`);
+  const grade = avg == null ? '—' : getGradeFromScore(avg, window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null);
+  if (avgEl) avgEl.textContent = avg == null ? '—' : `${avg}%`;
+  if (gradeEl) gradeEl.textContent = grade;
+  const missing = inputs.filter(i => i.value === '').map(i => i.dataset.subject);
+  if (statusEl) statusEl.innerHTML = `<span class="rounded-full px-2 py-1 ${missing.length ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700'}">${missing.length ? 'Missing ' + missing.length : 'Ready'}</span>`;
+}
+
+async function saveClassReviewMark(input) {
+  const score = Number(input.value);
+  if (!Number.isFinite(score) || score < 0 || score > 100) { showToast('Score must be 0-100', 'error'); return; }
+  const recordId = input.dataset.recordId;
+  const studentId = input.dataset.studentId;
+  const classId = input.dataset.classId || document.querySelector('#class-report-review-table')?.dataset?.classId || '';
+  const subject = input.dataset.subject;
+  const term = input.dataset.term || document.getElementById('class-report-term')?.value || 'Term 1';
+  const year = Number(input.dataset.year || document.getElementById('class-report-year')?.value || new Date().getFullYear());
+  const assessmentName = input.dataset.assessmentName || document.getElementById('class-report-assessment')?.value || `${subject} Class Teacher Entry`;
+  try {
+    let res;
+    if (recordId) {
+      res = await api.teacher.updateMark(recordId, { score });
+    } else {
+      if (!api.teacher.saveBulkMarks) throw new Error('Bulk mark save API is unavailable in this build');
+      res = await api.teacher.saveBulkMarks({ classId, subject, assessmentType:'test', assessmentName, term, year, status:'submitted', marks:[{ studentId, score }] });
+      const saved = res?.data?.results?.find(r => String(r.studentId) === String(studentId) && r.success);
+      if (saved?.recordId) input.dataset.recordId = saved.recordId;
+      if (res?.data?.failed) throw new Error(res?.data?.results?.find(r => !r.success)?.error || 'Some marks failed to save');
+    }
+    const grade = res?.meta?.grade || res?.data?.results?.find(r => String(r.studentId) === String(studentId))?.grade || getGradeFromScore(score, window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc', window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'secondary', window.currentGradingScale || null);
+    const gradeEl = document.getElementById(`inline-grade-${input.dataset.context || 'class-review'}-${studentId}-${slugifyForId(subject)}`);
+    if (gradeEl) gradeEl.textContent = grade || '—';
+    updateClassReviewRow(studentId);
+    showToast(`Saved ${subject}: ${score}%`, 'success');
+  } catch(e) { showToast(e.message || 'Could not save mark', 'error'); }
+}
+
+async function openClassTeacherReportCardPreview(studentId, classId) {
+  const term = document.getElementById('class-report-term')?.value || 'Term 1';
+  const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+  const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+  window.__teacherReportPreviewContext = { classId, term, year, assessmentName };
+  window.__classReportPreviewedStudents = window.__classReportPreviewedStudents || new Set();
+  window.__classReportPreviewedStudents.add(String(studentId));
+  try { await openReportCard(studentId); }
+  finally { setTimeout(() => { delete window.__teacherReportPreviewContext; }, 1500); }
+}
+
+function collectClassReportPublishIssues() {
+  const rows = [...document.querySelectorAll('#class-report-review-table tbody tr[data-student-id]')];
+  const missingRows = rows.filter(row => {
+    const detail = document.getElementById(`class-review-subjects-${row.dataset.studentId}`);
+    return detail && [...detail.querySelectorAll('.inline-student-mark')].some(input => input.value === '');
+  });
+  const names = {};
+  rows.forEach(row => { const key = String(row.dataset.studentName || '').trim().toLowerCase(); if (key) (names[key] ||= []).push(row); });
+  const duplicates = Object.values(names).filter(list => list.length > 1);
+  return { missingRows, duplicates, total: missingRows.length + duplicates.length };
+}
+
+async function publishClassReportFromStudents(classId) {
+  const term = document.getElementById('class-report-term')?.value || 'Term 1';
+  const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+  if (!classId) return showToast('Class not found', 'error');
+  const rowIds = [...document.querySelectorAll('#class-report-review-table tbody tr[data-student-id]')].map(r => String(r.dataset.studentId || '')).filter(Boolean);
+  if (!rowIds.length) return showToast('No students found to publish', 'error');
+  const issues = collectClassReportPublishIssues();
+  const reviewed = !!document.getElementById('class-report-reviewed-checkbox')?.checked;
+  let message = `Publish report cards for ${term} ${year}? Students and parents will see the official PDFs after this.`;
+  if (issues.total) message += `\n\nUnresolved warnings: ${issues.missingRows.length} student(s) with missing marks, ${issues.duplicates.length} duplicate-name group(s).\n\nChoose OK to publish anyway.`;
+  if (!reviewed) message += `\n\nThe verification checkbox is not ticked. Choose OK only if you have checked the reports another way.`;
+  if (!confirm(message)) return;
+  showLoading();
+  try {
+    const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+    const res = await api.teacher.publishMarks({ classId, term, year, publishAnyway:true, issueSummary:{ missingStudents:issues.missingRows.length, duplicateGroups:issues.duplicates.length, verificationChecked:reviewed }, ...(assessmentName ? { assessmentName } : {}) });
+    showToast(res.message || 'Full class report published', 'success');
+    await toggleClassReportReview(classId, { forceOpen:true });
+    if (typeof refreshSavedClassReports === 'function') await refreshSavedClassReports(classId, { targetId:'class-report-archive-panel', silent:true });
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+function renderStudentsTable(students, isClassTeacher, subjects, classId = "") {
+    if (!students || students.length === 0) {
+        return '<div class="rounded-xl border bg-card p-8 text-center text-muted-foreground"><h3 class="font-semibold text-foreground mb-1">No students found in your assigned class</h3><p class="text-sm">Confirm the class-teacher assignment or upload/import students for this class.</p></div>';
+    }
+    const safeSubjects = Array.isArray(subjects) ? subjects : [];
+    const completionFor = (student) => {
+        const scores = student.subjectScores || {};
+        const total = safeSubjects.length || Object.keys(scores).length;
+        const filled = (safeSubjects.length ? safeSubjects : Object.keys(scores)).filter(subject => scores[subject] !== null && scores[subject] !== undefined && scores[subject] !== '').length;
+        return { filled, total, label: total ? `${filled}/${total}` : '0/0' };
+    };
+    const avgFor = (student) => {
+        const value = student.overallAverage;
+        return value === null || value === undefined || value === '' ? null : Number(value);
+    };
+    const duplicateMap = {};
+    students.forEach(student => {
+        const key = String(student.name || '').trim().toLowerCase();
+        if (key) (duplicateMap[key] ||= []).push(student);
+    });
+    return `<section class="rounded-2xl border bg-card shadow-sm overflow-hidden">
+      <div class="p-5 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-bold">My Class Roster</h3>
+          <p class="text-sm text-muted-foreground">Expand a learner to edit marks directly here. Changes save to the real marks database.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="rounded-full bg-muted px-3 py-1">${students.length} learner(s)</span>
+          <span class="rounded-full bg-muted px-3 py-1">${safeSubjects.length} subject(s)</span>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[760px]">
+          <thead class="bg-muted/50"><tr>
+            <th class="px-4 py-3 text-left">Student</th>
+            <th class="px-4 py-3 text-left">Elimu ID</th>
+            <th class="px-4 py-3 text-center">Completion</th>
+            <th class="px-4 py-3 text-center">Average</th>
+            <th class="px-4 py-3 text-center">Attendance</th>
+            <th class="px-4 py-3 text-center">Status</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr></thead>
+          <tbody class="divide-y">
+            ${students.map(student => {
+              const photoUrl = resolveMediaUrl(student.photo || (student.User && student.User.profileImage) || '');
+              const completion = completionFor(student);
+              const avg = avgFor(student);
+              const attendance = Number(student.attendance ?? 100);
+              const duplicate = (duplicateMap[String(student.name || '').trim().toLowerCase()] || []).length > 1;
+              const ready = completion.total > 0 && completion.filled === completion.total;
+              const status = duplicate
+                ? '<span class="rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs">Possible duplicate</span>'
+                : ready ? '<span class="rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs">Ready</span>'
+                : '<span class="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-xs">Missing marks</span>';
+              return `<tr class="hover:bg-accent/40" data-student-row="${escapeHtml(student.id)}">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    ${photoUrl ? `<img src="${escapeHtml(photoUrl)}" class="h-9 w-9 rounded-full object-cover" onerror="this.outerHTML='<div class=&quot;h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold&quot;>${getInitials(student.name)}</div>'">` : `<div class="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">${getInitials(student.name)}</div>`}
+                    <div class="min-w-0"><p class="font-semibold truncate">${escapeHtml(student.name || 'Student')}</p>${duplicate ? '<p class="text-xs text-red-600">Same name appears more than once — use Elimu ID to confirm.</p>' : ''}</div>
+                  </div>
+                </td>
+                <td class="px-4 py-3"><span class="font-mono text-xs rounded bg-muted px-2 py-1">${escapeHtml(student.elimuid || student.elimuId || student.admissionNumber || '—')}</span></td>
+                <td class="px-4 py-3 text-center font-semibold">${completion.label}</td>
+                <td class="px-4 py-3 text-center font-semibold ${avg === null ? 'text-muted-foreground' : getOverallColor(String(avg))}">${avg === null ? '—' : avg + '%'}</td>
+                <td class="px-4 py-3 text-center">${Number.isFinite(attendance) ? attendance + '%' : '—'}</td>
+                <td class="px-4 py-3 text-center">${status}</td>
+                <td class="px-4 py-3 text-right"><div class="flex justify-end gap-1">
+                  <button title="Expand/edit marks" onclick="toggleMyStudentMarks('${student.id}','${classId || student.classId || ''}')" class="px-3 py-1.5 rounded border text-xs hover:bg-accent">Expand / Edit</button>
+                  <button title="View student" onclick="showUnifiedStudentModal('${student.id}')" class="px-3 py-1.5 rounded border text-xs hover:bg-accent">View</button>
+                </div></td>
+              </tr><tr id="my-student-marks-${student.id}" class="hidden bg-muted/20"><td colspan="7" class="px-4 py-4 text-sm text-muted-foreground">Loading mark editor...</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+
+async function toggleMyStudentMarks(studentId, classId) {
+  const row = document.getElementById(`my-student-marks-${studentId}`);
+  if (!row) return;
+  const wasHidden = row.classList.contains('hidden');
+  row.classList.toggle('hidden');
+  if (!wasHidden && row.dataset.loaded === 'true') return;
+  if (!classId) {
+    row.innerHTML = `<td colspan="99" class="px-4 py-4 text-sm text-amber-700">Class ID not found. Refresh the dashboard or ask admin to confirm the class teacher assignment.</td>`;
+    return;
+  }
+  row.innerHTML = `<td colspan="99" class="px-4 py-4 text-sm text-muted-foreground">Loading editable subject marks...</td>`;
+  try {
+    const term = document.getElementById('class-report-term')?.value || 'Term 1';
+    const year = document.getElementById('class-report-year')?.value || new Date().getFullYear();
+    const assessmentName = document.getElementById('class-report-assessment')?.value || '';
+    const response = await api.teacher.getGradebook({ classId, term, year, ...(assessmentName ? { assessmentName } : {}) });
+    const gradebook = response?.data || {};
+    const student = (gradebook.students || []).find(st => String(st.id) === String(studentId));
+    if (!student) throw new Error('Student was not found in the current class gradebook.');
+    row.dataset.loaded = 'true';
+    row.innerHTML = `<td colspan="99" class="px-4 py-4"><div class="mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2"><div><strong>Edit marks for ${escapeHtml(student.name || 'Student')}</strong><p class="text-xs text-muted-foreground">Changes save directly to the marks database and update report cards after publishing.</p></div><button class="px-3 py-1.5 rounded border" onclick="toggleMyStudentMarks('${studentId}','${classId}')">Close</button></div>${renderInlineSubjectEditor(student, gradebook.subjects || [], classId, 'my-students')}</td>`;
+  } catch (e) {
+    row.innerHTML = `<td colspan="99" class="px-4 py-4 text-sm text-red-700">Could not load editable marks: ${escapeHtml(e.message || 'Unknown error')}</td>`;
+  }
+}
+
+function getOverallColor(value) {
+    if (value === '—') return 'text-muted-foreground';
+    const num = parseInt(value);
+    if (num >= 80) return 'text-green-600';
+    if (num >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+}
+
+function getGradeColorClass(grade) {
+    if (!grade) return 'bg-gray-100 text-gray-700';
+    const firstChar = grade.charAt(0).toUpperCase();
+    if (firstChar === 'A' || grade === 'EE') return 'bg-green-100 text-green-700';
+    if (firstChar === 'B' || grade === 'ME') return 'bg-blue-100 text-blue-700';
+    if (firstChar === 'C' || grade === 'AE') return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
+}
+
+// ============ ATTENDANCE: DAILY DRAFT -> FINAL LOCK -> RELEASE ============
+function shuleAttendanceToday() {
+  try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date()); }
+  catch (_) { return new Date().toISOString().slice(0, 10); }
+}
+
+function attendanceSessionPayload(response) {
+  return response?.data?.data || response?.data || response || null;
+}
+
+async function renderTeacherAttendance() {
+  const teacherData = await loadMyStudents();
+  if (!teacherData?.isClassTeacher) {
+    return '<div class="text-center py-12"><i data-lucide="lock" class="h-12 w-12 mx-auto mb-3"></i><h3 class="font-semibold text-lg">Class Teacher Only</h3><p class="text-muted-foreground">Daily class attendance can only be submitted and locked by the assigned class teacher or school admin.</p></div>';
+  }
+  const classId = teacherData.classId || teacherData.class?.id;
+  if (!classId) return '<div class="text-center py-12">Your class assignment could not be identified. Ask the school admin to confirm the class-teacher assignment.</div>';
+  const today = shuleAttendanceToday();
+  let session;
+  try {
+    session = attendanceSessionPayload(await api.teacher.getAttendanceSession(classId, today));
+  } catch (error) {
+    return `<div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 p-5 text-red-700 dark:text-red-200">Could not load today's attendance session: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+  }
+  if (!session) return '<div class="text-center py-12">Attendance session could not be loaded.</div>';
+  window.__teacherAttendanceSession = session;
+  const students = session.students || [];
+  const locked = session.status === 'locked' || !!session.lockedAt;
+  const statusLabel = locked ? 'Final Attendance Submitted · Locked' : session.status === 'draft' ? 'Draft' : 'Not Started';
+  const badgeClass = locked ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+  const counts = session.counts || {};
+  const disabled = locked ? 'disabled' : '';
+  const disabledClass = locked ? 'opacity-70 cursor-not-allowed' : '';
+
+  return `<div class="space-y-5" id="teacher-attendance-session" data-session-id="${session.id}" data-class-id="${classId}" data-date="${today}">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div><p class="text-xs uppercase tracking-wide text-muted-foreground">${escapeHtml(session.class?.name || teacherData.class?.name || 'My Class')}</p><h2 class="text-2xl font-bold">Daily Attendance · ${today}</h2><p class="text-sm text-muted-foreground">Save while working, then submit once to permanently lock today's register.</p></div>
+      <span id="attendance-session-status" class="inline-flex self-start rounded-full px-3 py-1.5 text-sm font-semibold ${badgeClass}">${statusLabel}</span>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      ${[['Total',students.length],['Present',counts.present || 0],['Absent',counts.absent || 0],['Late',counts.late || 0],['Sick',counts.sick || 0]].map(([label,value]) => `<div class="rounded-xl border bg-card p-3"><p class="text-xs text-muted-foreground">${label}</p><p class="text-xl font-bold" data-attendance-count="${label.toLowerCase()}">${value}</p></div>`).join('')}
+    </div>
+    ${locked ? '<div class="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 p-4 text-sm text-green-800 dark:text-green-200">This register is immutable. Any genuine correction must be made by an authorised school admin and will retain the original value in the audit history.</div>' : ''}
+    <div class="rounded-xl border bg-card overflow-hidden">
+      <div class="overflow-x-auto"><table class="w-full text-sm" id="attendance-session-table"><thead class="bg-muted/50"><tr><th class="px-4 py-3 text-left">Student</th><th class="px-4 py-3 text-left">ELIMUID</th><th class="px-4 py-3 text-center">Status</th><th class="px-4 py-3 text-left">Notes</th></tr></thead><tbody>
+        ${students.map(student => {
+          const row = student.attendance || {};
+          const status = row.status || 'present';
+          return `<tr class="border-t" data-attendance-student-id="${student.id}"><td class="px-4 py-3 font-medium">${escapeHtml(student.name || 'Student')}</td><td class="px-4 py-3">${escapeHtml(student.elimuid || student.admissionNumber || '—')}</td><td class="px-4 py-3 text-center"><select ${disabled} onchange="updateAttendanceSessionCounts()" class="attendance-status rounded-lg border px-2 py-2 bg-background ${disabledClass}"><option value="present" ${status === 'present' ? 'selected' : ''}>Present</option><option value="absent" ${status === 'absent' ? 'selected' : ''}>Absent</option><option value="late" ${status === 'late' ? 'selected' : ''}>Late</option><option value="sick" ${status === 'sick' ? 'selected' : ''}>Sick</option><option value="holiday" ${status === 'holiday' ? 'selected' : ''}>Holiday</option></select></td><td class="px-4 py-3"><input ${disabled} type="text" class="attendance-note w-full rounded-lg border px-3 py-2 bg-background ${disabledClass}" placeholder="Optional note" value="${escapeHtml(row.reason || '')}"></td></tr>`;
+        }).join('') || '<tr><td colspan="4" class="px-4 py-10 text-center text-muted-foreground">No active learners are assigned to this class.</td></tr>'}
+      </tbody></table></div>
+      <div class="p-4 border-t flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+        <p class="text-xs text-muted-foreground">${locked ? `Locked ${session.lockedAt ? new Date(session.lockedAt).toLocaleString() : ''}` : 'Final submission cannot be undone by a teacher.'}</p>
+        <div class="flex flex-wrap gap-2">
+          ${locked ? `<button onclick="showClassReleasePanel()" class="px-4 py-2 rounded-lg bg-primary text-white">Release Class / Send Update</button>` : `<button onclick="saveAttendanceDraftSession()" class="px-4 py-2 rounded-lg border bg-background">Save Draft</button><button onclick="lockAttendanceSession()" class="px-4 py-2 rounded-lg bg-primary text-white">Submit and Lock Attendance</button>`}
+        </div>
+      </div>
+    </div>
+    <div id="class-release-panel" class="hidden rounded-xl border bg-card p-5">
+      <h3 class="font-semibold text-lg">Send class release notice</h3><p class="text-sm text-muted-foreground mb-4">A second notice on the same day is recorded as an update, not a duplicate release.</p>
+      <div class="grid gap-3 md:grid-cols-3"><label class="text-sm">Release type<select id="class-release-type" class="mt-1 w-full rounded-lg border px-3 py-2 bg-background" onchange="toggleCustomReleaseMessage()"><option value="normal">Released normally</option><option value="early">Released early</option><option value="delayed">Release delayed</option><option value="transport_delayed">School transport delayed</option><option value="custom">Custom release notice</option></select></label><label class="text-sm">Channel<select id="class-release-channel" class="mt-1 w-full rounded-lg border px-3 py-2 bg-background"><option value="platform">Platform alert</option><option value="both">Platform + SMS</option><option value="sms">SMS</option></select></label><label id="class-release-message-wrap" class="hidden text-sm md:col-span-3">Custom message<textarea id="class-release-message" rows="3" class="mt-1 w-full rounded-lg border px-3 py-2 bg-background" placeholder="Write the release notice"></textarea></label></div>
+      <div class="mt-4 flex justify-end"><button onclick="sendClassReleaseNotice()" class="px-4 py-2 rounded-lg bg-primary text-white">Send Release Notice</button></div>
+    </div>
+  </div>`;
+}
+
+async function renderTeacherReleaseClass(){if(!isClassTeacher())return'<div class="text-center py-12"><h3 class="font-semibold">Class Teacher Only</h3></div>';let assigned=getTeacherAssignedClass();if(!assigned?.id)try{const a=await api.teacher.getMyAssignments();assigned=a?.data?.classTeacher||assigned}catch(_){}const classId=assigned?.id;if(!classId)return'<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Release Class</h2><p class="mt-2 text-muted-foreground">No active class-teacher assignment was found.</p></div>';const today=shuleAttendanceToday();try{const session=attendanceSessionPayload(await api.teacher.getAttendanceSession(classId,today));window.__teacherAttendanceSession=session;if(!session||session.status!=='locked')return`<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Release Class</h2><p class="mt-2 text-muted-foreground">Submit and lock today’s attendance before releasing the class.</p><button onclick="showDashboardSection('attendance')" class="mt-4 px-4 py-2 rounded-lg bg-primary text-white">Open Attendance</button></div>`;const latest=session.latestRelease;return`<div class="space-y-5"><section class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold">Release Class</h2><p class="text-sm text-muted-foreground">${escapeHtml(session.class?.name||assigned?.name||'My Class')} • ${today}</p>${latest?`<div class="mt-4 rounded-lg bg-muted/40 p-4 text-sm"><strong>Latest notice:</strong> ${escapeHtml(latest.message||latest.releaseType||'Released')}<br><span class="text-muted-foreground">${escapeHtml(new Date(latest.releasedAt||latest.createdAt).toLocaleString())} • ${latest.parentTargetCount||0} parent(s) targeted</span></div>`:''}</section><section class="rounded-xl border bg-card p-6"><div class="grid gap-4 md:grid-cols-2"><label class="text-sm">Release type<select id="release-type-standalone" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="normal">Released normally</option><option value="early">Released early</option><option value="delayed">Release delayed</option><option value="transport_delayed">School transport delayed</option><option value="custom">Custom notice</option></select></label><label class="text-sm">Channel<select id="release-channel-standalone" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="platform">Platform alert</option><option value="both">Platform + SMS</option></select></label></div><label class="block text-sm mt-4">Message<textarea id="release-message-standalone" rows="4" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></textarea></label><button onclick="submitStandaloneClassRelease()" class="mt-4 px-4 py-2 rounded-lg bg-primary text-white">${latest?'Send Release Update':'Release Class'}</button></section></div>`;}catch(e){return`<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">${escapeHtml(e.message||'Release status could not be loaded.')}</div>`;}}
+async function submitStandaloneClassRelease(){const s=window.__teacherAttendanceSession;if(!s?.id)return showToast('Attendance session is not ready','error');try{const r=await api.teacher.releaseAttendanceClass(s.id,{releaseType:document.getElementById('release-type-standalone')?.value||'normal',channel:document.getElementById('release-channel-standalone')?.value||'platform',message:document.getElementById('release-message-standalone')?.value?.trim()||''});showToast(r?.message||'Class release notice sent','success');const c=document.getElementById('dashboard-content');if(c)c.innerHTML=await renderTeacherReleaseClass();if(typeof lucide!=='undefined')lucide.createIcons();}catch(e){showToast(e.message||'Class release failed','error');}}
+window.renderTeacherReleaseClass=renderTeacherReleaseClass;window.submitStandaloneClassRelease=submitStandaloneClassRelease;
+
+function collectAttendanceSessionRecords() {
+  return [...document.querySelectorAll('#attendance-session-table [data-attendance-student-id]')].map(row => ({ studentId:Number(row.dataset.attendanceStudentId), status:row.querySelector('.attendance-status')?.value || 'present', reason:(row.querySelector('.attendance-note')?.value || '').trim() }));
+}
+
+function updateAttendanceSessionCounts() {
+  const records = collectAttendanceSessionRecords();
+  ['present','absent','late','sick'].forEach(status => { const el=document.querySelector(`[data-attendance-count="${status}"]`); if(el) el.textContent=records.filter(record=>record.status===status).length; });
+}
+
+async function saveAttendanceDraftSession(options = {}) {
+  const session = window.__teacherAttendanceSession;
+  if (!session?.id) return showToast('Attendance session is not ready', 'error');
+  const records = collectAttendanceSessionRecords();
+  if (!records.length) return showToast('No learners found in this register', 'error');
+  if (!options.silent) showLoading();
+  try {
+    const response = await api.teacher.saveAttendanceDraft(session.id, records);
+    window.__teacherAttendanceSession = attendanceSessionPayload(response) || session;
+    showToast(options.lockNext ? 'Draft saved. Locking final attendance…' : 'Attendance draft saved', 'success');
+    return true;
+  } catch (error) { showToast(error.message || 'Attendance could not be saved', 'error'); return false; }
+  finally { if (!options.silent) hideLoading(); }
+}
+
+async function lockAttendanceSession() {
+  const session = window.__teacherAttendanceSession;
+  if (!session?.id) return showToast('Attendance session is not ready', 'error');
+  const confirmed = window.confirm('Submit and permanently lock attendance for today? Teachers cannot edit it after this step.');
+  if (!confirmed) return;
+  showLoading();
+  try {
+    const saved = await saveAttendanceDraftSession({ silent:true, lockNext:true });
+    if (!saved) return;
+    const response = await api.teacher.lockAttendanceSession(session.id);
+    window.__teacherAttendanceSession = attendanceSessionPayload(response) || session;
+    showToast('Final attendance submitted and locked', 'success');
+    const container = document.getElementById('main-content');
+    if (container) container.innerHTML = await renderTeacherAttendance();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (error) { showToast(error.message || 'Attendance could not be locked', 'error'); }
+  finally { hideLoading(); }
+}
+
+function showClassReleasePanel() { document.getElementById('class-release-panel')?.classList.remove('hidden'); }
+function toggleCustomReleaseMessage() { document.getElementById('class-release-message-wrap')?.classList.toggle('hidden', document.getElementById('class-release-type')?.value !== 'custom'); }
+
+async function sendClassReleaseNotice() {
+  const session = window.__teacherAttendanceSession;
+  if (!session?.id) return showToast('Locked attendance session is unavailable', 'error');
+  const releaseType = document.getElementById('class-release-type')?.value || 'normal';
+  const channel = document.getElementById('class-release-channel')?.value || 'platform';
+  const message = (document.getElementById('class-release-message')?.value || '').trim();
+  if (releaseType === 'custom' && !message) return showToast('Write the custom release notice first', 'error');
+  showLoading();
+  try { const response = await api.teacher.releaseAttendanceClass(session.id, { releaseType, channel, message }); showToast(response?.message || 'Class release notice sent', 'success'); document.getElementById('class-release-panel')?.classList.add('hidden'); }
+  catch (error) { showToast(error.message || 'Release notice could not be sent', 'error'); }
+  finally { hideLoading(); }
+}
+
+// Compatibility name retained for older buttons, but it now saves the shared daily draft.
+async function saveAttendance() { return saveAttendanceDraftSession(); }
+
+// ============ COMPETENCY ============
+async function renderTeacherCompetency() {
+  const [heatmapData, belowExpectation, insights] = await Promise.all([
+    apiRequest('/api/cbe/class-heatmap'),
+    apiRequest('/api/cbe/below-expectation'),
+    apiRequest('/api/cbe/auto-insights')
+  ]);
+  return `
+    <div class="space-y-6">
+      <h2 class="text-2xl font-bold">Competency Dashboard</h2>
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-xl border bg-card p-4 overflow-x-auto">
+          <h3 class="font-semibold mb-3">Class Competency Heatmap</h3>
+          <table class="text-sm min-w-[500px]">
+            <thead><tr><th>Student</th>${heatmapData.data.outcomes.map(o => `<th class="px-2">${o.code}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${heatmapData.data.heatmap.map(row => `
+                <tr>
+                  <td class="font-medium">${row.studentName}</td>
+                  ${row.outcomes.map(out => `<td class="text-center px-2 ${getLevelColor(out.level)}">${out.level}</td>`).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="rounded-xl border bg-card p-4">
+          <h3 class="font-semibold mb-3">Students Below Expectation</h3>
+          ${belowExpectation.data.map(s => `
+            <div class="border-b py-2">
+              <p class="font-medium">${s.studentName}</p>
+              <ul class="text-sm text-muted-foreground">
+                ${s.weakAreas.map(w => `<li>⚠️ ${w.competency} – ${w.outcome.substring(0,50)} (${w.level})</li>`).join('')}
+              </ul>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="rounded-xl border bg-card p-4">
+        <h3 class="font-semibold mb-2">Auto Insights</h3>
+        <ul class="space-y-1">
+          ${insights.data.map(i => `<li class="text-sm">🔍 ${i.message}</li>`).join('')}
+        </ul>
+      </div>
+    </div>
+  `;
+}
+function getLevelColor(level) {
+  if (level === 'EE') return 'bg-green-100 text-green-800';
+  if (level === 'ME') return 'bg-blue-100 text-blue-800';
+  if (level === 'AE') return 'bg-yellow-100 text-yellow-800';
+  return 'bg-red-100 text-red-800';
+}
+
+// ============ MARKS ENTRY ============
+async function renderTeacherMarksEntry() {
+  let assignments = [];
+  let teacherInfo = {};
+  try {
+    const teacher = await api.teacher.getMyAssignments();
+    if (teacher.data) {
+      teacherInfo = teacher.data;
+      if (teacher.data.classTeacher) assignments.push({ type: 'class', id: teacher.data.classTeacher.id, name: teacher.data.classTeacher.name, subject: 'All Subjects', role: 'class_teacher', subjects: teacher.data.classTeacher.subjects || [] });
+      for (const sub of (teacher.data.subjects || [])) assignments.push({ type: 'subject', id: sub.classId, name: sub.className, subject: sub.subject, role: 'subject_teacher', subjects: [sub.subject] });
+    }
+  } catch(e) { console.error(e); }
+  if (!assignments.length) return '<div class="text-center py-12">No classes or subjects assigned</div>';
+
+  const currentYear = new Date().getFullYear();
+  const terms = ['Term 1', 'Term 2', 'Term 3'];
+  const years = [currentYear - 1, currentYear, currentYear + 1];
+
+  let html = `
+    <div class="space-y-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">Enter Marks</h2>
+        <div class="flex gap-3">
+          <select id="marks-term" class="rounded-lg border p-2 bg-background">
+            ${terms.map(t => `<option value="${t}" ${t === 'Term 1' ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+          <select id="marks-year" class="rounded-lg border p-2 bg-background">
+            ${years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="bg-muted/30 p-3 rounded-lg text-sm">
+        <p><span class="font-medium">Teacher:</span> ${escapeHtml(teacherInfo.teacherName || getCurrentUser()?.name)}</p>
+        <p><span class="font-medium">Department:</span> ${escapeHtml(teacherInfo.department || 'N/A')}</p>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3">
+  `;
+  for (const a of assignments) {
+    html += `
+      <div class="rounded-xl border bg-card p-5 cursor-pointer hover:shadow-md" onclick='openMarksEntry(${JSON.stringify(a.subject)}, ${JSON.stringify(String(a.id))}, ${JSON.stringify(a.name)}, ${JSON.stringify(a.role || '')}, ${JSON.stringify((a.subjects || []).join('|'))})'>
+        <div class="flex items-center gap-3 mb-3">
+          <div class="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><i data-lucide="book" class="h-6 w-6 text-primary"></i></div>
+          <div><p class="font-semibold">${escapeHtml(a.name)}</p><p class="text-sm text-muted-foreground">${escapeHtml(a.subject)}</p></div>
+        </div>
+        <button class="w-full py-2 text-sm bg-primary text-white rounded-lg">Enter Marks</button>
+      </div>
+    `;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+async function openMarksEntry(subject, classId, className, role = '', subjectsPipe = '') {
+  currentMarksSubject = subject;
+  currentMarksClassId = classId;
+  currentMarksClassName = className;
+  currentMarksRole = role || (subject === 'All Subjects' ? 'class_teacher' : 'subject_teacher');
+  currentMarksCanPublish = currentMarksRole === 'class_teacher';
+  currentMarksAvailableSubjects = String(subjectsPipe || '').split('|').filter(Boolean); 
+  currentMarksTerm = document.getElementById('marks-term')?.value || 'Term 1';
+  currentMarksYear = document.getElementById('marks-year')?.value || new Date().getFullYear();
+  showLoading();
+  try {
+    // v17: load the school curriculum before marks entry so grades match the school's configured system.
+    try {
+      const meta = await apiRequest('/api/school/curriculum');
+      if (meta?.data) {
+        window.schoolSettings = { ...(window.schoolSettings || {}), ...meta.data };
+        window.currentGradingScale = meta.data.gradingScale || null;
+      }
+    } catch (metaErr) { console.warn('Curriculum metadata could not be loaded:', metaErr.message); }
+
+    const effectiveSubject = currentMarksSubject === 'All Subjects' ? (currentMarksAvailableSubjects[0] || '') : currentMarksSubject;
+    if (!effectiveSubject) {
+      throw new Error('No eligible subject is assigned for this class. Ask admin to complete Add Subjects and subject teacher assignment.');
+    }
+    currentMarksSubject = effectiveSubject;
+    const res = (api.teacher.getClassStudentsForSubject)
+      ? await api.teacher.getClassStudentsForSubject({ classId, subject: effectiveSubject })
+      : await apiRequest(`/api/teacher/class-students?${new URLSearchParams({ classId, subject: effectiveSubject }).toString()}`);
+    const payload = res.data;
+    currentMarksStudents = Array.isArray(payload) ? payload : (payload?.students || payload?.data || []);
+    if (res.meta) window.currentMarksClassMeta = res.meta;
+    if (payload?.meta) window.currentMarksClassMeta = payload.meta;
+    if (!currentMarksStudents.length) { showToast('No students found for this class. Check class name/grade mapping and student status.', 'warning'); hideLoading(); return; }
+    showMarksEntryModal(className);
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+
+// V106: class teachers can switch eligible subjects without leaving the marks modal.
+window.v106ChangeMarksSubject = async function(subject) {
+  currentMarksSubject = subject;
+  if (!currentMarksClassId || !subject) return;
+  showLoading();
+  try {
+    const res = (api.teacher.getClassStudentsForSubject)
+      ? await api.teacher.getClassStudentsForSubject({ classId: currentMarksClassId, subject })
+      : await apiRequest(`/api/teacher/class-students?${new URLSearchParams({ classId: currentMarksClassId, subject }).toString()}`);
+    const payload = res.data;
+    currentMarksStudents = Array.isArray(payload) ? payload : (payload?.students || payload?.data || []);
+    if (!currentMarksStudents.length) {
+      showToast('No students are taking this subject yet. Check Grade 10–12 subject selection or Add Subjects setup.', 'warning');
+    }
+    showMarksEntryModal(currentMarksClassName);
+  } catch (error) {
+    showToast(error.message || 'Failed to load subject students', 'error');
+  } finally {
+    hideLoading();
+  }
+};
+
+function showMarksEntryModal(className) {
+  let modal = document.getElementById('marks-entry-modal');
+  if (!modal) {
+    createMarksEntryModal();
+    modal = document.getElementById('marks-entry-modal');
+  }
+
+  const modalContent = modal.querySelector('.modal-content');
+  const assessmentTypes = ['test', 'exam', 'assignment', 'project', 'quiz'];
+  const today = new Date().toISOString().split('T')[0];
+  const terms = ['Term 1', 'Term 2', 'Term 3'];
+
+  const curriculum = window.schoolSettings?.curriculum || window.schoolSettings?.system || 'cbc';
+  let level = window.schoolSettings?.schoolLevel || window.schoolSettings?.settings?.schoolLevel || 'primary';
+  const classLevelSource = String(className || currentMarksClassName || level || '').toUpperCase();
+  if (!level || ['both','mixed','full','secondary'].includes(String(level).toLowerCase())) {
+    const primaryJuniorKeywords = ['PLAYGROUP','PP1','PP2','GRADE 1','GRADE 2','GRADE 3','GRADE 4','GRADE 5','GRADE 6','GRADE 7','GRADE 8','GRADE 9','STANDARD','PRIMARY','JUNIOR'];
+    const seniorKeywords = ['GRADE 10','GRADE 11','GRADE 12','FORM 1','FORM 2','FORM 3','FORM 4','SENIOR'];
+    if (seniorKeywords.some(kw => classLevelSource.includes(kw))) level = 'secondary';
+    else if (primaryJuniorKeywords.some(kw => classLevelSource.includes(kw))) level = 'primary';
+  }
+  const curriculumName = (window.CURRICULUMS?.[curriculum]?.name) || String(curriculum).toUpperCase();
+  const scale = window.currentGradingScale || window.CURRICULUMS?.[curriculum]?.grading?.[level] || [];
+  const scaleHtml = `<div class="rounded-xl border bg-card p-4 mt-4 v17-grading-scale"><div class="flex items-center justify-between gap-2 flex-wrap"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">School curriculum detected</p><h3 class="font-bold">${escapeHtml(curriculumName)} • ${escapeHtml(level)}</h3></div><span class="text-xs rounded-full border px-3 py-1">${scale.length} grading bands</span></div><div class="mt-3 flex gap-2 flex-wrap">${scale.map(g => `<span class="text-xs rounded-full bg-muted px-2 py-1"><strong>${escapeHtml(g.grade)}</strong> ${escapeHtml(g.range || ((g.min ?? '') + '-' + (g.max ?? '')))}</span>`).join('')}</div></div>`;
+
+  if (!Array.isArray(currentMarksStudents) || currentMarksStudents.length === 0) {
+    modalContent.innerHTML = `
+      <div class="text-center py-12">
+        <i data-lucide="users-x" class="h-12 w-12 mx-auto mb-3 text-muted-foreground"></i>
+        <h3 class="text-lg font-semibold">No students loaded</h3>
+        <p class="text-muted-foreground">The marks modal opened, but no students were returned for this class.</p>
+        <button onclick="closeMarksEntryModal()" class="mt-4 px-4 py-2 rounded-lg border">Close</button>
+      </div>
+    `;
+    modal.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
+
+  modalContent.innerHTML = `
+    <div class="v95-modal-head !px-0 !pt-0">
+      <div>
+        <div class="v95-title">Enter Marks</div>
+        <div class="v95-subtitle">Class: ${escapeHtml(className)} • ${currentMarksCanPublish ? 'Class teacher draft entry. Final publishing is now in My Students.' : 'Subject teacher view: enter assigned subject marks only and submit for class-teacher review.'} • Real students loaded from teacher class data</div>
+      </div>
+      <button onclick="closeMarksEntryModal()" class="v95-close">×</button>
+    </div>
+
+    ${scaleHtml}
+
+    <div class="v95-marks-top mt-5">
+      ${currentMarksCanPublish ? `<div class="v95-field"><label>Subject</label><select id="marks-subject-select" onchange="v106ChangeMarksSubject(this.value)">${currentMarksAvailableSubjects.map(sub => `<option value="${escapeHtml(sub)}" ${sub === currentMarksSubject ? 'selected' : ''}>${escapeHtml(sub)}</option>`).join('')}</select></div>` : `<div class="v95-field"><label>Subject</label><input id="marks-subject-select" value="${escapeHtml(currentMarksSubject || '')}" disabled></div>`}
+      <div class="v95-field">
+        <label>Assessment Type</label>
+        <select id="assessment-type">${assessmentTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select>
+      </div>
+      <div class="v95-field">
+        <label>Assessment Name <span class="req">*</span></label>
+        <input type="text" id="assessment-name" value="Mid Term Exam" placeholder="e.g. Mid-term Exam">
+      </div>
+      <div class="v95-field">
+        <label>Term</label>
+        <select id="assessment-term" onchange="currentMarksTerm=this.value">${terms.map(t => `<option value="${t}" ${t === currentMarksTerm ? 'selected' : ''}>${t}</option>`).join('')}</select>
+      </div>
+      <div class="v95-field">
+        <label>Year</label>
+        <input type="number" id="assessment-year" value="${currentMarksYear}" onchange="currentMarksYear=this.value">
+      </div>
+      <div class="v95-field">
+        <label>Date</label>
+        <input type="date" id="assessment-date" value="${today}">
+      </div>
+    </div>
+
+    <div class="v95-marks-layout mt-5">
+      <section class="v95-marks-panel">
+        <table class="v95-marks-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Admission No</th>
+              <th>Student Name</th>
+              <th>CAT /20</th>
+              <th>Exam /80</th>
+              <th>Total</th>
+              <th>Grade</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${currentMarksStudents.map((s, i) => {
+              const user = s.User || s.user || {};
+              const name = user.name || s.name || s.fullName || 'Student';
+              const admission = s.elimuid || s.admissionNumber || s.assessmentNumber || '-';
+              return `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${escapeHtml(admission)}</td>
+                  <td>
+                    <div class="flex items-center gap-2">
+                      ${user.profileImage ? `<img src="${resolveMediaUrl(user.profileImage)}" class="h-8 w-8 rounded-full object-cover">` : `<span class="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">${getInitials(name)}</span>`}
+                      <strong>${escapeHtml(name)}</strong>
+                    </div>
+                  </td>
+                  <td><input class="v95-score-input marks-cat-input" data-student-id="${s.id}" type="number" min="0" max="20" oninput="updateCompositeScore('${s.id}')"></td>
+                  <td><input class="v95-score-input marks-exam-input" data-student-id="${s.id}" type="number" min="0" max="80" oninput="updateCompositeScore('${s.id}')"></td>
+                  <td id="total-${s.id}">-</td>
+                  <td><span id="grade-${s.id}" class="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full">-</span></td>
+                  <td><input id="remark-${s.id}" placeholder="Remark"></td>
+                  <td style="display:none"><input type="hidden" id="score-${s.id}"></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </section>
+
+      <aside class="v95-summary-card">
+        <h3 class="font-bold text-lg mb-4">Entry Summary</h3>
+        <div class="v95-grid" style="gap:12px">
+          <div class="v95-section-card"><span class="text-xs text-muted-foreground">Students Loaded</span><strong class="block text-2xl">${currentMarksStudents.length}</strong></div>
+          <div class="v95-section-card"><span class="text-xs text-muted-foreground">Average</span><strong id="marks-average" class="block text-2xl">0%</strong></div>
+          <div class="v95-section-card"><span class="text-xs text-muted-foreground">Missing</span><strong id="marks-missing" class="block text-2xl">${currentMarksStudents.length}</strong></div>
+          <div class="v95-section-card" style="background:#fff7ed;border-color:#fed7aa">
+            <strong>Moderation & Approval</strong>
+            <p class="text-sm text-muted-foreground mt-2">Subject teacher saves marks. Class teacher reviews/publishes final report-card marks.</p>
+          </div>
+        </div>
+
+        <div class="mt-5 v95-section-card">
+          <h4 class="font-bold mb-2">Actions</h4>
+          <button onclick="saveAllMarks('draft')" class="v95-btn w-full mb-2">Save Draft</button>
+          <button onclick="saveAllMarks('submitted')" class="v95-btn primary w-full mb-2">Submit Marks for Review</button>
+          <div class="text-xs text-muted-foreground rounded-lg border p-3">Final report publishing is done by the class teacher in <b>My Students</b>.</div>
+        </div>
+      </aside>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function updateCompositeScore(studentId) {
+  const catInput = document.querySelector(`.marks-cat-input[data-student-id="${studentId}"]`);
+  const examInput = document.querySelector(`.marks-exam-input[data-student-id="${studentId}"]`);
+  const cat = parseFloat(catInput?.value || '0');
+  const exam = parseFloat(examInput?.value || '0');
+  const hasCat = catInput?.value !== '';
+  const hasExam = examInput?.value !== '';
+  const score = (hasCat || hasExam) ? Math.min(100, Math.max(0, cat + exam)) : '';
+
+  const scoreInput = document.getElementById(`score-${studentId}`);
+  if (scoreInput) scoreInput.value = score;
+
+  const totalEl = document.getElementById(`total-${studentId}`);
+  if (totalEl) totalEl.textContent = score === '' ? '-' : score;
+
+  updateGradeDisplayForStudent(studentId);
+  updateMarksSummary();
+}
+
+function updateMarksSummary() {
+  const scores = currentMarksStudents.map(s => parseFloat(document.getElementById(`score-${s.id}`)?.value)).filter(n => !isNaN(n));
+  const average = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
+  const avgEl = document.getElementById('marks-average');
+  const missingEl = document.getElementById('marks-missing');
+  if (avgEl) avgEl.textContent = `${average}%`;
+  if (missingEl) missingEl.textContent = Math.max(0, currentMarksStudents.length - scores.length);
+}
+
+
+function createMarksEntryModal() {
+  const modalHTML = `<div id="marks-entry-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeMarksEntryModal()"></div>
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-7xl p-4">
+      <div class="rounded-2xl border bg-card text-card-foreground shadow-2xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="modal-content p-6 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+function closeMarksEntryModal() {
+  const m = document.getElementById('marks-entry-modal');
+  if (m) m.remove();
+  currentMarksStudents = [];
+}
+
+window.updateGradeDisplayForStudent = function(studentId) {
+  const score = parseFloat(document.getElementById(`score-${studentId}`)?.value);
+  const gradeSpan = document.getElementById(`grade-${studentId}`);
+  if (!isNaN(score) && score >= 0 && score <= 100) {
+    const curriculum = window.schoolSettings?.curriculum || 
+                       window.schoolSettings?.system || 
+                       'cbc';
+    
+    // Try to get level from schoolSettings, otherwise infer from class name.
+    let level = window.schoolSettings?.schoolLevel || 
+                window.schoolSettings?.settings?.schoolLevel;
+    const className = String(currentMarksClassName || '').toUpperCase();
+    if (!level || ['both','mixed','full','secondary'].includes(String(level).toLowerCase())) {
+      const seniorKeywords = ['GRADE 10','GRADE 11','GRADE 12','FORM 1','FORM 2','FORM 3','FORM 4','SENIOR'];
+      const primaryJuniorKeywords = ['PLAYGROUP','PP1','PP2','GRADE 1','GRADE 2','GRADE 3','GRADE 4','GRADE 5','GRADE 6','GRADE 7','GRADE 8','GRADE 9','STANDARD','PRIMARY','JUNIOR'];
+      if (seniorKeywords.some(kw => className.includes(kw))) level = 'secondary';
+      else if (primaryJuniorKeywords.some(kw => className.includes(kw))) level = 'primary';
+    }
+    
+    const grade = getGradeFromScore(score, curriculum, level, window.currentGradingScale);
+    let color = 'gray';
+    if (grade === 'EE' || grade === 'A' || grade === 'A*') color = 'green';
+    else if (grade === 'ME' || (grade && grade.startsWith('B'))) color = 'blue';
+    else if (grade === 'AE' || (grade && grade.startsWith('C'))) color = 'yellow';
+    else if (grade && grade.startsWith('D')) color = 'orange';
+    else if (grade === 'BE' || grade === 'E' || grade === 'U' || grade === 'F') color = 'red';
+    
+    gradeSpan.textContent = grade;
+    gradeSpan.className = `px-2 py-1 bg-${color}-100 dark:bg-${color}-900/30 text-${color}-700 dark:text-${color}-400 text-xs rounded-full`;
+  } else {
+    gradeSpan.textContent = '-';
+    gradeSpan.className = 'px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-full';
+  }
+};
+
+async function saveAllMarks(status = 'draft') {
+  const selectedSubject = (document.getElementById('marks-subject-select')?.value || currentMarksSubject || '').trim();
+  currentMarksSubject = selectedSubject;
+  const assessmentType = document.getElementById('assessment-type')?.value;
+  const assessmentName = document.getElementById('assessment-name')?.value;
+  const assessmentDate = document.getElementById('assessment-date')?.value;
+  if (!selectedSubject) { showToast('Select subject', 'error'); return; }
+  if (!assessmentName) { showToast('Enter assessment name', 'error'); return; }
+
+  // Use the custom grading scale that was applied (array, or null)
+  const gradingScale = window.currentGradingScale || null;
+
+  showLoading();
+  let saved = 0, failed = 0;
+  for (const student of currentMarksStudents) {
+    const score = parseFloat(document.getElementById(`score-${student.id}`)?.value);
+    if (!isNaN(score) && score >= 0 && score <= 100) {
+      try {
+        await api.teacher.enterMarks({
+          studentId: student.id,
+          classId: currentMarksClassId,
+          subject: selectedSubject,
+          assessmentType,
+          assessmentName,
+          score,
+          date: assessmentDate,
+          term: currentMarksTerm,
+          year: currentMarksYear,
+          isPublished: false,
+          status: status === 'submitted' ? 'submitted' : 'draft',
+          gradingScale: gradingScale,       // array of {grade, min, max} or null
+          remarks: document.getElementById(`remark-${student.id}`)?.value || ''
+        });
+        saved++;
+      } catch(e) { failed++; }
+    }
+  }
+  showToast(`${status === 'submitted' ? 'Submitted for class-teacher review' : 'Saved draft'}: ${saved} marks, failed ${failed}`, saved ? 'success' : 'error');
+  closeMarksEntryModal();
+  hideLoading();
+}
+
+async function publishAllMarks() {
+    if (!currentMarksCanPublish) { showToast('Only class teacher can publish final class marks', 'error'); return; }
+    if (!confirm('Publish final marks for this class/term/year? Parents and students will see them.')) return;
+    showLoading();
+    try {
+        const res = await api.teacher.publishMarks({
+            classId: currentMarksClassId,
+            term: currentMarksTerm,
+            year: currentMarksYear
+        });
+        if (res.success) {
+            showToast('✅ All marks published', 'success');
+            closeMarksEntryModal();
+            if (typeof refreshTeacherStudentList === 'function') {
+                await refreshTeacherStudentList();
+            }
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally { hideLoading(); }
+}
+
+// ============ TASKS ============
+async function renderTeacherTasks() {
+  let tasks = [];
+  try {
+    const res = await api.tasks.getTasks();
+    tasks = res.data || [];
+  } catch(e) { console.error(e); }
+  const pending = tasks.filter(t => t.status !== 'completed');
+  const completed = tasks.filter(t => t.status === 'completed');
+  return `
+    <div class="space-y-6"><div class="flex justify-between items-center"><h2 class="text-2xl font-bold">My Tasks</h2><button onclick="showAddTaskModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ New Task</button></div>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Pending (${pending.length})</h3><div class="space-y-2" id="pending-tasks-list">${pending.map(t => `<div class="flex items-center gap-3 p-3 hover:bg-accent/50 rounded-lg"><input type="checkbox" onchange="completeTask('${t.id}')" class="rounded"><div class="flex-1"><p class="font-medium">${escapeHtml(t.title)}</p><p class="text-sm text-muted-foreground">Due: ${t.dueDate ? formatDate(t.dueDate) : 'No date'}</p></div><span class="px-2 py-1 bg-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-100 dark:bg-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-900/30 text-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-700 dark:text-${t.priority==='high'?'red':t.priority==='medium'?'yellow':'green'}-400 text-xs rounded-full">${t.priority}</span><button onclick="deleteTask('${t.id}')" class="text-red-600"><i data-lucide="trash-2" class="h-4 w-4"></i></button></div>`).join('')}</div></div>
+      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Completed (${completed.length})</h3><div class="space-y-2">${completed.map(t => `<div class="flex items-center gap-3 p-3 hover:bg-accent/50 rounded-lg"><input type="checkbox" checked disabled class="rounded"><div class="flex-1"><p class="font-medium line-through">${escapeHtml(t.title)}</p><p class="text-sm text-muted-foreground">Completed ${t.completedAt ? timeAgo(t.completedAt) : ''}</p></div></div>`).join('')}</div></div>
+    </div></div>
+  `;
+}
+function showAddTaskModal() {
+  let modal = document.getElementById('add-task-modal');
+  if (!modal) { createAddTaskModal(); modal = document.getElementById('add-task-modal'); }
+  modal.classList.remove('hidden');
+}
+function createAddTaskModal() {
+  const html = `<div id="add-task-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeAddTaskModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4"><div class="rounded-xl border bg-card p-6"><h3 class="text-lg font-semibold mb-4">Add New Task</h3><div class="space-y-4"><input type="text" id="task-title" placeholder="Task Title" class="w-full rounded-lg border p-2 bg-background"><textarea id="task-desc" rows="2" placeholder="Description" class="w-full rounded-lg border p-2 bg-background"></textarea><input type="date" id="task-due" class="w-full rounded-lg border p-2 bg-background"><select id="task-priority" class="w-full rounded-lg border p-2 bg-background"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></div><div class="flex justify-end gap-2 mt-6"><button onclick="closeAddTaskModal()" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="createTask()" class="px-4 py-2 bg-primary text-white rounded-lg">Save</button></div></div></div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeAddTaskModal() { const m = document.getElementById('add-task-modal'); if(m) m.classList.add('hidden'); }
+async function createTask() {
+  const title = document.getElementById('task-title')?.value;
+  if (!title) { showToast('Title required', 'error'); return; }
+  const description = document.getElementById('task-desc')?.value;
+  const dueDate = document.getElementById('task-due')?.value;
+  const priority = document.getElementById('task-priority')?.value;
+  showLoading();
+  try {
+    await api.tasks.createTask({ title, description, dueDate, priority });
+    showToast('Task created', 'success');
+    closeAddTaskModal();
+    await showDashboardSection('tasks');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function completeTask(taskId) {
+  showLoading();
+  try {
+    await api.tasks.completeTask(taskId);
+    await showDashboardSection('tasks');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function deleteTask(taskId) {
+  if (!confirm('Delete this task?')) return;
+  showLoading();
+  try {
+    await api.tasks.deleteTask(taskId);
+    await showDashboardSection('tasks');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+// ============ DUTY MANAGEMENT ============
+async function renderTeacherDuty() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) {
+    return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Duty</h2><p class="text-muted-foreground">Duty is unavailable because the school account is suspended or school context is missing.</p></div>`;
+  }
+  let weeklyDuty = [];
+  let todayDuty = null;
+  try {
+    const res = await api.duty.getWeeklyDuty();
+    weeklyDuty = res.data || [];
+    const todayRes = await api.duty.getTodayDuty();
+    todayDuty = todayRes.data;
+  } catch(e) { console.error(e); }
+  const user = getCurrentUser();
+  const myDuties = weeklyDuty.filter(day => day.duties?.some(d => d.teacherId === user?.id));
+  return `
+    <div class="space-y-6"><h2 class="text-2xl font-bold">My Duty Schedule</h2>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">This Week's Duty</h3><div class="space-y-3">
+        ${myDuties.length ? myDuties.map(day => `<div class="p-3 bg-muted/30 rounded-lg"><p class="font-medium">${day.dayName} (${day.date})</p>${day.duties.filter(d => d.teacherId === user?.id).map(d => `<div class="flex justify-between text-sm"><span>${d.area}</span><span>${d.timeSlot?.start} - ${d.timeSlot?.end}</span></div>`).join('')}</div>`).join('') : '<p class="text-center text-muted-foreground">No duty assigned this week</p>'}
+      </div><button onclick="showDashboardSection('duty-preferences')" class="mt-4 w-full py-2 border rounded-lg hover:bg-accent">Set Preferences</button></div>
+      <div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Request Duty Swap</h3><div class="space-y-3"><input type="date" id="swap-date" class="w-full rounded-lg border p-2 bg-background"><textarea id="swap-reason" rows="2" class="w-full rounded-lg border p-2 bg-background" placeholder="Reason for swap"></textarea><button onclick="submitSwapRequest()" class="w-full bg-primary text-white py-2 rounded-lg">Submit Request</button></div></div>
+    </div></div>
+  `;
+}
+async function submitSwapRequest() {
+  const date = String(document.getElementById('swap-date')?.value || '').trim();
+  const reason = String(document.getElementById('swap-reason')?.value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
+    showToast('Please select a valid duty date from the date picker.', 'error');
+    return;
+  }
+  if (!reason) { showToast('Please enter a reason for the swap request.', 'error'); return; }
+  showLoading();
+  try {
+    await api.duty.requestSwap({ dutyDate: date, reason });
+    showToast('Swap request sent to admin', 'success');
+    document.getElementById('swap-date').value = '';
+    document.getElementById('swap-reason').value = '';
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+function renderTeacherDutyPreferences() {
+  if (typeof hasSchoolFeature === 'function' && !hasSchoolFeature('duty')) return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Duty Preferences</h2><p class="text-muted-foreground">Duty is unavailable because the school account is suspended or school context is missing.</p></div>`;
+  return `<div class="space-y-6"><h2 class="text-2xl font-bold">Duty Preferences</h2><div class="rounded-xl border bg-card p-6 max-w-2xl mx-auto"><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">Preferred Days</label><div class="flex flex-wrap gap-3" id="pref-days">${['Monday','Tuesday','Wednesday','Thursday','Friday'].map(d => `<label class="flex items-center gap-2"><input type="checkbox" value="${d.toLowerCase()}" class="pref-day"> <span>${d}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Preferred Areas</label><div class="flex flex-wrap gap-3" id="pref-areas">${['morning','lunch','afternoon','whole_day'].map(a => `<label class="flex items-center gap-2"><input type="checkbox" value="${a}" class="pref-area"> <span>${a}</span></label>`).join('')}</div></div><div><label class="block text-sm font-medium mb-1">Max Duties Per Week</label><input type="number" id="max-duties" value="3" min="1" max="5" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text14 font-medium mb-1">Blackout Dates</label><div class="flex gap-2"><input type="date" id="blackout-date" class="flex-1 rounded-lg border p-2 bg-background"><button onclick="addBlackoutDate()" class="px-3 py-2 bg-primary text-white rounded-lg">Add</button></div><div id="blackout-dates-list" class="mt-2 space-y-1"></div></div><button onclick="saveDutyPreferences()" class="w-full bg-primary text-white py-2 rounded-lg">Save Preferences</button></div></div></div>`;
+}
+window.addBlackoutDate = function() {
+  const date = document.getElementById('blackout-date')?.value;
+  if (!date) return;
+  const list = document.getElementById('blackout-dates-list');
+  const div = document.createElement('div');
+  div.className = 'flex justify-between items-center p-2 bg-muted/30 rounded';
+  div.innerHTML = `<span class="text-sm">${new Date(date).toLocaleDateString()}</span><button onclick="this.parentElement.remove()" class="text-red-600"><i data-lucide="x" class="h-4 w-4"></i></button>`;
+  list.appendChild(div);
+  document.getElementById('blackout-date').value = '';
+  if (window.lucide) lucide.createIcons();
+};
+window.saveDutyPreferences = async function() {
+  const preferredDays = Array.from(document.querySelectorAll('.pref-day:checked')).map(cb => cb.value);
+  const preferredAreas = Array.from(document.querySelectorAll('.pref-area:checked')).map(cb => cb.value);
+  const maxDutiesPerWeek = parseInt(document.getElementById('max-duties')?.value) || 3;
+  const blackoutDates = Array.from(document.querySelectorAll('#blackout-dates-list span')).map(span => new Date(span.textContent).toISOString().split('T')[0]);
+  showLoading();
+  try {
+    await api.duty.updatePreferences({ preferredDays, preferredAreas, maxDutiesPerWeek, blackoutDates });
+    showToast('Preferences saved', 'success');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+};
+
+async function renderTeacherTimetable() {
+    showLoading();
+    try {
+        const teacherRes = await apiRequest('/api/teacher/my-assignments');
+        const teacherId = teacherRes.data?.teacherId || getCurrentUser()?.teacher?.id || getCurrentUser()?.id;
+        const weekStart = moment().startOf('isoWeek').format('YYYY-MM-DD');
+        const res = await apiRequest(`/api/timetable/teacher/${teacherId}?weekStart=${weekStart}`);
+        const slots = (res && res.data) ? res.data : [];
+        hideLoading();
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <h2 class="text-2xl font-bold">My Timetable – ${weekStart}</h2>
+            ${slots.length ? window.renderTimetableGrid(slots) : '<div class="text-center py-12">No timetable published yet for this week.</div>'}
+        </div>`;
+    } catch(e) { hideLoading(); return `<div class="text-red-500">Error: ${escapeHtml(e.message)}</div>`; }
+}
+
+function renderTimetableGrid(slots) {
+    // slots is array of { day: 'monday', periods: [ { startTime, endTime, subject, teacherName, className } ] }
+    const daysOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00'];
+    const endTimes = ['09:00', '10:00', '11:00', '12:00', '13:00', '15:00', '16:00'];
+
+    let html = '<div class="overflow-x-auto"><table class="w-full text-sm border"><thead><tr><th class="border p-2 bg-muted/50">Time</th>';
+    daysOrder.forEach(day => {
+        html += `<th class="border p-2 bg-muted/50 capitalize">${day.substring(0,3)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    for (let i = 0; i < timeSlots.length; i++) {
+        html += `<tr><td class="border p-2 font-medium">${timeSlots[i]} - ${endTimes[i]}</td>`;
+        for (const day of daysOrder) {
+            const daySlot = slots.find(s => s.day === day);
+            const period = daySlot ? daySlot.periods.find(p => p.startTime === timeSlots[i]) : null;
+            if (period) {
+                html += `<td class="border p-2 bg-blue-50 dark:bg-blue-900/20">
+                    <strong>${escapeHtml(period.subject)}</strong><br>
+                    <span class="text-xs">${escapeHtml(period.className)}</span><br>
+                    <span class="text-xs text-muted-foreground">${escapeHtml(period.teacherName)}</span>
+                </td>`;
+            } else {
+                html += '<td class="border p-2 text-center text-muted-foreground">-</td>';
+            }
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
+}
+
+// ============ STAFF CHAT ============
+async function renderStaffChat() {
+  const teachers = await loadStaffMembers();
+  return `
+    <div class="max-w-6xl mx-auto">
+      <div class="grid grid-cols-4 gap-4 h-[700px]">
+        <div class="col-span-1 rounded-xl border bg-card overflow-hidden flex flex-col">
+          <div class="p-4 border-b"><h3 class="font-semibold">Staff Chat</h3></div>
+          <div class="flex-1 overflow-y-auto p-2">
+            <button onclick="switchStaffChat('group')" class="w-full text-left p-3 rounded-lg hover:bg-accent mb-2">
+              <div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><i data-lucide="users"></i></div><div><p class="font-medium">Staff Room</p><p class="text-xs text-muted-foreground">Group chat</p></div></div>
+            </button>
+            <div class="pt-2 mt-2 border-t"><p class="text-xs font-medium px-3 mb-2">TEACHERS</p>
+              <div id="staff-list">
+                ${teachers.map(t => `<button onclick="switchStaffChat('private', '${t.id}', '${escapeHtml(t.name)}')" class="w-full text-left p-3 rounded-lg hover:bg-accent"><div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><span class="font-medium text-blue-700 dark:text-blue-400 text-sm">${getInitials(t.name)}</span></div><div><p class="font-medium">${escapeHtml(t.name)}</p></div></div></button>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-span-3 rounded-xl border bg-card flex flex-col">
+          <div class="p-4 border-b"><h3 class="font-semibold" id="staff-chat-title">Staff Room</h3></div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-4" id="staff-chat-messages"></div>
+          <div class="p-4 border-t"><div class="flex gap-2"><input type="text" id="staff-chat-input" placeholder="Type your message..." class="flex-1 rounded-lg border bg-background px-4 py-3"><button onclick="sendStaffMessage()" class="px-6 py-3 bg-primary text-white rounded-lg">Send</button></div></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+async function loadStaffMembers() {
+  try { const res = await api.teacher.getStaffMembers(); return res.data || []; } catch(e) { return []; }
+}
+
+function renderStaffMessages(messages) {
+    const container = document.getElementById('staff-chat-messages');
+    if (!container) return;
+    const user = getCurrentUser();
+    if (!messages || messages.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted-foreground py-8">No messages yet</div>';
+        return;
+    }
+    container.innerHTML = messages.map(msg => {
+        const isSent = msg.senderId === user.id;
+        const content = msg.deleted ? '[This message was deleted]' : escapeHtml(msg.content);
+        return `
+            <div class="flex ${isSent ? 'justify-end' : 'justify-start'} group relative">
+                <div class="${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+                    ${!isSent ? `<p class="text-xs font-medium">${escapeHtml(msg.Sender?.name || 'Unknown')}</p>` : ''}
+                    <p class="text-sm">${content}</p>
+                    <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+                </div>
+                ${!msg.deleted ? `
+                <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                    <button onclick="deleteMessage(${msg.id}, 'everyone')" class="bg-red-500 text-white rounded-full p-1 text-xs" title="Delete for everyone">🗑️</button>
+                    <button onclick="deleteMessage(${msg.id}, 'me')" class="bg-gray-500 text-white rounded-full p-1 text-xs" title="Delete for me">👤</button>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
+async function switchStaffChat(type, partnerId = null, partnerName = '') {
+    currentStaffChatType = type;
+    currentStaffChatPartner = partnerId;
+    const title = document.getElementById('staff-chat-title');
+    if (title) title.innerText = type === 'group' ? 'Staff Room' : `Chat with ${partnerName}`;
+
+    // This legacy panel is fetch-only. All socket events are owned by
+    // realtime-client.js and chat-v9-ui.js so opening this panel cannot attach
+    // duplicate listeners or cause repeated messages.
+    let messages = [];
+    if (type === 'group') {
+        const res = await api.teacher.getGroupMessages();
+        messages = res.data || [];
+    } else if (partnerId) {
+        const res = await api.teacher.getPrivateMessages(partnerId);
+        messages = res.data || [];
+    }
+    renderStaffMessages(messages);
+}
+
+function appendStaffMessage(msg) {
+    const container = document.getElementById('staff-chat-messages');
+    if (!container) return;
+    const isSent = msg.from === getCurrentUser()?.id;
+    const bubble = renderMessageBubble(msg, isSent);
+    container.insertAdjacentHTML('beforeend', bubble);
+    container.scrollTop = container.scrollHeight;
+}
+
+function renderMessageBubble(msg, isSent) {
+    const deleted = msg.metadata?.deleted || msg.content === '[This message was deleted]';
+    return `
+        <div class="flex ${isSent ? 'justify-end' : 'justify-start'} group relative">
+            <div class="${isSent ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]">
+                ${!isSent ? `<p class="text-xs font-medium">${escapeHtml(msg.Sender?.name)}</p>` : ''}
+                <p class="text-sm">${deleted ? '[This message was deleted]' : escapeHtml(msg.content)}</p>
+                <p class="text-xs text-muted-foreground mt-1">${timeAgo(msg.createdAt)}</p>
+            </div>
+            ${!deleted ? `
+            <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                <button onclick="deleteMessage(${msg.id}, 'everyone')" class="bg-red-500 text-white rounded-full p-1 text-xs" title="Delete for everyone">🗑️</button>
+                <button onclick="deleteMessage(${msg.id}, 'me')" class="bg-gray-500 text-white rounded-full p-1 text-xs" title="Delete for me">👤</button>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+async function deleteMessage(messageId, deleteFor) {
+    if (!confirm(`Delete this message ${deleteFor === 'everyone' ? 'for everyone' : 'for yourself'}?`)) return;
+    try {
+        await api.teacher.deleteMessage(messageId, deleteFor);
+        switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+    } catch (e) {
+        showToast('Failed to delete message', 'error');
+    }
+}
+async function sendStaffMessage() {
+  const input = document.getElementById('staff-chat-input');
+  const content = input?.value.trim();
+  if (!content) return;
+  const data = { content };
+  if (replyingTo) { data.replyToId = replyingTo.id; cancelReply(); }
+  if (currentStaffChatType === 'group') {
+    await api.teacher.sendGroupMessage(data);
+  } else if (currentStaffChatPartner) {
+    await api.teacher.sendPrivateMessage({ ...data, receiverId: currentStaffChatPartner });
+  }
+  input.value = '';
+  await switchStaffChat(currentStaffChatType, currentStaffChatPartner);
+}
+
+// ============ PARENT CHAT ============
+async function renderTeacherParentChat() {
+  if (!isClassTeacher()) return '<div class="text-center py-12">Only class teachers can view parent messages</div>';
+  let conversations = [];
+  try {
+    const res = await api.teacher.getParentConversations();
+    conversations = res.data || [];
+  } catch(e) { console.error(e); }
+  return `
+    <div class="max-w-4xl mx-auto space-y-6"><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Parent Messages</h3></div><div class="divide-y" id="parent-conversations-list">${conversations.map(conv => `<div class="p-4 hover:bg-accent cursor-pointer" onclick="openParentConversation('${conv.userId}')"><div class="flex justify-between"><div><p class="font-medium">${escapeHtml(conv.userName)}</p><p class="text-xs text-muted-foreground">${conv.studentName ? `about ${conv.studentName}` : ''}</p><p class="text-sm mt-1">${conv.lastMessage?.substring(0,50)}</p></div><div class="text-right"><p class="text-xs">${timeAgo(conv.lastMessageTime)}</p>${conv.unreadCount ? `<span class="bg-red-500 dark:bg-red-900/50 text-white dark:text-red-300 text-xs rounded-full px-2 py-1">${conv.unreadCount}</span>` : ''}</div></div></div>`).join('')}</div></div></div>
+  `;
+}
+async function openParentConversation(parentId) {
+  let messages = [];
+  try {
+    const res = await api.teacher.getParentMessages(parentId);
+    messages = res.data || [];
+  } catch(e) { console.error(e); }
+  let modal = document.getElementById('parent-chat-modal');
+  if (!modal) { createParentChatModal(); modal = document.getElementById('parent-chat-modal'); }
+  const modalContent = modal.querySelector('.modal-content');
+  modalContent.innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeParentChatModal()" class="p-1"><i data-lucide="x"></i></button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="parent-chat-msgs">${messages.map(m => `<div class="flex ${m.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}"><div class="${m.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${escapeHtml(m.content)}</p><p class="text-xs mt-1">${timeAgo(m.createdAt)}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2 bg-background"><button onclick="sendParentReply('${parentId}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+function createParentChatModal() {
+  const html = `<div id="parent-chat-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeParentChatModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl p-4"><div class="rounded-xl border bg-card p-6 shadow-xl"><div class="modal-content"></div></div></div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeParentChatModal() { const m = document.getElementById('parent-chat-modal'); if(m) m.classList.add('hidden'); }
+async function sendParentReply(parentId) {
+  const message = document.getElementById('parent-reply-input')?.value;
+  if (!message) return;
+  try {
+    await api.teacher.replyToParent({ parentId, message });
+    document.getElementById('parent-reply-input').value = '';
+    await openParentConversation(parentId);
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+
+// ============ REPORT COMMENTS / REMARKS WORKFLOW ============
+async function renderTeacherReportComments(){
+  const year = new Date().getFullYear();
+  let assignments = null;
+  try { assignments = (await api.teacher.getMyAssignments()).data || {}; } catch(_) {}
+  const cls = assignments?.classTeacher || getTeacherAssignedClass?.() || {};
+  if (!cls?.id) return '<div class="rounded-xl border bg-card p-6"><h2 class="text-xl font-bold">Report Comments</h2><p class="text-muted-foreground mt-2">Only a class teacher with an assigned class can prepare learner report comments.</p></div>';
+  let gradebook = null;
+  try { gradebook = (await api.teacher.getClassGradebook({ classId: cls.id, term:'Term 1', year })).data || {}; } catch(e) { return `<div class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">${escapeHtml(e.message||'Could not load class learners.')}</div>`; }
+  const students = gradebook.students || [];
+  return `<div class="space-y-5"><section class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold">Report Comments</h2><p class="text-sm text-muted-foreground">Add or generate subject remarks, class teacher comments and recommendations before publishing report cards. System suggestions require teacher/admin approval.</p><div class="grid gap-3 md:grid-cols-3 mt-4"><label class="text-sm">Term<select id="report-comment-term" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></label><label class="text-sm">Year<input id="report-comment-year" type="number" value="${year}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="text-sm">Learner<select id="report-comment-student" onchange="loadTeacherReportCommentEditor()" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option value="">Select learner</option>${students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name||s.user?.name||'Student')}</option>`).join('')}</select></label></div></section><section id="report-comment-editor" class="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Select a learner to edit comments.</section></div>`;
+}
+async function loadTeacherReportCommentEditor(){
+  const studentId=document.getElementById('report-comment-student')?.value;
+  const term=document.getElementById('report-comment-term')?.value||'Term 1';
+  const year=document.getElementById('report-comment-year')?.value||new Date().getFullYear();
+  const box=document.getElementById('report-comment-editor'); if(!box||!studentId)return;
+  box.innerHTML='Loading comments…';
+  try{
+    const res=await api.lifecycle.getReportComments({studentId,term,year});
+    const d=res.data||{}; const sr=d.subjectRemarks||{};
+    box.innerHTML=`<div class="space-y-4"><div class="flex justify-between items-center"><h3 class="font-semibold">Draft report comments</h3><button onclick="generateTeacherReportComments()" class="px-3 py-2 rounded border text-sm">Generate system suggestions</button></div><label class="block text-sm">Strengths<textarea id="rc-strengths" rows="2" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.strengths||'')}</textarea></label><label class="block text-sm">Areas needing support<textarea id="rc-support" rows="2" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.areasNeedingSupport||'')}</textarea></label><label class="block text-sm">Recommendation<textarea id="rc-recommendation" rows="2" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.recommendation||'')}</textarea></label><label class="block text-sm">Class Teacher Comment<textarea id="rc-class-comment" rows="3" class="mt-1 w-full rounded-lg border bg-background px-3 py-2">${escapeHtml(d.classTeacherComment||'')}</textarea></label><label class="block text-sm">Promotion Status<input id="rc-promotion" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" value="${escapeHtml(d.promotionStatus||'')}"></label><label class="block text-sm">Attendance Remark<input id="rc-attendance" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" value="${escapeHtml(d.attendanceRemark||'')}"></label><label class="block text-sm">Behaviour / Conduct<input id="rc-behaviour" class="mt-1 w-full rounded-lg border bg-background px-3 py-2" value="${escapeHtml(d.behaviourComment||'')}"></label><label class="block text-sm">Subject remarks JSON <small class="text-muted-foreground">optional advanced edit</small><textarea id="rc-subject-remarks" rows="4" class="mt-1 w-full rounded-lg border bg-background px-3 py-2 font-mono text-xs">${escapeHtml(JSON.stringify(sr,null,2))}</textarea></label><div class="flex gap-2"><button onclick="saveTeacherReportComments()" class="px-4 py-2 rounded bg-primary text-white">Save Draft Comments</button><button onclick="showDashboardSection('grades')" class="px-4 py-2 rounded border">Back to Marks</button></div></div>`;
+  }catch(e){ box.innerHTML=`<div class="text-red-700">${escapeHtml(e.message||'Could not load comments.')}</div>`; }
+}
+async function generateTeacherReportComments(){
+  const studentId=document.getElementById('report-comment-student')?.value;
+  const term=document.getElementById('report-comment-term')?.value||'Term 1';
+  const year=document.getElementById('report-comment-year')?.value||new Date().getFullYear();
+  try{const res=await api.lifecycle.generateReportComments({studentId,term,year,strengths:document.getElementById('rc-strengths')?.value||'',areasNeedingSupport:document.getElementById('rc-support')?.value||''});const d=res.data||{};if(document.getElementById('rc-class-comment'))document.getElementById('rc-class-comment').value=d.classTeacherComment||'';if(document.getElementById('rc-recommendation'))document.getElementById('rc-recommendation').value=d.recommendation||'';if(document.getElementById('rc-subject-remarks'))document.getElementById('rc-subject-remarks').value=JSON.stringify(d.subjectRemarks||{},null,2);showToast('Suggestions generated. Review and save before publishing.','success');}catch(e){showToast(e.message||'Could not generate suggestions','error');}
+}
+async function saveTeacherReportComments(){
+  const studentId=document.getElementById('report-comment-student')?.value;
+  const term=document.getElementById('report-comment-term')?.value||'Term 1';
+  const year=document.getElementById('report-comment-year')?.value||new Date().getFullYear();
+  let subjectRemarks={};try{subjectRemarks=JSON.parse(document.getElementById('rc-subject-remarks')?.value||'{}');}catch(_){return showToast('Subject remarks JSON is invalid','error');}
+  try{await api.lifecycle.saveReportComments({studentId,term,year,subjectRemarks,strengths:document.getElementById('rc-strengths')?.value||'',areasNeedingSupport:document.getElementById('rc-support')?.value||'',recommendation:document.getElementById('rc-recommendation')?.value||'',classTeacherComment:document.getElementById('rc-class-comment')?.value||'',promotionStatus:document.getElementById('rc-promotion')?.value||'',attendanceRemark:document.getElementById('rc-attendance')?.value||'',behaviourComment:document.getElementById('rc-behaviour')?.value||''});showToast('Report comments saved. They will be included in draft preview and published snapshots.','success');}catch(e){showToast(e.message||'Could not save comments','error');}
+}
+
+// ============ SETTINGS & HELP ============
+async function renderTeacherSettings() {
+  const user = getCurrentUser();
+  return `
+    <div class="space-y-6 max-w-4xl mx-auto"><div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-4">Teacher Settings</h2>
+    <div class="space-y-4"><div class="border-t pt-4"><h3 class="font-semibold mb-2">Profile Information</h3><p class="text-sm">Name: ${escapeHtml(user?.name || 'N/A')}</p><p class="text-sm">Email: ${escapeHtml(user?.email || 'N/A')}</p><p class="text-sm">Role: ${user?.role}</p></div>
+    <div class="border-t pt-4"><h3 class="font-semibold mb-2">Class Information</h3><p class="text-sm">Assigned Class: ${getTeacherAssignedClass()?.name || 'None'}</p><p class="text-sm">Teacher Type: ${getTeacherRole()}</p></div>
+    <div class="border-t pt-4"><h3 class="font-semibold mb-2">Change Password</h3><div class="space-y-3"><input type="password" id="current-password" placeholder="Current Password" class="w-full rounded-lg border p-2 bg-background"><input type="password" id="new-password" placeholder="New Password" class="w-full rounded-lg border p-2 bg-background"><input type="password" id="confirm-password" placeholder="Confirm Password" class="w-full rounded-lg border p-2 bg-background"><button onclick="handleChangePassword()" class="px-4 py-2 bg-primary text-white rounded-lg">Update Password</button></div></div></div></div></div>
+  `;
+}
+async function handleChangePassword() {
+  const current = document.getElementById('current-password')?.value;
+  const newPwd = document.getElementById('new-password')?.value;
+  const confirm = document.getElementById('confirm-password')?.value;
+  if (!current || !newPwd || !confirm) { showToast('Please fill all fields', 'error'); return; }
+  if (newPwd !== confirm) { showToast('Passwords do not match', 'error'); return; }
+  if (newPwd.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
+  showLoading();
+  try {
+    await api.auth.changePassword(current, newPwd);
+    showToast('Password changed', 'success');
+    document.getElementById('current-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function renderHelpSection(role) {
+  let articles = [];
+  try {
+    const res = await api.help.getArticles(role);
+    articles = res.data || [];
+  } catch(e) { console.error(e); }
+  return `
+    <div class="space-y-6 max-w-4xl mx-auto"><div class="text-center"><h2 class="text-3xl font-bold">Help Center</h2><p class="text-muted-foreground mt-2">Find answers to common questions</p></div>
+    <div class="relative"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"></i><input type="text" id="help-search" placeholder="Search help articles..." onkeyup="searchHelpArticles()" class="w-full pl-10 pr-4 py-3 rounded-xl border bg-card"></div>
+    <div id="help-articles-container" class="grid gap-4">${articles.map(a => `<div class="rounded-xl border bg-card p-6 cursor-pointer hover:shadow-md" onclick="showHelpArticleDetail('${a.title}', '${a.content}')"><h3 class="font-semibold text-lg">${escapeHtml(a.title)}</h3><p class="text-muted-foreground mt-1">${escapeHtml(a.content.substring(0,150))}...</p></div>`).join('')}</div></div>
+  `;
+}
+window.searchHelpArticles = function() {
+  const term = document.getElementById('help-search')?.value.toLowerCase();
+  document.querySelectorAll('#help-articles-container > div').forEach(a => {
+    a.style.display = a.textContent.toLowerCase().includes(term) ? 'block' : 'none';
+  });
+};
+window.showHelpArticleDetail = function(title, content) {
+  document.body.insertAdjacentHTML('beforeend', `<div class="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4"><div class="bg-card text-foreground rounded-2xl border shadow-2xl max-w-2xl w-full p-6"><div class="flex justify-between items-start gap-4"><h2 class="text-2xl font-bold">${escapeHtml(title)}</h2><button onclick="this.closest('.fixed').remove()" class="text-2xl">×</button></div><p class="mt-4 text-muted-foreground leading-7">${escapeHtml(content)}</p><div class="mt-6 flex justify-end"><button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground">Close</button></div></div></div>`);
+};
+
+// ============ PROFILE SECTION ============
+async function renderProfileSection() {
+  const user = getCurrentUser();
+  const emailPref = user.preferences?.email !== false;
+  const pushPref = user.preferences?.push !== false;
+  const darkModePref = document.documentElement.classList.contains('dark');
+  return `
+    <div class="space-y-6 max-w-4xl mx-auto">
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
+        <div class="flex items-center gap-6">
+          <div class="relative">
+            <img id="profile-preview" src="${resolveMediaUrl(user.profileImage) || ''}" class="h-24 w-24 rounded-full object-cover border-4 border-white shadow bg-white">
+            <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer"><i data-lucide="camera" class="h-4 w-4"></i><input type="file" class="profile-picture-input" accept="image/*" class="hidden"></label>
+          </div>
+          <div><h2 class="text-3xl font-bold">${user.name}</h2><p class="text-white/80 capitalize">${user.role}</p></div>
+        </div>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Member Since</p><p class="text-lg font-semibold">${formatDate(user.createdAt)}</p></div>
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Last Login</p><p class="text-lg font-semibold">${user.lastLogin ? timeAgo(user.lastLogin) : 'N/A'}</p></div>
+        <div class="rounded-xl border bg-card p-4"><p class="text-sm text-muted-foreground">Account Status</p><p class="text-lg font-semibold text-green-600">Active</p></div>
+      </div>
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Profile Information</h3>
+        <form id="profile-form" onsubmit="updateProfile(event)" class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-2"><div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" name="name" value="${user.name}" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text-sm font-medium mb-1">Email</label><input type="email" name="email" value="${user.email || ''}" class="w-full rounded-lg border p-2 bg-background"></div></div>
+          <div><label class="block text-sm font-medium mb-1">Phone</label><input type="tel" name="phone" value="${user.phone || ''}" class="w-full rounded-lg border p-2 bg-background"></div>
+          <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Profile</button></div>
+        </form>
+      </div>
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Change Password</h3>
+        <form id="password-form" onsubmit="updatePassword(event)" class="space-y-4">
+          <div><label class="block text-sm font-medium mb-1">Current Password</label><input type="password" id="current-password" required class="w-full rounded-lg border p-2 bg-background"></div>
+          <div class="grid gap-4 md:grid-cols-2"><div><label class="block text-sm font-medium mb-1">New Password</label><input type="password" id="new-password" required minlength="8" class="w-full rounded-lg border p-2 bg-background"></div><div><label class="block text-sm font-medium mb-1">Confirm Password</label><input type="password" id="confirm-password" required class="w-full rounded-lg border p-2 bg-background"></div></div>
+          <div class="flex justify-end"><button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update Password</button></div>
+        </form>
+      </div>
+      <div class="rounded-xl border bg-card p-6">
+        <h3 class="font-semibold text-lg mb-4">Preferences</h3>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center"><div><p class="font-medium">Email Notifications</p></div><button onclick="togglePreference('email')" id="pref-email" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPref ? 'bg-primary' : 'bg-muted'}"><span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailPref ? 'translate-x-6' : 'translate-x-1'}"></span></button></div>
+          <div class="flex justify-between items-center"><div><p class="font-medium">Push Notifications</p></div><button onclick="togglePreference('push')" id="pref-push" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${pushPref ? 'bg-primary' : 'bg-muted'}"><span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${pushPref ? 'translate-x-6' : 'translate-x-1'}"></span></button></div>
+          <div class="flex justify-between items-center"><div><p class="font-medium">Dark Mode</p></div><button onclick="toggleTheme()" id="pref-darkmode" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${darkModePref ? 'bg-primary' : 'bg-muted'}"><span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkModePref ? 'translate-x-6' : 'translate-x-1'}"></span></button></div>
+        </div>
+      </div>
+      <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
+        <h3 class="font-semibold text-lg mb-4 text-red-700 dark:text-red-400">Account Actions</h3>
+        <div class="flex gap-3"><button onclick="downloadMyData()" class="px-4 py-2 border rounded-lg">Download My Data</button><button onclick="deactivateAccount()" class="px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg">Deactivate Account</button></div>
+      </div>
+    </div>
+  `;
+}
+async function updateProfile(event) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const data = { name: formData.get('name'), email: formData.get('email'), phone: formData.get('phone') };
+  showLoading();
+  try {
+    await api.user.updateProfile(data);
+    const user = getCurrentUser(); user.name = data.name; user.email = data.email; user.phone = data.phone;
+    if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
+    showToast('Profile updated', 'success');
+    await showDashboardSection('profile');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function updatePassword(event) {
+  event.preventDefault();
+  const current = document.getElementById('current-password').value;
+  const newPwd = document.getElementById('new-password').value;
+  const confirm = document.getElementById('confirm-password').value;
+  if (newPwd !== confirm) return showToast('Passwords do not match', 'error');
+  if (newPwd.length < 8) return showToast('Password must be at least 8 characters', 'error');
+  showLoading();
+  try {
+    await api.auth.changePassword(current, newPwd);
+    showToast('Password changed', 'success');
+    document.getElementById('current-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function togglePreference(key) {
+  const user = getCurrentUser();
+  const prefs = user.preferences || {};
+  prefs[key] = !prefs[key];
+  showLoading();
+  try {
+    await api.user.updatePreferences(prefs);
+    user.preferences = prefs;
+    if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
+    const btn = document.getElementById(`pref-${key}`);
+    if (btn) {
+      const isOn = prefs[key];
+      btn.classList.toggle('bg-primary', isOn);
+      btn.classList.toggle('bg-muted', !isOn);
+      btn.querySelector('span').classList.toggle('translate-x-6', isOn);
+      btn.querySelector('span').classList.toggle('translate-x-1', !isOn);
+    }
+    showToast('Preference updated', 'success');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function downloadMyData() {
+  showLoading();
+  try {
+    const res = await api.user.exportMyData();
+    downloadStructuredCsv(res.data, `Shule_AI_My_Data_${new Date().toISOString().split('T')[0]}.csv`);
+    showToast('Data exported', 'success');
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function deactivateAccount() {
+  if (!confirm('Deactivate your account? You can reactivate later by contacting support.')) return;
+  const reason = prompt('Reason (optional)');
+  showLoading();
+  try {
+    await api.user.deactivateAccount(reason);
+    showToast('Account deactivated. Logging out...', 'info');
+    setTimeout(() => logout(), 2000);
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function uploadProfilePicture(file) {
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('picture', file);
+  showLoading();
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/user/profile-picture`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      body: formData
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('profile-preview').src = resolveMediaUrl(data.data.profileImage);
+      const user = getCurrentUser();
+      user.profileImage = resolveMediaUrl(data.data.profileImage);
+      if(typeof safeSessionSet==='function')safeSessionSet('user',JSON.stringify(typeof stripLargeMediaForStorage==='function'?stripLargeMediaForStorage(user):user));
+      showToast('Profile picture updated', 'success');
+    } else {
+      throw new Error(data.message);
+    }
+  } catch (error) {
+    showToast(error.message || 'Upload failed', 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ============ DUTY CARD HELPERS ============
+async function loadTodayDuty() {
+  try {
+    const res = await api.duty.getTodayDuty();
+    const duty=res.data?.duty||res.data?.duties?.[0]||null;
+
+    // Only update duty card elements if they exist (they're only on teacher dashboard)
+    const dutyLocation = document.getElementById('duty-location');
+    if (dutyLocation) {
+      dutyLocation.innerText = duty ? `${duty.area||duty.type||'Duty'}${duty.timeSlot?.start?` • ${duty.timeSlot.start}${duty.timeSlot?.end?'–'+duty.timeSlot.end:''}`:''}` : 'No duty assigned today';
+    }
+
+    const dutyStatus = document.getElementById('duty-status');
+    if (dutyStatus) {
+      dutyStatus.innerText = duty?.checkedOut?'Checked Out':duty?.checkedIn?(duty.status==='late'?'Checked In Late':'Checked In'):duty?'Scheduled':'No Duty';
+    }
+
+    const checkInBtn = document.getElementById('check-in-btn');
+    if (checkInBtn) {
+      checkInBtn.disabled = duty?.checkedIn || !duty;
+    }
+
+    const checkOutBtn = document.getElementById('check-out-btn');
+    if (checkOutBtn) {
+      checkOutBtn.disabled=!duty?.checkedIn||!!duty?.checkedOut;
+    }
+
+    return duty;
+  } catch (e) {
+    console.error('loadTodayDuty failed:', e);
+    return null;
+  }
+}
+
+async function handleCheckIn() {
+  showLoading();
+  try {
+    await api.duty.checkIn({ location: 'School', notes: '' });
+    showToast('Checked in', 'success');
+    await loadTodayDuty();
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+async function handleCheckOut() {
+  showLoading();
+  try {
+    await api.duty.checkOut({ location: 'School', notes: '' });
+    showToast('Checked out', 'success');
+    await loadTodayDuty();
+  } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+// ============ PARENT MESSAGES INBOX ============
+async function loadTeacherMessages() {
+  try {
+    const res = await api.teacher.getParentConversations();
+    const convos = (res.data || []).filter(c => !c.userRole || c.userRole === 'parent');
+    const container = document.getElementById('teacher-messages-list');
+    const badge = document.getElementById('teacher-message-count-badge');
+    if (!container) return;
+    let totalUnread = 0;
+    if (!convos.length) { container.innerHTML = '<div class="text-center py-8 text-muted-foreground">No parent messages</div>'; return; }
+    container.innerHTML = convos.map(c => {
+      totalUnread += c.unreadCount || 0;
+      return `<div class="p-3 border rounded-lg hover:bg-accent cursor-pointer" onclick="openParentConversation('${c.userId}')"><div class="flex justify-between"><div><p class="font-medium">${escapeHtml(c.userName)}</p><p class="text-xs text-muted-foreground">${c.studentName ? `about ${c.studentName}` : ''}</p><p class="text-sm mt-1">${c.lastMessage?.substring(0,50)}</p></div><div class="text-right"><p class="text-xs">${timeAgo(c.lastMessageTime)}</p>${c.unreadCount ? `<span class="bg-red-500 dark:bg-red-900/50 text-white dark:text-red-300 text-xs rounded-full px-2 py-1">${c.unreadCount}</span>` : ''}</div></div></div>`;
+    }).join('');
+    if (badge) badge.textContent = totalUnread;
+  } catch(e) { console.error(e); }
+}
+
+// ============ UTILITIES ============
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+function getInitials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+}
+function timeAgo(timestamp) {
+  if (!timestamp) return 'N/A';
+  const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+  const intervals = { year: 31536000, month: 2592000, week: 604800, day: 86400, hour: 3600, minute: 60 };
+  for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+    const interval = Math.floor(seconds / secondsInUnit);
+    if (interval >= 1) return `${interval} ${unit}${interval === 1 ? '' : 's'} ago`;
+  }
+  return 'just now';
+}
+function formatDate(dateString) {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function copyToClipboard(text) {
+  if (!text) return;
+  navigator.clipboard.writeText(text);
+  showToast('Copied to clipboard', 'success');
+}
+function setReplyTo(messageId, contentPreview) {
+  replyingTo = { id: messageId, content: contentPreview };
+  let previewDiv = document.getElementById('reply-preview');
+  if (!previewDiv) {
+    previewDiv = document.createElement('div');
+    previewDiv.id = 'reply-preview';
+    previewDiv.className = 'text-xs bg-muted p-2 rounded-lg mb-2 flex justify-between items-center';
+    const inputContainer = document.getElementById('staff-chat-input').parentElement;
+    inputContainer.insertBefore(previewDiv, inputContainer.firstChild);
+  }
+  previewDiv.innerHTML = `<span>Replying to: ${escapeHtml(contentPreview)}</span><button onclick="cancelReply()" class="text-red-500">✖</button>`;
+}
+function cancelReply() {
+  replyingTo = null;
+  const preview = document.getElementById('reply-preview');
+  if (preview) preview.remove();
+}
+
+// ============ STUDENT DETAIL MODAL ============
+async function viewStudentDetails(studentId) {
+    showLoading();
+    try {
+        // Get student from already loaded data
+        const data = await loadMyStudents();
+        const student = data.students.find(s => s.id == studentId);
+        
+        if (!student) {
+            showToast('Student not found', 'error');
+            return;
+        }
+        
+        // Fetch analytics (teachers are allowed)
+        let analytics = null;
+        try {
+            const analyticsRes = await api.analytics.getStudentAnalytics(studentId);
+            analytics = analyticsRes.data;
+        } catch (e) {
+            console.warn('Analytics fetch failed:', e);
+        }
+        
+        showStudentDetailModalFromStudent(student, analytics);
+    } catch (error) {
+        console.error('Error viewing student:', error);
+        showToast('Failed to load student details', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// New function that accepts student object directly
+function showStudentDetailModalFromStudent(student, analytics) {
+    let modal = document.getElementById('student-detail-modal');
+    if (!modal) { createStudentDetailModal(); modal = document.getElementById('student-detail-modal'); }
+    
+    const attendance = student.attendance || 100;
+    const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
+    
+    const subjectRows = Object.entries(student.subjectScores || {}).map(([sub, score]) => {
+        const grade = score !== null ? getGradeFromScore(score, schoolSettings?.curriculum || 'cbc', schoolSettings?.schoolLevel || 'secondary') : '';
+        return `<tr><td class="py-1">${escapeHtml(sub)}</td><td class="py-1 text-center">${score !== null ? score + '%' : '—'}</td><td class="py-1 text-center"><span class="px-2 py-0.5 rounded-full text-xs ${getGradeColorClass(grade)}">${grade || '—'}</span></td></tr>`;
+    }).join('');
+    
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex items-center gap-4 pb-4 border-b">
+                ${avatarHTML(student.name || 'Student', student.profileImage || student.profilePicture || student.User?.profileImage || student.User?.profilePicture, 'h-16 w-16')}
+                <div>
+                    <h4 class="font-medium text-lg">${escapeHtml(student.name)}</h4>
+                    <p class="text-sm text-muted-foreground">${escapeHtml(student.email || 'No email')}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><span class="font-medium">ELIMUID:</span> ${escapeHtml(student.elimuid)}</div>
+                <div><span class="font-medium">Grade:</span> ${escapeHtml(student.grade)}</div>
+                <div><span class="font-medium">Attendance:</span> ${attendance}%</div>
+                <div><span class="font-medium">Overall:</span> ${overall}</div>
+            </div>
+            <div class="border-t pt-4">
+                <h4 class="font-medium mb-2">Subject Performance</h4>
+                <table class="w-full text-sm"><tbody>${subjectRows}</tbody></table>
+            </div>
+            <div class="flex justify-end gap-2 pt-4 border-t">
+                <button onclick="closeStudentDetailModal()" class="px-4 py-2 text-sm border rounded-lg hover:bg-accent">Close</button>
+                <button onclick="copyToClipboard('${escapeHtml(student.elimuid)}')" class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg">Copy ELIMUID</button>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+}
+
+function showStudentDetailModal(student, analytics) {
+  let modal = document.getElementById('student-detail-modal');
+  if (!modal) { createStudentDetailModal(); modal = document.getElementById('student-detail-modal'); }
+  const user = student.User || {};
+  const grades = analytics.records || [];
+  const attendance = analytics.attendance || { rate: 0, present: 0, absent: 0, late: 0, total: 0 };
+  const competencyLevels = analytics.competencyLevels || [];
+  const modalContent = modal.querySelector('.modal-content');
+  modalContent.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex items-center gap-4 pb-4 border-b">
+        ${avatarHTML(user.name || 'Student', user.profileImage || user.profilePicture, 'h-16 w-16')}
+        <div><h3 class="text-xl font-semibold">${escapeHtml(user.name)}</h3><p class="text-sm text-muted-foreground">${escapeHtml(user.email || 'No email')} • ${student.elimuid}</p><p class="text-sm">Grade: ${student.grade || 'N/A'}</p></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-xs text-muted-foreground">Average Score</p><p class="text-2xl font-bold text-primary">${analytics.overallAverage || 0}%</p></div>
+        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-xs text-muted-foreground">Attendance Rate</p><p class="text-2xl font-bold ${attendance.rate >= 80 ? 'text-green-600' : 'text-yellow-600'}">${attendance.rate}%</p></div>
+        <div class="p-3 bg-muted/30 rounded-lg"><p class="text-xs text-muted-foreground">Competency</p><p class="text-2xl font-bold text-purple-600">${analytics.grade || 'N/A'}</p></div>
+      </div>
+      <div><h4 class="font-medium mb-2">Recent Grades</h4><div class="chart-container h-40"><canvas id="student-grades-chart"></canvas></div></div>
+      <div><h4 class="font-medium mb-2">Attendance Summary</h4><div class="flex gap-2 text-sm"><span class="px-2 py-1 bg-green-100 text-green-700 rounded">Present: ${attendance.present}</span><span class="px-2 py-1 bg-red-100 text-red-700 rounded">Absent: ${attendance.absent}</span><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Late: ${attendance.late}</span></div></div>
+      <div><h4 class="font-medium mb-2">Competency Progress</h4><div class="space-y-2">${competencyLevels.slice(0, 5).map(c => `<div class="flex justify-between items-center"><span class="text-sm">${escapeHtml(c.competency)}</span><span class="px-2 py-0.5 text-xs rounded-full ${getLevelColorClass(c.level)}">${c.level}</span></div>`).join('')}</div></div>
+      <div class="flex justify-end gap-3 pt-4 border-t">
+        <button onclick="closeStudentDetailModal()" class="px-4 py-2 border rounded-lg hover:bg-accent">Close</button>
+        <button onclick="reportAbsenceForStudent('${student.id}')" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Report Absence</button>
+        <button onclick="openMessageParent('${student.id}')" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Message Parent</button>
+      </div>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+  setTimeout(() => {
+    const ctx = document.getElementById('student-grades-chart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels: grades.slice(0, 10).map(g => g.date ? new Date(g.date).toLocaleDateString() : ''), datasets: [{ label: 'Score', data: grades.slice(0, 10).map(g => g.score), borderColor: '#3b82f6', tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+    if (window.lucide) lucide.createIcons();
+  }, 100);
+}
+function createStudentDetailModal() {
+  const html = `<div id="student-detail-modal" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="closeStudentDetailModal()"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4"><div class="rounded-xl border bg-card p-6 shadow-xl"><div class="modal-content"></div></div></div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeStudentDetailModal() { const m = document.getElementById('student-detail-modal'); if(m) m.classList.add('hidden'); currentStudentId = null; }
+async function reportAbsenceForStudent(studentId) {
+  const reason = prompt('Enter reason for absence:');
+  if (!reason) return;
+  showLoading();
+  try {
+    await api.parent.reportAbsence({ studentId, date: new Date().toISOString().split('T')[0], reason });
+    showToast('Absence reported', 'success');
+  } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+function openMessageParent(studentId) { showToast('Opening message to parent...', 'info'); }
+function getLevelColorClass(level) {
+  if (level === 'EE' || level === 'A') return 'bg-green-100 text-green-700';
+  if (level === 'ME' || level === 'B') return 'bg-blue-100 text-blue-700';
+  if (level === 'AE' || level === 'C') return 'bg-yellow-100 text-yellow-700';
+  return 'bg-red-100 text-red-700';
+}
+
+function normalizeHomeworkAssignmentsResponse(res) {
+    return Array.isArray(res) ? res : (res?.data || res?.assignments || []);
+}
+
+function getHomeworkAssignmentCount(task) {
+    return task.assignedCount ?? task.HomeTaskAssignments?.length ?? task.HomeTaskAssignments?.length ?? 0;
+}
+
+async function getTeacherAssignmentDataForHomework() {
+    try {
+        const res = await api.teacher.getMyAssignments();
+        return res.data || { classes: [], subjects: [] };
+    } catch (e) {
+        console.error('Failed to load teacher assignments:', e);
+        return { classes: [], subjects: [] };
+    }
+}
+
+function renderTeacherSubjectSummary(assignments) {
+    const subjects = assignments?.subjects || [];
+    const classes = assignments?.classes || [];
+    if (!subjects.length && !classes.length) {
+        return `<div class="rounded-xl border bg-card p-4 text-sm text-muted-foreground">No class or subject assignment has been configured for your teacher account yet.</div>`;
+    }
+    const subjectCards = subjects.slice(0, 8).map(item => `
+        <div class="rounded-xl border bg-card p-4">
+            <p class="text-xs text-muted-foreground">Assigned Subject</p>
+            <h4 class="font-semibold">${escapeHtml(item.subject || 'General')}</h4>
+            <p class="text-sm text-muted-foreground mt-1">${escapeHtml(item.className || 'Class')} ${item.grade ? `• ${escapeHtml(item.grade)}` : ''}</p>
+        </div>
+    `).join('');
+    return `
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            ${subjectCards || classes.slice(0, 4).map(cls => `
+                <div class="rounded-xl border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Assigned Class</p>
+                    <h4 class="font-semibold">${escapeHtml(cls.name || 'Class')}</h4>
+                    <p class="text-sm text-muted-foreground mt-1">${escapeHtml((cls.subjects || []).join(', ') || cls.grade || '')}</p>
+                </div>
+            `).join('')}
+        </div>`;
+}
+
+async function renderTeacherHomework() {
+    try {
+        const [taskRes, assignmentData] = await Promise.all([
+            apiRequest('/api/homework/teacher'),
+            getTeacherAssignmentDataForHomework()
+        ]);
+        const assignments = normalizeHomeworkAssignmentsResponse(taskRes);
+        return `
+            <div class="space-y-6 animate-fade-in">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold">Homework Assignments</h2>
+                        <p class="text-sm text-muted-foreground">Create, track, and review homework for your assigned classes and subjects.</p>
+                    </div>
+                    <button onclick="showCreateHomeworkModal()" class="px-4 py-2 bg-primary text-white rounded-lg">+ Create New</button>
+                </div>
+                ${renderTeacherSubjectSummary(assignmentData)}
+                <div id="teacher-homework-list" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    ${assignments.length === 0 ? '<div class="md:col-span-2 xl:col-span-3 text-center text-muted-foreground border rounded-xl bg-card py-10">No homework assignments yet</div>' :
+                      assignments.map(a => `
+                        <div class="p-4 border rounded-xl bg-card hover:shadow-sm transition-shadow">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h3 class="font-semibold">${escapeHtml(a.title)}</h3>
+                                    <p class="text-sm text-muted-foreground mt-1 line-clamp-2">${escapeHtml((a.instructions || '').substring(0,140))}</p>
+                                </div>
+                                <span class="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">${escapeHtml(a.subject || 'General')}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-4 text-xs text-muted-foreground">
+                                <span>Due: <b class="text-foreground">${formatDate(a.dueDate)}</b></span>
+                                <span>Class: <b class="text-foreground">${escapeHtml(a.className || a.gradeLevel || '-')}</b></span>
+                                <span>Assigned: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
+                                <span>Submitted: <b class="text-foreground">${a.submittedCount || 0}</b></span>
+                                <span>Discussion: <b class="text-foreground">${a.studyThreadId ? 'Open' : 'Off'}</b></span>
+                            </div>
+                            <div class="flex gap-2 mt-4">
+                                <button onclick="openHomeworkReviewModal(${Number(a.id)})" class="flex-1 px-3 py-2 rounded-lg border text-sm hover:bg-muted">Review</button>
+                                <button onclick="openHomeworkEditModal(${Number(a.id)})" class="flex-1 px-3 py-2 rounded-lg bg-primary text-white text-sm">Edit</button>
+                            </div>
+                        </div>
+                      `).join('')}
+                </div>
+            </div>`;
+    } catch (e) {
+        console.error('Homework render error:', e);
+        return `<div class="rounded-xl border bg-card p-6 text-red-500">Error loading homework: ${escapeHtml(e.message || 'Unknown error')}</div>`;
+    }
+}
+
+async function buildHomeworkClassOptions() {
+    const data = await getTeacherAssignmentDataForHomework();
+    const options = [];
+    const add = (id, name, grade, subject) => {
+        if (!id) return;
+        const key = `${id}|${subject || ''}`;
+        if (options.some(o => o.key === key)) return;
+        options.push({ key, id, name: name || `Class ${id}`, grade: grade || '', subject: subject || '' });
+    };
+    if (data.classTeacher) add(data.classTeacher.id, data.classTeacher.name, data.classTeacher.grade, '');
+    (data.subjects || []).forEach(s => add(s.classId, s.className, s.grade, s.subject));
+    (data.classes || []).forEach(c => (c.subjects || ['']).forEach(subject => add(c.id, c.name, c.grade, subject)));
+    return { options, data };
+}
+
+function showCreateHomeworkModal() {
+    let modal = document.getElementById('create-homework-modal');
+    if (!modal) {
+        const modalHtml = `
+        <div id="create-homework-modal" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black/50" onclick="closeCreateHomeworkModal()"></div>
+            <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg p-4">
+                <div class="rounded-xl border bg-card p-6 shadow-xl">
+                    <h3 class="text-lg font-semibold mb-1">Assign Homework</h3>
+                    <p class="text-sm text-muted-foreground mb-4">Homework is saved under your teacher account and shown in your assignment list immediately.</p>
+                    <div class="space-y-4">
+                        <div><label class="block text-sm font-medium">Title</label><input type="text" id="hw-title" class="w-full rounded-lg border p-2 bg-background"></div>
+                        <div><label class="block text-sm font-medium">Instructions</label><textarea id="hw-instructions" rows="3" class="w-full rounded-lg border p-2 bg-background"></textarea></div>
+                        <div><label class="block text-sm font-medium">Assignment file / material</label><input type="file" id="hw-file" class="w-full rounded-lg border p-2 bg-background"><p class="text-xs text-muted-foreground mt-1">Optional. Students will be able to view/download this file.</p></div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="block text-sm font-medium">Subject</label><select id="hw-subject" class="w-full rounded-lg border p-2 bg-background"><option value="">Select class first</option></select></div>
+                            <div><label class="block text-sm font-medium">Due Date</label><input type="date" id="hw-due" class="w-full rounded-lg border p-2 bg-background"></div>
+                        </div>
+                        <div><label class="block text-sm font-medium">Class</label><select id="hw-class" class="w-full rounded-lg border p-2 bg-background"><option value="">Loading...</option></select></div>
+                        <div class="rounded-xl border p-3 bg-muted/30 space-y-2">
+                            <label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" id="hw-open-discussion" class="rounded"> Open Study Discussion</label>
+                            <input type="text" id="hw-discussion-title" class="w-full rounded-lg border p-2 bg-background text-sm" placeholder="Optional discussion title">
+                            <label class="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" id="hw-reward-participation" class="rounded"> Reward participation later</label>
+                            <p class="text-xs text-muted-foreground">Creates a class-only study thread linked to this homework.</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button onclick="closeCreateHomeworkModal()" class="px-4 py-2 border rounded-lg">Cancel</button>
+                        <button onclick="createHomework()" class="px-4 py-2 bg-primary text-white rounded-lg">Assign</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        modal = document.getElementById('create-homework-modal');
+    }
+
+    loadTeacherClassesForHomework();
+    modal.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeCreateHomeworkModal() {
+    const modal = document.getElementById('create-homework-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function loadTeacherClassesForHomework() {
+    const select = document.getElementById('hw-class');
+    const subjectSelect = document.getElementById('hw-subject');
+    if (!select) return;
+    try {
+        const { options } = await buildHomeworkClassOptions();
+        select.innerHTML = '<option value="">Select class</option>';
+        options.forEach(o => {
+            select.innerHTML += `<option value="${escapeHtml(String(o.id))}" data-subject="${escapeHtml(o.subject)}" data-class-name="${escapeHtml(o.name)}">${escapeHtml(o.name)}${o.grade ? ` (${escapeHtml(o.grade)})` : ''}${o.subject ? ` - ${escapeHtml(o.subject)}` : ''}</option>`;
+        });
+        if (select.options.length <= 1) select.innerHTML = '<option value="">No classes assigned</option>';
+        const refreshSubjects = () => {
+            if (!subjectSelect) return;
+            const selectedClassId = select.value;
+            const subjects = [...new Set(options.filter(o => String(o.id) === String(selectedClassId)).map(o => o.subject).filter(Boolean))];
+            subjectSelect.innerHTML = subjects.length ? '<option value="">Select subject</option>' + subjects.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('') : '<option value="General">General</option>';
+        };
+        select.onchange = refreshSubjects;
+        refreshSubjects();
+    } catch (e) {
+        console.error('Failed to load classes:', e);
+        select.innerHTML = '<option value="">Error loading classes</option>';
+    }
+}
+
+
+function safeHomeworkFileUrl(rawUrl) {
+    let raw = String(rawUrl || '').trim();
+    if (!raw) return '';
+    raw = raw.replace('/api/homework/files/', '/homework-files/');
+    raw = raw.replace('/uploads/homework/', '/homework-files/');
+    const resolved = typeof resolveMediaUrl === 'function' ? resolveMediaUrl(raw) : raw;
+    if (!/^https?:\/\//i.test(resolved) && !resolved.startsWith('/homework-files/')) return '';
+    return resolved.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E');
+}
+
+function renderHomeworkAttachmentList(attachments = []) {
+    const files = Array.isArray(attachments) ? attachments : [];
+    if (!files.length) return '<p class="text-sm text-muted-foreground">No files attached.</p>';
+    return `<div class="space-y-2">${files.map((file, index) => {
+        const url = safeHomeworkFileUrl(file.downloadUrl || file.secureUrl || file.url || '');
+        const name = escapeHtml(file.name || `Attachment ${index + 1}`);
+        const viewUrl = url;
+        const downloadUrl = url ? `${url}${url.includes('?') ? '&' : '?'}download=1` : '';
+        const actions = url ? `<a href="${viewUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-lg border text-xs hover:bg-accent">View</a><a href="${downloadUrl}" class="px-3 py-1 rounded-lg bg-primary text-white text-xs">Download</a>` : '<span class="text-xs text-red-500">File unavailable</span>';
+        return `<div class="flex items-center justify-between gap-3 rounded-lg border p-3 bg-background"><div class="min-w-0"><p class="font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div><div class="flex gap-2 shrink-0">${actions}</div></div>`;
+    }).join('')}</div>`;
+}
+
+
+async function uploadHomeworkMaterial(inputId) {
+    const input = document.getElementById(inputId);
+    const file = input?.files?.[0];
+    if (!file) return [];
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiRequest('/api/homework/attachments', { method: 'POST', body: formData });
+    return res?.data ? [res.data] : [];
+}
+
+function renderStudentSubmissionFiles(files = [], fallbackUrl = '') {
+    const normalized = Array.isArray(files) && files.length ? files : (fallbackUrl ? [{ url: fallbackUrl, name: 'Submitted file' }] : []);
+    if (!normalized.length) return '<p class="text-xs text-muted-foreground">No submission file uploaded.</p>';
+    return `<div class="space-y-2">${normalized.map((file, index) => {
+        const url = safeHomeworkFileUrl(file.downloadUrl || file.secureUrl || file.url || '');
+        const name = escapeHtml(file.name || `Submission ${index + 1}`);
+        const downloadUrl = url ? `${url}${url.includes('?') ? '&' : '?'}download=1` : '';
+        return `<div class="flex items-center justify-between gap-2 rounded-lg border p-2 bg-muted/20"><div class="min-w-0"><p class="text-sm font-medium truncate">${name}</p><p class="text-xs text-muted-foreground">${escapeHtml(file.mimeType || 'file')}</p></div>${url ? `<div class="flex gap-2"><a href="${url}" target="_blank" rel="noopener noreferrer" class="px-2 py-1 rounded border text-xs">View</a><a href="${downloadUrl}" class="px-2 py-1 rounded bg-primary text-white text-xs">Download</a></div>` : '<span class="text-xs text-red-500">Unavailable</span>'}</div>`;
+    }).join('')}</div>`;
+}
+
+async function createHomework() {
+    const title = document.getElementById('hw-title')?.value.trim();
+    const instructions = document.getElementById('hw-instructions')?.value.trim();
+    const subject = document.getElementById('hw-subject')?.value.trim();
+    const dueDate = document.getElementById('hw-due')?.value;
+    const classSelect = document.getElementById('hw-class');
+    const classId = classSelect?.value;
+    const className = classSelect?.selectedOptions?.[0]?.dataset?.className || '';
+
+    if (!title || !instructions || !subject || !dueDate || !classId) {
+        showToast('Please fill all fields', 'error');
+        return;
+    }
+
+    showLoading();
+    try {
+        const attachments = await uploadHomeworkMaterial('hw-file');
+        const res = await apiRequest('/api/homework/assign', {
+            method: 'POST',
+            body: JSON.stringify({
+                title,
+                instructions,
+                subject,
+                dueDate,
+                classId,
+                className,
+                attachments,
+                openStudyDiscussion: Boolean(document.getElementById('hw-open-discussion')?.checked),
+                createStudyDiscussion: Boolean(document.getElementById('hw-open-discussion')?.checked),
+                discussionTitle: document.getElementById('hw-discussion-title')?.value.trim() || '',
+                rewardParticipation: Boolean(document.getElementById('hw-reward-participation')?.checked),
+                allowStudentReplies: true
+            })
+        });
+        if (res.success) {
+            closeCreateHomeworkModal();
+            showToast(res.message || 'Homework assigned successfully', 'success');
+            await new Promise(resolve => setTimeout(resolve, 150));
+            if (typeof showDashboardSection === 'function') await showDashboardSection('homework');
+            refreshTeacherHomeworkListNow();
+        }
+    } catch (e) { showToast(e.message, 'error'); } finally { hideLoading(); }
+}
+
+
+
+async function fetchHomeworkDetails(taskId) {
+    const res = await apiRequest(`/api/homework/teacher/${Number(taskId)}`);
+    return res.data || {};
+}
+
+function homeworkModalShell(id, title, body, footer = '') {
+    let modal = document.getElementById(id);
+    if (!modal) {
+        document.body.insertAdjacentHTML('beforeend', `<div id="${id}" class="fixed inset-0 z-50 hidden"><div class="absolute inset-0 bg-black/50" onclick="document.getElementById('${id}').classList.add('hidden')"></div><div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl p-4"><div class="rounded-xl border bg-card p-6 shadow-xl max-h-[85vh] overflow-y-auto"><div class="flex justify-between items-start gap-3 mb-4"><div><h3 class="text-lg font-semibold">${title}</h3></div><button class="text-xl" onclick="document.getElementById('${id}').classList.add('hidden')">×</button></div><div id="${id}-body"></div><div id="${id}-footer" class="flex justify-end gap-3 mt-6"></div></div></div></div>`);
+        modal = document.getElementById(id);
+    }
+    document.getElementById(`${id}-body`).innerHTML = body;
+    document.getElementById(`${id}-footer`).innerHTML = footer;
+    modal.classList.remove('hidden');
+}
+
+async function openHomeworkReviewModal(taskId) {
+    try {
+        showLoading();
+        const { task, assignments = [] } = await fetchHomeworkDetails(taskId);
+        window.__lastHomeworkReviewTaskId = Number(taskId);
+        const rows = assignments.length ? assignments.map(a => {
+            const studentName = a.Student?.User?.name || `Student #${a.studentId}`;
+            const submitted = a.status === 'submitted' || a.status === 'graded' || a.status === 'returned' || a.completedAt || a.submittedAt;
+            const feedback = a.studentFeedback || {};
+            const displayStatus = a.displayStatus || (a.status === 'returned' ? 'Returned for correction' : (submitted ? 'Submitted' : 'Pending'));
+            const badgeClass = a.status === 'returned' ? 'bg-orange-100 text-orange-700' : (a.isLate || a.submittedLate ? 'bg-red-100 text-red-700' : (a.status === 'graded' ? 'bg-green-100 text-green-700' : (submitted ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700')));
+            const maxPoints = Number(a.maxPoints || task?.points || 0);
+            const submissionFiles = a.submissionFiles || feedback.submissionFiles || [];
+            return `<div class="rounded-xl border p-4 bg-background space-y-3">
+                <div class="flex justify-between gap-3"><div><h4 class="font-semibold">${escapeHtml(studentName)}</h4><p class="text-xs text-muted-foreground">Status: ${escapeHtml(displayStatus)} ${a.completedAt ? `• Submitted: ${formatDate(a.completedAt)}` : ''}</p></div><span class="text-xs rounded-full px-2 py-1 ${badgeClass}">${escapeHtml(displayStatus)}</span></div>
+                ${feedback.comment ? `<p class="text-sm"><b>Student note:</b> ${escapeHtml(feedback.comment)}</p>` : ''}
+                <div class="rounded-lg border p-3"><p class="text-sm font-semibold mb-2">Student submission</p>${renderStudentSubmissionFiles(submissionFiles, feedback.fileUrl || '')}</div>
+                <div class="grid md:grid-cols-[120px_1fr_160px_auto] gap-2 items-end">
+                    <div><label class="text-xs">Points ${maxPoints ? `/ ${maxPoints}` : ''}</label><input id="review-points-${Number(a.id)}" type="number" min="0" ${maxPoints ? `max="${maxPoints}"` : ''} value="${a.pointsEarned ?? ''}" class="w-full rounded-lg border p-2 bg-card"></div>
+                    <div><label class="text-xs">Teacher comment</label><input id="review-comment-${Number(a.id)}" value="${escapeHtml(a.parentFeedback?.teacherComment || '')}" class="w-full rounded-lg border p-2 bg-card"></div>
+                    <div><label class="text-xs">Action</label><select id="review-status-${Number(a.id)}" class="w-full rounded-lg border p-2 bg-card"><option value="graded" ${a.status === 'graded' ? 'selected' : ''}>Grade</option><option value="returned" ${a.status === 'returned' ? 'selected' : ''}>Return correction</option><option value="submitted" ${a.status === 'submitted' ? 'selected' : ''}>Keep submitted</option></select></div>
+                    <button onclick="saveHomeworkReview(${Number(a.id)})" class="px-3 py-2 rounded-lg bg-primary text-white">Save</button>
+                </div>
+                ${a.pointsEarned !== null && a.pointsEarned !== undefined ? `<p class="text-xs text-muted-foreground">Current grade: <b>${escapeHtml(String(a.pointsEarned))}${maxPoints ? `/${maxPoints}` : ''}</b></p>` : ''}
+            </div>`;
+        }).join('') : '<div class="text-center text-muted-foreground border rounded-xl py-8">No assigned students found for this homework.</div>';
+        homeworkModalShell('homework-review-modal', `Review: ${escapeHtml(task?.title || 'Homework')}`, `<div class="space-y-4"><div class="rounded-xl border p-4 bg-background"><p class="font-semibold mb-2">Assignment materials</p>${renderHomeworkAttachmentList(task?.attachments || [])}</div>${task?.studyThreadId ? `<div class="rounded-xl border p-4 bg-primary/5"><p class="font-semibold">Study Discussion Open</p><p class="text-sm text-muted-foreground">Thread #${Number(task.studyThreadId)} is linked to this homework.</p></div>` : `<button onclick="createHomeworkDiscussion(${Number(task?.id || 0)})" class="px-4 py-2 rounded-lg bg-primary text-white text-sm">Open Study Discussion</button>`}${rows}</div>`);
+    } catch (e) {
+        showToast(e.message || 'Could not load homework review', 'error');
+    } finally { hideLoading(); }
+}
+
+async function saveHomeworkReview(assignmentId) {
+    try {
+        const pointsEarned = document.getElementById(`review-points-${Number(assignmentId)}`)?.value;
+        const teacherComment = document.getElementById(`review-comment-${Number(assignmentId)}`)?.value || '';
+        const status = document.getElementById(`review-status-${Number(assignmentId)}`)?.value || 'graded';
+        await apiRequest(`/api/homework/teacher/submissions/${Number(assignmentId)}/review`, {
+            method: 'POST',
+            body: JSON.stringify({ status, pointsEarned: pointsEarned === '' ? null : Number(pointsEarned), teacherComment })
+        });
+        showToast(status === 'returned' ? 'Returned for correction' : 'Review saved', 'success');
+        const modalOpen = !document.getElementById('homework-review-modal')?.classList.contains('hidden');
+        if (modalOpen && window.__lastHomeworkReviewTaskId) openHomeworkReviewModal(window.__lastHomeworkReviewTaskId);
+    } catch (e) { showToast(e.message || 'Review failed', 'error'); }
+}
+
+async function openHomeworkEditModal(taskId) {
+    try {
+        showLoading();
+        const { task } = await fetchHomeworkDetails(taskId);
+        window.__editingHomeworkTask = task || {};
+        homeworkModalShell('homework-edit-modal', 'Edit Homework', `
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium">Title</label><input id="edit-hw-title" value="${escapeHtml(task.title || '')}" class="w-full rounded-lg border p-2 bg-background"></div>
+                <div><label class="block text-sm font-medium">Instructions</label><textarea id="edit-hw-instructions" rows="4" class="w-full rounded-lg border p-2 bg-background">${escapeHtml(task.instructions || '')}</textarea></div>
+                <div class="grid md:grid-cols-3 gap-3">
+                    <div><label class="block text-sm font-medium">Subject</label><input id="edit-hw-subject" value="${escapeHtml(task.subject || 'General')}" class="w-full rounded-lg border p-2 bg-background"></div>
+                    <div><label class="block text-sm font-medium">Due Date</label><input id="edit-hw-due" type="date" value="${task.dueDate ? String(task.dueDate).slice(0,10) : ''}" class="w-full rounded-lg border p-2 bg-background"></div>
+                    <div><label class="block text-sm font-medium">Points</label><input id="edit-hw-points" type="number" value="${task.points || 10}" class="w-full rounded-lg border p-2 bg-background"></div>
+                </div>
+                <div><label class="block text-sm font-medium">Teacher Note</label><textarea id="edit-hw-note" rows="2" class="w-full rounded-lg border p-2 bg-background">${escapeHtml(task.teacherNote || '')}</textarea></div>
+                <div class="rounded-xl border p-3"><p class="font-medium mb-2">Current files</p>${renderHomeworkAttachmentList(task.attachments || [])}</div>
+                <div><label class="block text-sm font-medium">Add/replace assignment file</label><input type="file" id="edit-hw-file" class="w-full rounded-lg border p-2 bg-background"><p class="text-xs text-muted-foreground mt-1">Leave empty to keep the current files.</p></div>
+            </div>
+        `, `<button onclick="document.getElementById('homework-edit-modal').classList.add('hidden')" class="px-4 py-2 border rounded-lg">Cancel</button><button onclick="saveHomeworkEdit(${Number(taskId)})" class="px-4 py-2 bg-primary text-white rounded-lg">Save Changes</button>`);
+    } catch (e) { showToast(e.message || 'Could not load homework', 'error'); } finally { hideLoading(); }
+}
+
+async function saveHomeworkEdit(taskId) {
+    try {
+        const payload = {
+            title: document.getElementById('edit-hw-title')?.value.trim(),
+            instructions: document.getElementById('edit-hw-instructions')?.value.trim(),
+            subject: document.getElementById('edit-hw-subject')?.value.trim(),
+            dueDate: document.getElementById('edit-hw-due')?.value || null,
+            points: Number(document.getElementById('edit-hw-points')?.value || 10),
+            teacherNote: document.getElementById('edit-hw-note')?.value.trim()
+        };
+        if (!payload.title || !payload.instructions || !payload.subject) return showToast('Title, instructions, and subject are required', 'error');
+        const newAttachments = await uploadHomeworkMaterial('edit-hw-file');
+        if (newAttachments.length) payload.attachments = newAttachments;
+        else if (window.__editingHomeworkTask?.attachments) payload.attachments = window.__editingHomeworkTask.attachments;
+        await apiRequest(`/api/homework/teacher/${Number(taskId)}`, { method: 'PUT', body: JSON.stringify(payload) });
+        document.getElementById('homework-edit-modal')?.classList.add('hidden');
+        showToast('Homework updated', 'success');
+        await showDashboardSection('homework');
+    } catch (e) { showToast(e.message || 'Update failed', 'error'); }
+}
+
+
+async function createHomeworkDiscussion(taskId) {
+    try {
+        const title = prompt('Discussion title', 'Homework Discussion') || 'Homework Discussion';
+        const res = await apiRequest(`/api/homework/teacher/${Number(taskId)}/discussion`, {
+            method: 'POST',
+            body: JSON.stringify({ discussionTitle: title, allowStudentReplies: true, rewardParticipation: true })
+        });
+        showToast('Study discussion opened', 'success');
+        document.getElementById('homework-review-modal')?.classList.add('hidden');
+        await showDashboardSection('homework');
+    } catch (e) {
+        showToast(e.message || 'Could not open study discussion', 'error');
+    }
+}
+
+
+async function renderTeacherSubjectRequests() {
+  if (typeof sectionAllowedByRulebook === 'function' && !sectionAllowedByRulebook('subject-requests')) {
+    return `<div class="rounded-xl border bg-card p-6"><h2 class="text-2xl font-bold mb-2">Subject Requests</h2><p class="text-muted-foreground">Senior subject-choice requests appear only for schools that have Senior Secondary enabled and the senior subject choice feature available.</p></div>`;
+  }
+  let rows = [];
+  try {
+    const res = await (api.teacher.getSubjectRequests ? api.teacher.getSubjectRequests() : apiRequest('/api/teacher/subject-requests'));
+    rows = Array.isArray(res.data) ? res.data : (res.data?.requests || []);
+  } catch (e) { rows = []; }
+  return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">Senior Subject Requests</h2><p class="text-sm text-muted-foreground">Review Grade 10–12 learner subject choices for your assigned senior classes.</p></div><div class="rounded-xl border bg-card p-6">${rows.length ? rows.map(r => `<div class="border rounded-lg p-3 mb-2"><b>${escapeHtml(r.studentName || r.Student?.User?.name || 'Student')}</b><p class="text-sm text-muted-foreground">${escapeHtml(r.subjectName || r.subject || 'Subject')} • ${escapeHtml(r.status || 'pending')}</p></div>`).join('') : '<p class="text-sm text-muted-foreground">No senior subject requests found.</p>'}</div></div>`;
+}
+
+// ============ EXPORTS ============
+window.viewStudentDetails = viewStudentDetails;
+window.showStudentDetailModalFromStudent = showStudentDetailModalFromStudent;
+window.closeStudentDetailModal = closeStudentDetailModal;
+window.reportAbsenceForStudent = reportAbsenceForStudent;
+window.openMessageParent = openMessageParent;
+window.renderTeacherSection = renderTeacherSection;
+window.renderTeacherSubjectRequests = renderTeacherSubjectRequests;
+window.renderTeacherReportComments = renderTeacherReportComments;
+window.loadTeacherReportCommentEditor = loadTeacherReportCommentEditor;
+window.generateTeacherReportComments = generateTeacherReportComments;
+window.saveTeacherReportComments = saveTeacherReportComments;
+window.showCreateHomeworkModal = showCreateHomeworkModal;
+window.renderTeacherDashboard = renderTeacherDashboard;
+window.renderTeacherStudents = renderTeacherStudents;
+window.loadMyStudents = loadMyStudents;
+window.renderTeacherHomework = renderTeacherHomework;
+window.openHomeworkReviewModal = openHomeworkReviewModal;
+window.saveHomeworkReview = saveHomeworkReview;
+window.openHomeworkEditModal = openHomeworkEditModal;
+window.saveHomeworkEdit = saveHomeworkEdit;
+window.loadTeacherMessages = loadTeacherMessages;
+window.handleCheckIn = handleCheckIn;
+window.handleCheckOut = handleCheckOut;
+window.loadTodayDuty = loadTodayDuty;
+window.saveAttendance = saveAttendance;
+window.sendClassReleaseNotice = sendClassReleaseNotice;
+window.toggleCustomReleaseMessage = toggleCustomReleaseMessage;
+window.showClassReleasePanel = showClassReleasePanel;
+window.updateAttendanceSessionCounts = updateAttendanceSessionCounts;
+window.lockAttendanceSession = lockAttendanceSession;
+window.saveAttendanceDraftSession = saveAttendanceDraftSession;
+window.renderTeacherTimetable = renderTeacherTimetable;
+window.openMarksEntry = openMarksEntry;
+window.closeMarksEntryModal = closeMarksEntryModal;
+window.saveAllMarks = saveAllMarks;
+window.publishClassReportFromStudents = publishClassReportFromStudents;
+window.updateClassReviewRow = updateClassReviewRow;
+window.saveClassReviewMark = saveClassReviewMark;
+window.toggleClassReportReview = toggleClassReportReview;
+window.openClassReportTab = openClassReportTab;
+window.clearClassReportPanels = clearClassReportPanels;
+window.loadClassReportIssues = loadClassReportIssues;
+window.toggleClassReviewSubjects = toggleClassReviewSubjects;
+window.toggleMyStudentMarks = toggleMyStudentMarks;
+window.updateGradeDisplayForStudent = window.updateGradeDisplayForStudent || function(studentId){ const input=document.getElementById(`score-${studentId}`); if(input) input.dispatchEvent(new Event('input', {bubbles:true})); };
+window.showAddTaskModal = showAddTaskModal;
+window.closeAddTaskModal = closeAddTaskModal;
+window.createTask = createTask;
+window.completeTask = completeTask;
+window.deleteTask = deleteTask;
+window.renderStaffChat = renderStaffChat;
+window.renderTeacherParentChat = renderTeacherParentChat;
+window.createHomeworkDiscussion = createHomeworkDiscussion;
+window.switchStaffChat = switchStaffChat;
+window.sendStaffMessage = sendStaffMessage;
+window.openParentConversation = openParentConversation;
+window.sendParentReply = sendParentReply;
+window.closeParentChatModal = closeParentChatModal;
+window.renderTeacherSettings = renderTeacherSettings;
+window.handleChangePassword = handleChangePassword;
+window.renderHelpSection = renderHelpSection;
+window.renderProfileSection = renderProfileSection;
+window.updateProfile = updateProfile;
+window.updatePassword = updatePassword;
+window.togglePreference = togglePreference;
+window.uploadProfilePicture = uploadProfilePicture;
+window.downloadMyData = downloadMyData;
+window.deactivateAccount = deactivateAccount;
+window.addBlackoutDate = window.addBlackoutDate || function(){ const date=document.getElementById('blackout-date')?.value; if(!date)return; const list=document.getElementById('blackout-dates-list'); if(!list)return; const div=document.createElement('div'); div.className='flex justify-between items-center p-2 bg-muted/30 rounded'; div.innerHTML=`<span class="text-sm">${new Date(date).toLocaleDateString()}</span><button onclick="this.parentElement.remove()" class="text-red-600">×</button>`; list.appendChild(div); document.getElementById('blackout-date').value=''; };
+window.saveDutyPreferences = window.saveDutyPreferences || async function(){ if(window.showToast) showToast('Duty preferences form is not ready. Reload this section and try again.', 'warning'); };
+window.submitSwapRequest = submitSwapRequest;
+window.deleteMessage = deleteMessage;
+window.renderMessageBubble = renderMessageBubble;
+window.setReplyTo = setReplyTo;
+window.cancelReply = cancelReply;
+window.renderTimetableGrid = renderTimetableGrid;
+window.showCreateHomeworkModal = showCreateHomeworkModal;
+window.closeCreateHomeworkModal = closeCreateHomeworkModal;
+window.createHomework = createHomework;
+window.uploadHomeworkMaterial = uploadHomeworkMaterial;
+
+
+// V42 compatibility aliases: keep original full teacher layouts, only satisfy older v12 callers.
+window.v12RenderTeacherHomework = window.v12RenderTeacherHomework || window.renderTeacherHomework;
+window.v12RenderTeacherDuty = window.v12RenderTeacherDuty || window.renderTeacherDuty;
+
+
+
+async function refreshSavedClassReports(classId, options = {}) {
+  classId = classId || window.__activeClassReportClassId || document.querySelector('#class-report-review-table')?.dataset?.classId || window.dashboardData?.teacher?.classId || window.dashboardData?.profile?.classId || getCurrentUser?.()?.teacher?.classId || getCurrentUser?.()?.classId || '';
+  const panel = document.getElementById(options.targetId || 'class-report-archive-panel') || document.getElementById('saved-class-reports-panel');
+  if (!panel) return;
+  const term = document.getElementById('class-report-term')?.value || '';
+  if (!classId || String(classId) === 'undefined') { if (panel) panel.innerHTML = '<div class="rounded-xl border bg-card p-5 text-muted-foreground">No class assigned yet. Saved class reports will appear after a class is resolved.</div>'; return; }
+  window.__activeClassReportClassId = classId;
+  const year = document.getElementById('class-report-year')?.value || '';
+  if (!options.silent) panel.innerHTML = 'Loading published archive...';
+  try {
+    const res = await api.teacher.getClassReportSnapshots({ classId, ...(term ? { term } : {}), ...(year ? { year } : {}) });
+    const rows = res?.data || [];
+    if (!rows.length) {
+      panel.innerHTML = '<div class="rounded-xl border bg-card p-5 text-muted-foreground">No published term reports saved for this selection yet.</div>';
+      return;
+    }
+    const grouped = rows.reduce((acc, r) => {
+      const key = `${r.term || 'Term'} ${r.year || ''}`;
+      acc[key] = acc[key] || [];
+      acc[key].push(r);
+      return acc;
+    }, {});
+    panel.innerHTML = `<div class="space-y-3">${Object.entries(grouped).map(([label, list]) => `
+      <details open class="rounded-xl border bg-card p-4">
+        <summary class="cursor-pointer font-semibold">${escapeHtml(label)} • ${list.length} published report(s)</summary>
+        <div class="mt-3 grid gap-2 md:grid-cols-2">
+          ${list.map(r => `<div class="rounded-lg bg-muted/30 p-3"><strong>${escapeHtml(r.studentName || 'Student')}</strong><div class="text-xs text-muted-foreground">Avg: ${r.overallAverage ?? '—'} • Grade: ${escapeHtml(r.overallGrade || '—')} • Published: ${r.publishedAt ? new Date(r.publishedAt).toLocaleString() : '—'}</div>${r.id ? `<button class="mt-2 px-3 py-1.5 rounded border text-xs" onclick="openReportSnapshotPdf(${Number(r.id)})">View PDF</button>` : ''}</div>`).join('')}
+        </div>
+      </details>`).join('')}</div>`;
+  } catch (e) {
+    panel.innerHTML = `<span class="text-red-600">Could not load published archive: ${escapeHtml(e.message || 'Unknown error')}</span>`;
+  }
+}
+window.refreshSavedClassReports = refreshSavedClassReports;
+
+window.openClassTeacherReportCardPreview = openClassTeacherReportCardPreview;
