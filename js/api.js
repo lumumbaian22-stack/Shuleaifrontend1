@@ -874,6 +874,7 @@ const paymentAPI = {
     initiateParentFee: (data) => apiRequest('/api/payments/parent/initiate', { method: 'POST', body: JSON.stringify(data) }),
     initiateParentStk: (data) => apiRequest('/api/payments/parent/stk/initiate', { method: 'POST', body: JSON.stringify(data) }),
     status: (reference) => apiRequest(`/api/payments/${encodeURIComponent(reference)}/status`),
+    continueCheckout: (reference) => apiRequest(`/api/payments/${encodeURIComponent(reference)}/continue`),
     reconcile: (reference) => apiRequest(`/api/payments/reconcile/${encodeURIComponent(reference)}`, { method: 'POST' }),
     testSchoolConnection: () => apiRequest('/api/payments/admin/test-connection', { method: 'POST' }),
     testPlatformConnection: () => apiRequest('/api/payments/superadmin/test-connection', { method: 'POST' }),

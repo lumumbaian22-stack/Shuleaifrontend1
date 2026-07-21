@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-2032-single-active-provider-parent-payment-lock';
+const CACHE_NAME = 'shule-ai-2033-production-payment-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

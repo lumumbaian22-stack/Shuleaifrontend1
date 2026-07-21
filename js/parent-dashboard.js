@@ -918,6 +918,7 @@ function parentMethodLabel(method, fallback = '') {
 
 function parentProviderPrompt(provider, prompt = '') {
     const p = normalizeParentPaymentProvider(provider);
+    if (prompt === 'hosted_checkout' || p === 'stripe' || p === 'pesapal') return 'hosted_checkout';
     if (p === 'mpesa' || p === 'daraja') return 'phone_prompt';
     if (prompt === 'phone_prompt') return 'phone_prompt';
     return 'manual_instructions';
@@ -927,7 +928,8 @@ function parentProviderDescription(method, prompt = '', provider = '') {
     const m = normalizeParentPaymentMethod(method);
     const p = normalizeParentPaymentProvider(provider);
     const type = parentProviderPrompt(p, prompt);
-    if (type === 'phone_prompt' || m === 'mobile_money') return 'Enter your M-Pesa phone, then complete the secure STK prompt. No checkout URL is shown to parents.';
+    if (type === 'hosted_checkout') return 'Continue securely to the active provider. Fees update only after provider confirmation.';
+    if (type === 'phone_prompt' || m === 'mobile_money') return 'Enter your payment phone, then complete the secure provider prompt.';
     if (m === 'bank') return 'Pay using the bank details above, then submit the reference for finance approval.';
     if (m === 'cash') return 'Pay at the school office, then submit the receipt number for finance approval.';
     return 'Submit your payment reference for school finance verification.';
@@ -939,19 +941,21 @@ function normalizeParentPaymentMethods(methodData = {}) {
     const activeCfg = providers[activeProvider] || {};
     const activeReady = !!activeProvider && activeCfg.enabled !== false && (activeCfg.ready === true || activeCfg.readiness === 'ready' || activeCfg.parentReady === true);
     const rows = [];
-    if (activeReady) rows.push({ provider: activeProvider, method: 'mobile_money', prompt: activeCfg.prompt || 'provider_managed', label: 'Pay with School Active Provider' });
-    rows.push({ provider: 'manual', method: 'manual', prompt: 'manual_instructions', label: 'Manual Verification' });
+    const prompt = activeCfg.prompt || (activeCfg.supportsHostedCheckout ? 'hosted_checkout' : (activeCfg.supportsStkPush ? 'phone_prompt' : 'manual_instructions'));
+    if (activeReady) rows.push({ provider: activeProvider, method: prompt === 'hosted_checkout' ? 'card' : (prompt === 'manual_instructions' ? 'manual' : 'mobile_money'), prompt, label: prompt === 'hosted_checkout' ? 'Continue to Secure Checkout' : 'Pay with School Active Provider' });
+    if (!rows.some(row => row.method === 'manual')) rows.push({ provider: 'manual', method: 'manual', prompt: 'manual_instructions', label: 'Manual Verification' });
     return rows;
 }
 
 function renderParentProviderMethods(methodData = {}) {
     const methods = normalizeParentPaymentMethods(methodData);
     const enabled = new Set(methods.map(m => m.method));
+    const hosted = methods.some(m => m.prompt === 'hosted_checkout');
     // Keep the exact design requirement: parents see methods only, never providers.
     // Show the four school-fee method cards consistently; the backend still enforces
     // which method/provider is actually enabled.
     const rows = [
-        { method:'mobile_money', label:'Send STK Push', sub:'(school active provider)', icon:'▣', cls:'green', action:"processSchoolFeeProviderPayment(null,'mobile_money')" },
+        { method: hosted ? 'card' : 'mobile_money', label: hosted ? 'Continue to Secure Checkout' : 'Send Phone Prompt', sub:'(school active provider)', icon:'▣', cls:'green', action:`processSchoolFeeProviderPayment(null,'${hosted ? 'card' : 'mobile_money'}')` },
         { method:'manual', label:'Manual Verification', sub:'Reference / proof', icon:'▧', cls:'purple', action:"submitManualSchoolFeePayment('manual')" }
     ];
     const cards = rows.map(row => {
@@ -963,7 +967,7 @@ function renderParentProviderMethods(methodData = {}) {
         </button>`;
     }).join('') || `<div class="payment-lock-alert">No online payment method is ready yet. Use manual verification or contact the school finance office.</div>`;
     return `<div class="payment-lock-parent-box parent-school-methods">
-        <div class="payment-lock-mini-head"><div><h4>School Fee Payment</h4><p>Parents stay inside ShuleAI. The school chooses one active provider; you only enter amount and phone.</p></div></div>
+        <div class="payment-lock-mini-head"><div><h4>School Fee Payment</h4><p>The school chooses one active provider. ShuleAI sends a phone prompt or securely opens the provider checkout when required.</p></div></div>
         <div class="payment-method-grid four">${cards}</div>
     </div>`;
 }
@@ -1050,10 +1054,16 @@ async function processSchoolFeeProviderPayment(provider = null, paymentMethod = 
     if (payload.balance > 0 && payload.amount > payload.balance) return showToast(`Amount cannot exceed the selected balance of ${payload.currency || 'KES'} ${payload.balance.toLocaleString()}`, 'error');
     showLoading();
     try {
-        const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : {};
-        const requestPayload = { paymentType: 'school_fee', paymentMethod: 'mobile_money', studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone, email: currentUser?.email || '', name: currentUser?.name || '', purpose: 'school_fee' };
+        const requestPayload = { studentId: parseInt(payload.studentId), feeId: payload.feeId || undefined, amount: payload.amount, phone: payload.phone };
         const response = await (api.payments?.initiateParentStk ? api.payments.initiateParentStk(requestPayload) : (api.payments?.initiateParentFee ? api.payments.initiateParentFee(requestPayload) : apiRequest('/api/payments/parent/stk/initiate', { method: 'POST', body: JSON.stringify(requestPayload) })));
         showToast(response.message || 'Payment request started through the school active provider. It will show as paid only after provider confirmation.', 'success');
+        if (response?.data?.action?.type === 'redirect' && response.data.reference) {
+            const continuation = await api.payments.continueCheckout(response.data.reference);
+            const redirectUrl = continuation?.data?.redirectUrl;
+            if (!redirectUrl || !/^https:\/\//i.test(redirectUrl)) throw new Error('The provider did not return a secure checkout address.');
+            window.location.assign(redirectUrl);
+            return;
+        }
         window.dispatchEvent(new CustomEvent('shule:finance-updated',{detail:{type:'parent-provider-payment-started', provider: normalizedProvider}}));
         localStorage.setItem('shule:lastFinanceUpdate', String(Date.now()));
         await refreshParentPaymentPanelSoft();

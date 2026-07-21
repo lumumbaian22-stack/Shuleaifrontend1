@@ -91,11 +91,11 @@ function collectPlatformPlanInputs(ownerType) {
     }).filter(p => p.code && p.name);
 }
 const PLATFORM_PAYMENT_AGENT_DEFS = [
-    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa STK for platform subscriptions and payment tests.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['paybill','Manual Paybill Number',''],['till','Manual Till Number',''],['accountName','Account / Business Name','ShuleAI'],['manualInstructions','Manual M-Pesa Instructions','Parents and schools can pay manually, then submit the M-Pesa reference for approval.']] },
-    { provider:'pesapal', label:'Pesapal', description:'Pesapal IPN setup for platform payments.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key',''],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID / notification_id','auto-filled after setup']] },
+    { provider:'mpesa', label:'M-Pesa', description:'M-Pesa STK for platform subscriptions and payment tests.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key','',true],['consumerSecret','Consumer Secret','',true],['passkey','Passkey','',true],['shortcode','Shortcode',''],['paybill','Manual Paybill Number',''],['till','Manual Till Number',''],['accountName','Account / Business Name','ShuleAI'],['manualInstructions','Manual M-Pesa Instructions','Parents and schools can pay manually, then submit the M-Pesa reference for approval.']] },
+    { provider:'pesapal', label:'Pesapal', description:'Secure hosted checkout with automatic PesaPal IPN setup.', fields:[['environment','Environment / Mode','sandbox or production'],['consumerKey','Consumer Key','',true],['consumerSecret','Consumer Secret','',true],['ipnId','IPN ID / notification_id','auto-filled after setup']] },
     { provider:'paystack', label:'Paystack', description:'Paystack webhook setup; STK/mobile-money requires verified account test.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true]] },
     { provider:'flutterwave', label:'Flutterwave', description:'Flutterwave webhook setup; STK/mobile-money requires verified account test.', fields:[['publicKey','Public Key',''],['secretKey','Secret Key','',true],['encryptionKey','Webhook Secret / Secret Hash','',true]] },
-    { provider:'stripe', label:'Stripe', description:'Stripe is not parent-STK capable; keep for future card/platform mode only.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true]] }
+    { provider:'stripe', label:'Stripe', description:'Secure hosted card checkout with signed webhook confirmation.', fields:[['publicKey','Publishable Key',''],['secretKey','Secret Key','',true],['webhookSecret','Webhook Secret','',true]] }
 ];
 
 function platformProviderLogo(provider){
@@ -156,7 +156,7 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
           <p>Credentials belong only to the selected provider.</p>
           <div class="payment-lock-fields">${renderPlatformPaymentAgentFields(activeAgent.provider, activeAgent.fields, providerSettings)}</div>
           ${(()=>{ const ps = platformProviderStatus(activeAgent.provider, providerSettings); return `<div class="payment-lock-info"><strong>Status:</strong> ${escapeHtml(ps.status)}<br><small>${escapeHtml(ps.message)}</small><div style="margin-top:6px"><strong>Website Domain:</strong> <code>${escapeHtml(ps.websiteDomain)}</code></div><div><strong>Notification / Callback URL:</strong> <code>${escapeHtml(ps.notificationUrl)}</code></div><div><strong>STK Test:</strong> ${escapeHtml(ps.lastStkTestStatus)} • <strong>Parent/platform STK:</strong> ${ps.parentReady?'Ready':'Not ready'}</div>${ps.lastVerifiedAt ? `<div><small>Last verified: ${escapeHtml(new Date(ps.lastVerifiedAt).toLocaleString())}</small></div>` : ''}<div><small>No checkout/test URL is shown until a real test transaction is created.</small></div></div>`; })()}
-          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save Provider</button><button onclick="testPlatformPaymentConnection()" class="px-4 py-2 rounded-lg border text-sm">Test Connection</button><button onclick="setupPlatformPaymentNotifications('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Setup / Verify Notification URL</button><button onclick="testPlatformProviderStk('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Test STK Push</button><button onclick="copyPlatformPaymentUrl('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
+          <div class="payment-lock-actions"><button onclick="savePlatformPaymentAgent('${activeAgent.provider}')" class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Save Provider</button><button onclick="testPlatformPaymentConnection('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Test Connection</button><button onclick="setupPlatformPaymentNotifications('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Setup / Verify Notification URL</button><button onclick="testPlatformProviderStk('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">${['stripe','pesapal'].includes(activeAgent.provider)?'Test Secure Checkout':'Test Phone Prompt'}</button><button onclick="copyPlatformPaymentUrl('${activeAgent.provider}')" class="px-4 py-2 rounded-lg border text-sm">Copy URL</button><span class="connected-dot">Status tracked ✓</span></div>
         </section>
         <section class="payment-lock-side-card platform-method-card">
           <h3>3. Platform Payment Methods</h3><p>For subscriptions, add-ons, and platform transactions.</p>
@@ -537,28 +537,37 @@ async function renderSuperAdminBulkSms() {
     const historyRows = history.length ? history.slice(0,80).map(h => `<tr class="border-t"><td class="p-3">${escapeHtml(h.schoolName || h.schoolCode || 'School')}</td><td class="p-3">${escapeHtml(h.audience || '')}</td><td class="p-3 max-w-md truncate">${escapeHtml(h.message || '')}</td><td class="p-3">${Number(h.successCount || h.recipientCount || 0).toLocaleString()}</td><td class="p-3">${Number(h.failedCount || 0).toLocaleString()}</td><td class="p-3">${Number(h.tokensUsed || h.recipientCount || 0).toLocaleString()}</td><td class="p-3">${typeof formatDate === 'function' ? formatDate(h.createdAt) : (h.createdAt || '')}</td></tr>`).join('') : '<tr><td colspan="7" class="p-8 text-center text-muted-foreground">No SMS history yet.</td></tr>';
     return `<div class="space-y-6 animate-fade-in"><div><h2 class="text-2xl font-bold">Bulk SMS</h2><p class="text-sm text-muted-foreground">Super Admin controls platform SMS provider, token allocation, and usage monitoring. School admins only compose/send.</p></div>${error ? `<div class="rounded-xl border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 p-4 text-sm text-yellow-700 dark:text-yellow-300">${escapeHtml(error)}</div>` : ''}<div class="grid gap-4 md:grid-cols-4"><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Total Allocated/Remaining</p><h3 class="text-2xl font-bold">${remaining.toLocaleString()}</h3></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Total Used</p><h3 class="text-2xl font-bold">${used.toLocaleString()}</h3></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Schools With Tokens</p><h3 class="text-2xl font-bold">${Object.keys(tokens).filter(k=>Number(tokens[k])>0).length}</h3></div><div class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">Provider</p><h3 class="text-lg font-bold">${cfg.providerConfigured ? 'Configured' : 'Not configured'}</h3></div></div><div class="rounded-xl border bg-card p-6"><h3 class="font-semibold mb-4">Platform SMS Provider</h3><div class="grid gap-3 md:grid-cols-4"><label class="text-sm">Provider<input id="sms-provider" value="${escapeHtml(cfg.provider || '')}" placeholder="e.g. AfricasTalking" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="text-sm md:col-span-2">API Key<input id="sms-api-key" type="password" placeholder="Leave blank to keep existing" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="text-sm">Sender ID<input id="sms-sender-id" value="${escapeHtml(cfg.senderId || 'SHULEAI')}" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"></label><label class="flex items-center gap-2 text-sm"><input id="sms-enabled" type="checkbox" ${cfg.enabledRaw || cfg.providerConfigured ? 'checked' : ''}> Enabled</label></div><div class="mt-4 flex justify-end"><button onclick="savePlatformSmsProvider()" class="px-5 py-2 rounded-lg bg-primary text-primary-foreground">Save Provider</button></div></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">School Token Allocation</h3></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School</th><th class="p-3 text-left">Remaining Tokens</th><th class="p-3 text-left">Used</th><th class="p-3 text-left">Set Tokens</th><th class="p-3 text-right">Action</th></tr></thead><tbody>${rows}</tbody></table></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">SMS Allocation History</h3><p class="text-xs text-muted-foreground">Every balance change is audited.</p></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School</th><th class="p-3 text-left">Change</th><th class="p-3 text-left">Balance</th><th class="p-3 text-left">Reason</th><th class="p-3 text-left">Allocated By</th><th class="p-3 text-left">Date</th></tr></thead><tbody>${allocationRows}</tbody></table></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b bg-muted/30"><h3 class="font-semibold">SMS Usage History</h3></div><table class="w-full text-sm"><thead class="bg-muted/40"><tr><th class="p-3 text-left">School</th><th class="p-3 text-left">Audience</th><th class="p-3 text-left">Message</th><th class="p-3 text-left">Reached</th><th class="p-3 text-left">Failed</th><th class="p-3 text-left">Tokens</th><th class="p-3 text-left">Date</th></tr></thead><tbody>${historyRows}</tbody></table></div></div>`;
 }
-window.savePlatformPaymentAgent = async function(provider) {
-    try {
-        const card = document.querySelector(`[data-platform-provider="${provider}"]`);
-        if (!card) throw new Error('Payment agent form was not found.');
-        const config = {};
-        card.querySelectorAll('[data-platform-provider-field]').forEach(input => {
-            const key = input.getAttribute('data-platform-provider-field');
-            const value = input.value?.trim() || '';
-            if (value) config[key] = value;
-        });
-        const methods = [...document.querySelectorAll('[data-platform-provider-method]:checked')].map(input => input.getAttribute('data-platform-provider-method')).filter(Boolean);
-        const makeActive = !!card.querySelector('[data-platform-provider-enabled]')?.checked;
-        const payload = { provider, enabled: makeActive, isDefault: makeActive, active: makeActive, methods, config: { ...config, methods } };
-        await (api.payments.savePlatformProvider ? api.payments.savePlatformProvider(payload) : apiRequest('/api/payments/superadmin/providers', { method:'PUT', body:JSON.stringify(payload) }));
+async function savePlatformProviderDraft(provider, { feedback = false, refresh = false } = {}) {
+    const card = document.querySelector(`[data-platform-provider="${provider}"]`);
+    if (!card) throw new Error('Payment agent form was not found.');
+    const config = {};
+    card.querySelectorAll('[data-platform-provider-field]').forEach(input => {
+        const key = input.getAttribute('data-platform-provider-field');
+        const value = input.value?.trim() || '';
+        if (value) config[key] = value;
+    });
+    const methods = [...document.querySelectorAll('[data-platform-provider-method]:checked')].map(input => input.getAttribute('data-platform-provider-method')).filter(Boolean);
+    const makeActive = !!card.querySelector('[data-platform-provider-enabled]')?.checked;
+    const payload = { provider, enabled: makeActive, isDefault: makeActive, active: makeActive, methods, config: { ...config, methods } };
+    const response = await (api.payments.savePlatformProvider ? api.payments.savePlatformProvider(payload) : apiRequest('/api/payments/superadmin/providers', { method:'PUT', body:JSON.stringify(payload) }));
+    if (feedback) {
         window.__platformProviderDraft = '';
         showToast?.('Platform payment agent saved', 'success');
+    }
+    if (refresh) {
         await showDashboardSection('platform-payments');
-    } catch(e) { showToast?.(e.message || 'Could not save platform payment agent', 'error'); }
+    }
+    return response;
+}
+
+window.savePlatformPaymentAgent = async function(provider) {
+    try { await savePlatformProviderDraft(provider, { feedback: true, refresh: true }); }
+    catch(e) { showToast?.(e.message || 'Could not save platform payment agent', 'error'); }
 };
 
-window.testPlatformPaymentConnection = async function() {
+window.testPlatformPaymentConnection = async function(provider) {
     try {
+        await savePlatformProviderDraft(provider);
         const res = await (api.payments?.testPlatformConnection ? api.payments.testPlatformConnection() : apiRequest('/api/payments/superadmin/test-connection', { method:'POST' }));
         showToast?.(res?.message || 'Platform payment connection tested successfully.', 'success');
         await showDashboardSection('platform-payments');
@@ -569,6 +578,7 @@ window.testPlatformPaymentConnection = async function() {
 
 window.setupPlatformPaymentNotifications = async function(provider) {
     try {
+        await savePlatformProviderDraft(provider);
         const res = await (api.payments?.setupPlatformProviderNotifications ? api.payments.setupPlatformProviderNotifications(provider, {}) : apiRequest(`/api/payments/superadmin/providers/${encodeURIComponent(provider)}/setup-notifications`, { method:'POST', body:'{}' }));
         showToast?.(res?.message || 'Platform provider notification setup completed.', 'success');
         await showDashboardSection('platform-payments');
@@ -578,11 +588,15 @@ window.setupPlatformPaymentNotifications = async function(provider) {
 };
 
 window.testPlatformProviderStk = async function(provider) {
-    const phone = prompt('Enter test phone for KSh 1 STK Push. This does not update balances.', '2547');
-    if (!phone) return;
+    const hosted = ['stripe','pesapal'].includes(String(provider||'').toLowerCase());
+    const phone = hosted ? '' : prompt('Enter test phone for KSh 1 provider prompt. This does not update balances.', '2547');
+    if (!hosted && !phone) return;
     try {
+        await savePlatformProviderDraft(provider);
         const res = await (api.payments?.testPlatformProviderStk ? api.payments.testPlatformProviderStk(provider, { phone, amount: 1 }) : apiRequest(`/api/payments/superadmin/providers/${encodeURIComponent(provider)}/test-stk`, { method:'POST', body:JSON.stringify({ phone, amount: 1 }) }));
-        showToast?.(res?.message || 'Platform STK test started.', 'success');
+        showToast?.(res?.message || (hosted ? 'Platform checkout test created.' : 'Platform phone-prompt test started.'), 'success');
+        const redirectUrl = res?.data?.action?.redirectUrl;
+        if (hosted && redirectUrl) { window.location.assign(redirectUrl); return; }
         await showDashboardSection('platform-payments');
     } catch(e) { showToast?.(e.message || 'Platform STK test failed.', 'error'); }
 };
