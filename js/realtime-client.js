@@ -47,31 +47,4 @@
   }
   async function recover(){
     if(recovering||!token())return; recovering=true;
-    try{let after=window.ShuleRealtimeStore?.lastEventId?.()||0, loops=0;do{const res=await window.apiRequest(`/api/realtime/sync?after=${after}&limit=200`);const rows=res?.data||[];rows.forEach(route);const next=Number(res?.meta?.lastEventId||after)||after;if(next===after)break;after=next;loops++;if(!res?.meta?.hasMore)break;}while(loops<5);}catch(error){console.warn('[Realtime] missed-event recovery failed:',error.message);}finally{recovering=false;}
-  }
-  function joinConversation(key){
-    const next=key?String(key):null;
-    if(activeConversation&&activeConversation!==next&&socket?.connected)socket.emit('chat:leave_conversation',activeConversation);
-    activeConversation=next;
-    if(next&&socket?.connected)socket.emit('chat:join_conversation',next,ack=>{if(!ack?.success)console.warn('[Realtime] conversation join denied:',ack?.message);});
-  }
-  function connect(){
-    const authToken=token(), me=user(); if(!authToken||!me.id||typeof window.io!=='function')return null;
-    if(socket){socket.auth={token:authToken};if(!socket.connected)socket.connect();return socket;}
-    socket=window.io(base(),{auth:{token:authToken},transports:['websocket','polling'],reconnection:true,reconnectionAttempts:Infinity,reconnectionDelay:800,reconnectionDelayMax:10000,timeout:20000});
-    window.socket=socket;
-    socket.on('connect',()=>{status('connected');recover();if(activeConversation)joinConversation(activeConversation);});
-    socket.on('realtime:event',route);
-    DIRECT_CHAT_EVENTS.forEach(type=>socket.on(type,payload=>routeDirect(type,payload)));
-    socket.on('chat:realtime',payload=>routeDirect(payload?.type||'chat:message_created',payload?.data||payload));
-    LEGACY_CHAT_EVENTS.forEach(type=>socket.on(type,payload=>routeDirect(type,payload)));
-    socket.on('disconnect',()=>status('offline'));
-    socket.on('connect_error',()=>status('offline'));
-    return socket;
-  }
-  function disconnect(){if(socket){socket.removeAllListeners();socket.disconnect();}socket=null;window.socket=null;status('offline');}
-  window.connectWebSocket=connect;
-  window.ShuleRealtime={connect,disconnect,joinConversation,leaveConversation:()=>joinConversation(null),recover,get socket(){return socket;},get activeConversation(){return activeConversation;}};
-  window.addEventListener('online',()=>{connect();recover();}); window.addEventListener('offline',()=>status('offline'));
-  document.addEventListener('DOMContentLoaded',()=>{if(token())connect();});
-})();
+    try{let after=window.ShuleRealtimeStore?.lastEventId?.()||0, loops=0;do{const res=await window.apiRequest(`/api/realtime/sync?after=${after}&limit=200`);cons

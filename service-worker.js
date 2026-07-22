@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-2038-functional-flow-integrity-lock';
+const CACHE_NAME = 'shule-ai-2040-consolidated-schema-reconciler-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 
