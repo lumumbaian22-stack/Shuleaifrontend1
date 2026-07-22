@@ -52,6 +52,10 @@ async function apiRequest(endpoint, options = {}) {
                 const validationMessage = Array.isArray(data?.errors) ? data.errors.map(err => err.msg || err.message || `${err.path || err.param || 'Field'} is invalid`).join(', ') : null;
                 const message = validationMessage || data?.message || data?.error || `Request failed with status ${response.status}`;
                 const error = new Error(message); error.status = response.status; error.data = data;
+                if (response.status === 401 && !options._authRetried && !/^\/api\/auth\/refresh-token\b/i.test(endpoint)) {
+                    const refreshed = await refreshAuthToken();
+                    if (refreshed) return apiRequest(endpoint, { ...options, _authRetried: true });
+                }
                 const transient = [502,503,504].includes(response.status) || (response.status === 500 && /connection terminated|connection reset|econnreset|database.*unavailable/i.test(message));
                 if (attempt + 1 < attempts && transient) { await new Promise(r => setTimeout(r, 350 * (attempt + 1))); continue; }
                 throw error;
@@ -82,6 +86,8 @@ async function handleResponse(response) {
 
 async function refreshAuthToken() {
     try {
+        refreshToken = localStorage.getItem('refreshToken') || refreshToken;
+        if (!refreshToken) return false;
         const response = await fetch(`${API_BASE_URL}/api/auth/refresh-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -475,6 +481,7 @@ const teacherAPI = {
     updateMark: (recordId, data) => apiRequest(`/api/teacher/marks/${recordId}`, { method: 'PUT', body: JSON.stringify(data) }),
     getAnalytics: () => apiRequest(`/api/analytics/dashboard?_=${Date.now()}`),
     getGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
+    getClassGradebook: (params = {}) => apiRequest('/api/teacher/gradebook' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassStudentsForSubject: (params = {}) => apiRequest('/api/teacher/class-students' + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
     getClassReportSnapshots: (params = {}) => { const q = cleanQueryParams(params); return apiRequest('/api/teacher/reports/snapshots' + (q ? `?${q}` : '')); },
     getStudentReportPreview: (studentId, params = {}) => apiRequest(`/api/teacher/students/${studentId}/report-card-preview` + (Object.keys(params).length ? `?${new URLSearchParams(params).toString()}` : '')),
@@ -870,6 +877,7 @@ const paymentAPI = {
     testPlatformProviderStk: (provider, data = {}) => apiRequest(`/api/payments/superadmin/providers/${encodeURIComponent(provider)}/test-stk`, { method: 'POST', body: JSON.stringify(data) }),
     getAvailableProviders: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/payments/providers/available${q ? `?${q}` : ''}`); },
     getParentMethods: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/payments/parent/methods${q ? `?${q}` : ''}`); },
+    getPlatformMethod: () => apiRequest('/api/payments/platform/method'),
     initiate: (data) => apiRequest('/api/payments/initiate', { method: 'POST', body: JSON.stringify(data) }),
     initiateParentFee: (data) => apiRequest('/api/payments/parent/initiate', { method: 'POST', body: JSON.stringify(data) }),
     initiateParentStk: (data) => apiRequest('/api/payments/parent/stk/initiate', { method: 'POST', body: JSON.stringify(data) }),

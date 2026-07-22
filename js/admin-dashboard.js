@@ -2268,18 +2268,13 @@ window.submitSchoolSubscriptionSTK = async function() {
     if (!phone) { alert('Enter payment phone number'); return; }
     if (!amount || amount <= 0) { alert('Could not determine the selected plan amount.'); return; }
     try {
-        const res = await api.payments.initiate({
-            paymentType: 'platform',
-            platformPurpose: 'school_subscription',
-            purpose: 'school_subscription',
-            ownerType: 'school',
+        const res = await api.payments.schoolSubscriptionSTK({
             planCode,
             plan: planCode,
             billingCycle,
             billingPeriod: billingCycle,
             amount,
-            phone,
-            paymentMethod: 'mobile_money'
+            phone
         });
         if (res?.data?.checkoutUrl) window.open(res.data.checkoutUrl, '_blank', 'noopener');
         alert(res.message || 'Platform subscription payment started using the active platform provider.');

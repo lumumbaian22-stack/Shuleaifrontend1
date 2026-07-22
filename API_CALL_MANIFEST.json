@@ -1,2038 +1,3144 @@
 {
-  "build": "2033-production-payment-lock",
-  "count": 508,
+  "build": "2038-functional-flow-integrity-lock",
+  "count": 523,
   "apiCalls": [
     {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "GET",
+      "path": "/api/calendar",
+      "normalized": "/api/calendar"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "POST",
+      "path": "/api/calendar",
+      "normalized": "/api/calendar"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "DELETE",
+      "path": "/api/calendar/:value",
+      "normalized": "/api/calendar/:value"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "GET",
+      "path": "/api/timetable?weekStartDate=:value",
+      "normalized": "/api/timetable"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "POST",
+      "path": "/api/timetable/generate",
+      "normalized": "/api/timetable/generate"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "POST",
+      "path": "/api/timetable/:value/publish",
+      "normalized": "/api/timetable/:value/publish"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "POST",
+      "path": "/api/alerts/suggest-announcement",
+      "normalized": "/api/alerts/suggest-announcement"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "GET",
+      "path": "/api/admin/teachers",
+      "normalized": "/api/admin/teachers"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "GET",
+      "path": "/api/admin/students",
+      "normalized": "/api/admin/students"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "POST",
+      "path": "/api/alerts",
+      "normalized": "/api/alerts"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "GET",
+      "path": "/api/calendar",
+      "normalized": "/api/calendar"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "GET",
+      "path": "/api/owner/branding",
+      "normalized": "/api/owner/branding"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "PUT",
+      "path": "/api/owner/branding",
+      "normalized": "/api/owner/branding"
+    },
+    {
+      "file": "frontend/js/admin-dashboard.js",
+      "method": "POST",
+      "path": "/api/admin/students/:value/subject-selection/verify",
+      "normalized": "/api/admin/students/:value/subject-selection/verify"
+    },
+    {
       "file": "frontend/js/analytics-dashboard.js",
-      "path": "/api/analytics/dashboard${query?"
+      "method": "GET",
+      "path": "/api/analytics/dashboard",
+      "normalized": "/api/analytics/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/super-admin/login"
+      "method": "POST",
+      "path": "/api/auth/super-admin/login",
+      "normalized": "/api/auth/super-admin/login"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/admin/signup"
+      "method": "POST",
+      "path": "/api/auth/admin/signup",
+      "normalized": "/api/auth/admin/signup"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/teacher/signup"
+      "method": "POST",
+      "path": "/api/auth/teacher/signup",
+      "normalized": "/api/auth/teacher/signup"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/parent/signup"
+      "method": "POST",
+      "path": "/api/auth/parent/signup",
+      "normalized": "/api/auth/parent/signup"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/student/login"
+      "method": "POST",
+      "path": "/api/auth/student/login",
+      "normalized": "/api/auth/student/login"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/login"
+      "method": "POST",
+      "path": "/api/auth/login",
+      "normalized": "/api/auth/login"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/verify-school"
+      "method": "POST",
+      "path": "/api/auth/verify-school",
+      "normalized": "/api/auth/verify-school"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/me"
+      "method": "GET",
+      "path": "/api/auth/me",
+      "normalized": "/api/auth/me"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/logout"
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "normalized": "/api/auth/logout"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/auth/change-password"
+      "method": "POST",
+      "path": "/api/auth/change-password",
+      "normalized": "/api/auth/change-password"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/overview"
+      "method": "GET",
+      "path": "/api/super-admin/overview",
+      "normalized": "/api/super-admin/overview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools"
+      "method": "GET",
+      "path": "/api/super-admin/schools",
+      "normalized": "/api/super-admin/schools"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/pending-schools"
+      "method": "GET",
+      "path": "/api/super-admin/pending-schools",
+      "normalized": "/api/super-admin/pending-schools"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/suspended-schools"
+      "method": "GET",
+      "path": "/api/super-admin/suspended-schools",
+      "normalized": "/api/super-admin/suspended-schools"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/approve"
+      "method": "POST",
+      "path": "/api/super-admin/schools/:value/approve",
+      "normalized": "/api/super-admin/schools/:value/approve"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/reject"
+      "method": "POST",
+      "path": "/api/super-admin/schools/:value/reject",
+      "normalized": "/api/super-admin/schools/:value/reject"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/suspend"
+      "method": "POST",
+      "path": "/api/super-admin/schools/:value/suspend",
+      "normalized": "/api/super-admin/schools/:value/suspend"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/reactivate"
+      "method": "POST",
+      "path": "/api/super-admin/schools/:value/reactivate",
+      "normalized": "/api/super-admin/schools/:value/reactivate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools"
+      "method": "POST",
+      "path": "/api/super-admin/schools",
+      "normalized": "/api/super-admin/schools"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}"
+      "method": "PUT",
+      "path": "/api/super-admin/schools/:value",
+      "normalized": "/api/super-admin/schools/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}"
+      "method": "DELETE",
+      "path": "/api/super-admin/schools/:value",
+      "normalized": "/api/super-admin/schools/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/requests"
+      "method": "GET",
+      "path": "/api/super-admin/requests",
+      "normalized": "/api/super-admin/requests"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/requests/${requestId}/approve"
+      "method": "POST",
+      "path": "/api/super-admin/requests/:value/approve",
+      "normalized": "/api/super-admin/requests/:value/approve"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/requests/${requestId}/reject"
+      "method": "POST",
+      "path": "/api/super-admin/requests/:value/reject",
+      "normalized": "/api/super-admin/requests/:value/reject"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/bank-details/${schoolId}"
+      "method": "PUT",
+      "path": "/api/super-admin/bank-details/:value",
+      "normalized": "/api/super-admin/bank-details/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/users"
+      "method": "GET",
+      "path": "/api/super-admin/users",
+      "normalized": "/api/super-admin/users"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/metrics"
+      "method": "GET",
+      "path": "/api/super-admin/metrics",
+      "normalized": "/api/super-admin/metrics"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/logs"
+      "method": "GET",
+      "path": "/api/super-admin/logs",
+      "normalized": "/api/super-admin/logs"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/requests/history"
+      "method": "GET",
+      "path": "/api/super-admin/requests/history",
+      "normalized": "/api/super-admin/requests/history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/stats"
+      "method": "GET",
+      "path": "/api/super-admin/schools/:value/stats",
+      "normalized": "/api/super-admin/schools/:value/stats"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/growth-data"
+      "method": "GET",
+      "path": "/api/super-admin/growth-data",
+      "normalized": "/api/super-admin/growth-data"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/school-distribution"
+      "method": "GET",
+      "path": "/api/super-admin/school-distribution",
+      "normalized": "/api/super-admin/school-distribution"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/platform-settings"
+      "method": "GET",
+      "path": "/api/super-admin/platform-settings",
+      "normalized": "/api/super-admin/platform-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/platform-settings"
+      "method": "PUT",
+      "path": "/api/super-admin/platform-settings",
+      "normalized": "/api/super-admin/platform-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/settings/reset"
+      "method": "POST",
+      "path": "/api/super-admin/settings/reset",
+      "normalized": "/api/super-admin/settings/reset"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/backup"
+      "method": "POST",
+      "path": "/api/super-admin/backup",
+      "normalized": "/api/super-admin/backup"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/cache/clear"
+      "method": "POST",
+      "path": "/api/super-admin/cache/clear",
+      "normalized": "/api/super-admin/cache/clear"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/export"
+      "method": "GET",
+      "path": "/api/super-admin/export",
+      "normalized": "/api/super-admin/export"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
+      "method": "GET",
+      "path": "/api/analytics/dashboard?_=:value",
+      "normalized": "/api/analytics/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/detail"
+      "method": "GET",
+      "path": "/api/super-admin/schools/:value/detail",
+      "normalized": "/api/super-admin/schools/:value/detail"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/schools/${schoolId}/access-controls"
+      "method": "PUT",
+      "path": "/api/super-admin/schools/:value/access-controls",
+      "normalized": "/api/super-admin/schools/:value/access-controls"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/payment-requests${Object.keys(params).length ? "
+      "method": "GET",
+      "path": "/api/super-admin/payment-requests",
+      "normalized": "/api/super-admin/payment-requests"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/super-admin/payment-requests/${requestId}/review"
+      "method": "POST",
+      "path": "/api/super-admin/payment-requests/:value/review",
+      "normalized": "/api/super-admin/payment-requests/:value/review"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers"
+      "method": "GET",
+      "path": "/api/admin/teachers",
+      "normalized": "/api/admin/teachers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students"
+      "method": "GET",
+      "path": "/api/admin/students",
+      "normalized": "/api/admin/students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/parents"
+      "method": "GET",
+      "path": "/api/admin/parents",
+      "normalized": "/api/admin/parents"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/approvals/pending"
+      "method": "GET",
+      "path": "/api/admin/approvals/pending",
+      "normalized": "/api/admin/approvals/pending"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/approve"
+      "method": "POST",
+      "path": "/api/admin/teachers/:value/approve",
+      "normalized": "/api/admin/teachers/:value/approve"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/suspend"
+      "method": "POST",
+      "path": "/api/admin/teachers/:value/suspend",
+      "normalized": "/api/admin/teachers/:value/suspend"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/reactivate"
+      "method": "POST",
+      "path": "/api/admin/teachers/:value/reactivate",
+      "normalized": "/api/admin/teachers/:value/reactivate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/deactivate"
+      "method": "POST",
+      "path": "/api/admin/teachers/:value/deactivate",
+      "normalized": "/api/admin/teachers/:value/deactivate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}/activate"
+      "method": "POST",
+      "path": "/api/admin/teachers/:value/activate",
+      "normalized": "/api/admin/teachers/:value/activate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}"
+      "method": "DELETE",
+      "path": "/api/admin/teachers/:value",
+      "normalized": "/api/admin/teachers/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/settings"
+      "method": "GET",
+      "path": "/api/admin/settings",
+      "normalized": "/api/admin/settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/settings"
+      "method": "PUT",
+      "path": "/api/admin/settings",
+      "normalized": "/api/admin/settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes"
+      "method": "POST",
+      "path": "/api/admin/classes",
+      "normalized": "/api/admin/classes"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes"
+      "method": "GET",
+      "path": "/api/admin/classes",
+      "normalized": "/api/admin/classes"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfer-options"
+      "method": "GET",
+      "path": "/api/lifecycle/transfer-options",
+      "normalized": "/api/lifecycle/transfer-options"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/preview"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers/preview",
+      "normalized": "/api/lifecycle/transfers/preview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers",
+      "normalized": "/api/lifecycle/transfers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/school-transfer-out/preview"
+      "method": "POST",
+      "path": "/api/lifecycle/school-transfer-out/preview",
+      "normalized": "/api/lifecycle/school-transfer-out/preview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/school-transfer-outs"
+      "method": "POST",
+      "path": "/api/lifecycle/school-transfer-outs",
+      "normalized": "/api/lifecycle/school-transfer-outs"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers${Object.keys(params).length?"
+      "method": "GET",
+      "path": "/api/lifecycle/transfers",
+      "normalized": "/api/lifecycle/transfers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}"
+      "method": "GET",
+      "path": "/api/lifecycle/transfers/:value",
+      "normalized": "/api/lifecycle/transfers/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/approve"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers/:value/approve",
+      "normalized": "/api/lifecycle/transfers/:value/approve"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/reject"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers/:value/reject",
+      "normalized": "/api/lifecycle/transfers/:value/reject"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/cancel"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers/:value/cancel",
+      "normalized": "/api/lifecycle/transfers/:value/cancel"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/rollback"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers/:value/rollback",
+      "normalized": "/api/lifecycle/transfers/:value/rollback"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/students/${studentId}/enrollments"
+      "method": "GET",
+      "path": "/api/lifecycle/students/:value/enrollments",
+      "normalized": "/api/lifecycle/students/:value/enrollments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions"
+      "method": "GET",
+      "path": "/api/lifecycle/promotions",
+      "normalized": "/api/lifecycle/promotions"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/preview"
+      "method": "POST",
+      "path": "/api/lifecycle/promotions/preview",
+      "normalized": "/api/lifecycle/promotions/preview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${id}"
+      "method": "GET",
+      "path": "/api/lifecycle/promotions/:value",
+      "normalized": "/api/lifecycle/promotions/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${batchId}/decisions/${decisionId}"
+      "method": "PATCH",
+      "path": "/api/lifecycle/promotions/:value/decisions/:value",
+      "normalized": "/api/lifecycle/promotions/:value/decisions/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${id}/confirm"
+      "method": "POST",
+      "path": "/api/lifecycle/promotions/:value/confirm",
+      "normalized": "/api/lifecycle/promotions/:value/confirm"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/promotions/${id}/rollback"
+      "method": "POST",
+      "path": "/api/lifecycle/promotions/:value/rollback",
+      "normalized": "/api/lifecycle/promotions/:value/rollback"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}"
+      "method": "PUT",
+      "path": "/api/admin/classes/:value",
+      "normalized": "/api/admin/classes/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}"
+      "method": "DELETE",
+      "path": "/api/admin/classes/:value",
+      "normalized": "/api/admin/classes/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/available-teachers"
+      "method": "GET",
+      "path": "/api/admin/available-teachers",
+      "normalized": "/api/admin/available-teachers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/assign-teacher"
+      "method": "POST",
+      "path": "/api/admin/classes/:value/assign-teacher",
+      "normalized": "/api/admin/classes/:value/assign-teacher"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/remove-teacher"
+      "method": "POST",
+      "path": "/api/admin/classes/:value/remove-teacher",
+      "normalized": "/api/admin/classes/:value/remove-teacher"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/students"
+      "method": "GET",
+      "path": "/api/admin/classes/:value/students",
+      "normalized": "/api/admin/classes/:value/students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}/subjects"
+      "method": "GET",
+      "path": "/api/admin/classes/:value/subjects",
+      "normalized": "/api/admin/classes/:value/subjects"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/subject-assign"
+      "method": "POST",
+      "path": "/api/admin/classes/subject-assign",
+      "normalized": "/api/admin/classes/subject-assign"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/subject-assign/${assignmentId}"
+      "method": "DELETE",
+      "path": "/api/admin/classes/subject-assign/:value",
+      "normalized": "/api/admin/classes/subject-assign/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}"
+      "method": "GET",
+      "path": "/api/admin/students/:value",
+      "normalized": "/api/admin/students/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/suspend"
+      "method": "POST",
+      "path": "/api/admin/students/:value/suspend",
+      "normalized": "/api/admin/students/:value/suspend"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/reactivate"
+      "method": "POST",
+      "path": "/api/admin/students/:value/reactivate",
+      "normalized": "/api/admin/students/:value/reactivate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/expel"
+      "method": "POST",
+      "path": "/api/admin/students/:value/expel",
+      "normalized": "/api/admin/students/:value/expel"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}"
+      "method": "DELETE",
+      "path": "/api/admin/students/:value",
+      "normalized": "/api/admin/students/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}"
+      "method": "PUT",
+      "path": "/api/admin/students/:value",
+      "normalized": "/api/admin/students/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/duty/generate"
+      "method": "POST",
+      "path": "/api/admin/duty/generate",
+      "normalized": "/api/admin/duty/generate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/duty/stats"
+      "method": "GET",
+      "path": "/api/admin/duty/stats",
+      "normalized": "/api/admin/duty/stats"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/duty/fairness-report"
+      "method": "GET",
+      "path": "/api/admin/duty/fairness-report",
+      "normalized": "/api/admin/duty/fairness-report"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/duty/adjust"
+      "method": "POST",
+      "path": "/api/admin/duty/adjust",
+      "normalized": "/api/admin/duty/adjust"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/duty/understaffed"
+      "method": "GET",
+      "path": "/api/admin/duty/understaffed",
+      "normalized": "/api/admin/duty/understaffed"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/duty/teacher-workload"
+      "method": "GET",
+      "path": "/api/admin/duty/teacher-workload",
+      "normalized": "/api/admin/duty/teacher-workload"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/grades/stats"
+      "method": "GET",
+      "path": "/api/admin/grades/stats",
+      "normalized": "/api/admin/grades/stats"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/attendance/stats"
+      "method": "GET",
+      "path": "/api/admin/attendance/stats",
+      "normalized": "/api/admin/attendance/stats"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${classId}/${date}"
+      "method": "GET",
+      "path": "/api/attendance/sessions/:value/:value",
+      "normalized": "/api/attendance/sessions/:value/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/corrections"
+      "method": "POST",
+      "path": "/api/attendance/sessions/:value/corrections",
+      "normalized": "/api/attendance/sessions/:value/corrections"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/corrections"
+      "method": "GET",
+      "path": "/api/attendance/sessions/:value/corrections",
+      "normalized": "/api/attendance/sessions/:value/corrections"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/teachers/${teacherId}"
+      "method": "PUT",
+      "path": "/api/admin/teachers/:value",
+      "normalized": "/api/admin/teachers/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/dashboard"
+      "method": "GET",
+      "path": "/api/admin/dashboard",
+      "normalized": "/api/admin/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/${classId}"
+      "method": "GET",
+      "path": "/api/admin/classes/:value",
+      "normalized": "/api/admin/classes/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes"
+      "method": "GET",
+      "path": "/api/admin/classes",
+      "normalized": "/api/admin/classes"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
+      "method": "GET",
+      "path": "/api/analytics/dashboard?_=:value",
+      "normalized": "/api/analytics/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/classes/subject-assign-batch"
+      "method": "POST",
+      "path": "/api/admin/classes/subject-assign-batch",
+      "normalized": "/api/admin/classes/subject-assign-batch"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/setup"
+      "method": "GET",
+      "path": "/api/admin/curriculum/setup",
+      "normalized": "/api/admin/curriculum/setup"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/setup"
+      "method": "PUT",
+      "path": "/api/admin/curriculum/setup",
+      "normalized": "/api/admin/curriculum/setup"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/levels"
+      "method": "GET",
+      "path": "/api/admin/curriculum/levels",
+      "normalized": "/api/admin/curriculum/levels"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/subject-bank"
+      "method": "GET",
+      "path": "/api/admin/curriculum/subject-bank",
+      "normalized": "/api/admin/curriculum/subject-bank"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/school-subjects"
+      "method": "GET",
+      "path": "/api/admin/curriculum/school-subjects",
+      "normalized": "/api/admin/curriculum/school-subjects"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/school-subjects"
+      "method": "PUT",
+      "path": "/api/admin/curriculum/school-subjects",
+      "normalized": "/api/admin/curriculum/school-subjects"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/custom-subjects"
+      "method": "GET",
+      "path": "/api/admin/curriculum/custom-subjects",
+      "normalized": "/api/admin/curriculum/custom-subjects"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/custom-subjects"
+      "method": "POST",
+      "path": "/api/admin/curriculum/custom-subjects",
+      "normalized": "/api/admin/curriculum/custom-subjects"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/custom-subjects/${encodeURIComponent(id)}"
+      "method": "DELETE",
+      "path": "/api/admin/curriculum/custom-subjects/:value",
+      "normalized": "/api/admin/curriculum/custom-subjects/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/assessment-settings"
+      "method": "GET",
+      "path": "/api/admin/assessment-settings",
+      "normalized": "/api/admin/assessment-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/assessment-settings"
+      "method": "PUT",
+      "path": "/api/admin/assessment-settings",
+      "normalized": "/api/admin/assessment-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/classes/${classId}/subjects"
+      "method": "GET",
+      "path": "/api/admin/curriculum/classes/:value/subjects",
+      "normalized": "/api/admin/curriculum/classes/:value/subjects"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/classes/generation-preview"
+      "method": "GET",
+      "path": "/api/admin/curriculum/classes/generation-preview",
+      "normalized": "/api/admin/curriculum/classes/generation-preview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/classes/generate"
+      "method": "POST",
+      "path": "/api/admin/curriculum/classes/generate",
+      "normalized": "/api/admin/curriculum/classes/generate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/curriculum/classes/sync"
+      "method": "POST",
+      "path": "/api/admin/curriculum/classes/sync",
+      "normalized": "/api/admin/curriculum/classes/sync"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/subject-selection"
+      "method": "GET",
+      "path": "/api/admin/students/:value/subject-selection",
+      "normalized": "/api/admin/students/:value/subject-selection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/students/${studentId}/subject-selection"
+      "method": "PUT",
+      "path": "/api/admin/students/:value/subject-selection",
+      "normalized": "/api/admin/students/:value/subject-selection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/billing/payment-confirmation"
+      "method": "POST",
+      "path": "/api/admin/billing/payment-confirmation",
+      "normalized": "/api/admin/billing/payment-confirmation"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/parent-conversations"
+      "method": "GET",
+      "path": "/api/admin/parent-conversations",
+      "normalized": "/api/admin/parent-conversations"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/messages/${parentId}"
+      "method": "GET",
+      "path": "/api/admin/messages/:value",
+      "normalized": "/api/admin/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/reply-parent"
+      "method": "POST",
+      "path": "/api/admin/reply-parent",
+      "normalized": "/api/admin/reply-parent"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/finance-staff"
+      "method": "GET",
+      "path": "/api/admin/finance-staff",
+      "normalized": "/api/admin/finance-staff"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/finance-staff"
+      "method": "POST",
+      "path": "/api/admin/finance-staff",
+      "normalized": "/api/admin/finance-staff"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/admin/finance-staff/${userId}"
+      "method": "PATCH",
+      "path": "/api/admin/finance-staff/:value",
+      "normalized": "/api/admin/finance-staff/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfer-options"
+      "method": "GET",
+      "path": "/api/lifecycle/transfer-options",
+      "normalized": "/api/lifecycle/transfer-options"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/preview"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers/preview",
+      "normalized": "/api/lifecycle/transfers/preview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfer-requests"
+      "method": "POST",
+      "path": "/api/lifecycle/transfer-requests",
+      "normalized": "/api/lifecycle/transfer-requests"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers${Object.keys(params).length?"
+      "method": "GET",
+      "path": "/api/lifecycle/transfers",
+      "normalized": "/api/lifecycle/transfers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/transfers/${id}/cancel"
+      "method": "POST",
+      "path": "/api/lifecycle/transfers/:value/cancel",
+      "normalized": "/api/lifecycle/transfers/:value/cancel"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/students/${studentId}/enrollments"
+      "method": "GET",
+      "path": "/api/lifecycle/students/:value/enrollments",
+      "normalized": "/api/lifecycle/students/:value/enrollments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/students"
+      "method": "GET",
+      "path": "/api/teacher/students",
+      "normalized": "/api/teacher/students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/students"
+      "method": "POST",
+      "path": "/api/teacher/students",
+      "normalized": "/api/teacher/students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/marks"
+      "method": "POST",
+      "path": "/api/teacher/marks",
+      "normalized": "/api/teacher/marks"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/attendance"
+      "method": "POST",
+      "path": "/api/teacher/attendance",
+      "normalized": "/api/teacher/attendance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${classId}/${date}"
+      "method": "GET",
+      "path": "/api/attendance/sessions/:value/:value",
+      "normalized": "/api/attendance/sessions/:value/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/draft"
+      "method": "PUT",
+      "path": "/api/attendance/sessions/:value/draft",
+      "normalized": "/api/attendance/sessions/:value/draft"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/lock"
+      "method": "POST",
+      "path": "/api/attendance/sessions/:value/lock",
+      "normalized": "/api/attendance/sessions/:value/lock"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/attendance/sessions/${sessionId}/release"
+      "method": "POST",
+      "path": "/api/attendance/sessions/:value/release",
+      "normalized": "/api/attendance/sessions/:value/release"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/comment"
+      "method": "POST",
+      "path": "/api/teacher/comment",
+      "normalized": "/api/teacher/comment"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/marks/bulk"
+      "method": "POST",
+      "path": "/api/teacher/upload/marks",
+      "normalized": "/api/teacher/upload/marks"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/conversations"
+      "method": "POST",
+      "path": "/api/teacher/marks/bulk",
+      "normalized": "/api/teacher/marks/bulk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/staff-members"
+      "method": "GET",
+      "path": "/api/teacher/conversations",
+      "normalized": "/api/teacher/conversations"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/conversations"
+      "method": "GET",
+      "path": "/api/teacher/staff-members",
+      "normalized": "/api/teacher/staff-members"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/group-messages"
+      "method": "GET",
+      "path": "/api/teacher/conversations",
+      "normalized": "/api/teacher/conversations"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/private-messages/${otherUserId}"
+      "method": "GET",
+      "path": "/api/teacher/group-messages",
+      "normalized": "/api/teacher/group-messages"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/group-message"
+      "method": "GET",
+      "path": "/api/teacher/private-messages/:value",
+      "normalized": "/api/teacher/private-messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/private-message"
+      "method": "POST",
+      "path": "/api/teacher/group-message",
+      "normalized": "/api/teacher/group-message"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/${parentId}"
+      "method": "POST",
+      "path": "/api/teacher/private-message",
+      "normalized": "/api/teacher/private-message"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/reply"
+      "method": "GET",
+      "path": "/api/teacher/messages/:value",
+      "normalized": "/api/teacher/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/performance"
+      "method": "POST",
+      "path": "/api/teacher/reply",
+      "normalized": "/api/teacher/reply"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/my-assignments"
+      "method": "GET",
+      "path": "/api/teacher/performance",
+      "normalized": "/api/teacher/performance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/parent-conversations"
+      "method": "GET",
+      "path": "/api/teacher/my-assignments",
+      "normalized": "/api/teacher/my-assignments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/${otherUserId}"
+      "method": "GET",
+      "path": "/api/teacher/parent-conversations",
+      "normalized": "/api/teacher/parent-conversations"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/read/${otherUserId}"
+      "method": "GET",
+      "path": "/api/teacher/messages/:value",
+      "normalized": "/api/teacher/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/messages/${messageId}"
+      "method": "PUT",
+      "path": "/api/teacher/messages/read/:value",
+      "normalized": "/api/teacher/messages/read/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/students/${studentId}"
+      "method": "DELETE",
+      "path": "/api/teacher/messages/:value",
+      "normalized": "/api/teacher/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/classes/${classId}/students"
+      "method": "DELETE",
+      "path": "/api/teacher/students/:value",
+      "normalized": "/api/teacher/students/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/my-class"
+      "method": "GET",
+      "path": "/api/teacher/classes/:value/students",
+      "normalized": "/api/teacher/classes/:value/students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/my-subjects"
+      "method": "GET",
+      "path": "/api/teacher/my-class",
+      "normalized": "/api/teacher/my-class"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/stats"
+      "method": "GET",
+      "path": "/api/teacher/my-subjects",
+      "normalized": "/api/teacher/my-subjects"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/marks/publish"
+      "method": "GET",
+      "path": "/api/teacher/stats",
+      "normalized": "/api/teacher/stats"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/marks/${recordId}"
+      "method": "POST",
+      "path": "/api/upload/students",
+      "normalized": "/api/upload/students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
+      "method": "POST",
+      "path": "/api/teacher/marks/publish",
+      "normalized": "/api/teacher/marks/publish"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/gradebook"
+      "method": "PUT",
+      "path": "/api/teacher/marks/:value",
+      "normalized": "/api/teacher/marks/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/class-students"
+      "method": "GET",
+      "path": "/api/analytics/dashboard?_=:value",
+      "normalized": "/api/analytics/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/reports/snapshots"
+      "method": "GET",
+      "path": "/api/teacher/gradebook",
+      "normalized": "/api/teacher/gradebook"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/students/${studentId}/report-card-preview"
+      "method": "GET",
+      "path": "/api/teacher/class-students",
+      "normalized": "/api/teacher/class-students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/subject-selection-requests"
+      "method": "GET",
+      "path": "/api/teacher/reports/snapshots",
+      "normalized": "/api/teacher/reports/snapshots"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/teacher/subject-selection-requests/${selectionId}/review"
+      "method": "GET",
+      "path": "/api/teacher/students/:value/report-card-preview",
+      "normalized": "/api/teacher/students/:value/report-card-preview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/children"
+      "method": "GET",
+      "path": "/api/teacher/subject-selection-requests",
+      "normalized": "/api/teacher/subject-selection-requests"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/children/link"
+      "method": "POST",
+      "path": "/api/teacher/subject-selection-requests/:value/review",
+      "normalized": "/api/teacher/subject-selection-requests/:value/review"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/attendance/today"
+      "method": "GET",
+      "path": "/api/parent/children",
+      "normalized": "/api/parent/children"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/summary"
+      "method": "POST",
+      "path": "/api/parent/children/link",
+      "normalized": "/api/parent/children/link"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/report-card-details"
+      "method": "GET",
+      "path": "/api/parent/child/:value/attendance/today",
+      "normalized": "/api/parent/child/:value/attendance/today"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/report-absence"
+      "method": "GET",
+      "path": "/api/parent/child/:value/summary",
+      "normalized": "/api/parent/child/:value/summary"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/fee/stk"
+      "method": "GET",
+      "path": "/api/parent/child/:value/report-card-details",
+      "normalized": "/api/parent/child/:value/report-card-details"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/fee/manual"
+      "method": "POST",
+      "path": "/api/parent/report-absence",
+      "normalized": "/api/parent/report-absence"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/payments"
+      "method": "POST",
+      "path": "/api/payments/parent/fee/stk",
+      "normalized": "/api/payments/parent/fee/stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/students/${studentId}/fee-accounts"
+      "method": "POST",
+      "path": "/api/payments/parent/fee/manual",
+      "normalized": "/api/payments/parent/fee/manual"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/students/${studentId}/history${Object.keys(params).length ? "
+      "method": "GET",
+      "path": "/api/parent/payments",
+      "normalized": "/api/parent/payments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/plans"
+      "method": "GET",
+      "path": "/api/payments/parent/students/:value/fee-accounts",
+      "normalized": "/api/payments/parent/students/:value/fee-accounts"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/subscription/stk"
+      "method": "GET",
+      "path": "/api/payments/parent/students/:value/history",
+      "normalized": "/api/payments/parent/students/:value/history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/message"
+      "method": "GET",
+      "path": "/api/parent/plans",
+      "normalized": "/api/parent/plans"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/message-targets?studentId=${encodeURIComponent(studentId || '')}"
+      "method": "POST",
+      "path": "/api/payments/parent/subscription/stk",
+      "normalized": "/api/payments/parent/subscription/stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/conversations"
+      "method": "POST",
+      "path": "/api/parent/message",
+      "normalized": "/api/parent/message"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/messages/${otherUserId}"
+      "method": "GET",
+      "path": "/api/parent/conversations",
+      "normalized": "/api/parent/conversations"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/marks"
+      "method": "GET",
+      "path": "/api/parent/messages/:value",
+      "normalized": "/api/parent/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/fees/${studentId}"
+      "method": "GET",
+      "path": "/api/parent/child/:value/marks",
+      "normalized": "/api/parent/child/:value/marks"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/class-performance"
+      "method": "GET",
+      "path": "/api/parent/fees/:value",
+      "normalized": "/api/parent/fees/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${studentId}/subject-performance"
+      "method": "GET",
+      "path": "/api/parent/child/:value/class-performance",
+      "normalized": "/api/parent/child/:value/class-performance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?childId=${encodeURIComponent(childId || '')}&_=${Date.now()}"
+      "method": "GET",
+      "path": "/api/parent/child/:value/subject-performance",
+      "normalized": "/api/parent/child/:value/subject-performance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${childId}/subject-selection"
+      "method": "GET",
+      "path": "/api/parent/child/:value/subject-selection",
+      "normalized": "/api/parent/child/:value/subject-selection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/parent/child/${childId}/subject-selection"
+      "method": "PUT",
+      "path": "/api/parent/child/:value/subject-selection",
+      "normalized": "/api/parent/child/:value/subject-selection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/children/${childId}/enrollments"
+      "method": "GET",
+      "path": "/api/lifecycle/children/:value/enrollments",
+      "normalized": "/api/lifecycle/children/:value/enrollments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/timetable/parent/child/${encodeURIComponent(studentId)}"
+      "method": "GET",
+      "path": "/api/timetable/parent/child/:value",
+      "normalized": "/api/timetable/parent/child/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}"
+      "method": "GET",
+      "path": "/api/student/dashboard",
+      "normalized": "/api/student/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/dashboard"
+      "method": "GET",
+      "path": "/api/student/grades",
+      "normalized": "/api/student/grades"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/grades"
+      "method": "GET",
+      "path": "/api/student/recommendations",
+      "normalized": "/api/student/recommendations"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/recommendations${query ? "
+      "method": "GET",
+      "path": "/api/student/careers",
+      "normalized": "/api/student/careers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/careers${query ? "
+      "method": "GET",
+      "path": "/api/student/career/interests",
+      "normalized": "/api/student/career/interests"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/career/interests"
+      "method": "PUT",
+      "path": "/api/student/career/interests",
+      "normalized": "/api/student/career/interests"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/career/interests"
+      "method": "POST",
+      "path": "/api/student/career/insights",
+      "normalized": "/api/student/career/insights"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/career/insights"
+      "method": "GET",
+      "path": "/api/student/attendance",
+      "normalized": "/api/student/attendance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/attendance"
+      "method": "POST",
+      "path": "/api/student/group-message",
+      "normalized": "/api/student/group-message"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/group-message"
+      "method": "GET",
+      "path": "/api/student/materials",
+      "normalized": "/api/student/materials"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/materials"
+      "method": "POST",
+      "path": "/api/student/message",
+      "normalized": "/api/student/message"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/message"
+      "method": "GET",
+      "path": "/api/student/messages/:value",
+      "normalized": "/api/student/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/messages/${otherUserId}"
+      "method": "GET",
+      "path": "/api/student/group-messages",
+      "normalized": "/api/student/group-messages"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/group-messages"
+      "method": "POST",
+      "path": "/api/student/set-first-password",
+      "normalized": "/api/student/set-first-password"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/set-first-password"
+      "method": "GET",
+      "path": "/api/student/marks/all",
+      "normalized": "/api/student/marks/all"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/marks/all"
+      "method": "GET",
+      "path": "/api/student/class-performance",
+      "normalized": "/api/student/class-performance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/class-performance"
+      "method": "GET",
+      "path": "/api/student/subject-performance",
+      "normalized": "/api/student/subject-performance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/subject-performance"
+      "method": "GET",
+      "path": "/api/student/gpa",
+      "normalized": "/api/student/gpa"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/gpa"
+      "method": "GET",
+      "path": "/api/analytics/dashboard?_=:value",
+      "normalized": "/api/analytics/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard?_=${Date.now()}"
+      "method": "GET",
+      "path": "/api/student/subject-selection",
+      "normalized": "/api/student/subject-selection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/subject-selection"
+      "method": "PUT",
+      "path": "/api/student/subject-selection",
+      "normalized": "/api/student/subject-selection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/student/subject-selection"
+      "method": "GET",
+      "path": "/api/lifecycle/me/enrollments",
+      "normalized": "/api/lifecycle/me/enrollments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/me/enrollments"
+      "method": "GET",
+      "path": "/api/timetable/student/me",
+      "normalized": "/api/timetable/student/me"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/timetable/student/me"
+      "method": "GET",
+      "path": "/api/report-cards/history",
+      "normalized": "/api/report-cards/history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history"
+      "method": "POST",
+      "path": "/api/duty/generate",
+      "normalized": "/api/duty/generate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/generate"
+      "method": "GET",
+      "path": "/api/duty/stats",
+      "normalized": "/api/duty/stats"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/stats"
+      "method": "GET",
+      "path": "/api/duty/today",
+      "normalized": "/api/duty/today"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/today"
+      "method": "GET",
+      "path": "/api/duty/week",
+      "normalized": "/api/duty/week"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/week"
+      "method": "GET",
+      "path": "/api/duty/verification-config",
+      "normalized": "/api/duty/verification-config"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/verification-config"
+      "method": "PUT",
+      "path": "/api/duty/verification-config",
+      "normalized": "/api/duty/verification-config"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/verification-config"
+      "method": "GET",
+      "path": "/api/duty/compliance-report",
+      "normalized": "/api/duty/compliance-report"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/compliance-report${date ? "
+      "method": "GET",
+      "path": "/api/duty/late-arrivals",
+      "normalized": "/api/duty/late-arrivals"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/late-arrivals${date ? "
+      "method": "POST",
+      "path": "/api/duty/check-in/verified",
+      "normalized": "/api/duty/check-in/verified"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/check-in/verified"
+      "method": "POST",
+      "path": "/api/duty/check-out/verified",
+      "normalized": "/api/duty/check-out/verified"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/check-out/verified"
+      "method": "POST",
+      "path": "/api/duty/check-in",
+      "normalized": "/api/duty/check-in"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/check-in"
+      "method": "POST",
+      "path": "/api/duty/check-out",
+      "normalized": "/api/duty/check-out"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/check-out"
+      "method": "PUT",
+      "path": "/api/duty/preferences",
+      "normalized": "/api/duty/preferences"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/preferences"
+      "method": "POST",
+      "path": "/api/duty/request-swap",
+      "normalized": "/api/duty/request-swap"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/duty/request-swap"
+      "method": "POST",
+      "path": "/api/school/name-change-request",
+      "normalized": "/api/school/name-change-request"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/school/name-change-request"
+      "method": "GET",
+      "path": "/api/school/name-change-requests",
+      "normalized": "/api/school/name-change-requests"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/school/name-change-requests"
+      "method": "GET",
+      "path": "/api/analytics/dashboard",
+      "normalized": "/api/analytics/dashboard"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/dashboard${q ? "
+      "method": "GET",
+      "path": "/api/analytics/tables",
+      "normalized": "/api/analytics/tables"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/tables${q ? "
+      "method": "GET",
+      "path": "/api/analytics/tables/:value",
+      "normalized": "/api/analytics/tables/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/tables/${encodeURIComponent(section)}${q ? "
+      "method": "GET",
+      "path": "/api/analytics/class/:value",
+      "normalized": "/api/analytics/class/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/student/${studentId}?curriculum=${curriculum || ''}&period=${period || 'term'}"
+      "method": "GET",
+      "path": "/api/analytics/school",
+      "normalized": "/api/analytics/school"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/class/${classId}${subject ? "
+      "method": "GET",
+      "path": "/api/analytics/compare/:value",
+      "normalized": "/api/analytics/compare/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/school"
+      "method": "POST",
+      "path": "/api/upload/students",
+      "normalized": "/api/upload/students"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/analytics/compare/${studentId}"
+      "method": "POST",
+      "path": "/api/upload/marks",
+      "normalized": "/api/upload/marks"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/upload/template/${type}"
+      "method": "POST",
+      "path": "/api/upload/attendance",
+      "normalized": "/api/upload/attendance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/upload/history"
+      "method": "GET",
+      "path": "/api/upload/template/:value",
+      "normalized": "/api/upload/template/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/public/duty/today?schoolId=${schoolId}"
+      "method": "POST",
+      "path": "/api/upload/validate",
+      "normalized": "/api/upload/validate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/public/duty/week?schoolId=${schoolId}"
+      "method": "GET",
+      "path": "/api/upload/history",
+      "normalized": "/api/upload/history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/public/school/${schoolId}"
+      "method": "GET",
+      "path": "/api/public/duty/today?schoolId=:value",
+      "normalized": "/api/public/duty/today"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/user/profile"
+      "method": "GET",
+      "path": "/api/public/duty/week?schoolId=:value",
+      "normalized": "/api/public/duty/week"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/user/preferences"
+      "method": "GET",
+      "path": "/api/public/school/:value",
+      "normalized": "/api/public/school/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/user/stats"
+      "method": "PUT",
+      "path": "/api/user/profile",
+      "normalized": "/api/user/profile"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/user/export"
+      "method": "PUT",
+      "path": "/api/user/preferences",
+      "normalized": "/api/user/preferences"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/user/deactivate"
+      "method": "GET",
+      "path": "/api/user/stats",
+      "normalized": "/api/user/stats"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/user/alerts"
+      "method": "GET",
+      "path": "/api/user/export",
+      "normalized": "/api/user/export"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/alerts"
+      "method": "POST",
+      "path": "/api/user/deactivate",
+      "normalized": "/api/user/deactivate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/alerts"
+      "method": "GET",
+      "path": "/api/user/alerts",
+      "normalized": "/api/user/alerts"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/alerts/${id}/read"
+      "method": "POST",
+      "path": "/api/user/profile-picture",
+      "normalized": "/api/user/profile-picture"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/alerts/read-all"
+      "method": "POST",
+      "path": "/api/user/signature",
+      "normalized": "/api/user/signature"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/alerts/suggest-parent-message"
+      "method": "GET",
+      "path": "/api/alerts",
+      "normalized": "/api/alerts"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/alerts/suggest-announcement"
+      "method": "POST",
+      "path": "/api/alerts",
+      "normalized": "/api/alerts"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/consent/status"
+      "method": "PUT",
+      "path": "/api/alerts/:value/read",
+      "normalized": "/api/alerts/:value/read"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/consent/accept"
+      "method": "PUT",
+      "path": "/api/alerts/read-all",
+      "normalized": "/api/alerts/read-all"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/consent/dpa/status"
+      "method": "POST",
+      "path": "/api/alerts/suggest-parent-message",
+      "normalized": "/api/alerts/suggest-parent-message"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/consent/dpa/accept"
+      "method": "POST",
+      "path": "/api/alerts/suggest-announcement",
+      "normalized": "/api/alerts/suggest-announcement"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/consent/parental-consent"
+      "method": "GET",
+      "path": "/api/consent/status",
+      "normalized": "/api/consent/status"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/help/articles?role=${role}"
+      "method": "POST",
+      "path": "/api/consent/accept",
+      "normalized": "/api/consent/accept"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/help/search?q=${query}"
+      "method": "GET",
+      "path": "/api/consent/dpa/status",
+      "normalized": "/api/consent/dpa/status"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tasks"
+      "method": "POST",
+      "path": "/api/consent/dpa/accept",
+      "normalized": "/api/consent/dpa/accept"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tasks"
+      "method": "POST",
+      "path": "/api/consent/parental-consent",
+      "normalized": "/api/consent/parental-consent"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tasks/${taskId}"
+      "method": "GET",
+      "path": "/api/help/articles?role=:value",
+      "normalized": "/api/help/articles"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tasks/${taskId}"
+      "method": "GET",
+      "path": "/api/help/search?q=:value",
+      "normalized": "/api/help/search"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tasks/${taskId}/complete"
+      "method": "GET",
+      "path": "/api/tasks",
+      "normalized": "/api/tasks"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/user/students/${studentId}/details"
+      "method": "POST",
+      "path": "/api/tasks",
+      "normalized": "/api/tasks"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/homework/teacher"
+      "method": "PUT",
+      "path": "/api/tasks/:value",
+      "normalized": "/api/tasks/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/homework/assign"
+      "method": "DELETE",
+      "path": "/api/tasks/:value",
+      "normalized": "/api/tasks/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/homework/student"
+      "method": "POST",
+      "path": "/api/tasks/:value/complete",
+      "normalized": "/api/tasks/:value/complete"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/homework/submit/${assignmentId}"
+      "method": "GET",
+      "path": "/api/user/students/:value/details",
+      "normalized": "/api/user/students/:value/details"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/calendar"
+      "method": "GET",
+      "path": "/api/homework/teacher",
+      "normalized": "/api/homework/teacher"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/calendar"
+      "method": "POST",
+      "path": "/api/homework/assign",
+      "normalized": "/api/homework/assign"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/calendar/${id}"
+      "method": "GET",
+      "path": "/api/homework/student",
+      "normalized": "/api/homework/student"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/timetable/generate"
+      "method": "POST",
+      "path": "/api/homework/submit/:value",
+      "normalized": "/api/homework/submit/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/timetable/teacher/${teacherId}?weekStart=${weekStart}"
+      "method": "POST",
+      "path": "/api/homework/submission-attachments",
+      "normalized": "/api/homework/submission-attachments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/timetable/class/${classId}?weekStart=${weekStart}"
+      "method": "GET",
+      "path": "/api/calendar",
+      "normalized": "/api/calendar"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/timetable/${id}/publish"
+      "method": "POST",
+      "path": "/api/calendar",
+      "normalized": "/api/calendar"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/gamification/leaderboard/${classId}"
+      "method": "DELETE",
+      "path": "/api/calendar/:value",
+      "normalized": "/api/calendar/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/gamification/badges/${studentId}"
+      "method": "POST",
+      "path": "/api/timetable/generate",
+      "normalized": "/api/timetable/generate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/gamification/rewards"
+      "method": "GET",
+      "path": "/api/timetable/teacher/:value?weekStart=:value",
+      "normalized": "/api/timetable/teacher/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/gamification/rewards/redeem"
+      "method": "GET",
+      "path": "/api/timetable/class/:value?weekStart=:value",
+      "normalized": "/api/timetable/class/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/config"
+      "method": "POST",
+      "path": "/api/timetable/:value/publish",
+      "normalized": "/api/timetable/:value/publish"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/ask"
+      "method": "GET",
+      "path": "/api/gamification/leaderboard/:value",
+      "normalized": "/api/gamification/leaderboard/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/progress/${studentId}"
+      "method": "GET",
+      "path": "/api/gamification/badges/:value",
+      "normalized": "/api/gamification/badges/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/session/${studentId}"
+      "method": "GET",
+      "path": "/api/gamification/rewards",
+      "normalized": "/api/gamification/rewards"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/sessions"
+      "method": "POST",
+      "path": "/api/gamification/rewards/redeem",
+      "normalized": "/api/gamification/rewards/redeem"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/sessions"
+      "method": "GET",
+      "path": "/api/tutor/config",
+      "normalized": "/api/tutor/config"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/sessions/${id}"
+      "method": "POST",
+      "path": "/api/tutor/ask",
+      "normalized": "/api/tutor/ask"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/practice/answer"
+      "method": "GET",
+      "path": "/api/tutor/progress/:value",
+      "normalized": "/api/tutor/progress/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/reports/parent/${parentId}"
+      "method": "GET",
+      "path": "/api/tutor/session/:value",
+      "normalized": "/api/tutor/session/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/tutor/reports/teacher/${classId}"
+      "method": "GET",
+      "path": "/api/tutor/sessions",
+      "normalized": "/api/tutor/sessions"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/search?q=${encodeURIComponent(q)}"
+      "method": "POST",
+      "path": "/api/tutor/sessions",
+      "normalized": "/api/tutor/sessions"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures"
+      "method": "GET",
+      "path": "/api/tutor/sessions/:value",
+      "normalized": "/api/tutor/sessions/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}"
+      "method": "POST",
+      "path": "/api/tutor/practice/answer",
+      "normalized": "/api/tutor/practice/answer"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures"
+      "method": "GET",
+      "path": "/api/tutor/reports/parent/:value",
+      "normalized": "/api/tutor/reports/parent/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}"
+      "method": "GET",
+      "path": "/api/tutor/reports/teacher/:value",
+      "normalized": "/api/tutor/reports/teacher/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}"
+      "method": "GET",
+      "path": "/api/search?q=:value",
+      "normalized": "/api/search"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}/activate"
+      "method": "GET",
+      "path": "/api/fee-structures",
+      "normalized": "/api/fee-structures"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}/lock"
+      "method": "GET",
+      "path": "/api/fee-structures/:value",
+      "normalized": "/api/fee-structures/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/${id}/assign"
+      "method": "POST",
+      "path": "/api/fee-structures",
+      "normalized": "/api/fee-structures"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/student-accounts"
+      "method": "PUT",
+      "path": "/api/fee-structures/:value",
+      "normalized": "/api/fee-structures/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/fee-structures/student-accounts/${feeId}/adjust"
+      "method": "DELETE",
+      "path": "/api/fee-structures/:value",
+      "normalized": "/api/fee-structures/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/school-settings"
+      "method": "POST",
+      "path": "/api/fee-structures/:value/activate",
+      "normalized": "/api/fee-structures/:value/activate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/school-settings"
+      "method": "POST",
+      "path": "/api/fee-structures/:value/lock",
+      "normalized": "/api/fee-structures/:value/lock"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/providers"
+      "method": "POST",
+      "path": "/api/fee-structures/:value/assign",
+      "normalized": "/api/fee-structures/:value/assign"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/providers"
+      "method": "GET",
+      "path": "/api/fee-structures/student-accounts",
+      "normalized": "/api/fee-structures/student-accounts"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/providers"
+      "method": "POST",
+      "path": "/api/fee-structures/student-accounts/:value/adjust",
+      "normalized": "/api/fee-structures/student-accounts/:value/adjust"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/providers/${encodeURIComponent(provider)}/setup-notifications"
+      "method": "GET",
+      "path": "/api/payments/admin/school-settings",
+      "normalized": "/api/payments/admin/school-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/providers"
+      "method": "PUT",
+      "path": "/api/payments/admin/school-settings",
+      "normalized": "/api/payments/admin/school-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/providers"
+      "method": "GET",
+      "path": "/api/payments/providers",
+      "normalized": "/api/payments/providers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/providers/${encodeURIComponent(provider)}/setup-notifications"
+      "method": "GET",
+      "path": "/api/payments/admin/providers",
+      "normalized": "/api/payments/admin/providers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/providers/available${q ? "
+      "method": "PUT",
+      "path": "/api/payments/admin/providers",
+      "normalized": "/api/payments/admin/providers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/methods${q ? "
+      "method": "GET",
+      "path": "/api/payments/admin/providers/:value/setup-info",
+      "normalized": "/api/payments/admin/providers/:value/setup-info"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/initiate"
+      "method": "POST",
+      "path": "/api/payments/admin/providers/:value/setup-notifications",
+      "normalized": "/api/payments/admin/providers/:value/setup-notifications"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/initiate"
+      "method": "POST",
+      "path": "/api/payments/admin/providers/:value/test-stk",
+      "normalized": "/api/payments/admin/providers/:value/test-stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/${encodeURIComponent(reference)}/status"
+      "method": "GET",
+      "path": "/api/payments/admin/providers/:value/test-status/:value",
+      "normalized": "/api/payments/admin/providers/:value/test-status/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/reconcile/${encodeURIComponent(reference)}"
+      "method": "GET",
+      "path": "/api/payments/superadmin/providers",
+      "normalized": "/api/payments/superadmin/providers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/test-connection"
+      "method": "PUT",
+      "path": "/api/payments/superadmin/providers",
+      "normalized": "/api/payments/superadmin/providers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/test-connection"
+      "method": "GET",
+      "path": "/api/payments/superadmin/providers/:value/setup-info",
+      "normalized": "/api/payments/superadmin/providers/:value/setup-info"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/platform-settings"
+      "method": "POST",
+      "path": "/api/payments/superadmin/providers/:value/setup-notifications",
+      "normalized": "/api/payments/superadmin/providers/:value/setup-notifications"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/platform-settings"
+      "method": "POST",
+      "path": "/api/payments/superadmin/providers/:value/test-stk",
+      "normalized": "/api/payments/superadmin/providers/:value/test-stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/fee/stk"
+      "method": "GET",
+      "path": "/api/payments/providers/available",
+      "normalized": "/api/payments/providers/available"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/fee/manual"
+      "method": "GET",
+      "path": "/api/payments/parent/methods",
+      "normalized": "/api/payments/parent/methods"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/manual-queue"
+      "method": "GET",
+      "path": "/api/payments/platform/method",
+      "normalized": "/api/payments/platform/method"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/records${q ? "
+      "method": "POST",
+      "path": "/api/payments/initiate",
+      "normalized": "/api/payments/initiate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/context"
+      "method": "POST",
+      "path": "/api/payments/parent/initiate",
+      "normalized": "/api/payments/parent/initiate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/finance-summary"
+      "method": "POST",
+      "path": "/api/payments/parent/stk/initiate",
+      "normalized": "/api/payments/parent/stk/initiate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/finance"
+      "method": "GET",
+      "path": "/api/payments/:value/status",
+      "normalized": "/api/payments/:value/status"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/history${Object.keys(params).length ? "
+      "method": "GET",
+      "path": "/api/payments/:value/continue",
+      "normalized": "/api/payments/:value/continue"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/manual-payment"
+      "method": "POST",
+      "path": "/api/payments/reconcile/:value",
+      "normalized": "/api/payments/reconcile/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/students/${studentId}/bursary"
+      "method": "POST",
+      "path": "/api/payments/admin/test-connection",
+      "normalized": "/api/payments/admin/test-connection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/manual-queue/${paymentId}/approve"
+      "method": "POST",
+      "path": "/api/payments/superadmin/test-connection",
+      "normalized": "/api/payments/superadmin/test-connection"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/manual-queue/${paymentId}/reject"
+      "method": "GET",
+      "path": "/api/payments/superadmin/platform-settings",
+      "normalized": "/api/payments/superadmin/platform-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/subscription/stk"
+      "method": "PUT",
+      "path": "/api/payments/superadmin/platform-settings",
+      "normalized": "/api/payments/superadmin/platform-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/subscription/manual"
+      "method": "POST",
+      "path": "/api/payments/parent/fee/stk",
+      "normalized": "/api/payments/parent/fee/stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/platform-manual-queue"
+      "method": "POST",
+      "path": "/api/payments/parent/fee/manual",
+      "normalized": "/api/payments/parent/fee/manual"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/parent/school-settings"
+      "method": "GET",
+      "path": "/api/payments/admin/manual-queue",
+      "normalized": "/api/payments/admin/manual-queue"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/superadmin/platform-manual-queue/${paymentId}/review"
+      "method": "GET",
+      "path": "/api/payments/admin/records",
+      "normalized": "/api/payments/admin/records"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/school/subscription/stk"
+      "method": "GET",
+      "path": "/api/payments/admin/context",
+      "normalized": "/api/payments/admin/context"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/admin/name-change/stk"
+      "method": "GET",
+      "path": "/api/payments/admin/finance-summary",
+      "normalized": "/api/payments/admin/finance-summary"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/platform/stk"
+      "method": "GET",
+      "path": "/api/payments/admin/students/:value/finance",
+      "normalized": "/api/payments/admin/students/:value/finance"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/payments/stk/${checkoutRequestId}/status"
+      "method": "GET",
+      "path": "/api/payments/admin/students/:value/history",
+      "normalized": "/api/payments/admin/students/:value/history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/birthdays/upcoming?days=${encodeURIComponent(days)}"
+      "method": "POST",
+      "path": "/api/payments/admin/students/:value/manual-payment",
+      "normalized": "/api/payments/admin/students/:value/manual-payment"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/birthdays/settings"
+      "method": "POST",
+      "path": "/api/payments/admin/students/:value/bursary",
+      "normalized": "/api/payments/admin/students/:value/bursary"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/birthdays/settings"
+      "method": "POST",
+      "path": "/api/payments/admin/manual-queue/:value/approve",
+      "normalized": "/api/payments/admin/manual-queue/:value/approve"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/birthdays/students/${studentId}/privacy"
+      "method": "POST",
+      "path": "/api/payments/admin/manual-queue/:value/reject",
+      "normalized": "/api/payments/admin/manual-queue/:value/reject"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/lifecycle/birthdays/process"
+      "method": "POST",
+      "path": "/api/payments/parent/subscription/stk",
+      "normalized": "/api/payments/parent/subscription/stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history${Object.keys(params).length ? "
+      "method": "POST",
+      "path": "/api/payments/parent/subscription/manual",
+      "normalized": "/api/payments/parent/subscription/manual"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/reports/comments"
+      "method": "GET",
+      "path": "/api/payments/superadmin/platform-manual-queue",
+      "normalized": "/api/payments/superadmin/platform-manual-queue"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/reports/comments"
+      "method": "GET",
+      "path": "/api/payments/parent/school-settings",
+      "normalized": "/api/payments/parent/school-settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/reports/comments/generate"
+      "method": "POST",
+      "path": "/api/payments/superadmin/platform-manual-queue/:value/review",
+      "normalized": "/api/payments/superadmin/platform-manual-queue/:value/review"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/reports/comments/headteacher"
+      "method": "POST",
+      "path": "/api/payments/school/subscription/stk",
+      "normalized": "/api/payments/school/subscription/stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history/${id}"
+      "method": "POST",
+      "path": "/api/payments/admin/name-change/stk",
+      "normalized": "/api/payments/admin/name-change/stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history/${id}/correct"
+      "method": "POST",
+      "path": "/api/payments/platform/stk",
+      "normalized": "/api/payments/platform/stk"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/report-cards/history/${id}/share"
+      "method": "GET",
+      "path": "/api/payments/stk/:value/status",
+      "normalized": "/api/payments/stk/:value/status"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/modules"
+      "method": "GET",
+      "path": "/api/lifecycle/birthdays/upcoming?days=:value",
+      "normalized": "/api/lifecycle/birthdays/upcoming"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/overview${q?"
+      "method": "GET",
+      "path": "/api/lifecycle/birthdays/settings",
+      "normalized": "/api/lifecycle/birthdays/settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/alerts?limit=${encodeURIComponent(limit)}"
+      "method": "PUT",
+      "path": "/api/lifecycle/birthdays/settings",
+      "normalized": "/api/lifecycle/birthdays/settings"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/invoices${q?"
+      "method": "PATCH",
+      "path": "/api/lifecycle/birthdays/students/:value/privacy",
+      "normalized": "/api/lifecycle/birthdays/students/:value/privacy"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/analytics${q?"
+      "method": "POST",
+      "path": "/api/lifecycle/birthdays/process",
+      "normalized": "/api/lifecycle/birthdays/process"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/audit-trail${q?"
+      "method": "GET",
+      "path": "/api/report-cards/history",
+      "normalized": "/api/report-cards/history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/expenses${q?"
+      "method": "GET",
+      "path": "/api/reports/comments",
+      "normalized": "/api/reports/comments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/expenses"
+      "method": "POST",
+      "path": "/api/reports/comments",
+      "normalized": "/api/reports/comments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/expenses/${encodeURIComponent(id)}"
+      "method": "POST",
+      "path": "/api/reports/comments/generate",
+      "normalized": "/api/reports/comments/generate"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/expenses/${encodeURIComponent(id)}"
+      "method": "POST",
+      "path": "/api/reports/comments/headteacher",
+      "normalized": "/api/reports/comments/headteacher"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/finance/report${q?"
+      "method": "GET",
+      "path": "/api/report-cards/history/:value",
+      "normalized": "/api/report-cards/history/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/sms/config"
+      "method": "POST",
+      "path": "/api/report-cards/history/:value/correct",
+      "normalized": "/api/report-cards/history/:value/correct"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/sms/config"
+      "method": "POST",
+      "path": "/api/report-cards/history/:value/share",
+      "normalized": "/api/report-cards/history/:value/share"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/sms/send"
+      "method": "GET",
+      "path": "/api/finance/modules",
+      "normalized": "/api/finance/modules"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/sms/history"
+      "method": "GET",
+      "path": "/api/finance/overview",
+      "normalized": "/api/finance/overview"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/home-tasks/today?studentId=${studentId}"
+      "method": "GET",
+      "path": "/api/finance/alerts?limit=:value",
+      "normalized": "/api/finance/alerts"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/home-tasks/${taskId}/complete"
+      "method": "GET",
+      "path": "/api/finance/invoices",
+      "normalized": "/api/finance/invoices"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/plans${ownerType ? "
+      "method": "GET",
+      "path": "/api/finance/analytics",
+      "normalized": "/api/finance/analytics"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/my-status"
+      "method": "GET",
+      "path": "/api/finance/audit-trail",
+      "normalized": "/api/finance/audit-trail"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/school/status"
+      "method": "GET",
+      "path": "/api/finance/expenses",
+      "normalized": "/api/finance/expenses"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/school/billing-history"
+      "method": "POST",
+      "path": "/api/finance/expenses",
+      "normalized": "/api/finance/expenses"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/school/request"
+      "method": "PATCH",
+      "path": "/api/finance/expenses/:value",
+      "normalized": "/api/finance/expenses/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/child/${encodeURIComponent(studentId)}/status"
+      "method": "DELETE",
+      "path": "/api/finance/expenses/:value",
+      "normalized": "/api/finance/expenses/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/child/request"
+      "method": "GET",
+      "path": "/api/finance/report",
+      "normalized": "/api/finance/report"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/subscription/upgrade"
+      "method": "GET",
+      "path": "/api/sms/config",
+      "normalized": "/api/sms/config"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments"
+      "method": "PUT",
+      "path": "/api/sms/config",
+      "normalized": "/api/sms/config"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments/${departmentId}/group"
+      "method": "POST",
+      "path": "/api/sms/send",
+      "normalized": "/api/sms/send"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments"
+      "method": "GET",
+      "path": "/api/sms/history",
+      "normalized": "/api/sms/history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments/${departmentId}"
+      "method": "GET",
+      "path": "/api/home-tasks/today?studentId=:value",
+      "normalized": "/api/home-tasks/today"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/departments/${departmentId}"
+      "method": "POST",
+      "path": "/api/home-tasks/:value/complete",
+      "normalized": "/api/home-tasks/:value/complete"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teachers"
+      "method": "GET",
+      "path": "/api/subscription/plans",
+      "normalized": "/api/subscription/plans"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/class-parents"
+      "method": "GET",
+      "path": "/api/subscription/my-status",
+      "normalized": "/api/subscription/my-status"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups"
+      "method": "GET",
+      "path": "/api/subscription/school/status",
+      "normalized": "/api/subscription/school/status"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups"
+      "method": "GET",
+      "path": "/api/subscription/school/billing-history",
+      "normalized": "/api/subscription/school/billing-history"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/direct/${userId}"
+      "method": "POST",
+      "path": "/api/subscription/school/request",
+      "normalized": "/api/subscription/school/request"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/direct"
+      "method": "GET",
+      "path": "/api/subscription/child/:value/status",
+      "normalized": "/api/subscription/child/:value/status"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/messages/${messageId}"
+      "method": "POST",
+      "path": "/api/subscription/child/request",
+      "normalized": "/api/subscription/child/request"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/messages/${messageId}"
+      "method": "POST",
+      "path": "/api/subscription/upgrade",
+      "normalized": "/api/subscription/upgrade"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/student/direct/${userId}"
+      "method": "GET",
+      "path": "/api/chat-v9/departments",
+      "normalized": "/api/chat-v9/departments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/student/direct"
+      "method": "GET",
+      "path": "/api/chat-v9/departments/:value/group",
+      "normalized": "/api/chat-v9/departments/:value/group"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/messages"
+      "method": "POST",
+      "path": "/api/chat-v9/departments",
+      "normalized": "/api/chat-v9/departments"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/members"
+      "method": "PUT",
+      "path": "/api/chat-v9/departments/:value",
+      "normalized": "/api/chat-v9/departments/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/members"
+      "method": "DELETE",
+      "path": "/api/chat-v9/departments/:value",
+      "normalized": "/api/chat-v9/departments/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/available-members"
+      "method": "GET",
+      "path": "/api/chat-v9/teachers",
+      "normalized": "/api/chat-v9/teachers"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/groups/${groupId}/messages"
+      "method": "GET",
+      "path": "/api/chat-v9/teacher/class-parents",
+      "normalized": "/api/chat-v9/teacher/class-parents"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/threads"
+      "method": "GET",
+      "path": "/api/chat-v9/teacher/groups",
+      "normalized": "/api/chat-v9/teacher/groups"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/threads"
+      "method": "POST",
+      "path": "/api/chat-v9/teacher/groups",
+      "normalized": "/api/chat-v9/teacher/groups"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/threads/${threadId}"
+      "method": "GET",
+      "path": "/api/chat-v9/teacher/direct/:value",
+      "normalized": "/api/chat-v9/teacher/direct/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/threads/${threadId}/replies"
+      "method": "POST",
+      "path": "/api/chat-v9/teacher/direct",
+      "normalized": "/api/chat-v9/teacher/direct"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}"
+      "method": "PUT",
+      "path": "/api/chat-v9/messages/:value",
+      "normalized": "/api/chat-v9/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}"
+      "method": "DELETE",
+      "path": "/api/chat-v9/messages/:value",
+      "normalized": "/api/chat-v9/messages/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}/award"
+      "method": "GET",
+      "path": "/api/chat-v9/student/direct/:value",
+      "normalized": "/api/chat-v9/student/direct/:value"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/messages/${messageId}/award"
+      "method": "POST",
+      "path": "/api/chat-v9/student/direct",
+      "normalized": "/api/chat-v9/student/direct"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/teacher/messages/${messageId}/react"
+      "method": "GET",
+      "path": "/api/chat-v9/teacher/groups/:value/messages",
+      "normalized": "/api/chat-v9/teacher/groups/:value/messages"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/classroom/replies/${replyId}/pin"
+      "method": "GET",
+      "path": "/api/chat-v9/teacher/groups/:value/members",
+      "normalized": "/api/chat-v9/teacher/groups/:value/members"
     },
     {
       "file": "frontend/js/api.js",
-      "path": "/api/chat-v9/achievements/me"
+      "method": "PUT",
+      "path": "/api/chat-v9/teacher/groups/:value/members",
+      "normalized": "/api/chat-v9/teacher/groups/:value/members"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "GET",
+      "path": "/api/chat-v9/teacher/available-members",
+      "normalized": "/api/chat-v9/teacher/available-members"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/attachments",
+      "normalized": "/api/chat-v9/attachments"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/teacher/groups/:value/messages",
+      "normalized": "/api/chat-v9/teacher/groups/:value/messages"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "GET",
+      "path": "/api/chat-v9/classroom/threads",
+      "normalized": "/api/chat-v9/classroom/threads"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/classroom/threads",
+      "normalized": "/api/chat-v9/classroom/threads"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "PUT",
+      "path": "/api/chat-v9/classroom/threads/:value",
+      "normalized": "/api/chat-v9/classroom/threads/:value"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/classroom/threads/:value/replies",
+      "normalized": "/api/chat-v9/classroom/threads/:value/replies"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "PUT",
+      "path": "/api/chat-v9/classroom/replies/:value",
+      "normalized": "/api/chat-v9/classroom/replies/:value"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "DELETE",
+      "path": "/api/chat-v9/classroom/replies/:value",
+      "normalized": "/api/chat-v9/classroom/replies/:value"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/classroom/replies/:value/award",
+      "normalized": "/api/chat-v9/classroom/replies/:value/award"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/teacher/messages/:value/award",
+      "normalized": "/api/chat-v9/teacher/messages/:value/award"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/teacher/messages/:value/react",
+      "normalized": "/api/chat-v9/teacher/messages/:value/react"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "POST",
+      "path": "/api/chat-v9/classroom/replies/:value/pin",
+      "normalized": "/api/chat-v9/classroom/replies/:value/pin"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "GET",
+      "path": "/api/chat-v9/achievements/me",
+      "normalized": "/api/chat-v9/achievements/me"
     },
     {
       "file": "frontend/js/approved-student-teacher-ui.js",
-      "path": "/api/teacher/students/${id}"
+      "method": "GET",
+      "path": "/api/teacher/students/:value",
+      "normalized": "/api/teacher/students/:value"
     },
     {
       "file": "frontend/js/branding-manager.js",
-      "path": "/api/owner/branding"
+      "method": "GET",
+      "path": "/api/owner/branding",
+      "normalized": "/api/owner/branding"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/context"
+      "method": "GET",
+      "path": "/api/payments/admin/context",
+      "normalized": "/api/payments/admin/context"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/admin/classes"
+      "method": "GET",
+      "path": "/api/admin/classes",
+      "normalized": "/api/admin/classes"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/admin/students"
+      "method": "GET",
+      "path": "/api/admin/students",
+      "normalized": "/api/admin/students"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/fee-structures"
+      "method": "GET",
+      "path": "/api/fee-structures",
+      "normalized": "/api/fee-structures"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/school-settings"
+      "method": "GET",
+      "path": "/api/payments/admin/school-settings",
+      "normalized": "/api/payments/admin/school-settings"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/providers"
+      "method": "GET",
+      "path": "/api/payments/admin/providers",
+      "normalized": "/api/payments/admin/providers"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/fee-structures/student-accounts"
+      "method": "GET",
+      "path": "/api/fee-structures/student-accounts",
+      "normalized": "/api/fee-structures/student-accounts"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/records?page=1&limit=100"
+      "method": "GET",
+      "path": "/api/payments/admin/records?page=1&limit=100",
+      "normalized": "/api/payments/admin/records"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/manual-queue"
+      "method": "GET",
+      "path": "/api/payments/admin/manual-queue",
+      "normalized": "/api/payments/admin/manual-queue"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/fee-structures/${id}"
+      "method": "DELETE",
+      "path": "/api/fee-structures/:value",
+      "normalized": "/api/fee-structures/:value"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/providers"
+      "method": "PUT",
+      "path": "/api/payments/admin/providers",
+      "normalized": "/api/payments/admin/providers"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/test-connection"
+      "method": "POST",
+      "path": "/api/payments/admin/test-connection",
+      "normalized": "/api/payments/admin/test-connection"
     },
     {
       "file": "frontend/js/finance-fees.js",
-      "path": "/api/payments/admin/providers/${encodeURIComponent(provider)}/setup-notifications"
+      "method": "POST",
+      "path": "/api/payments/admin/providers/:value/test-stk",
+      "normalized": "/api/payments/admin/providers/:value/test-stk"
+    },
+    {
+      "file": "frontend/js/finance-fees.js",
+      "method": "POST",
+      "path": "/api/payments/admin/providers/:value/setup-notifications",
+      "normalized": "/api/payments/admin/providers/:value/setup-notifications"
     },
     {
       "file": "frontend/js/helpers.js",
-      "path": "/api/parent/child/${studentId}/report-card-details"
-    },
-    {
-      "file": "frontend/js/helpers.js",
-      "path": "/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}"
+      "method": "GET",
+      "path": "/api/parent/child/:value/report-card-details",
+      "normalized": "/api/parent/child/:value/report-card-details"
     },
     {
       "file": "frontend/js/locked-features-ui.js",
-      "path": "/api/subscription/child/${child.id}/status"
+      "method": "GET",
+      "path": "/api/subscription/child/:value/status",
+      "normalized": "/api/subscription/child/:value/status"
     },
     {
       "file": "frontend/js/notifications.js",
-      "path": "/api/alerts/${id}/read"
+      "method": "PUT",
+      "path": "/api/alerts/:value/read",
+      "normalized": "/api/alerts/:value/read"
     },
     {
       "file": "frontend/js/notifications.js",
-      "path": "/api/alerts/read-all"
+      "method": "PUT",
+      "path": "/api/alerts/read-all",
+      "normalized": "/api/alerts/read-all"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/cbe/student-progress/${selectedChildId}"
+      "method": "GET",
+      "path": "/api/cbe/student-progress/:value",
+      "normalized": "/api/cbe/student-progress/:value"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/payments/parent/methods"
+      "method": "GET",
+      "path": "/api/payments/parent/methods",
+      "normalized": "/api/payments/parent/methods"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/payments/initiate"
+      "method": "POST",
+      "path": "/api/payments/parent/stk/initiate",
+      "normalized": "/api/payments/parent/stk/initiate"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/home-tasks/today?studentId=${childId}"
+      "method": "GET",
+      "path": "/api/home-tasks/today?studentId=:value",
+      "normalized": "/api/home-tasks/today"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/home-tasks/${taskId}/complete"
+      "method": "POST",
+      "path": "/api/home-tasks/:value/complete",
+      "normalized": "/api/home-tasks/:value/complete"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/alerts"
+      "method": "GET",
+      "path": "/api/alerts",
+      "normalized": "/api/alerts"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/payments/parent/school-settings"
+      "method": "GET",
+      "path": "/api/payments/parent/school-settings",
+      "normalized": "/api/payments/parent/school-settings"
     },
     {
       "file": "frontend/js/parent-dashboard.js",
-      "path": "/api/payments/parent/methods"
+      "method": "GET",
+      "path": "/api/payments/parent/methods",
+      "normalized": "/api/payments/parent/methods"
     },
     {
       "file": "frontend/js/realtime-client.js",
-      "path": "/api/realtime/sync?after=${after}&limit=200"
+      "method": "GET",
+      "path": "/api/realtime/sync?after=:value&limit=200",
+      "normalized": "/api/realtime/sync"
+    },
+    {
+      "file": "frontend/js/runtime-integrity-guards.js",
+      "method": "GET",
+      "path": "/api/duty/week",
+      "normalized": "/api/duty/week"
+    },
+    {
+      "file": "frontend/js/runtime-integrity-guards.js",
+      "method": "GET",
+      "path": "/api/duty/understaffed",
+      "normalized": "/api/duty/understaffed"
+    },
+    {
+      "file": "frontend/js/runtime-integrity-guards.js",
+      "method": "GET",
+      "path": "/api/duty/teacher-workload",
+      "normalized": "/api/duty/teacher-workload"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/gamification/leaderboard/${classId}"
+      "method": "GET",
+      "path": "/api/gamification/leaderboard/:value",
+      "normalized": "/api/gamification/leaderboard/:value"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/gamification/badges/${studentId}"
+      "method": "GET",
+      "path": "/api/gamification/badges/:value",
+      "normalized": "/api/gamification/badges/:value"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/student/grades"
+      "method": "GET",
+      "path": "/api/student/grades",
+      "normalized": "/api/student/grades"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/student/recommendations?${new URLSearchParams(params).toString()}"
+      "method": "GET",
+      "path": "/api/student/recommendations?:value",
+      "normalized": "/api/student/recommendations"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/student/dashboard"
+      "method": "GET",
+      "path": "/api/student/dashboard",
+      "normalized": "/api/student/dashboard"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/gamification/leaderboard/${classId}"
+      "method": "GET",
+      "path": "/api/gamification/leaderboard/:value",
+      "normalized": "/api/gamification/leaderboard/:value"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/gamification/badges/${studentId}"
+      "method": "GET",
+      "path": "/api/gamification/badges/:value",
+      "normalized": "/api/gamification/badges/:value"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/gamification/my-summary"
+      "method": "GET",
+      "path": "/api/gamification/my-summary",
+      "normalized": "/api/gamification/my-summary"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/homework/student"
+      "method": "GET",
+      "path": "/api/homework/student",
+      "normalized": "/api/homework/student"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/homework/submission-attachments"
+      "method": "POST",
+      "path": "/api/homework/submission-attachments",
+      "normalized": "/api/homework/submission-attachments"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
-      "path": "/api/homework/submit/${assignmentId}"
+      "method": "POST",
+      "path": "/api/homework/submit/:value",
+      "normalized": "/api/homework/submit/:value"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
-      "path": "/api/payments/superadmin/providers"
+      "method": "GET",
+      "path": "/api/payments/superadmin/providers",
+      "normalized": "/api/payments/superadmin/providers"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
-      "path": "/api/super-admin/system/status"
+      "method": "GET",
+      "path": "/api/super-admin/system/status",
+      "normalized": "/api/super-admin/system/status"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
-      "path": "/api/super-admin/system/metrics"
+      "method": "GET",
+      "path": "/api/super-admin/system/metrics",
+      "normalized": "/api/super-admin/system/metrics"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
-      "path": "/api/super-admin/system/events"
+      "method": "GET",
+      "path": "/api/super-admin/system/events",
+      "normalized": "/api/super-admin/system/events"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
-      "path": "/api/payments/superadmin/providers"
+      "method": "PUT",
+      "path": "/api/payments/superadmin/providers",
+      "normalized": "/api/payments/superadmin/providers"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
-      "path": "/api/payments/superadmin/test-connection"
+      "method": "POST",
+      "path": "/api/payments/superadmin/test-connection",
+      "normalized": "/api/payments/superadmin/test-connection"
     },
     {
       "file": "frontend/js/superadmin-dashboard.js",
-      "path": "/api/payments/superadmin/providers/${encodeURIComponent(provider)}/setup-notifications"
+      "method": "POST",
+      "path": "/api/payments/superadmin/providers/:value/setup-notifications",
+      "normalized": "/api/payments/superadmin/providers/:value/setup-notifications"
+    },
+    {
+      "file": "frontend/js/superadmin-dashboard.js",
+      "method": "POST",
+      "path": "/api/payments/superadmin/providers/:value/test-stk",
+      "normalized": "/api/payments/superadmin/providers/:value/test-stk"
     },
     {
       "file": "frontend/js/tasks.js",
-      "path": "/api/tasks"
+      "method": "POST",
+      "path": "/api/tasks",
+      "normalized": "/api/tasks"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/cbe/class-heatmap"
+      "method": "GET",
+      "path": "/api/cbe/class-heatmap",
+      "normalized": "/api/cbe/class-heatmap"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/cbe/below-expectation"
+      "method": "GET",
+      "path": "/api/cbe/below-expectation",
+      "normalized": "/api/cbe/below-expectation"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/cbe/auto-insights"
+      "method": "GET",
+      "path": "/api/cbe/auto-insights",
+      "normalized": "/api/cbe/auto-insights"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/school/curriculum"
+      "method": "GET",
+      "path": "/api/school/curriculum",
+      "normalized": "/api/school/curriculum"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/teacher/class-students?${new URLSearchParams({ classId, subject: effectiveSubject }).toString()}"
+      "method": "GET",
+      "path": "/api/teacher/class-students?:value).toString()}",
+      "normalized": "/api/teacher/class-students"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/teacher/class-students?${new URLSearchParams({ classId: currentMarksClassId, subject }).toString()}"
+      "method": "GET",
+      "path": "/api/teacher/class-students?:value).toString()}",
+      "normalized": "/api/teacher/class-students"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/teacher/my-assignments"
+      "method": "GET",
+      "path": "/api/teacher/my-assignments",
+      "normalized": "/api/teacher/my-assignments"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/timetable/teacher/${teacherId}?weekStart=${weekStart}"
+      "method": "GET",
+      "path": "/api/timetable/teacher/:value?weekStart=:value",
+      "normalized": "/api/timetable/teacher/:value"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher"
+      "method": "GET",
+      "path": "/api/homework/teacher",
+      "normalized": "/api/homework/teacher"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/attachments"
+      "method": "POST",
+      "path": "/api/homework/attachments",
+      "normalized": "/api/homework/attachments"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/assign"
+      "method": "POST",
+      "path": "/api/homework/assign",
+      "normalized": "/api/homework/assign"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/${Number(taskId)}"
+      "method": "GET",
+      "path": "/api/homework/teacher/:value",
+      "normalized": "/api/homework/teacher/:value"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/submissions/${Number(assignmentId)}/review"
+      "method": "POST",
+      "path": "/api/homework/teacher/submissions/:value/review",
+      "normalized": "/api/homework/teacher/submissions/:value/review"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/${Number(taskId)}"
+      "method": "PUT",
+      "path": "/api/homework/teacher/:value",
+      "normalized": "/api/homework/teacher/:value"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/homework/teacher/${Number(taskId)}/discussion"
+      "method": "POST",
+      "path": "/api/homework/teacher/:value/discussion",
+      "normalized": "/api/homework/teacher/:value/discussion"
     },
     {
       "file": "frontend/js/teacher-dashboard.js",
-      "path": "/api/teacher/subject-requests"
+      "method": "GET",
+      "path": "/api/teacher/subject-requests",
+      "normalized": "/api/teacher/subject-requests"
     },
     {
       "file": "frontend/js/ui-helpers.js",
-      "path": "/api/search?q=${encodeURIComponent(term)}"
-    },
-    {
-      "file": "frontend/js/runtime-integrity-guards.js",
-      "path": "/api/duty/week"
-    },
-    {
-      "file": "frontend/js/runtime-integrity-guards.js",
-      "path": "/api/duty/understaffed"
-    },
-    {
-      "file": "frontend/js/runtime-integrity-guards.js",
-      "path": "/api/duty/teacher-workload"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar/${id}"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/timetable?weekStartDate=${weekStart}"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/timetable/generate"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/timetable/${currentTimetableId}/publish"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/alerts/suggest-announcement"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/admin/teachers"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/admin/students"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/alerts"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/calendar"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/owner/branding"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/owner/branding"
-    },
-    {
-      "file": "frontend/js/admin-dashboard.js",
-      "path": "/api/admin/students/${encodeURIComponent(studentId)}/subject-selection/verify"
+      "method": "GET",
+      "path": "/api/search?q=:value",
+      "normalized": "/api/search"
     }
   ]
 }

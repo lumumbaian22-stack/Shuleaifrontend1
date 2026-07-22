@@ -90,12 +90,7 @@
     const activeAgent = PAYMENT_AGENT_DEFS.find(a => a.provider === activeProvider) || PAYMENT_AGENT_DEFS[0];
     const ref = (settings.linkingRule || schoolSettings().accountReferenceFormat || schoolSettings().referenceFormat || 'elimuid');
     const providerLabel = (provider) => (PAYMENT_AGENT_DEFS.find(a => a.provider === provider) || {}).label || provider || 'None selected';
-    const methodChecked = (provider, method) => {
-      const cfg = paymentAgentConfig(provider);
-      const selected = Array.isArray(cfg.methods) ? cfg.methods : [];
-      if (selected.length) return selected.includes(method);
-      return true;
-    };
+    const canonicalMethods = (provider) => provider === 'mpesa' ? ['mobile_money'] : (['stripe','pesapal'].includes(provider) ? ['card'] : ['mobile_money','card']);
     const providerRow = (agent) => {
       const selected = activeProvider === agent.provider;
       const saved = savedProvider === agent.provider;
@@ -111,13 +106,14 @@
     const queue = (state.manualQueue || []).slice(0,3);
     const queueRows = queue.length ? queue.map(p => `<tr><td>${esc(p.Student?.User?.name || p.studentName || p.studentId || 'Student')}</td><td>${esc(p.invoiceNumber || p.metadata?.invoiceNumber || p.reference || 'Invoice')}</td><td>${money(p.amount)}</td><td>${esc(p.mpesaCode || p.reference || p.transactionCode || '—')}</td><td>${esc(p.Parent?.User?.phone || p.parentPhone || '—')}</td><td><span class="pay-status pending">${esc(p.status || 'Pending')}</span></td><td><button onclick="financeV31ApproveManual(${jsArg(p.id)})">Approve</button><button class="reject" onclick="financeV31RejectManual(${jsArg(p.id)})">Reject</button></td></tr>`).join('') :
       `<tr><td colspan="7" class="text-center muted">No manual payment confirmations are waiting for approval.</td></tr>`;
-    const methodChecks = (provider) => `
-      <div class="payment-lock-method-list exact-method-list">
-        <label><span>▣ Mobile Money (STK Push)</span><input type="checkbox" data-provider-method="mobile_money" ${methodChecked(provider,'mobile_money')?'checked':''}></label>
-        <label><span>▤ Card Payments</span><input type="checkbox" data-provider-method="card" ${methodChecked(provider,'card')?'checked':''}></label>
-        <label><span>▥ Bank Transfer</span><input type="checkbox" data-provider-method="bank" ${methodChecked(provider,'bank')?'checked':''}></label>
-        <label><span>▧ Manual M-Pesa Reference</span><input type="checkbox" data-provider-method="manual" checked></label>
+    const methodChecks = (provider) => {
+      const methods = canonicalMethods(provider);
+      return `<div class="payment-lock-method-list exact-method-list">
+        ${methods.includes('mobile_money') ? '<label><span>▣ Mobile Money / Phone Prompt</span><input type="checkbox" data-provider-method="mobile_money" checked disabled></label>' : ''}
+        ${methods.includes('card') ? '<label><span>▤ Secure Provider Checkout</span><input type="checkbox" data-provider-method="card" checked disabled></label>' : ''}
+        <small>The active provider determines its supported operation automatically. Manual verification is not mixed into an online provider.</small>
       </div>`;
+    };
     return `<div class="payment-lock-page payment-lock-finance exact-payment-ui">
       <div class="payment-lock-page-head orange"><div><h2>Payment Settings</h2><p>Configure how parents pay school fees.</p></div><strong>One active provider only</strong></div>
       <div class="payment-lock-blue-note">All payment providers are treated equally in this system. Only one provider can be active at a time in this school. All others remain inactive until enabled.</div>
@@ -129,19 +125,19 @@
           <div class="payment-lock-green-note">M-Pesa is not a legacy or special-case provider. All providers are treated equally.</div>
         </section>
         ${paymentLinkingCard(ref)}
-        <section class="payment-lock-main-card manual-finance-card">
+        ${savedProvider === 'manual' ? `<section class="payment-lock-main-card manual-finance-card">
           <h3>2. Manual M-Pesa Verification <small>(School Fees)</small></h3>
           <div class="manual-toggle-row"><span>Enable Manual M-Pesa Verification</span><input type="checkbox" checked></div>
           <div class="payment-lock-fields compact">
-            <label>Paybill / Till<input class="finance-v31-input" value="${esc(schoolSettings().paybill || schoolSettings().till || '123456')}"></label>
-            <label>Account Name<input class="finance-v31-input" value="${esc(bankSettings().accountName || 'Green Hill Academy')}"></label>
+            <label>Paybill / Till<input class="finance-v31-input" value="${esc(schoolSettings().paybill || schoolSettings().till || '')}"></label>
+            <label>Account Name<input class="finance-v31-input" value="${esc(bankSettings().accountName || '')}"></label>
             <label class="wide">Parent Instructions<input class="finance-v31-input" value="${esc(schoolSettings().manualInstructions || 'Pay using school Paybill/Till and submit exact M-Pesa code.')}"></label>
           </div>
           <div class="manual-rule-grid">
             <div><strong>Reference Rule</strong><label><input type="radio" checked> ELIMU ID (Recommended)</label><label><input type="radio"> Admission Number</label><label><input type="radio"> Invoice Number</label><label><input type="radio"> Parent Phone</label></div>
             <div><strong>Matching Controls</strong><label><input type="checkbox" checked> Require exact amount</label><label><input type="checkbox" checked> Auto-match invoice number</label><label><input type="checkbox" checked> Prevent duplicate M-Pesa code</label></div>
           </div>
-        </section>
+        </section>` : ''}
         <section class="payment-lock-main-card manual-queue-card">
           <h3>Manual M-Pesa Verification Queue</h3>
           <div class="manual-queue-table"><table><thead><tr><th>Student</th><th>Invoice</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Status</th><th>Actions</th></tr></thead><tbody>${queueRows}</tbody></table></div>

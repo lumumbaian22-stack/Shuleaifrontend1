@@ -447,8 +447,8 @@ async function checkConsentAndDPA() {
         return true;
     } catch (error) {
         console.error('Consent check error:', error);
-        // If consent endpoints not yet deployed, allow access but log
-        return true;
+        showToast?.('Unable to verify required consent. Please retry.', 'error');
+        return false;
     }
 }
 

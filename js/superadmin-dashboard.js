@@ -130,6 +130,7 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
     const draftProvider = providerSettings._draftProvider || savedProvider || 'mpesa';
     const activeProvider = draftProvider;
     const activeAgent = PLATFORM_PAYMENT_AGENT_DEFS.find(a => a.provider === activeProvider) || PLATFORM_PAYMENT_AGENT_DEFS[0];
+    const canonicalMethods = activeAgent.provider === 'mpesa' ? ['mobile_money'] : (['stripe','pesapal'].includes(activeAgent.provider) ? ['card'] : ['mobile_money','card']);
     const activeLabel = (PLATFORM_PAYMENT_AGENT_DEFS.find(a => a.provider === savedProvider) || {}).label || 'M-Pesa';
     const providerRow = (agent) => {
         const selected = activeProvider === agent.provider;
@@ -161,20 +162,19 @@ function renderPlatformPaymentAgents(providerSettings = {}) {
         <section class="payment-lock-side-card platform-method-card">
           <h3>3. Platform Payment Methods</h3><p>For subscriptions, add-ons, and platform transactions.</p>
           <div class="payment-lock-method-list exact-method-list">
-            <label><span>▣ Mobile Money (STK Push)</span><input type="checkbox" data-platform-provider-method="mobile_money" checked></label>
-            <label><span>▤ Card Payments</span><input type="checkbox" data-platform-provider-method="card" checked></label>
-            <label><span>▥ Bank Transfer</span><input type="checkbox" data-platform-provider-method="bank" checked></label>
-            <label><span>▧ Manual M-Pesa Reference</span><input type="checkbox" data-platform-provider-method="manual" checked></label>
+            ${canonicalMethods.includes('mobile_money') ? '<label><span>▣ Mobile Money / Phone Prompt</span><input type="checkbox" data-platform-provider-method="mobile_money" checked disabled></label>' : ''}
+            ${canonicalMethods.includes('card') ? '<label><span>▤ Secure Provider Checkout</span><input type="checkbox" data-platform-provider-method="card" checked disabled></label>' : ''}
+            <small>The platform active provider determines the operation automatically. Manual verification is not mixed into an online provider.</small>
           </div>
         </section>
-        <section class="payment-lock-side-card platform-manual-card">
+        ${savedProvider === 'manual' ? `<section class="payment-lock-side-card platform-manual-card">
           <h3>4. Manual M-Pesa Verification <small>(Reference Approval)</small></h3>
           <label><span>Verification Mode</span><select><option>Manual Approval</option><option>Reference Approval</option></select></label>
-          <label><span>M-Pesa Till / Paybill</span><input value="${escapeHtml(platformProviderConfig('mpesa', providerSettings).paybill || '123456')}"></label>
-          <label><span>Account / Business Name</span><input value="${escapeHtml(platformProviderConfig('mpesa', providerSettings).accountName || 'ShuleAI Platform Ltd')}"></label>
+          <label><span>M-Pesa Till / Paybill</span><input value="${escapeHtml(platformProviderConfig('manual', providerSettings).paybill || '')}"></label>
+          <label><span>Account / Business Name</span><input value="${escapeHtml(platformProviderConfig('manual', providerSettings).accountName || '')}"></label>
           <label><span>Reference Prefix</span><input value="${escapeHtml(platformProviderConfig('mpesa', providerSettings).referencePrefix || 'SUB-')}"></label>
           <div class="payment-lock-warning">Verified payments will be marked as Paid after approval.</div>
-        </section>
+        </section>` : ''}
       </div>
     </div>`;
 }
