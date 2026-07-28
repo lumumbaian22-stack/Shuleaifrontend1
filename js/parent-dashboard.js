@@ -8,6 +8,15 @@ function parentSelectedChildStorageKey() {
 function getStoredSelectedChildId() { return localStorage.getItem(parentSelectedChildStorageKey()) || localStorage.getItem('shule_selected_child_id') || ''; }
 function setStoredSelectedChildId(id) { localStorage.setItem(parentSelectedChildStorageKey(), String(id || '')); localStorage.setItem('shule_selected_child_id', String(id || '')); }
 
+function formatParentMoney(amount, currency = 'KES') {
+    const code = String(currency || 'KES').toUpperCase();
+    const value = Number(amount || 0);
+    try {
+        return new Intl.NumberFormat('en-KE', { style: 'currency', currency: code, maximumFractionDigits: 2 }).format(value);
+    } catch (_) {
+        return `${code} ${value.toLocaleString('en-KE')}`;
+    }
+}
 
 function getParentChildDisplay(child) {
     const name = child?.name || child?.User?.name || 'Student';
@@ -287,7 +296,7 @@ async function renderParentDashboard() {
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">Fee Balance</p>
                                 <h3 class="text-2xl font-bold mt-1 ${feeBalance > 0 ? 'text-red-600' : 'text-green-600'}">
-                                    $${feeBalance}
+                                    ${formatParentMoney(feeBalance, data.currency || data.feeCurrency || student.currency || 'KES')}
                                 </h3>
                                 <p class="text-xs text-muted-foreground mt-1">${feeBalance > 0 ? 'Outstanding' : 'Paid in full'}</p>
                             </div>

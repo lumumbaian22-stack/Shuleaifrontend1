@@ -670,15 +670,7 @@ async function addComment(studentId, comment) {
 // ============ TASK FUNCTIONS ============
 
 function addTeacherTask() {
-    if (typeof showAddTaskModal === 'function') {
-        showAddTaskModal();
-        return;
-    }
-    if (typeof showDashboardSection === 'function') {
-        showDashboardSection('tasks');
-        return;
-    }
-    showToast('Task workspace is unavailable. Refresh the page and try again.', 'error');
+    showToast('Add task feature coming soon', 'info');
 }
 
 // ============ MESSAGE FUNCTIONS ============

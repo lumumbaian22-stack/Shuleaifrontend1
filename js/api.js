@@ -249,7 +249,7 @@ const superAdminAPI = {
 // ============ ADMIN ENDPOINTS ============
 const adminAPI = {
     getTeachers: () => apiRequest('/api/admin/teachers'),
-    getStudents: () => apiRequest('/api/admin/students'),
+    getStudents: (params = {}) => { const q = cleanQueryParams(params); return apiRequest(`/api/admin/students${q ? `?${q}` : ''}`); },
     getParents: () => apiRequest('/api/admin/parents'),
     getPendingApprovals: () => apiRequest('/api/admin/approvals/pending'),
     approveTeacher: (teacherId, action, rejectionReason) => 
@@ -284,8 +284,7 @@ const adminAPI = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    getClasses: (params = {}) => { const q = cleanQueryParams(params); return apiRequest('/api/admin/classes' + (q ? `?${q}` : '')); },
-    getActiveClasses: () => apiRequest('/api/admin/classes?status=active'),
+    getClasses: () => apiRequest('/api/admin/classes'),
     getClassTransferOptions: () => apiRequest('/api/lifecycle/transfer-options'),
     previewClassTransfer: (data) => apiRequest('/api/lifecycle/transfers/preview', { method:'POST', body:JSON.stringify(data) }),
     createClassTransfer: (data) => apiRequest('/api/lifecycle/transfers', { method:'POST', body:JSON.stringify(data) }),

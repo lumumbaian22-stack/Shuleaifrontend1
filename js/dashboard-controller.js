@@ -1029,7 +1029,7 @@ window.checkConsentAndDPA = checkConsentAndDPA;
 
   function applyRoleClass() {
     const role = normalizeRole(getRole());
-    document.body.classList.remove('role-admin', 'role-teacher', 'role-parent', 'role-student', 'role-super_admin', 'role-superadmin');
+    document.body.classList.remove('role-admin', 'role-finance_officer', 'role-teacher', 'role-parent', 'role-student', 'role-super_admin', 'role-superadmin');
     if (role) document.body.classList.add('role-' + role);
     if (role === 'super_admin') document.body.classList.add('role-superadmin');
   }
@@ -1097,8 +1097,13 @@ window.checkConsentAndDPA = checkConsentAndDPA;
 
     let user = {};
     try { user = JSON.parse(localStorage.getItem('shule_user') || localStorage.getItem('user') || '{}'); } catch (_) {}
-    const name = user.name || 'Student';
+    const student = window.dashboardData?.student || window.studentDashboardData?.student || {};
+    const name = student.name || student.User?.name || user.name || 'Student';
     const initials = name.split(' ').map(x => x[0]).join('').slice(0,2).toUpperCase() || 'ST';
+    const level = Number(student.level ?? window.dashboardData?.level ?? 1);
+    const points = Number(student.points ?? window.dashboardData?.points ?? 0);
+    const nextLevelPoints = Number(window.dashboardData?.nextLevelPoints ?? Math.max(100, Math.ceil((points + 1) / 100) * 100));
+    const progress = Math.max(0, Math.min(100, nextLevelPoints ? Math.round((points / nextLevelPoints) * 100) : 0));
 
     const hero = document.createElement('div');
     hero.className = 'student-xp-hero mb-6';
@@ -1108,15 +1113,15 @@ window.checkConsentAndDPA = checkConsentAndDPA;
         <div>
           <p class="text-white/70 text-sm font-semibold">Welcome back</p>
           <h2 class="text-3xl font-black tracking-tight m-0">${name}</h2>
-          <p class="text-white/75 text-sm mt-1">Level 8 learner • Keep your streak alive</p>
+          <p class="text-white/75 text-sm mt-1">Level ${level} learner • Keep your streak alive</p>
         </div>
       </div>
       <div class="student-xp-bar">
         <div class="flex justify-between gap-3 text-sm">
           <span class="text-white/75 font-semibold">XP Progress</span>
-          <strong>1,240 / 1,500 XP</strong>
+          <strong>${points.toLocaleString()} / ${nextLevelPoints.toLocaleString()} XP</strong>
         </div>
-        <div class="student-xp-bar-track"><span style="width:82%"></span></div>
+        <div class="student-xp-bar-track"><span style="width:${progress}%"></span></div>
       </div>
     `;
     content.prepend(hero);

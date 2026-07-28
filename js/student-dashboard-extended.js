@@ -83,6 +83,9 @@ async function renderStudentDashboard() {
         }
         const data = dashboardData || {};
         const user = getCurrentUser();
+        const canonicalStudent = data.student || user?.student || {};
+        const canonicalName = canonicalStudent.name || canonicalStudent.User?.name || user?.name || 'Student';
+        const canonicalElimuid = canonicalStudent.elimuid || user?.elimuid || user?.student?.elimuid || '';
         const school = data.school || getCurrentSchool() || {};
         const branding = (window.BrandingManager && window.BrandingManager.getStoredBranding ? window.BrandingManager.getStoredBranding() : {}) || {};
         const displaySchoolName = (window.BrandingManager && window.BrandingManager.getDisplayName ? window.BrandingManager.getDisplayName() : (school.schoolName || school.name || 'ShuleAI'));
@@ -106,7 +109,7 @@ async function renderStudentDashboard() {
                         <img data-report-school-logo data-student-school-logo src="${escapeHtml(schoolLogo || 'assets/logo-light.png')}" alt="${escapeHtml(displaySchoolName)} logo" class="h-12 w-12 rounded-xl object-contain bg-white/80 border p-1" onerror="this.onerror=null;this.src='assets/logo-light.png';">
                         <div>
                             <h2 id="student-school-name" data-school-name class="text-xl font-semibold">${escapeHtml(displaySchoolName)}</h2>
-                            <p class="text-sm text-muted-foreground">Welcome back, ${escapeHtml(user?.name || 'Student')}</p>
+                            <p class="text-sm text-muted-foreground">Welcome back, ${escapeHtml(canonicalName)}</p>
                         </div>
                     </div>
                 </div>
@@ -117,7 +120,7 @@ async function renderStudentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">My ELIMUID</p>
-                                <h3 class="text-lg font-mono font-bold mt-1" id="student-elimuid">${user?.elimuid || 'ELI-2024-001'}</h3>
+                                <h3 class="text-lg font-mono font-bold mt-1" id="student-elimuid">${canonicalElimuid ? escapeHtml(canonicalElimuid) : '<span class="text-destructive">Identity unavailable</span>'}</h3>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
                                 <i data-lucide="id-card" class="h-6 w-6 text-purple-600"></i>
@@ -1613,4 +1616,3 @@ async function v66JoinHomeworkDiscussion(threadId) {
 
 // V42 compatibility alias: keep original student homework layout, only satisfy older v12 callers.
 window.v12RenderStudentHomework = window.v12RenderStudentHomework || window.renderStudentHomework;
-

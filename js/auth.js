@@ -4,7 +4,7 @@ let currentSchool = null;
 
 
 function canonicalSmallMedia(value){const raw=String(value||'').trim();if(!raw||raw.startsWith('data:')||raw.startsWith('blob:')||raw.includes('/uploads/'))return'';return raw;}
-function stripLargeMediaForStorage(obj){const x=obj||{},t=x.teacher||{},img=canonicalSmallMedia(x.profileImage||x.profilePicture||x.preferences?.profileImageUrl),sig=canonicalSmallMedia(x.signatureUrl||x.signature||x.preferences?.signatureUrl);return{id:x.id,name:x.name||'',email:x.email||'',phone:x.phone||'',role:x.role||'',primaryRole:x.primaryRole||x.role||'',schoolCode:x.schoolCode||'',isActive:x.isActive!==false,firstLogin:!!x.firstLogin,mustChangePassword:!!x.mustChangePassword,financeTitle:x.financeTitle||x.preferences?.finance?.title||'',financePermissions:x.financePermissions||x.preferences?.finance?.permissions||[],profileImage:img,profilePicture:img,signature:sig,signatureUrl:sig,classId:x.classId||t.classId||null,classTeacher:x.classTeacher||t.classTeacher||null,teacher:x.role==='teacher'?{id:t.id||null,classId:t.classId||null,className:t.className||t.classTeacher||'',classTeacher:t.classTeacher||null,approvalStatus:t.approvalStatus||null,subjects:Array.isArray(t.subjects)?t.subjects.slice(0,30):[]}:undefined};}
+function stripLargeMediaForStorage(obj){const x=obj||{},t=x.teacher||{},s=x.student||{},img=canonicalSmallMedia(x.profileImage||x.profilePicture||x.preferences?.profileImageUrl),sig=canonicalSmallMedia(x.signatureUrl||x.signature||x.preferences?.signatureUrl);return{id:x.id,userId:x.userId||x.id,studentId:x.studentId||s.id||null,elimuid:x.elimuid||s.elimuid||'',name:x.name||'',email:x.email||'',phone:x.phone||'',role:x.role||'',primaryRole:x.primaryRole||x.role||'',schoolCode:x.schoolCode||'',isActive:x.isActive!==false,firstLogin:!!x.firstLogin,mustChangePassword:!!x.mustChangePassword,financeTitle:x.financeTitle||x.preferences?.finance?.title||'',financePermissions:x.financePermissions||x.preferences?.finance?.permissions||[],profileImage:img,profilePicture:img,signature:sig,signatureUrl:sig,classId:x.classId||s.classId||t.classId||null,className:x.className||s.className||'',classTeacher:x.classTeacher||t.classTeacher||null,student:x.role==='student'?{id:x.studentId||s.id||null,elimuid:x.elimuid||s.elimuid||'',classId:x.classId||s.classId||null,className:x.className||s.className||''}:undefined,teacher:x.role==='teacher'?{id:t.id||null,classId:t.classId||null,className:t.className||t.classTeacher||'',classTeacher:t.classTeacher||null,approvalStatus:t.approvalStatus||null,subjects:Array.isArray(t.subjects)?t.subjects.slice(0,30):[]}:undefined};}
 function minimalBrandingForStorage(b={}){const logo=canonicalSmallMedia(b.logoUrl||b.logo||'');return{schoolName:b.schoolName||b.displayName||'',displayName:b.displayName||b.schoolName||'',primaryColor:b.primaryColor||'',accentColor:b.accentColor||'',logoUrl:logo,logo};}
 function minimalSchoolForStorage(school,user){if(!school)return null;const b=school.settings?.branding||school.branding||{};return{schoolId:school.schoolId||school.schoolCode||user?.schoolCode||'',schoolCode:school.schoolCode||school.schoolId||user?.schoolCode||'',name:school.name||school.schoolName||'',schoolName:school.schoolName||school.name||'',status:school.status||'',system:school.system||school.curriculum||'',schoolStructure:school.schoolStructure||'',subscriptionPlan:school.subscriptionPlan||school.planCode||'',subscriptionStatus:school.subscriptionStatus||'',logo:canonicalSmallMedia(b.logoUrl||b.logo||school.logo||'')};}
 function cleanupOversizedSessionStorage(){['schoolSettings','schoolBranding','sidebarBrand','dashboardData','parentDashboardData','studentDashboardData','currentUser','shule_user','student'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i)||'';if(/^(schoolSettings:|dashboardData:|schoolBranding:)/.test(k))localStorage.removeItem(k);}}catch(_){}}
@@ -39,7 +39,27 @@ function parentSelectedChildKey(userId = null) {
     return `selectedChild:${id}`;
 }
 
-function clearSessionScopedDashboardState(){['selectedChild','shule_selected_child_id'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});cleanupOversizedSessionStorage();}
+function clearSessionScopedDashboardState(){['selectedChild','shule_selected_child_id','adminSelectedClass','userRole'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});cleanupOversizedSessionStorage();}
+
+function resetAuthenticatedRuntime(options={}) {
+    const preserveCredentials = options.preserveCredentials === true;
+    try { window.ShuleRealtime?.disconnect?.(); } catch (_) {}
+    try { window.__shuleRoleAbortController?.abort?.(); } catch (_) {}
+    window.__shuleRoleAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    ['authToken','token','refreshToken','user','school','userRole','shule_user','student','dashboardData','parentDashboardData','studentDashboardData','shule_selected_child_id','selectedChild','adminSelectedClass'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});
+    if (!preserveCredentials) clearSessionScopedDashboardState();
+    document.body.classList.remove('role-admin','role-finance_officer','role-teacher','role-parent','role-student','role-super_admin','role-superadmin');
+    window.currentRole = '';
+    window.currentSection = '';
+    window.dashboardData = {};
+    window.studentDashboardData = {};
+    window.parentDashboardData = {};
+    window.__teacherAssignments = null;
+    authToken = null;
+    refreshToken = null;
+    currentUser = null;
+    currentSchool = null;
+}
 
 function persistSessionPayload(userData,schoolData){currentUser=userData||null;currentSchool=schoolData||null;cleanupOversizedSessionStorage();if(currentUser){safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(currentUser)));safeSessionSet('userRole',currentUser.role||'');}if(currentSchool)safeSessionSet('school',JSON.stringify(minimalSchoolForStorage(currentSchool,currentUser)));}
 
@@ -99,7 +119,19 @@ async function superAdminLogin(email, password, secretKey) {
         authToken = response.data.token;
         refreshToken = response.data.refreshToken || null;
         if (refreshToken) safeSessionSet('refreshToken', refreshToken); else localStorage.removeItem('refreshToken');
-        currentUser = response.data.user;
+        const studentProfile = response.data.student || {};
+        currentUser = {
+            ...(response.data.user || {}),
+            studentId: studentProfile.id || response.data.user?.studentId || null,
+            elimuid: studentProfile.elimuid || response.data.user?.elimuid || '',
+            classId: studentProfile.classId || response.data.user?.classId || null,
+            student: {
+                id: studentProfile.id || null,
+                elimuid: studentProfile.elimuid || '',
+                classId: studentProfile.classId || null,
+                className: studentProfile.className || studentProfile.grade || ''
+            }
+        };
         
         clearSessionScopedDashboardState();
         safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}
@@ -188,6 +220,7 @@ async function parentSignup(parentData) {
 // Student login with ELIMUID
 async function studentLogin(elimuid, password) {
     try {
+        resetAuthenticatedRuntime({ preserveCredentials: true });
         const response = await api.auth.studentLogin(elimuid, password);
         if (!response.success) throw new Error(response.message);
         
@@ -210,6 +243,7 @@ async function studentLogin(elimuid, password) {
 // Regular login for admin/teacher/parent
 async function login(emailOrPhone, password, role) {
     try {
+        resetAuthenticatedRuntime({ preserveCredentials: true });
         console.log('🔐 Attempting login for role:', role);
 
         const response = await api.auth.login(emailOrPhone, password, role);
@@ -285,18 +319,7 @@ async function changePassword(currentPassword, newPassword) {
 
 // Logout
 function logout() {
-    clearSessionScopedDashboardState();
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('school');
-    localStorage.removeItem('userRole');
-    try { window.ShuleRealtime?.disconnect?.(); } catch (_) {}
-    authToken = null;
-    refreshToken = null;
-    currentUser = null;
-    currentSchool = null;
+    resetAuthenticatedRuntime();
     
     const landingPage = document.getElementById('landing-page');
     const dashboardContainer = document.getElementById('dashboard-container');
@@ -338,6 +361,7 @@ window.teacherSignup = teacherSignup;
 window.parentSignup = parentSignup;
 window.studentLogin = studentLogin;
 window.login = login;
+window.resetAuthenticatedRuntime = resetAuthenticatedRuntime;
 window.verifySchoolCode = verifySchoolCode;
 window.changePassword = changePassword;
 window.checkAuth = checkAuth;

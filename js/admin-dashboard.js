@@ -824,29 +824,50 @@ function renderAdminDashboard() {
 // ============ REPLACE renderAdminStudents WITH THIS VERSION ============
 async function renderAdminStudents() {
     try {
-        const [classesRes, studentsRes] = await Promise.all([
+        const [classesRes, firstStudentsRes] = await Promise.all([
             api.admin.getClasses(),
-            api.admin.getStudents()
+            api.admin.getStudents({ page: 1, limit: 200 })
         ]);
-        const classes = classesRes.data || [];
-        const allStudents = studentsRes.data || [];
+        const rawClasses = classesRes.data || [];
+        // Collapse only duplicate empty templates. Any populated class remains
+        // individually visible so no real roster can be hidden.
+        const populatedKeys = new Set(rawClasses.filter(c => Number(c.studentCount || 0) > 0).map(c => c.canonicalKey));
+        const emptyKeySeen = new Set();
+        const classes = rawClasses.filter(cls => {
+            if (Number(cls.studentCount || 0) > 0) return true;
+            const key = cls.canonicalKey || `id:${cls.id}`;
+            if (populatedKeys.has(key) || emptyKeySeen.has(key)) return false;
+            emptyKeySeen.add(key);
+            return true;
+        });
+        const allStudents = [...(firstStudentsRes.data || [])];
+        const totalPages = Number(firstStudentsRes.pagination?.totalPages || 1);
+        for (let page = 2; page <= totalPages; page += 1) {
+            const next = await api.admin.getStudents({ page, limit: 200 });
+            allStudents.push(...(next.data || []));
+        }
+        const canonicalCounts = firstStudentsRes.counts || {};
 
-        // Group students by grade (class name)
-        const studentsByGrade = {};
+        // Group strictly by canonical active-enrollment class ID.
+        const studentsByClassId = {};
         allStudents.forEach(s => {
-            const grade = s.grade || 'Unassigned';
-            if (!studentsByGrade[grade]) studentsByGrade[grade] = [];
-            studentsByGrade[grade].push(s);
+            const classId = s.activeEnrollment?.classId || s.classId || 'unassigned';
+            const key = String(classId);
+            if (!studentsByClassId[key]) studentsByClassId[key] = [];
+            studentsByClassId[key].push(s);
         });
 
-        // Determine selected class from localStorage or default
-        let selectedClassName = localStorage.getItem('adminSelectedClass');
-        if (!selectedClassName || !studentsByGrade[selectedClassName]) {
-            selectedClassName = classes.length > 0 ? classes[0].name : (Object.keys(studentsByGrade)[0] || '');
+        // Determine selected class by immutable ID, never by display name.
+        let selectedClassId = localStorage.getItem('adminSelectedClass');
+        if (!selectedClassId || (!classes.some(c => String(c.id) === String(selectedClassId)) && selectedClassId !== 'unassigned')) {
+            const populated = classes.find(c => (studentsByClassId[String(c.id)] || []).length > 0);
+            selectedClassId = populated ? String(populated.id) : (classes[0] ? String(classes[0].id) : 'unassigned');
         }
-        localStorage.setItem('adminSelectedClass', selectedClassName);
+        localStorage.setItem('adminSelectedClass', selectedClassId);
+        const selectedClass = classes.find(c => String(c.id) === String(selectedClassId)) || null;
+        const selectedClassName = selectedClass?.name || 'Not Assigned';
 
-        const selectedStudents = studentsByGrade[selectedClassName] || [];
+        const selectedStudents = studentsByClassId[String(selectedClassId)] || [];
 
         // Stats for selected class
         const totalInClass = selectedStudents.length;
@@ -855,19 +876,19 @@ async function renderAdminStudents() {
         const graduatedInClass = selectedStudents.filter(s => s.status === 'graduated').length;
 
         // Overall stats
-        const totalAll = allStudents.length;
-        const activeAll = allStudents.filter(s => s.status === 'active').length;
-        const inactiveAll = allStudents.filter(s => s.status === 'inactive').length;
-        const graduatedAll = allStudents.filter(s => s.status === 'graduated').length;
+        const totalAll = Number(canonicalCounts.total ?? firstStudentsRes.pagination?.total ?? allStudents.length);
+        const activeAll = Number(canonicalCounts.active ?? allStudents.filter(s => (s.status || 'active') === 'active').length);
+        const inactiveAll = Number(canonicalCounts.inactive ?? allStudents.filter(s => s.status === 'inactive').length);
+        const graduatedAll = Number(canonicalCounts.graduated ?? allStudents.filter(s => s.status === 'graduated').length);
 
         // Build class list HTML
         let classListHtml = classes.map(cls => {
-            const count = (studentsByGrade[cls.name] || []).length;
-            const isSelected = cls.name === selectedClassName;
+            const count = (studentsByClassId[String(cls.id)] || []).length;
+            const isSelected = String(cls.id) === String(selectedClassId);
             return `
                 <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
-                     data-class-name="${escapeHtml(cls.name)}"
-                     onclick="selectAdminClass('${escapeHtml(cls.name).replace(/'/g, "\\'")}')">
+                     data-class-id="${escapeHtml(String(cls.id))}"
+                     onclick="selectAdminClass('${escapeHtml(String(cls.id))}')">
                     <div class="flex justify-between items-center">
                         <span class="font-medium">${escapeHtml(cls.name)}</span>
                         <span class="text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}">${count} students</span>
@@ -877,24 +898,22 @@ async function renderAdminStudents() {
             `;
         }).join('');
 
-        // Also show grades that have students but no class record
-        const classNamesFromClasses = new Set(classes.map(c => c.name));
-        const orphanGrades = Object.keys(studentsByGrade).filter(g => !classNamesFromClasses.has(g) && g !== 'Unassigned');
-        orphanGrades.forEach(grade => {
-            const count = studentsByGrade[grade].length;
-            const isSelected = grade === selectedClassName;
+        // Show only genuinely unassigned learners (no valid active enrollment).
+        if ((studentsByClassId.unassigned || []).length) {
+            const count = studentsByClassId.unassigned.length;
+            const isSelected = selectedClassId === 'unassigned';
             classListHtml += `
                 <div class="class-item p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}"
-                     data-class-name="${escapeHtml(grade)}"
-                     onclick="selectAdminClass('${escapeHtml(grade).replace(/'/g, "\\'")}')">
+                     data-class-id="unassigned"
+                     onclick="selectAdminClass('unassigned')">
                     <div class="flex justify-between items-center">
-                        <span class="font-medium">${escapeHtml(grade)}</span>
+                        <span class="font-medium">Not Assigned</span>
                         <span class="text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}">${count} students</span>
                     </div>
-                    <p class="text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}">No class record</p>
+                    <p class="text-xs ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}">No valid active enrollment</p>
                 </div>
             `;
-        });
+        }
 
         // Students table for selected class
         const studentsTableHtml = selectedStudents.length === 0 ? `
@@ -1067,8 +1086,8 @@ async function renderAdminStudents() {
 // ============ HELPER FUNCTIONS (ADD THESE TO GLOBAL SCOPE) ============
 
 // Called when a class is clicked in the sidebar
-window.selectAdminClass = function(className) {
-    localStorage.setItem('adminSelectedClass', className);
+window.selectAdminClass = function(classId) {
+    localStorage.setItem('adminSelectedClass', String(classId));
     showDashboardSection('students'); // Re-render the section
 };
 
@@ -1627,7 +1646,7 @@ document.addEventListener('change', function(e) {
 
 async function loadClassesForSelect() {
     try {
-        const response = await (api.admin.getActiveClasses ? api.admin.getActiveClasses() : api.admin.getClasses({status:'active'}));
+        const response = await api.admin.getClasses();
         const select = document.getElementById('announcement-class');
         select.innerHTML = '<option value="">Select a class</option>';
         response.data.forEach(cls => {
@@ -2447,7 +2466,7 @@ function adminSubjectStatusBadge(status) {
     return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${adminEsc(s.replace(/_/g, ' '))}</span>`;
 }
 async function loadAdminStudentSubjectPayload(selectedStudentId) {
-    const [studentsRes, classesRes] = await Promise.all([api.admin.getStudents(), (api.admin.getActiveClasses ? api.admin.getActiveClasses() : api.admin.getClasses({status:'active'})).catch(() => ({ data: [] }))]);
+    const [studentsRes, classesRes] = await Promise.all([api.admin.getStudents(), api.admin.getClasses().catch(() => ({ data: [] }))]);
     const students = adminArray(studentsRes.data);
     let studentId = selectedStudentId || localStorage.getItem('selectedStudentForSubjects') || students[0]?.id || '';
     if (!students.some(s => String(s.id) === String(studentId))) studentId = students[0]?.id || '';
