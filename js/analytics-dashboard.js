@@ -213,7 +213,25 @@
     return [['platform','All Schools']];
   }
 
-  async function fetchAnalytics(){ const query=paramsFromUi().toString(); state.query=query; const result=await apiRequest(`/api/analytics/dashboard${query?`?${query}`:''}`); state.data=result.data||{}; return state.data; }
+  async function fetchAnalytics(){
+    const params = paramsFromUi();
+    if (roleKey(state.role || currentRole()) === 'parent' && !params.get('childId')) {
+      let user = {};
+      try { user = JSON.parse(localStorage.getItem('user') || '{}'); } catch (_) {}
+      const selectedChildId =
+        localStorage.getItem(`selectedChild:${user.id || 'unknown-parent'}`) ||
+        localStorage.getItem('shule_selected_child_id') ||
+        localStorage.getItem('selectedChild');
+      if (selectedChildId && selectedChildId !== 'undefined' && selectedChildId !== 'null') {
+        params.set('childId', selectedChildId);
+      }
+    }
+    const query=params.toString();
+    state.query=query;
+    const result=await apiRequest(`/api/analytics/dashboard${query?`?${query}`:''}`);
+    state.data=result.data||{};
+    return state.data;
+  }
 
   function filterBar(role,data){
     const r=roleKey(role), f=data.filters||{}, scope=data.scope||{}, types=scopeTypesFor(role,data);

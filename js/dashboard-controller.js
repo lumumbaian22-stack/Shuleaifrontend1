@@ -686,6 +686,9 @@ async function showDashboard(role) {
 }
 
 async function showDashboardSection(section) {
+    const renderGeneration = (window.__shuleSectionRenderGeneration || 0) + 1;
+    window.__shuleSectionRenderGeneration = renderGeneration;
+    const requestedRole = normalizeDashboardRole(currentRole);
     currentSection = section;
     window.currentSection = section;
     window.activeDashboardSection = section;
@@ -764,7 +767,13 @@ async function showDashboardSection(section) {
         };
         pageTitle.textContent = sectionNames[section] || 'Dashboard';
 
-        content.innerHTML = await renderDashboardSection(currentRole, section);
+        const renderedSection = await renderDashboardSection(requestedRole, section);
+        if (
+            renderGeneration !== window.__shuleSectionRenderGeneration ||
+            section !== window.currentSection ||
+            requestedRole !== normalizeDashboardRole(currentRole)
+        ) return;
+        content.innerHTML = renderedSection;
 
         if (section === 'dashboard' && typeof window.renderRecentAlertsPreview === 'function') {
             const panel = document.createElement('section');
@@ -828,6 +837,11 @@ async function showDashboardSection(section) {
         if (typeof window.__shuleDashboardPostRender === 'function') window.__shuleDashboardPostRender();
         if (typeof window.__shuleMobilePostRender === 'function') window.__shuleMobilePostRender();
     } catch (error) {
+        if (
+            error?.name === 'AbortError' ||
+            renderGeneration !== window.__shuleSectionRenderGeneration ||
+            requestedRole !== normalizeDashboardRole(currentRole)
+        ) return;
         console.error('Error loading section:', error);
         content.innerHTML = `<div class="text-center py-12">
             <i data-lucide="alert-circle" class="h-12 w-12 mx-auto text-red-500 mb-4"></i>
@@ -835,7 +849,7 @@ async function showDashboardSection(section) {
         </div>`;
         lucide.createIcons();
     } finally {
-        hideLoading();
+        if (renderGeneration === window.__shuleSectionRenderGeneration) hideLoading();
     }
 }
 

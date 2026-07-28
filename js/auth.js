@@ -51,6 +51,7 @@ function resetAuthenticatedRuntime(options={}) {
     document.body.classList.remove('role-admin','role-finance_officer','role-teacher','role-parent','role-student','role-super_admin','role-superadmin');
     window.currentRole = '';
     window.currentSection = '';
+    window.__shuleSectionRenderGeneration = (window.__shuleSectionRenderGeneration || 0) + 1;
     window.dashboardData = {};
     window.studentDashboardData = {};
     window.parentDashboardData = {};

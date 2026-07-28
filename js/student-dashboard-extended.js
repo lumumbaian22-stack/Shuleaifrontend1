@@ -211,15 +211,15 @@ async function renderStudentDashboard() {
                     <div class="grid gap-3 md:grid-cols-3 text-sm">
                         <div class="p-3 rounded-lg bg-muted/30">
                             <p class="text-muted-foreground">Current Average</p>
-                            <p class="text-2xl font-bold">${dashboardData?.averageScore || dashboardData?.overallAverage || 0}%</p>
+                            <p class="text-2xl font-bold">${data.stats?.averageScore || data.averageScore || data.overallAverage || 0}%</p>
                         </div>
                         <div class="p-3 rounded-lg bg-muted/30">
                             <p class="text-muted-foreground">Attendance</p>
-                            <p class="text-2xl font-bold">${dashboardData?.attendanceRate || 0}%</p>
+                            <p class="text-2xl font-bold">${data.stats?.attendanceRate ?? data.attendanceRate ?? 0}%</p>
                         </div>
                         <div class="p-3 rounded-lg bg-muted/30">
                             <p class="text-muted-foreground">Points</p>
-                            <p class="text-2xl font-bold">${dashboardData?.points || 0}</p>
+                            <p class="text-2xl font-bold">${data.student?.points ?? data.points ?? 0}</p>
                         </div>
                     </div>
                 </div>
@@ -283,17 +283,14 @@ async function loadDashboardLeaderboard() {
 async function loadDashboardBadges() {
     if (!v66IsAuthenticatedStudentContext()) return;
     try {
-        const dashboardRes = await api.student.getDashboard();
-        const studentId = dashboardRes.data?.student?.id;
-        if (!studentId) {
-            const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = '<p class="text-sm text-muted-foreground">No badges earned yet.</p>';  
-            return;
-        }
-        const res = await apiRequest(`/api/gamification/badges/${studentId}`);
-        const badges = res.data || [];
+        const res = await apiRequest('/api/gamification/my-summary');
+        const badges = (res.data?.badges || []).filter(b => b.earned);
+        const summary = res.data?.summary || {};
+        const pointsEl = document.getElementById('student-points');
+        if (pointsEl) pointsEl.textContent = Number(summary.totalPoints || 0);
         const html = badges.length === 0
             ? '<p class="text-sm text-muted-foreground">No badges yet</p>'
-            : badges.map(b => `<span class="inline-flex items-center px-2 py-1 mr-2 mt-2 bg-purple-100 text-purple-800 rounded-full text-xs">${b.Badge?.icon || '🏅'} ${b.Badge?.name}</span>`).join('');
+            : badges.map(b => `<span class="inline-flex items-center px-2 py-1 mr-2 mt-2 bg-purple-100 text-purple-800 rounded-full text-xs">${b.icon || '🏅'} ${escapeHtml(b.title || b.key)}</span>`).join('');
         const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = html;
     } catch (e) {
         const badgesEl = document.getElementById('student-badges'); if (badgesEl) badgesEl.innerHTML = '<p class="text-sm text-muted-foreground">No badges earned yet.</p>';  

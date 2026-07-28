@@ -144,7 +144,9 @@ async function renderTeacherV9Messages() {
 
 async function v9RefreshTeacherChat() {
   const root = document.getElementById('v9-teacher-chat-root');
-  if (root) root.innerHTML = '<div class="tm6-empty">Loading teacher workspace...</div>';
+  // Paint the usable shell immediately; slow optional directories hydrate it
+  // in the background instead of trapping the whole module on a loader.
+  if (root) v9RenderTeacherShell();
   try {
     const parentPromise = (async () => {
       if (!v9CanShowParentsTab()) return { data: [] };
@@ -175,11 +177,15 @@ async function v9RefreshTeacherChat() {
       });
       return { data: flat };
     })();
+    const bounded = (promise, fallback = { data: [] }, timeoutMs = 8000) => Promise.race([
+      Promise.resolve(promise).catch(() => fallback),
+      new Promise(resolve => setTimeout(() => resolve(fallback), timeoutMs))
+    ]);
     const [teachersRes, groupsRes, threadsRes, parentsRes] = await Promise.all([
-      chatV9API.getTeachers(),
-      chatV9API.getTeacherGroups(),
-      chatV9API.getClassroomThreads(),
-      parentPromise
+      bounded(chatV9API.getTeachers()),
+      bounded(chatV9API.getTeacherGroups()),
+      bounded(chatV9API.getClassroomThreads()),
+      bounded(parentPromise)
     ]);
     const me = v9CurrentUser();
     v9ChatState.teachers = (teachersRes.data || []).filter(t => Number(t.id) !== Number(me?.id) && t.role === 'teacher');
@@ -215,15 +221,24 @@ async function v9LoadCurrentMessages() {
     const me = v9CurrentUser();
     if (v9ChatState.mode === 'direct' && v9ChatState.selectedTeacher) {
       v9JoinConversation(v9DirectKey(me?.id, v9ChatState.selectedTeacher.id));
-      res = await chatV9API.getDirectMessages(v9ChatState.selectedTeacher.id);
+      res = await Promise.race([
+        chatV9API.getDirectMessages(v9ChatState.selectedTeacher.id),
+        new Promise(resolve => setTimeout(() => resolve({ data: [] }), 8000))
+      ]);
     } else if (v9ChatState.mode === 'parent' && v9ChatState.selectedParent && window.api?.teacher?.getParentMessages) {
       v9JoinConversation(null);
-      res = await window.api.teacher.getParentMessages(v9ChatState.selectedParent.userId);
+      res = await Promise.race([
+        window.api.teacher.getParentMessages(v9ChatState.selectedParent.userId),
+        new Promise(resolve => setTimeout(() => resolve({ data: [] }), 8000))
+      ]);
       const selectedKey = v9ChatState.selectedParent.conversationKey;
       if (selectedKey) res.data = (res.data || []).filter(m => !m.metadata?.conversationKey || m.metadata.conversationKey === selectedKey);
     } else if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) {
       v9JoinConversation(`group:${Number(v9ChatState.selectedGroup.id)}`);
-      res = await chatV9API.getGroupMessages(v9ChatState.selectedGroup.id);
+      res = await Promise.race([
+        chatV9API.getGroupMessages(v9ChatState.selectedGroup.id),
+        new Promise(resolve => setTimeout(() => resolve({ data: [] }), 8000))
+      ]);
       await v9LoadMembers(v9ChatState.selectedGroup.id);
     }
     v9ChatState.messages = res.data || [];

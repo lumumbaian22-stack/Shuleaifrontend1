@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shule-ai-2044-canonical-identity-roster-lock';
+const CACHE_NAME = 'shule-ai-2045-live-regression-integrity-lock';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/offline.html'];
 const DYNAMIC_FILE_RE = /\.(?:js|css|html|json)$/i;
 

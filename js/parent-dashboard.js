@@ -296,7 +296,14 @@ async function renderParentDashboard() {
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">Fee Balance</p>
                                 <h3 class="text-2xl font-bold mt-1 ${feeBalance > 0 ? 'text-red-600' : 'text-green-600'}">
-                                    ${formatParentMoney(feeBalance, data.currency || data.feeCurrency || student.currency || 'KES')}
+                                    ${formatParentMoney(
+                                        feeBalance,
+                                        selectedChildSummary.currency ||
+                                        selectedChildSummary.feeCurrency ||
+                                        outstandingFees?.currency ||
+                                        student.currency ||
+                                        'KES'
+                                    )}
                                 </h3>
                                 <p class="text-xs text-muted-foreground mt-1">${feeBalance > 0 ? 'Outstanding' : 'Paid in full'}</p>
                             </div>

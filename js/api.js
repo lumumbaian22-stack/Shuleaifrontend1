@@ -33,10 +33,11 @@ async function apiRequest(endpoint, options = {}) {
     if (authToken) headers.Authorization = `Bearer ${authToken}`;
     const retryableWrite = /^\/api\/timetable\b/i.test(endpoint);
     const attempts = method === 'GET' ? 2 : (retryableWrite ? 3 : 1);
+    const requestSignal = options.signal || window.__shuleRoleAbortController?.signal;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         try {
-            const response = await fetch(url, { ...options, headers });
+            const response = await fetch(url, { ...options, headers, ...(requestSignal ? { signal: requestSignal } : {}) });
             if (response.status === 429) {
                 const retryAfter = response.headers.get('Retry-After') || 60;
                 throw new Error(`Rate limited. Please wait ${retryAfter} seconds.`);
@@ -62,6 +63,7 @@ async function apiRequest(endpoint, options = {}) {
             }
             return data;
         } catch (error) {
+            if (error?.name === 'AbortError' || requestSignal?.aborted) throw error;
             const networkFailure = error instanceof TypeError || /failed to fetch|networkerror|connection terminated|connection reset|econnreset/i.test(String(error?.message || ''));
             if (attempt + 1 < attempts && networkFailure) { await new Promise(r => setTimeout(r, 350 * (attempt + 1))); continue; }
             if (!(error?.status === 401 || /invalid token|not authorized|jwt/i.test(String(error?.message || '')))) console.error('API Request failed:', error);
