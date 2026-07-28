@@ -19,7 +19,12 @@
   function activeChildIdForAlerts() {
     const role = getCurrentRoleSafe();
     if (role !== 'parent') return '';
-    return String(window.dashboardData?.selectedChildId || localStorage.getItem('shule_selected_child_id') || '').trim();
+    return String(
+      window.dashboardData?.selectedChildId ||
+      (typeof window.getStoredSelectedChildId === 'function' ? window.getStoredSelectedChildId() : '') ||
+      localStorage.getItem('shule_selected_child_id') ||
+      ''
+    ).trim();
   }
 
   function scopedAlertsUrl() {
@@ -378,6 +383,17 @@
     });
   }
 
+  function resetAlertsForSession() {
+    notificationsLoadSequence += 1;
+    notificationsLoadPromise = null;
+    notifications = [];
+    unreadCount = 0;
+    alertsAuthFailures = 0;
+    alertsPausedUntil = 0;
+    expandedDateGroups.clear();
+    updateUnreadCount();
+  }
+
 
   async function renderRecentAlertsPreview() {
     const host = document.getElementById('dashboard-recent-alerts-v146');
@@ -419,5 +435,5 @@
   window.openAlertAction = openAlertAction;
   window.resetAlertsForChildSwitch = resetAlertsForChildSwitch;
   window.renderRecentAlertsPreview = renderRecentAlertsPreview;
-  window.ShuleAlerts = { load: loadNotifications, open: openAlertsFromBell, render: renderAlertsCenter, resetForChild: resetAlertsForChildSwitch };
+  window.ShuleAlerts = { load: loadNotifications, open: openAlertsFromBell, render: renderAlertsCenter, resetForChild: resetAlertsForChildSwitch, resetForSession: resetAlertsForSession };
 })();

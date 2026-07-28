@@ -355,6 +355,49 @@ function normalizeDashboardRole(role) {
     return value === 'super_admin' ? 'superadmin' : value;
 }
 
+function dashboardSectionTitle(role, section) {
+    const normalizedRole = normalizeDashboardRole(role);
+    const shared = {
+        dashboard: 'Dashboard', students: 'Students', teachers: 'Teachers', classes: 'Classes',
+        attendance: 'Attendance', grades: 'Grades', analytics: 'Analytics', duty: 'Duty Management',
+        calendar: 'School Calendar', sms: 'Bulk SMS', tasks: 'My Tasks', profile: 'Profile',
+        help: 'Help', chat: normalizedRole === 'parent' ? 'Messages' : 'Study Group Chat',
+        payments: 'Payments', progress: 'Academic Progress', schools: 'School Management',
+        alerts: 'Alerts Center', birthdays: normalizedRole === 'admin' ? 'School Birthdays' : 'My Class Birthdays',
+        departments: 'Departments', homework: 'Homework', rewards: 'Rewards',
+        'my-homework': 'My Homework', 'my-timetable': 'My Timetable', schedule: 'My Timetable',
+        'staff-chat': 'Messages', messages: 'Messages', 'school-branding': 'School Branding',
+        'student-subject-selection': 'Student Subject Selection', 'subject-requests': 'Subject Requests',
+        'subject-choice': 'Subject Choice', 'subject-selection': 'Subject Choices',
+        'platform-settings': 'Platform Settings', 'user-settings': 'My Settings',
+        'ai-tutor': 'AI Tutor', 'payment-settings': 'Payment Options',
+        'payment-verification': 'Payment Verification', 'platform-payments': 'Platform Payments',
+        'platform-payment-options': 'Platform Payment Options',
+        'platform-payment-approvals': 'Platform Payment Approvals',
+        'subscription-billing': 'Subscription & Billing', 'child-selector': 'Select Child',
+        'platform-health': 'Platform Health', 'name-change-requests': 'Name Change Requests',
+        'school-approvals': 'School Approvals', 'pending-approvals': 'Pending School Approvals',
+        'teacher-approvals': 'Pending Teacher Approvals', 'paid-schools': 'Paid Schools',
+        'custom-subjects': 'Custom Subjects', 'report-settings': 'Report Card Settings',
+        'duty-preferences': 'Duty Preferences', 'fairness-report': 'Fairness Report',
+        'teacher-workload': 'Teacher Workload', 'parent-messages': 'Parent Messages',
+        'career-path': 'Career Path', 'student-lifecycle': 'Student School Cycle',
+        'class-transfers': 'Class Transfers', 'school-history': 'School History',
+        'academic-year-transition': 'Academic Year Transition',
+        'attendance-corrections': 'Attendance Corrections', 'report-history': 'Report Card History',
+        'child-attendance': 'Child Attendance', 'child-subscription': 'Payments',
+        'fee-structures': 'Finance & Fees'
+    };
+    if (section === 'settings') return normalizedRole === 'admin' ? 'School Settings' : 'My Settings';
+    if (section === 'timetable') {
+        if (normalizedRole === 'admin') return 'School Timetable';
+        if (normalizedRole === 'parent') return 'Child Timetable';
+        return 'My Timetable';
+    }
+    if (section === 'finance-fees') return normalizedRole === 'admin' ? 'Finance Overview' : 'Finance Workspace';
+    return shared[section] || 'Dashboard';
+}
+
 // ============ SCHOOL SETTINGS ============
 async function loadSchoolSettings() {
     try {
@@ -574,6 +617,7 @@ async function showDashboard(role) {
     role = normalizeDashboardRole(role);
     localStorage.setItem('userRole', role);
     currentRole = role;
+    window.currentRole = role;
 
     // Check consent before showing dashboard
     const canProceed = await checkConsentAndDPA();
@@ -634,7 +678,9 @@ async function showDashboard(role) {
         } else if (role === 'parent') {
             const children = await api.parent.getChildren().catch(err => ({ data: [] }));
             let childSummary = null;
-            const savedChildId = localStorage.getItem('shule_selected_child_id');
+            const savedChildId = typeof getStoredSelectedChildId === 'function'
+                ? getStoredSelectedChildId()
+                : localStorage.getItem('shule_selected_child_id');
             const selectedId = savedChildId || (children.data && children.data.length > 0 ? children.data[0].id : null);
             
             if (selectedId) {
@@ -645,6 +691,8 @@ async function showDashboard(role) {
                 selectedChild: childSummary?.data,
                 selectedChildId: selectedId 
             };
+            if (selectedId && typeof setStoredSelectedChildId === 'function') setStoredSelectedChildId(selectedId);
+            window.parentDashboardData = dashboardData;
         } else if (role === 'student') {
             const [studentDash, grades, attendance] = await Promise.all([
                 api.student.getDashboard().catch(err => ({ data: {} })),
@@ -670,6 +718,11 @@ async function showDashboard(role) {
             return;
         }
 
+        // Keep one canonical dashboard object. Role modules are loaded before this
+        // controller and otherwise retain the empty object that existed at startup.
+        window.dashboardData = dashboardData;
+        if (role === 'student') window.studentDashboardData = dashboardData;
+        if (role === 'parent') window.parentDashboardData = dashboardData;
         updateSidebar(role);
         updateUserInfo();
         await showDashboardSection(role === 'finance_officer' ? 'finance-fees' : 'dashboard');
@@ -686,6 +739,8 @@ async function showDashboard(role) {
 }
 
 async function showDashboardSection(section) {
+    try { window.__shuleSectionAbortController?.abort?.(); } catch (_) {}
+    window.__shuleSectionAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const renderGeneration = (window.__shuleSectionRenderGeneration || 0) + 1;
     window.__shuleSectionRenderGeneration = renderGeneration;
     const requestedRole = normalizeDashboardRole(currentRole);
@@ -696,6 +751,18 @@ async function showDashboardSection(section) {
     const pageTitle = document.getElementById('page-title');
 
     if (!content) return;
+    // Remove the previous dashboard immediately so users never see a stale role
+    // beneath a new title and analytics cannot read filters from the old screen.
+    content.innerHTML = `<div class="min-h-[240px] rounded-xl border bg-card p-6" role="status" aria-live="polite">
+        <div class="h-5 w-48 animate-pulse rounded bg-muted"></div>
+        <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div class="h-28 animate-pulse rounded-lg bg-muted/70"></div>
+            <div class="h-28 animate-pulse rounded-lg bg-muted/70"></div>
+            <div class="h-28 animate-pulse rounded-lg bg-muted/70"></div>
+        </div>
+        <span class="sr-only">Loading ${escapeHtml(dashboardSectionTitle(requestedRole, section))}</span>
+    </div>`;
+    if (pageTitle) pageTitle.textContent = dashboardSectionTitle(requestedRole, section);
     if (!sectionAllowedByRulebook(section)) {
         content.innerHTML = '<div class="text-center py-12"><p class="text-muted-foreground">This section is unavailable for the current school access state. When subscription payment is overdue, use Subscription & Billing to restore full access; no school data is deleted.</p></div>';
         updateSidebarActiveState(section);
@@ -765,7 +832,8 @@ async function showDashboardSection(section) {
             'child-attendance': 'Child Attendance',
             'child-subscription': 'Payments'
         };
-        pageTitle.textContent = sectionNames[section] || 'Dashboard';
+        // Kept as a compatibility map for older extensions; the authoritative
+        // role-aware title was applied before asynchronous rendering began.
 
         const renderedSection = await renderDashboardSection(requestedRole, section);
         if (
@@ -774,56 +842,68 @@ async function showDashboardSection(section) {
             requestedRole !== normalizeDashboardRole(currentRole)
         ) return;
         content.innerHTML = renderedSection;
+        const isCurrentSectionRender = () =>
+            renderGeneration === window.__shuleSectionRenderGeneration &&
+            section === window.currentSection &&
+            requestedRole === normalizeDashboardRole(currentRole);
 
         if (section === 'dashboard' && typeof window.renderRecentAlertsPreview === 'function') {
             const panel = document.createElement('section');
             panel.className = 'mt-6 rounded-xl border bg-card p-5';
             panel.innerHTML = '<div class="mb-3 flex items-center justify-between"><div><h3 class="font-semibold">Recent Alerts</h3><p class="text-xs text-muted-foreground">Latest updates for this account</p></div><button onclick="showDashboardSection(\'alerts\')" class="text-sm text-primary">View all</button></div><div id="dashboard-recent-alerts-v146"></div>';
             content.appendChild(panel);
-            setTimeout(() => window.renderRecentAlertsPreview(), 40);
+            setTimeout(() => { if (isCurrentSectionRender()) window.renderRecentAlertsPreview(); }, 40);
         }
 
-        setTimeout(() => { if (typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures(); }, 80);
+        setTimeout(() => { if (isCurrentSectionRender() && typeof applyGlobalProfilePictures === 'function') applyGlobalProfilePictures(); }, 80);
 
         updateSidebarActiveState(section);
 
         if (section === 'alerts') {
-            setTimeout(() => { if (typeof v94LoadAlerts === 'function') v94LoadAlerts(); }, 100);
+            setTimeout(() => { if (isCurrentSectionRender() && typeof v94LoadAlerts === 'function') v94LoadAlerts(); }, 100);
         }
 
-        if (currentRole === 'admin' && section === 'duty') {
-            setTimeout(() => { if (typeof v93LoadAdminDuty === 'function') v93LoadAdminDuty(); }, 100);
+        if (requestedRole === 'admin' && section === 'duty') {
+            setTimeout(() => { if (isCurrentSectionRender() && typeof v93LoadAdminDuty === 'function') v93LoadAdminDuty(); }, 100);
         }
-        if (currentRole === 'teacher' && section === 'duty') {
-            setTimeout(() => { if (typeof v93LoadTeacherDuty === 'function') v93LoadTeacherDuty(); }, 100);
+        if (requestedRole === 'teacher' && section === 'duty') {
+            setTimeout(() => { if (isCurrentSectionRender() && typeof v93LoadTeacherDuty === 'function') v93LoadTeacherDuty(); }, 100);
         }
 
-        if (currentRole === 'admin' && section === 'departments') {
-            setTimeout(() => { if (typeof v92LoadDepartments === 'function') v92LoadDepartments(); }, 100);
+        if (requestedRole === 'admin' && section === 'departments') {
+            setTimeout(() => { if (isCurrentSectionRender() && typeof v92LoadDepartments === 'function') v92LoadDepartments(); }, 100);
         }
 
         // Dashboard pages must stay card/table based only.
         // Charts are initialized only inside the dedicated Analytics section.
-        if (currentRole === 'teacher' && (section === 'chat' || section === 'messages' || section === 'staff-chat')) {
-            setTimeout(() => { if (typeof v9RefreshTeacherChat === 'function') v9RefreshTeacherChat(); }, 100);
+        if (requestedRole === 'teacher' && (section === 'chat' || section === 'messages' || section === 'staff-chat')) {
+            setTimeout(() => { if (isCurrentSectionRender() && typeof v9RefreshTeacherChat === 'function') v9RefreshTeacherChat(); }, 100);
         }
-        if (currentRole === 'student' && (section === 'chat' || section === 'classroom')) {
-            setTimeout(() => { if (typeof v9LoadStudentThreads === 'function') v9LoadStudentThreads(); }, 100);
+        if (requestedRole === 'student' && (section === 'chat' || section === 'classroom')) {
+            setTimeout(() => { if (isCurrentSectionRender() && typeof v9LoadStudentThreads === 'function') v9LoadStudentThreads(); }, 100);
+        }
+        if (requestedRole === 'student' && section === 'dashboard' && typeof window.loadStudentDashboardWidgets === 'function') {
+            setTimeout(() => {
+                if (isCurrentSectionRender()) {
+                    window.loadStudentDashboardWidgets();
+                }
+            }, 0);
         }
 
         if (section === 'analytics') {
             setTimeout(() => {
-                if (typeof initRoleCharts === 'function') {
-                    initRoleCharts(currentRole, dashboardData);
+                if (isCurrentSectionRender() && typeof initRoleCharts === 'function') {
+                    initRoleCharts(requestedRole, dashboardData);
                 }
             }, 300);
         }
 
-        setupSectionListeners(currentRole, section);
+        setupSectionListeners(requestedRole, section);
 
         // Dynamic dashboard sections are inserted after the branding manager may have booted.
         // Re-apply once after each render so student/parent headers and sidebar logos stay correct.
         setTimeout(() => {
+            if (!isCurrentSectionRender()) return;
             try {
                 if (window.BrandingManager && typeof window.BrandingManager.forceApply === 'function') {
                     window.BrandingManager.forceApply();
@@ -833,7 +913,7 @@ async function showDashboardSection(section) {
             } catch (_) {}
         }, 30);
 
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
         if (typeof window.__shuleDashboardPostRender === 'function') window.__shuleDashboardPostRender();
         if (typeof window.__shuleMobilePostRender === 'function') window.__shuleMobilePostRender();
     } catch (error) {
@@ -847,7 +927,7 @@ async function showDashboardSection(section) {
             <i data-lucide="alert-circle" class="h-12 w-12 mx-auto text-red-500 mb-4"></i>
             <p class="text-red-500">Failed to load section: ${error.message}</p>
         </div>`;
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
     } finally {
         if (renderGeneration === window.__shuleSectionRenderGeneration) hideLoading();
     }

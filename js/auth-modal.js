@@ -650,7 +650,10 @@ async function handleStudentLogin() {
         if (response.success) {
             authToken = response.data.token;        // Update global authToken
             refreshToken = response.data.refreshToken || null;
-            if(typeof safeSessionSet==='function'){safeSessionSet('authToken',authToken);if(refreshToken)safeSessionSet('refreshToken',refreshToken);else localStorage.removeItem('refreshToken');try{localStorage.removeItem('token')}catch(_){}safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));safeSessionSet('userRole','student');}else{localStorage.setItem('authToken',authToken);if(refreshToken)localStorage.setItem('refreshToken',refreshToken);else localStorage.removeItem('refreshToken');try{localStorage.removeItem('token')}catch(_){}localStorage.setItem('user',JSON.stringify(stripLargeMediaForStorage(response.data.user)));localStorage.setItem('userRole','student');}
+            const sessionStudentUser = typeof window.mergeRoleProfile === 'function'
+                ? window.mergeRoleProfile(response.data.user || {}, response.data.student || response.data.profile)
+                : (response.data.user || {});
+            if(typeof safeSessionSet==='function'){safeSessionSet('authToken',authToken);if(refreshToken)safeSessionSet('refreshToken',refreshToken);else localStorage.removeItem('refreshToken');try{localStorage.removeItem('token')}catch(_){}safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(sessionStudentUser)));safeSessionSet('userRole','student');}else{localStorage.setItem('authToken',authToken);if(refreshToken)localStorage.setItem('refreshToken',refreshToken);else localStorage.removeItem('refreshToken');try{localStorage.removeItem('token')}catch(_){}localStorage.setItem('user',JSON.stringify(stripLargeMediaForStorage(sessionStudentUser)));localStorage.setItem('userRole','student');}
 
             if (response.data.user.firstLogin) {
                 closeAuthModal();

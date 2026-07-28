@@ -89,15 +89,14 @@
     if (String(classIdOf(a) ?? '') === String(b)) return true;
     const cls = activeClasses.find(c => String(classIdOf(c)) === String(b));
     if (!cls) return false;
-    return norm(a.className || a.name || a.grade) === norm(classNameOf(cls)) || (norm(a.grade) && norm(a.grade) === norm(cls.grade));
+    return !a.classId && norm(a.className || a.name) === norm(classNameOf(cls));
   }
   function findClassBlock(classId = selectedClassId) {
     if (!activeTimetable || !classId || classId === 'all') return null;
     const cls = activeClasses.find(c => String(classIdOf(c)) === String(classId));
     const blocks = Array.isArray(activeTimetable.classes) ? activeTimetable.classes : [];
     return blocks.find(b => String(classIdOf(b) ?? '') === String(classId)) ||
-      blocks.find(b => cls && norm(classNameOf(b)) === norm(classNameOf(cls))) ||
-      blocks.find(b => cls && norm(b.grade) && norm(b.grade) === norm(cls.grade));
+      blocks.find(b => cls && !classIdOf(b) && norm(classNameOf(b)) === norm(classNameOf(cls)));
   }
   function slotsForClassFromGlobal(classId) {
     const slots = normalizeSlots(activeTimetable?.slots || [], activePeriods);
@@ -113,7 +112,10 @@
     const byClass = new Map();
     (activeClasses || []).forEach(c => byClass.set(String(classIdOf(c)), { classId: classIdOf(c), className: classNameOf(c), grade: c.grade, stream: c.stream, periods: clone(activePeriods), timetable: shell(activePeriods) }));
     (slots || []).forEach(dayBlock => (dayBlock.periods || []).forEach((period, pi) => (period.classes || []).forEach(lesson => {
-      const matchedClass = activeClasses.find(c => String(classIdOf(c)) === String(lesson.classId ?? '') || norm(classNameOf(c)) === norm(lesson.className || lesson.grade));
+      const matchedClass = activeClasses.find(c =>
+        String(classIdOf(c)) === String(lesson.classId ?? '') ||
+        (!lesson.classId && norm(classNameOf(c)) === norm(lesson.className))
+      );
       const key = String(lesson.classId || (matchedClass && classIdOf(matchedClass)) || lesson.className || 'unknown');
       if (!byClass.has(key)) byClass.set(key, { classId: lesson.classId || (matchedClass && classIdOf(matchedClass)) || null, className: lesson.className || (matchedClass && classNameOf(matchedClass)) || 'Class', grade: lesson.grade || matchedClass?.grade || '', stream: lesson.stream || matchedClass?.stream || '', periods: clone(activePeriods), timetable: shell(activePeriods) });
       const block = byClass.get(key); const day = block.timetable.find(d => d.day === dayBlock.day); if (!day || !day.periods[pi]) return;

@@ -764,7 +764,8 @@ function v9RenderStudentPrivateList() {
   if (!peers.length) return '<div class="v9-wa-empty-small">Your classmates will appear here.</div>';
   return peers.slice(0, 8).map(p => {
     const active = v9StudentState.mode === 'private' && Number(v9StudentState.selectedPeerId) === Number(p.id);
-    return `<button class="v9-wa-list-item ${active?'active':''}" onclick="v9StudentSelectPeer(${Number(p.id)})">${v9Avatar(p,'v9-wa-avatar')}<span><strong>${v9Safe(p.name)}</strong><small>Classmate</small><em>Private study chat</em></span></button>`;
+    const identity = p.elimuid || p.admissionNumber || `Student #${p.studentId}`;
+    return `<button class="v9-wa-list-item ${active?'active':''}" onclick="v9StudentSelectPeer(${Number(p.id)})">${v9Avatar(p,'v9-wa-avatar')}<span><strong>${v9Safe(p.name)}</strong><small>${v9Safe(identity)}</small><em>Private study chat</em></span></button>`;
   }).join('');
 }
 function v9RenderStudentGroupChat(group, selected, threads) {
@@ -793,7 +794,7 @@ function v9RenderStudentPrivateChat(peer) {
   if (!peer) return '<div class="v9-wa-chat-card"><div class="v9-wa-day">Choose a classmate to start a private study chat.</div></div>';
   const me = v9CurrentUser();
   return `<div class="v9-wa-chat-card">
-    <header class="v9-wa-chat-head"><button onclick="v9StudentSetMode('private')">←</button>${v9Avatar(peer,'v9-wa-avatar')}<div><h3>${v9Safe(peer.name)}</h3><p>Private study message</p></div><button onclick="v9LoadStudentPrivateMessages(${Number(peer.id)})">↻</button></header>
+    <header class="v9-wa-chat-head"><button onclick="v9StudentSetMode('private')">←</button>${v9Avatar(peer,'v9-wa-avatar')}<div><h3>${v9Safe(peer.name)}</h3><p>${v9Safe(peer.elimuid || peer.admissionNumber || `Student #${peer.studentId}`)}</p></div><button onclick="v9LoadStudentPrivateMessages(${Number(peer.id)})">↻</button></header>
     <div class="v9-wa-feed">${v9StudentState.directMessages.length ? v9StudentState.directMessages.map(m => v9RenderWhatsAppMessage(m, Number(m.senderId || m.Sender?.id) === Number(me?.id))).join('') : '<div class="v9-wa-day">No messages yet. Say hello 👋</div>'}</div>
     ${(v9StudentState.replyToMessage || v9StudentState.editingMessage) ? `<div class="v9-wa-action-bar"><span>${v9StudentState.editingMessage ? '✏️ Editing' : '↪ Replying to'} ${v9Safe((v9StudentState.editingMessage || v9StudentState.replyToMessage)?.content || '')}</span><button onclick="v9CancelStudentAction()">×</button></div>` : ''}
     <div class="v9-wa-composer"><button type="button">😊</button><input id="v9-private-input-${Number(peer.id)}" placeholder="${v9StudentState.editingMessage ? 'Edit message...' : 'Type a private message...'}" onkeydown="if(event.key==='Enter')v9SendStudentPrivateMessage(${Number(peer.id)})"><button type="button" onclick="v9SendStudentPrivateMessage(${Number(peer.id)})">${v9StudentState.editingMessage ? 'Save' : '➤'}</button></div>
@@ -823,11 +824,11 @@ function v9RenderStudentGroupInfo(group, participants, threads, data) {
 }
 function v9RenderStudentPrivateInfo(peer) {
   if (!peer) return '<div class="v9-wa-info-card"><h3>Private Messages</h3><p>Select a classmate.</p></div>';
-  return `<div class="v9-wa-info-card"><div class="v9-wa-big-icon">${v9Initials(peer.name)}</div><h3>${v9Safe(peer.name)}</h3><p>Classmate</p><small>Private messages are for respectful study help only.</small><div class="v9-wa-info-list"><button onclick="v9StudentSetMode('study')">👥 Back to Study Groups</button><button onclick="v9OpenStudentTopicModal()">✏️ Turn into group topic</button></div></div>`;
+  return `<div class="v9-wa-info-card"><div class="v9-wa-big-icon">${v9Initials(peer.name)}</div><h3>${v9Safe(peer.name)}</h3><p>${v9Safe(peer.elimuid || peer.admissionNumber || `Student #${peer.studentId}`)}</p><small>Private messages are for respectful study help only.</small><div class="v9-wa-info-list"><button onclick="v9StudentSetMode('study')">👥 Back to Study Groups</button><button onclick="v9OpenStudentTopicModal()">✏️ Turn into group topic</button></div></div>`;
 }
 function v9RenderParticipants(participants = []) {
   if (!participants.length) return '<div class="v9-wa-empty-small">Members will appear once students are linked to this class.</div>';
-  return `<div class="v9-wa-member-grid">${participants.slice(0,80).map(p => `<button onclick="v9StudentSelectPeer(${Number(p.id)})">${v9Avatar(p,'v9-wa-avatar sm')}<strong>${v9Safe(p.name)}</strong></button>`).join('')}</div>`;
+  return `<div class="v9-wa-member-grid">${participants.slice(0,80).map(p => `<button onclick="v9StudentSelectPeer(${Number(p.id)})">${v9Avatar(p,'v9-wa-avatar sm')}<strong>${v9Safe(p.name)}</strong><small>${v9Safe(p.elimuid || p.admissionNumber || `Student #${p.studentId}`)}</small></button>`).join('')}</div>`;
 }
 async function v9StudentSetMode(mode) {
   v9StudentState.mode = mode;
@@ -880,6 +881,19 @@ async function v9StudentDeleteMessage(messageId, mode = 'me') {
 }
 function v9SelectStudentGroup(groupId) { v9StudentState.mode = 'study'; v9StudentState.selectedGroupId = groupId; v9StudentState.selectedThreadId = null; v9RenderStudentStudyRoom(); }
 function v9SelectStudentThread(threadId) { v9StudentState.mode = 'study'; v9StudentState.selectedThreadId = threadId; v9JoinConversation(`thread:${Number(threadId)}`); v9RenderStudentStudyRoom(); }
+async function v9OpenStudentThread(threadId) {
+  const wanted = Number(threadId);
+  if (!wanted) throw new Error('Study discussion is not linked correctly.');
+  await v9LoadStudentThreads();
+  const thread = (v9StudentState.threads || []).find(row => Number(row.id) === wanted);
+  if (!thread) throw new Error('This homework discussion is not available to your class.');
+  const groupId = v9ThreadGroupId(thread);
+  if (groupId && v9StudentState.groups.some(group => String(group.id) === String(groupId))) {
+    v9StudentState.selectedGroupId = groupId;
+  }
+  v9SelectStudentThread(wanted);
+  return true;
+}
 function v9StudentSetFilter(filter) { v9StudentState.filter = filter; v9RenderStudentStudyRoom(); }
 function v9StudentSearchThreads(query) { v9StudentState.query = query || ''; v9RenderStudentStudyRoom(); }
 function v9OpenTopicPicker() { v9StudentSetMode('study'); }
@@ -958,6 +972,7 @@ window.ShuleChatV9Realtime={applyEvent:v9ApplyRealtimeEvent,getTeacherState:()=>
 window.v9RenderStudentStudyRoom = v9RenderStudentStudyRoom;
 window.v9SelectStudentGroup = v9SelectStudentGroup;
 window.v9SelectStudentThread = v9SelectStudentThread;
+window.v9OpenStudentThread = v9OpenStudentThread;
 window.v9StudentSetFilter = v9StudentSetFilter;
 window.v9StudentSearchThreads = v9StudentSearchThreads;
 window.v9OpenStudentTopicModal = v9OpenStudentTopicModal;

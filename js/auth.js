@@ -10,12 +10,21 @@ function minimalSchoolForStorage(school,user){if(!school)return null;const b=sch
 function cleanupOversizedSessionStorage(){['schoolSettings','schoolBranding','sidebarBrand','dashboardData','parentDashboardData','studentDashboardData','currentUser','shule_user','student'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i)||'';if(/^(schoolSettings:|dashboardData:|schoolBranding:)/.test(k))localStorage.removeItem(k);}}catch(_){}}
 function safeSessionSet(key,value){try{localStorage.setItem(key,value);return true}catch(e){if(e?.name!=='QuotaExceededError')throw e;cleanupOversizedSessionStorage();try{localStorage.setItem(key,value);return true}catch(_){return false}}}
 
-// Helper: Merge teacher profile into user object
-function mergeTeacherProfile(userData, profile) {
+// Merge the effective-role profile into the compact session user. Keeping the
+// canonical Student.id is essential because it is different from User.id.
+function mergeRoleProfile(userData, profile) {
+    userData = userData || {};
     if (profile) {
         if (userData.role === 'teacher') {
             userData.teacher = profile;
             if (profile.classTeacher) userData.classTeacher = profile.classTeacher;
+        }
+        if (userData.role === 'student') {
+            userData.student = { ...(userData.student || {}), ...profile };
+            userData.studentId = profile.id || userData.studentId || null;
+            userData.elimuid = profile.elimuid || userData.elimuid || '';
+            userData.classId = profile.classId || userData.classId || null;
+            userData.className = profile.className || profile.Class?.name || profile.grade || userData.className || '';
         }
         if (profile.signature || profile.signatureUrl) {
             userData.signature = profile.signature || profile.signatureUrl;
@@ -28,6 +37,8 @@ function mergeTeacherProfile(userData, profile) {
     }
     return userData;
 }
+const mergeTeacherProfile = mergeRoleProfile;
+window.mergeRoleProfile = mergeRoleProfile;
 
 function schoolScopedKey(key, schoolCode = null) {
     const code = schoolCode || currentSchool?.schoolId || currentSchool?.schoolCode || currentUser?.schoolCode || 'unknown';
@@ -36,7 +47,12 @@ function schoolScopedKey(key, schoolCode = null) {
 
 function parentSelectedChildKey(userId = null) {
     const id = userId || currentUser?.id || getCurrentUser()?.id || 'unknown-parent';
-    return `selectedChild:${id}`;
+    const schoolCode = currentUser?.schoolCode
+        || currentSchool?.schoolId
+        || currentSchool?.schoolCode
+        || getCurrentUser()?.schoolCode
+        || 'no-school';
+    return `selectedChild:${schoolCode}:${id}`;
 }
 
 function clearSessionScopedDashboardState(){['selectedChild','shule_selected_child_id','adminSelectedClass','userRole'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});cleanupOversizedSessionStorage();}
@@ -44,8 +60,12 @@ function clearSessionScopedDashboardState(){['selectedChild','shule_selected_chi
 function resetAuthenticatedRuntime(options={}) {
     const preserveCredentials = options.preserveCredentials === true;
     try { window.ShuleRealtime?.disconnect?.(); } catch (_) {}
+    try { window.ShuleRealtimeStore?.reset?.(); } catch (_) {}
+    try { window.ShuleAlerts?.resetForSession?.(); } catch (_) {}
     try { window.__shuleRoleAbortController?.abort?.(); } catch (_) {}
+    try { window.__shuleSectionAbortController?.abort?.(); } catch (_) {}
     window.__shuleRoleAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    window.__shuleSectionAbortController = null;
     ['authToken','token','refreshToken','user','school','userRole','shule_user','student','dashboardData','parentDashboardData','studentDashboardData','shule_selected_child_id','selectedChild','adminSelectedClass'].forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});
     if (!preserveCredentials) clearSessionScopedDashboardState();
     document.body.classList.remove('role-admin','role-finance_officer','role-teacher','role-parent','role-student','role-super_admin','role-superadmin');
@@ -56,6 +76,12 @@ function resetAuthenticatedRuntime(options={}) {
     window.studentDashboardData = {};
     window.parentDashboardData = {};
     window.__teacherAssignments = null;
+    if (window.__shuleAnalyticsState) {
+        Object.assign(window.__shuleAnalyticsState, {
+            data: null, role: null, query: '', refreshInFlight: null,
+            exportOpen: false, analyticsType: 'overview'
+        });
+    }
     authToken = null;
     refreshToken = null;
     currentUser = null;
@@ -92,7 +118,7 @@ async function checkAuth() {
         const profile = response.data.profile;
         
         // Merge teacher profile if applicable
-        userData = mergeTeacherProfile(userData, profile);
+        userData = mergeRoleProfile(userData, profile);
         
         persistSessionPayload(userData, response.data.school || null);
         syncProfileAvatarUI();
@@ -120,19 +146,7 @@ async function superAdminLogin(email, password, secretKey) {
         authToken = response.data.token;
         refreshToken = response.data.refreshToken || null;
         if (refreshToken) safeSessionSet('refreshToken', refreshToken); else localStorage.removeItem('refreshToken');
-        const studentProfile = response.data.student || {};
-        currentUser = {
-            ...(response.data.user || {}),
-            studentId: studentProfile.id || response.data.user?.studentId || null,
-            elimuid: studentProfile.elimuid || response.data.user?.elimuid || '',
-            classId: studentProfile.classId || response.data.user?.classId || null,
-            student: {
-                id: studentProfile.id || null,
-                elimuid: studentProfile.elimuid || '',
-                classId: studentProfile.classId || null,
-                className: studentProfile.className || studentProfile.grade || ''
-            }
-        };
+        currentUser = response.data.user || {};
         
         clearSessionScopedDashboardState();
         safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}
@@ -228,7 +242,7 @@ async function studentLogin(elimuid, password) {
         authToken = response.data.token;
         refreshToken = response.data.refreshToken || null;
         if (refreshToken) safeSessionSet('refreshToken', refreshToken); else localStorage.removeItem('refreshToken');
-        currentUser = response.data.user;
+        currentUser = mergeRoleProfile(response.data.user, response.data.student || response.data.profile);
         
         safeSessionSet('authToken',authToken);try{localStorage.removeItem('token')}catch(_){}
         safeSessionSet('user',JSON.stringify(stripLargeMediaForStorage(currentUser)));
@@ -254,7 +268,7 @@ async function login(emailOrPhone, password, role) {
         const profile = response.data.profile;
 
         // Merge teacher profile into user object
-        userData = mergeTeacherProfile(userData, profile);
+        userData = mergeRoleProfile(userData, profile);
 
         authToken = response.data.token;
         refreshToken = response.data.refreshToken || null;

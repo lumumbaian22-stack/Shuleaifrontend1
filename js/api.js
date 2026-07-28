@@ -33,7 +33,13 @@ async function apiRequest(endpoint, options = {}) {
     if (authToken) headers.Authorization = `Bearer ${authToken}`;
     const retryableWrite = /^\/api\/timetable\b/i.test(endpoint);
     const attempts = method === 'GET' ? 2 : (retryableWrite ? 3 : 1);
-    const requestSignal = options.signal || window.__shuleRoleAbortController?.signal;
+    // Dashboard reads belong to the section that started them. Cancelling an old
+    // section prevents a slow response from repainting the next role/section.
+    // Writes keep the wider role signal so navigation never interrupts a payment,
+    // attendance, marks, or settings mutation that was already submitted.
+    const requestSignal = options.signal ||
+        (method === 'GET' ? window.__shuleSectionAbortController?.signal : null) ||
+        window.__shuleRoleAbortController?.signal;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         try {
@@ -982,8 +988,8 @@ const api = {
         getHistory: () => apiRequest('/api/sms/history')
     },
     homeTasks: {
-        getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${studentId}`),
-        complete: (taskId, feedback) => apiRequest(`/api/home-tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
+        getToday: (studentId) => apiRequest(`/api/home-tasks/today?studentId=${encodeURIComponent(studentId)}`),
+        complete: (assignmentId, feedback) => apiRequest(`/api/home-tasks/${encodeURIComponent(assignmentId)}/complete`, { method: 'POST', body: JSON.stringify(feedback) })
     },
     subscription: {
         getPlans: (ownerType) => apiRequest(`/api/subscription/plans${ownerType ? `?ownerType=${encodeURIComponent(ownerType)}` : ''}`),

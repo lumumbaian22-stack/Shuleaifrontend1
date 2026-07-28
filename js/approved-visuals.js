@@ -465,12 +465,7 @@
     try{
       const res = await api.alerts.getMine();
       const real = res.data || [];
-      const demo = real.length ? real : [
-        {id:'d1',title:'Database backup failed',message:'Automatic backup process failed on May 18, 2025 at 2:30 AM.',type:'system',severity:'critical',data:{severityLevel:'critical'},createdAt:new Date().toISOString()},
-        {id:'d2',title:'Fee collection target below 60%',message:'Term 2 fee collection is currently at 58.3% of the target.',type:'fee',severity:'warning',data:{severityLevel:'medium'},createdAt:new Date().toISOString()},
-        {id:'d3',title:'High absenteeism in Form 2B',message:'7 students absent for more than 3 consecutive days.',type:'attendance',severity:'warning',data:{severityLevel:'high'},createdAt:new Date().toISOString()},
-        {id:'d4',title:'Timetable conflict detected',message:'Chemistry Lab is double-booked on Wednesday Period 4.',type:'timetable',severity:'info',data:{severityLevel:'medium'},createdAt:new Date().toISOString()}
-      ];
+      const demo = real;
       const counts = {
         critical: demo.filter(a => (a.data?.severityLevel || a.severity) === 'critical').length,
         academic: demo.filter(a => a.type === 'academic').length,
@@ -484,12 +479,12 @@
           <span class="v95-tag">🔔 ${demo.length}</span><span class="v95-tag red">⚠ Critical ${counts.critical}</span><span class="v95-tag">💼 Academic ${counts.academic}</span><span class="v95-tag">👤 Attendance ${counts.attendance}</span><span class="v95-tag orange">💳 Fees ${counts.fees}</span><span class="v95-tag purple">📅 Timetable ${counts.timetable}</span><span class="v95-tag red">Escalated ${counts.escalated}</span>
         </div>
         <div class="flex justify-between gap-3 mb-4"><input class="v95-field-input" placeholder="Search alerts..." style="height:42px;border:1px solid rgba(148,163,184,.3);border-radius:10px;padding:0 12px;min-width:240px;background:var(--dash-surface,#fff);color:var(--dash-text,#0f172a)"><div><button class="v95-btn" onclick="api.alerts.markAllRead().then(()=>v95LoadAlerts())">✓ Mark all as read</button><button class="v95-btn">Newest First⌄</button></div></div>
-        ${demo.map(a => {
+        ${demo.length ? demo.map(a => {
           const sev = a.data?.severityLevel || a.severity || 'info';
           const cls = sev === 'critical' ? 'critical' : a.type === 'fee' ? 'fees' : a.type === 'attendance' ? 'attendance' : sev === 'medium' || sev === 'high' ? 'warning' : 'info';
           const icon = a.type === 'fee' ? '💳' : a.type === 'attendance' ? '👤' : a.type === 'timetable' ? '📅' : sev === 'critical' ? '🛡️' : '✉️';
           return `<div class="v95-alert-row"><div class="v95-alert-icon">${icon}</div><div><strong>${h(a.title)}</strong><p class="text-sm text-muted-foreground">${h(a.message)}</p><small class="text-muted-foreground">${h(a.type || 'System Alert')}</small></div><small class="text-muted-foreground v95-hide-mobile">${a.createdAt ? new Date(a.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</small><div class="v95-hide-mobile"><span class="v95-alert-badge ${cls}">${h(sev)}</span></div><button class="v95-close v95-hide-mobile">⋮</button></div>`;
-        }).join('')}
+        }).join('') : '<div class="rounded-xl border border-dashed p-8 text-center text-muted-foreground">No alerts for this account yet.</div>'}
       </section>
       <aside class="v95-alert-side-card"><h3 class="font-bold mb-4">Today’s Alert Overview</h3><div class="v95-overview-grid"><div class="v95-overview-card"><strong class="text-red-600">${counts.critical}</strong><span>Critical</span></div><div class="v95-overview-card"><strong class="text-blue-600">${counts.academic}</strong><span>Academic</span></div><div class="v95-overview-card"><strong class="text-blue-600">${counts.attendance}</strong><span>Attendance</span></div><div class="v95-overview-card"><strong class="text-orange-600">${counts.fees}</strong><span>Fees</span></div><div class="v95-overview-card"><strong class="text-purple-600">${counts.timetable}</strong><span>Timetable</span></div><div class="v95-overview-card"><strong class="text-red-600">${counts.escalated}</strong><span>Escalated</span></div></div><div class="mt-5"><h4 class="font-bold mb-2">Quick Filters</h4><p class="text-sm text-muted-foreground">Unread · Requires Action · Escalated · Assigned to Me · Resolved</p></div></aside>`;
     }catch(e){ root.innerHTML = `<div class="v95-alert-list-card text-red-600">${h(e.message)}</div>`; }
@@ -498,25 +493,17 @@
   window.v95OpenCreateAlert = function(){
     const body = `<div class="v95-alert-layout">
       <section class="v95-alert-form">
-        <div class="v95-field"><label>Alert Title <span class="req">*</span></label><input id="v95-alert-title" value="Fee Payment Reminder" maxlength="100"></div>
+        <div class="v95-field"><label>Alert Title <span class="req">*</span></label><input id="v95-alert-title" value="" placeholder="Enter alert title" maxlength="100"></div>
         <div class="v95-grid v95-grid-2 mt-4">
           ${select('v95-alert-type','Category','fee',[{value:'fee',label:'💳 Fees & Payments'},{value:'academic',label:'Academic'},{value:'attendance',label:'Attendance'},{value:'system',label:'System'},{value:'duty',label:'Duty'}],true)}
           <div><label class="block text-xs font-bold text-muted-foreground mb-2">Severity <span class="text-red-500">*</span></label><div class="v95-severity-row"><button class="v95-severity-choice low" onclick="v95PickSeverity('low')" type="button">Low</button><button class="v95-severity-choice medium" onclick="v95PickSeverity('medium')" type="button">Medium</button><button class="v95-severity-choice high" onclick="v95PickSeverity('high')" type="button">High</button><button class="v95-severity-choice critical" onclick="v95PickSeverity('critical')" type="button">Critical</button></div><input type="hidden" id="v95-alert-severity" value="critical"></div>
         </div>
-        <div class="mt-4"><label class="block text-xs font-bold text-muted-foreground mb-2">Message <span class="text-red-500">*</span></label><div class="v95-richbox"><div class="v95-toolbar"><b>B</b><i>I</i><u>U</u><span>≡</span><span>🔗</span><span>😊</span></div><textarea id="v95-alert-message">This is a friendly reminder that the Term 2 school fees payment deadline is May 30, 2025.
-
-Please ensure payment is made on time to avoid late fees and service interruption.
-
-Thank you for your continued support.</textarea></div><p class="text-xs text-muted-foreground mt-2">Characters: 182</p></div>
+        <div class="mt-4"><label class="block text-xs font-bold text-muted-foreground mb-2">Message <span class="text-red-500">*</span></label><div class="v95-richbox"><div class="v95-toolbar"><b>B</b><i>I</i><u>U</u><span>≡</span><span>🔗</span><span>😊</span></div><textarea id="v95-alert-message" placeholder="Write the alert message"></textarea></div><p class="text-xs text-muted-foreground mt-2">Characters: 0</p></div>
         <div class="mt-4"><label class="block text-xs font-bold text-muted-foreground mb-2">Target Audience <span class="text-red-500">*</span></label><div class="v95-check-grid"><label class="v95-check-card"><input class="v95-alert-role" value="student" type="checkbox" checked> Students</label><label class="v95-check-card"><input class="v95-alert-role" value="parent" type="checkbox" checked> Parents</label><label class="v95-check-card"><input class="v95-alert-role" value="teacher" type="checkbox"> Teachers</label><label class="v95-check-card"><input class="v95-alert-role" value="admin" type="checkbox"> Specific Class</label></div></div>
         <div class="mt-4"><label class="block text-xs font-bold text-muted-foreground mb-2">Delivery Methods <span class="text-red-500">*</span></label><div class="v95-method-grid"><label class="v95-check-card"><input class="v95-alert-delivery" value="in_app" type="checkbox" checked> 🔔 In-app Notification</label><label class="v95-check-card"><input class="v95-alert-delivery" value="sms" type="checkbox" checked> SMS</label><label class="v95-check-card"><input class="v95-alert-delivery" value="email" type="checkbox" checked> Email</label></div></div>
         <div class="mt-4"><label class="block text-xs font-bold text-muted-foreground mb-2">Schedule</label><div class="v95-grid v95-grid-2"><label class="v95-check-card"><input type="radio" name="v95-alert-schedule" checked> Send Now</label><label class="v95-check-card"><input type="radio" name="v95-alert-schedule"> Schedule for Later</label></div></div>
       </section>
-      <aside class="v95-alert-preview"><h3 class="font-bold">Preview</h3><p class="text-sm text-muted-foreground mb-4">This is how your alert will appear to recipients</p><div class="flex gap-2 mb-4"><span class="v95-tag">Students</span><span class="v95-tag">Parents</span><span class="v95-tag">Teachers</span><span class="v95-tag">All</span></div><div class="v95-preview-card"><span id="v95-alert-preview-sev" class="v95-alert-badge critical">CRITICAL</span><h3 id="v95-alert-preview-title" class="font-bold text-lg mt-4">Fee Payment Reminder</h3><p class="text-sm text-muted-foreground">From: ${h(current().name || 'Admin User')} · Today, 10:30 AM</p><p id="v95-alert-preview-msg" class="mt-5 whitespace-pre-line">This is a friendly reminder that the Term 2 school fees payment deadline is May 30, 2025.
-
-Please ensure payment is made on time to avoid late fees and service interruption.
-
-Thank you for your continued support.</p></div><div class="v95-section-card mt-4"><h4 class="font-bold mb-3">What recipients will see:</h4><p>🔔 In-app Notification ✅</p><p>💬 SMS Message ✅</p><p>✉️ Email Message ✅</p></div></aside>
+      <aside class="v95-alert-preview"><h3 class="font-bold">Preview</h3><p class="text-sm text-muted-foreground mb-4">This is how your alert will appear to recipients</p><div class="flex gap-2 mb-4"><span class="v95-tag">Students</span><span class="v95-tag">Parents</span><span class="v95-tag">Teachers</span><span class="v95-tag">All</span></div><div class="v95-preview-card"><span id="v95-alert-preview-sev" class="v95-alert-badge critical">CRITICAL</span><h3 id="v95-alert-preview-title" class="font-bold text-lg mt-4">Alert preview</h3><p class="text-sm text-muted-foreground">From: ${h(current().name || 'Admin User')} · Now</p><p id="v95-alert-preview-msg" class="mt-5 whitespace-pre-line">Your message preview will appear here.</p></div><div class="v95-section-card mt-4"><h4 class="font-bold mb-3">What recipients will see:</h4><p>🔔 In-app Notification ✅</p><p>💬 SMS Message ✅</p><p>✉️ Email Message ✅</p></div></aside>
     </div>`;
     modal('v95-create-alert','Create Alert','Compose and send an alert to your selected audience',body,
       `<div><strong>Sender</strong> <span class="v95-tag purple">${h(current().role || 'Admin')}</span></div><div class="v95-right-actions"><button class="v95-btn">Save as Draft</button><button class="v95-btn primary" onclick="v95SendAlertExact()">✈ Review & Send</button></div>`,true);

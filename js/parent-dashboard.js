@@ -3,7 +3,14 @@
 if (typeof window.dashboardData === 'undefined') window.dashboardData = {};
 var dashboardData = window.dashboardData;
 function parentSelectedChildStorageKey() {
-    try { const user = typeof getCurrentUser === 'function' ? getCurrentUser() : {}; return window.parentSelectedChildKey ? window.parentSelectedChildKey(user?.id) : `selectedChild:${user?.id || 'unknown-parent'}`; } catch (_) { return 'selectedChild:unknown-parent'; }
+    try {
+        const user = typeof getCurrentUser === 'function' ? getCurrentUser() : {};
+        const school = typeof getCurrentSchool === 'function' ? getCurrentSchool() : {};
+        if (window.parentSelectedChildKey) return window.parentSelectedChildKey(user?.id);
+        return `selectedChild:${user?.schoolCode || school?.schoolId || school?.schoolCode || 'no-school'}:${user?.id || 'unknown-parent'}`;
+    } catch (_) {
+        return 'selectedChild:no-school:unknown-parent';
+    }
 }
 function getStoredSelectedChildId() { return localStorage.getItem(parentSelectedChildStorageKey()) || localStorage.getItem('shule_selected_child_id') || ''; }
 function setStoredSelectedChildId(id) { localStorage.setItem(parentSelectedChildStorageKey(), String(id || '')); localStorage.setItem('shule_selected_child_id', String(id || '')); }
@@ -95,6 +102,7 @@ function renderParentChildSwitcher(children, selectedChildId) {
 }
 
 async function renderParentSection(section) {
+    dashboardData = window.dashboardData || window.parentDashboardData || {};
     switch(section) {
         case 'dashboard':
             return await renderParentDashboard();
@@ -156,6 +164,7 @@ async function renderParentCompetency() {
 
 async function renderParentDashboard() {
     try {
+        dashboardData = window.dashboardData || window.parentDashboardData || dashboardData || {};
         const school = getCurrentSchool();
         const childrenResponse = await api.parent.getChildren();
         const children = childrenResponse.data || [];
@@ -168,7 +177,7 @@ async function renderParentDashboard() {
             const childExists = children.find(c => String(c.id) === String(selectedChildId));
             if (!childExists) {
                 selectedChildId = children[0].id;
-                localStorage.setItem('shule_selected_child_id', selectedChildId);
+                setStoredSelectedChildId(selectedChildId);
             }
             
             const summaryResponse = await api.parent.getChildSummary(selectedChildId);
@@ -181,7 +190,9 @@ async function renderParentDashboard() {
             selectedChild: selectedChildSummary,
             selectedChildId: selectedChildId
         });
+        if (selectedChildId) setStoredSelectedChildId(selectedChildId);
         window.dashboardData = dashboardData;
+        window.parentDashboardData = dashboardData;
 
         const selectedChildMeta = children.find(c => String(c.id) === String(selectedChildId));
         if (selectedChildMeta) {
@@ -583,7 +594,10 @@ async function renderParentPayments() {
         let parentPaymentMethods = { defaultProvider: 'manual', enabledProviders: [], methods: [] };
         if (selectedChildId) {
             try { finance = (await api.parent.getStudentFeeAccounts(selectedChildId)).data || finance; } catch (e) { console.warn('Student fee accounts failed', e.message); }
-            try { payments = (await api.parent.getStudentPaymentHistory(selectedChildId, { status: historyFilter })).data || []; } catch (e) { console.warn('Student payment history failed', e.message); }
+            try {
+                payments = ((await api.parent.getStudentPaymentHistory(selectedChildId, { status: historyFilter })).data || [])
+                    .filter(payment => payment.parentVisible !== false && payment.integrityValid !== false);
+            } catch (e) { console.warn('Student payment history failed', e.message); }
         }
         try {
             const methodResponse = await (api.payments?.getParentMethods ? api.payments.getParentMethods({ studentId: selectedChildId }) : apiRequest('/api/payments/parent/methods'));
@@ -734,8 +748,11 @@ async function renderParentChat() {
 // ============ HELPER FUNCTIONS ============
 
 async function selectChild(childId) {
+    dashboardData = window.dashboardData || window.parentDashboardData || dashboardData || {};
     dashboardData.selectedChildId = childId;
-    localStorage.setItem('shule_selected_child_id', childId);
+    setStoredSelectedChildId(childId);
+    window.dashboardData = dashboardData;
+    window.parentDashboardData = dashboardData;
 
     const selectedChild = (dashboardData.children || []).find(c => String(c.id) === String(childId));
     if (selectedChild) {
@@ -753,6 +770,8 @@ async function selectChild(childId) {
         window.dispatchEvent(new CustomEvent('shule:child-switched', { detail: { studentId: childId } }));
         const summaryResponse = await api.parent.getChildSummary(childId);
         dashboardData.selectedChild = summaryResponse.data;
+        window.dashboardData = dashboardData;
+        window.parentDashboardData = dashboardData;
         await showDashboardSection(currentSection);
     } catch (error) {
         console.error('Error selecting child:', error);
@@ -779,8 +798,11 @@ async function linkParentChildByElimuId() {
     try {
         const response = await api.parent.linkChildByElimuId(elimuid);
         showToast(response.message || 'Child linked successfully', 'success');
-        localStorage.setItem('shule_selected_child_id', response.data?.id || '');
-        await showDashboardSection(currentSection || 'dashboard');
+        const linkedChildId = response.data?.id || response.data?.studentId || '';
+        if (linkedChildId) setStoredSelectedChildId(linkedChildId);
+        const returnSection = currentSection || 'dashboard';
+        await showDashboard('parent');
+        if (returnSection !== 'dashboard') await showDashboardSection(returnSection);
     } catch (error) {
         console.error('Link child error:', error);
         showToast(error.message || 'Could not link child', 'error');
@@ -1437,7 +1459,6 @@ async function loadParentAlerts() {
 async function loadLiveAttendance() {
   const childId = dashboardData?.selectedChildId;
   if (!childId) return;
-  if (!childId) return;
 
   const statusDiv = document.getElementById('live-attendance-status');
   const dateSpan = document.getElementById('attendance-date');
@@ -1514,6 +1535,8 @@ window.refreshParentSchoolPaymentInfo = refreshParentSchoolPaymentInfo;
 // ============ EXPORT FUNCTIONS ============
 window.loadParentAlerts = loadParentAlerts;
 window.loadLiveAttendance = loadLiveAttendance;
+window.getStoredSelectedChildId = getStoredSelectedChildId;
+window.setStoredSelectedChildId = setStoredSelectedChildId;
 window.selectChild = selectChild;
 window.reportAbsence = reportAbsence;
 window.processPayment = processPayment;

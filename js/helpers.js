@@ -137,6 +137,32 @@ function v116ParentAllowedReportStudentId(studentId) {
     return ids.has(wanted);
 }
 
+function resolveReportStudentId(explicitStudentId = null) {
+    const explicit = String(explicitStudentId || '').trim();
+    if (explicit && explicit !== 'undefined' && explicit !== 'null') return explicit;
+    const role = String((typeof getCurrentRole === 'function' ? getCurrentRole() : localStorage.getItem('userRole')) || '')
+        .toLowerCase().replace('-', '_');
+    if (role === 'parent') {
+        const selected = window.dashboardData?.selectedChildId ||
+            window.parentDashboardData?.selectedChildId ||
+            (typeof getStoredSelectedChildId === 'function' ? getStoredSelectedChildId() : '') ||
+            localStorage.getItem('shule_selected_child_id');
+        return selected ? String(selected) : '';
+    }
+    if (role === 'student') {
+        const user = typeof getCurrentUser === 'function' ? (getCurrentUser() || {}) : {};
+        const selected = window.dashboardData?.student?.id ||
+            window.dashboardData?.student?.studentId ||
+            window.dashboardData?.studentId ||
+            window.studentDashboardData?.student?.id ||
+            window.studentDashboardData?.studentId ||
+            user.studentId || user.student?.id;
+        return selected ? String(selected) : '';
+    }
+    return '';
+}
+window.resolveReportStudentId = resolveReportStudentId;
+
 async function v113LoadReportCardDetails(studentId) {
     let storedUser = {};
     try { storedUser = JSON.parse(localStorage.getItem('user') || localStorage.getItem('shule_user') || '{}'); } catch (_) {}
@@ -349,6 +375,11 @@ async function buildReportCardHTML(studentId) {
 }
 
 async function openReportCard(studentId) {
+    studentId = resolveReportStudentId(studentId);
+    if (!studentId) {
+        showToast('Student profile is still loading. Reopen the report card after the dashboard loads.', 'error');
+        return;
+    }
     const reportWindow = window.open('', '_blank');
     if (reportWindow) {
         reportWindow.document.write('<!doctype html><html><head><title>Loading report card...</title></head><body style="font-family:Arial;padding:24px">Loading published report card...</body></html>');
@@ -379,6 +410,11 @@ async function openReportCard(studentId) {
 }
 
 async function downloadReportCard(studentId) {
+    studentId = resolveReportStudentId(studentId);
+    if (!studentId) {
+        showToast('Student profile is still loading. Reopen the report card after the dashboard loads.', 'error');
+        return;
+    }
     showLoading();
     try {
         const { blob, filename } = await fetchPublishedReportPdf(studentId);
@@ -392,6 +428,11 @@ async function downloadReportCard(studentId) {
 }
 
 async function openReportHistory(studentId) {
+    studentId = resolveReportStudentId(studentId);
+    if (!studentId) {
+        showToast('Student profile is still loading. Reopen report history after the dashboard loads.', 'error');
+        return;
+    }
     showLoading();
     try {
         const response = await apiRequest(`/api/report-cards/history?studentId=${encodeURIComponent(studentId || '')}`);

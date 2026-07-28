@@ -156,7 +156,7 @@
     'Platform Insights': { state:'No platform insights yet', icon:'lightbulb', required:'Platform usage, revenue, or approval activity.', action:'This fills as the platform is used.' },
     'School Comparison': { state:'Waiting for school data', icon:'building-2', required:'Multiple schools with users/activity/revenue.', action:'This fills when schools are onboarded and active.' }
   };
-  function currentAnalyticsType(){ return state.analyticsType || document.querySelector('[data-v152-filter="analyticsType"]')?.value || 'overview'; }
+  function currentAnalyticsType(){ return state.analyticsType || document.querySelector('.v152-shell [data-v152-filter="analyticsType"]')?.value || 'overview'; }
   function visibleExportKeys(includeKpis = true){
     const data = state.data || {};
     const sections = data.exportSections || [];
@@ -181,7 +181,8 @@
     const params=new URLSearchParams();
     // Only read filters from the currently rendered analytics shell. This prevents stale hidden filters
     // from another dashboard/role from being sent to /api/analytics/dashboard.
-    const root=document.querySelector('.v152-shell') || document;
+    const root=document.querySelector('.v152-shell');
+    if (!root) return params;
     root.querySelectorAll('[data-v152-filter]').forEach(el=>{ const value=el.value; if(value!==undefined&&value!==null&&value!==''&&value!=='undefined') params.set(el.dataset.v152Filter,value); });
     const type=params.get('scopeType');
     const id=params.get('scopeId');
@@ -198,7 +199,11 @@
     const o=data.options||{};
     if(type==='stream') return o.streams||[];
     if(type==='class') return o.classes||[];
-    if(type==='student') return o.students||o.children||[];
+    if(type==='student') {
+      const rows=o.students?.length ? o.students : (o.children||[]);
+      if (rows.length) return rows;
+      return data.student?.id ? [{ id:data.student.id, name:data.student.name||'My Analytics', elimuid:data.student.elimuid }] : [];
+    }
     if(type==='teacher') return o.teachers||[];
     if(type==='subject') return o.subjects||[];
     return [];
@@ -345,7 +350,7 @@
   function childBody(data){ const isParent=data.variant==='child'; return `<div class="v152-privacy"><i data-lucide="lock"></i>${isParent?'You are viewing data for your linked child only. Access is restricted to authorized parent accounts.':'This analytics view contains only your own student data.'}</div><div class="v152-grid">
     ${card('Performance by Subject',table(data.lists?.subjectPerformance||[],[{label:'Subject',key:'name'},{label:'Average Score',render:r=>`${fmt(r.average)}%`},{label:'Grade',render:r=>r.average?grade(r.average):'—'},{label:'Records',key:'count'}]),'span-4')}${card('Attendance Trend',chart('v152-child-attendance'),'span-4')}${card('Strengths vs Support Areas',doughnut('v152-child-strengths'),'span-4')}
     ${card('Recent Assessments',table(data.lists?.recentAssessments||[],[{label:'Subject',key:'subject'},{label:'Assessment',key:'assessment'},{label:'Score',render:r=>`${fmt(r.score)}%`},{label:'Grade',key:'grade'},{label:'Date',render:r=>r.date?new Date(r.date).toLocaleDateString():'—'}]),'span-4')}${card('Recommendations',insights(data.lists?.recommendations||[]),'span-4')}${card('Upcoming / Recent Tasks',table(data.lists?.tasks||[],[{label:'Task',key:'title'},{label:'Subject',key:'subject'},{label:'Status',key:'status'},{label:'Due',render:r=>r.dueDate?new Date(r.dueDate).toLocaleDateString():'—'}]),'span-4')}
-    ${card('Badges & Achievements',table([...(data.lists?.badges||[]),...(data.lists?.achievements||[])],[{label:'Achievement',render:r=>esc(r.name||r.title)},{label:'Description',render:r=>esc(r.description||r.note||'')},{label:'Date',render:r=>updated(r.awardedAt||r.createdAt)}]),'span-4')}${card('Class Leaderboard',table(data.lists?.leaderboard||[],[{label:'Student',key:'name'},{label:'Average',render:r=>`${fmt(r.average)}%`}]),'span-4')}${card('Recent Alerts',insights(data.lists?.recentAlerts||[]),'span-4')}
+    ${card('Badges & Achievements',table([...(data.lists?.badges||[]),...(data.lists?.achievements||[])],[{label:'Achievement',render:r=>esc(r.name||r.title)},{label:'Status',render:r=>r.earned===true?'Earned':r.earned===false?esc(r.label||'Locked'):'Recorded'},{label:'Description',render:r=>esc(r.description||r.note||'')},{label:'Date',render:r=>updated(r.awardedAt||r.createdAt)}]),'span-4')}${card('Class Leaderboard',table(data.lists?.leaderboard||[],[{label:'Student',render:r=>`${esc(r.name)}${r.elimuid?`<small>${esc(r.elimuid)}</small>`:''}`},{label:'Average',render:r=>`${fmt(r.average)}%`}]),'span-4')}${card('Recent Alerts',insights(data.lists?.recentAlerts||[]),'span-4')}
     ${card('Timetable Summary',table(data.lists?.timetable||[],[{label:'Day',render:r=>esc(r.day||r.dayOfWeek||'—')},{label:'Time',render:r=>esc(r.startTime&&r.endTime?`${r.startTime} – ${r.endTime}`:r.time||'—')},{label:'Subject',render:r=>esc(r.subjectName||r.subject||r.learningArea||'—')},{label:'Teacher',render:r=>esc(r.teacherName||r.teacher||'—')}]),'span-12')}
   </div>`; }
   function grade(score){ const n=number(score); return n>=80?'A':n>=70?'B':n>=60?'C':n>=50?'D':n>0?'E':'—'; }
@@ -356,7 +361,7 @@
     const role=currentRole(), types=scopeTypesFor(role,data), selected=data.scope?.type||types[0]?.[0], sections=data.exportSections||[], selectedType=currentAnalyticsType();
     const sectionRows = sections.map(s => ({...s, category: s.category || categoryForSectionKey(s.key), label: s.label || SECTION_LABEL[s.key] || titleize(s.key)}));
     return `<div class="v152-export-overlay ${state.exportOpen?'open':''}" data-v152-export-overlay onclick="if(event.target===this)window.v152CloseExport()"><aside class="v152-export-panel"><header><div><h3>Export Analytics</h3><p>Choose scope, format and exact analytics sections before generating the file.</p></div><button onclick="window.v152CloseExport()"><i data-lucide="x"></i></button></header>
-      <div class="v152-export-scroll"><fieldset><legend>Export Scope</legend>${types.map(([id,name])=>`<label class="v152-radio"><input type="radio" name="v152-export-scope" value="${id}" ${selected===id?'checked':''} onchange="window.v152ExportScopeChanged()"><span><b>${esc(name)}</b><small>${id==='school'?'All authorized school data':`Choose a ${esc(id)} from your authorized scope`}</small></span></label>`).join('')}<select data-v152-export-target ${selected==='school'||selected==='platform'?'hidden':''}>${scopeTargetOptions(data,selected,data.scope?.id)}</select></fieldset>
+      <div class="v152-export-scroll"><fieldset><legend>Export Scope</legend>${types.map(([id,name])=>`<label class="v152-radio"><input type="radio" name="v152-export-scope" value="${id}" ${selected===id?'checked':''} onchange="window.v152ExportScopeChanged()"><span><b>${esc(name)}</b><small>${id==='school'?'All authorized school data':`Choose a ${esc(id)} from your authorized scope`}</small></span></label>`).join('')}<select data-v152-export-target ${selected==='school'||selected==='platform'||roleKey(role)==='student'?'hidden':''}>${scopeTargetOptions(data,selected,data.scope?.id)}</select></fieldset>
       <fieldset><legend>Export Format</legend><div class="v152-format-grid">${[['pdf','file-text','PDF Document'],['xlsx','sheet','Excel Workbook'],['csv','table-2','CSV File'],['print','printer','Print / Preview']].map(([id,icon,name],i)=>`<label><input type="radio" name="v152-export-format" value="${id}" ${i===0?'checked':''}><span><i data-lucide="${icon}"></i>${name}</span></label>`).join('')}</div></fieldset>
       <fieldset><legend>Include in Export <span class="v152-export-selectors"><button type="button" onclick="window.v152ToggleVisibleExport()">Select Visible</button><button type="button" onclick="window.v152ToggleAllExport(false)">Select None</button><button type="button" onclick="window.v152ToggleAllExport(true)">Select All</button></span></legend><div class="v152-checks">${sectionRows.map(s=>{const visible=selectedType==='overview'||s.key==='kpis'||s.category===selectedType;return `<label data-v152-export-option-category="${esc(s.category)}"><input type="checkbox" data-v152-export-section data-v152-export-category="${esc(s.category)}" value="${esc(s.key)}" ${visible?'checked':''}><span>${esc(s.label)} <small>${esc(s.category)} · ${fmt(s.count)}</small></span></label>`}).join('')||'<p>No exportable analytics are available for this scope.</p>'}</div></fieldset>
       <div class="v152-export-preview"><b>Export Preview</b><p>Scope: <span data-v152-preview-scope>${esc(data.scope?.label||'Current analytics')}</span></p><p>Items selected: <span data-v152-preview-count>${visibleExportKeys(true).length}</span></p><p>All exported data is generated from the live, authorized backend scope.</p></div></div>
@@ -394,9 +399,9 @@
     try{window.lucide?.createIcons?.();}catch(_){}
   }
 
-  function applyCategoryFilter(){const selected=currentAnalyticsType();document.querySelectorAll('.v152-card[data-analytics-category]').forEach(card=>{card.hidden=selected!=='overview'&&card.dataset.analyticsCategory!==selected;});updateExportPreview();}
+  function applyCategoryFilter(){const selected=currentAnalyticsType();const shell=document.querySelector('.v152-shell');shell?.querySelectorAll('.v152-card[data-analytics-category]').forEach(card=>{const hide=selected!=='overview'&&card.dataset.analyticsCategory!==selected;card.hidden=hide;card.style.display=hide?'none':'';});updateExportPreview();}
 
-  async function renderAnalyticsSection(role){ state.role=role; state.query=''; try{const data=await fetchAnalytics();setTimeout(()=>{drawVariantCharts(data);applyCategoryFilter();},50);return renderShell(role,data);}catch(error){console.error('[v152 analytics]',error);return `<div class="v152-load-error"><i data-lucide="triangle-alert"></i><h2>Analytics could not load</h2><p>${esc(error.message||'Unknown error')}</p><button onclick="showDashboardSection('analytics')">Retry</button></div>`;} }
+  async function renderAnalyticsSection(role){ state.role=role;state.data=null;state.query='';state.exportOpen=false;state.analyticsType='overview';document.body.classList.remove('v152-modal-open');try{const data=await fetchAnalytics();setTimeout(()=>{drawVariantCharts(data);applyCategoryFilter();},50);return renderShell(role,data);}catch(error){console.error('[v152 analytics]',error);return `<div class="v152-load-error"><i data-lucide="triangle-alert"></i><h2>Analytics could not load</h2><p>${esc(error.message||'Unknown error')}</p><button onclick="showDashboardSection('analytics')">Retry</button></div>`;} }
   async function refreshAnalytics(options={}){
     const shell=document.querySelector('.v152-shell'); if(!shell)return null; if(state.refreshInFlight)return state.refreshInFlight;
     state.query=paramsFromUi().toString(); const note=shell.querySelector('[data-v152-refresh-note]'); if(note)note.textContent=options.manual?'Refreshing…':'Updating quietly…'; shell.classList.add('is-updating');
@@ -407,14 +412,19 @@
   document.addEventListener('change',event=>{
     const el=event.target;
     if(el.matches('[data-v152-scope-type]')){scopeTypeChanged(el);return;}
-    if(el.matches('[data-v152-filter="analyticsType"]')){state.analyticsType=el.value||'overview';refreshAnalytics({filter:true});return;}
+    if(el.matches('[data-v152-filter="analyticsType"]')){state.analyticsType=el.value||'overview';applyCategoryFilter();return;}
+    if(el.matches('[data-v152-filter="childId"]')){
+      if(typeof window.setStoredSelectedChildId==='function')window.setStoredSelectedChildId(el.value);
+      if(window.dashboardData){window.dashboardData.selectedChildId=el.value;window.parentDashboardData=window.dashboardData;}
+      refreshAnalytics({filter:true});return;
+    }
     if(el.matches('[data-v152-filter]')){if(el.matches('[data-v152-scope-target]')&&!el.value)return;refreshAnalytics({filter:true});}
     if(el.matches('[data-v152-export-section]'))updateExportPreview();
   });
 
   function openExport(){state.exportOpen=true;document.querySelector('[data-v152-export-overlay]')?.classList.add('open');document.body.classList.add('v152-modal-open');updateExportPreview();try{lucide?.createIcons?.();}catch(_){} }
   function closeExport(){state.exportOpen=false;document.querySelector('[data-v152-export-overlay]')?.classList.remove('open');document.body.classList.remove('v152-modal-open');}
-  function exportScopeChanged(){ const data=state.data||{}; const type=document.querySelector('input[name="v152-export-scope"]:checked')?.value||data.scope?.type||'school'; const target=document.querySelector('[data-v152-export-target]'); if(target){target.hidden=type==='school'||type==='platform';target.innerHTML=scopeTargetOptions(data,type,type===data.scope?.type?data.scope?.id:'');}updateExportPreview(); }
+  function exportScopeChanged(){ const data=state.data||{}; const type=document.querySelector('input[name="v152-export-scope"]:checked')?.value||data.scope?.type||'school'; const target=document.querySelector('[data-v152-export-target]'); if(target){target.hidden=type==='school'||type==='platform'||roleKey(currentRole())==='student';target.innerHTML=scopeTargetOptions(data,type,type===data.scope?.type?data.scope?.id:'');}updateExportPreview(); }
   function updateExportPreview(){
     const count=document.querySelectorAll('[data-v152-export-section]:checked').length;
     const target=document.querySelector('[data-v152-preview-count]'); if(target)target.textContent=String(count);
@@ -431,7 +441,8 @@
       const format=preferredFormat || document.querySelector('input[name="v152-export-format"]:checked')?.value || 'pdf';
       const currentScope = state.data?.scope || {};
       const scopeType=quick ? (currentScope.type || state.data?.variant || 'school') : (document.querySelector('input[name="v152-export-scope"]:checked')?.value||currentScope.type||'school');
-      const scopeId=quick ? (currentScope.id || '') : ((scopeType==='school'||scopeType==='platform')?'':document.querySelector('[data-v152-export-target]')?.value||'');
+      const selfStudentId = roleKey(currentRole())==='student' ? (state.data?.student?.id || currentScope.id || '') : '';
+      const scopeId=quick ? (currentScope.id || selfStudentId || '') : ((scopeType==='school'||scopeType==='platform')?'':selfStudentId||document.querySelector('[data-v152-export-target]')?.value||'');
       if(!scopeId&&scopeType!=='school'&&scopeType!=='platform'&&!quick)throw new Error(`Select the ${scopeType} to export.`);
       let include = [];
       if (Array.isArray(includeOverride)) include = includeOverride;

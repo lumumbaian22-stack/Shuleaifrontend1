@@ -6,6 +6,10 @@ async function renderProfileSection() {
 
     const stats = await loadUserStats(user.role);
     const roleLabel = user.role === 'finance_officer' ? 'Finance Officer / Bursar' : String(user.role || 'User').replace(/_/g, ' ');
+    const identityValue = user.role === 'student'
+        ? (user.elimuid || user.student?.elimuid || '')
+        : (user.email || user.phone || '');
+    const identityLine = [roleLabel, identityValue].filter(value => String(value || '').trim()).map(escapeHtml).join(' • ');
 
     // Profile picture preview URL
     const profileImageRaw = user.preferences?.profileImageDataUrl || user.profileImage || user.profilePicture || '';
@@ -21,7 +25,7 @@ async function renderProfileSection() {
                     <!-- Profile Picture with Upload -->
                     <div class="relative">
                         <div class="h-24 w-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-4xl font-bold border-4 border-white shadow-xl overflow-hidden">
-                            ${profileImageUrl ? `<img id="profile-preview" src="${profileImageUrl}" alt="Profile" class="h-full w-full object-cover" data-current-user-avatar>` : `<span>${getInitials(user.name)}</span>`}
+                            ${profileImageUrl ? `<img id="profile-preview" src="${escapeHtml(profileImageUrl)}" alt="Profile" class="h-full w-full object-cover" data-current-user-avatar>` : `<span>${escapeHtml(getInitials(user.name))}</span>`}
                         </div>
                         <label class="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1 cursor-pointer hover:bg-primary/90 transition-colors">
                             <i data-lucide="camera" class="h-4 w-4"></i>
@@ -29,11 +33,11 @@ async function renderProfileSection() {
                         </label>
                     </div>
                     <div>
-                        <h2 class="text-3xl font-bold">${user.name}</h2>
-                        <p class="text-white/80 capitalize">${roleLabel} • ${user.email}</p>
+                        <h2 class="text-3xl font-bold">${escapeHtml(user.name || 'User')}</h2>
+                        <p class="text-white/80 capitalize">${identityLine}</p>
                         <div class="flex gap-2 mt-2">
-                            <span class="px-2 py-1 bg-white/20 rounded-full text-xs">ID: ${user.id}</span>
-                            ${school?.shortCode ? `<span class="px-2 py-1 bg-white/20 rounded-full text-xs">School: ${school.shortCode}</span>` : ''}
+                            <span class="px-2 py-1 bg-white/20 rounded-full text-xs">ID: ${escapeHtml(user.role === 'student' ? (user.elimuid || user.student?.elimuid || user.studentId || user.id) : user.id)}</span>
+                            ${school?.shortCode ? `<span class="px-2 py-1 bg-white/20 rounded-full text-xs">School: ${escapeHtml(school.shortCode)}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -62,24 +66,24 @@ async function renderProfileSection() {
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <label class="block text-sm font-medium mb-1">Full Name</label>
-                            <input type="text" name="name" value="${user.name || ''}" 
+                            <input type="text" name="name" value="${escapeHtml(user.name || '')}"
                                    class="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm focus:ring-2 focus:ring-primary transition-all">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Email</label>
-                            <input type="email" name="email" value="${user.email || ''}" 
+                            <input type="email" name="email" value="${escapeHtml(user.email || '')}"
                                    class="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm focus:ring-2 focus:ring-primary transition-all">
                         </div>
                     </div>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <label class="block text-sm font-medium mb-1">Phone</label>
-                            <input type="tel" name="phone" value="${user.phone || ''}" 
+                            <input type="tel" name="phone" value="${escapeHtml(user.phone || '')}"
                                    class="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm focus:ring-2 focus:ring-primary transition-all">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Role</label>
-                            <input type="text" value="${roleLabel}" disabled 
+                            <input type="text" value="${escapeHtml(roleLabel)}" disabled
                                    class="w-full rounded-lg border border-input bg-muted px-4 py-2 text-sm text-muted-foreground">
                         </div>
                     </div>
@@ -125,7 +129,7 @@ async function renderProfileSection() {
             <div class="mt-4">
                 <label class="block text-sm font-medium mb-1">Signature</label>
                 <div class="flex items-center gap-4">
-                    <img id="signature-preview" src="${v116ResolveUploadedMediaUrl(user.preferences?.signatureDataUrl || user.signature || user.signatureUrl || user.preferences?.signatureUrl || '')}" class="h-16 border rounded" onerror="this.removeAttribute('src')">
+                    <img id="signature-preview" src="${escapeHtml(v116ResolveUploadedMediaUrl(user.preferences?.signatureDataUrl || user.signature || user.signatureUrl || user.preferences?.signatureUrl || ''))}" class="h-16 border rounded" onerror="this.removeAttribute('src')">
                     <label class="px-4 py-2 bg-primary text-white rounded-lg cursor-pointer">
                         Upload Signature
                         <input type="file" id="signature-upload" accept="image/*" class="hidden" onchange="uploadSignature(this.files[0])">

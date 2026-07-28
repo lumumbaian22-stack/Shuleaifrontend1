@@ -494,3 +494,6 @@ body.role-superadmin {
 
 /* v149-final-locked */
 .finance-v31-tabs{overflow-x:auto;white-space:nowrap;scrollbar-width:thin}.finance-v31-table-wrap{overflow-x:auto}.shule-report-a4{box-sizing:border-box}@media print{.shule-report-a4{width:210mm;min-height:297mm;page-break-after:always}.sidebar,.no-print,button{display:none!important}}
+.v152-card[hidden] {
+    display: none !important;
+}

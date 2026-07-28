@@ -6,7 +6,7 @@
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const jsArg = (v) => JSON.stringify(String(v ?? '')).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const FINANCE_PERMS={overview:'Overview',fee_structures:'Fee Structures',invoices:'Student Fee Accounts & Invoices',payments:'Payments & Receipts',verification:'Verification & Reconciliation',balances:'Balances, Defaulters & Bursaries',expenses:'Expenses',alerts:'Alerts',analytics:'Analytics',reports:'Reports',settings:'Settings',audit:'Audit Trail'};
-  const state={tab:'overview',structures:[],classes:[],students:[],financeStaff:[],settings:{},providerSettings:null,accounts:[],paymentRecords:[],manualQueue:[],overview:null,expenses:[],financeAlerts:[],invoices:[],financeAnalytics:null,auditTrail:[],paymentLoadError:'',loading:false,filters:{className:'',term:'',year:String(new Date().getFullYear())}};
+  const state={tab:'overview',structures:[],classes:[],students:[],financeStaff:[],settings:{},providerSettings:null,accounts:[],paymentRecords:[],quarantinedRecords:[],manualQueue:[],overview:null,expenses:[],financeAlerts:[],invoices:[],financeAnalytics:null,auditTrail:[],paymentLoadError:'',loading:false,filters:{className:'',term:'',year:String(new Date().getFullYear())}};
   function currentUser(){ try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch(_) { return {}; } }
   function currentRole(){ return String(currentUser().role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_'); }
   function isAdminFinanceRole(){ const r=currentRole(); return r==='admin' || r==='finance_officer' || r==='super_admin' || r==='superadmin'; }
@@ -258,7 +258,9 @@
       const recordsRes = await (api.payments?.getAdminRecords ? api.payments.getAdminRecords({ page: 1, limit: 100 }) : apiRequest('/api/payments/admin/records?page=1&limit=100'));
       const payload = recordsRes?.data ?? recordsRes ?? {};
       const records = Array.isArray(payload) ? payload : (payload.records || payload.items || payload.data || []);
-      state.paymentRecords = Array.isArray(records) ? records : [];
+      const paymentRows = Array.isArray(records) ? records : [];
+      state.paymentRecords = paymentRows.filter(row => row.integrityValid !== false && row.integrityStatus !== 'quarantined');
+      state.quarantinedRecords = paymentRows.filter(row => row.integrityValid === false || row.integrityStatus === 'quarantined');
       state.paymentLoadError = '';
     } catch (error) {
       state.paymentLoadError = error?.message || 'Payment records could not be loaded.';

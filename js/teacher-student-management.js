@@ -1,5 +1,11 @@
 // teacher-student-management.js - COMPLETE MERGED VERSION
 
+function teacherAttendancePercent(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : null;
+}
+
 // ============ LOAD TEACHER'S STUDENTS ============
 
 async function loadMyStudents() {
@@ -48,7 +54,8 @@ async function refreshTeacherStudentList() {
         
         let bodyHtml = '';
         students.forEach(student => {
-            const attendance = student.attendance || 100;
+            const attendance = teacherAttendancePercent(student.attendance);
+            const attendanceLabel = attendance === null ? '—' : `${attendance}%`;
             const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
             
             bodyHtml += '<tr class="hover:bg-accent/50 transition-colors">';
@@ -70,7 +77,7 @@ async function refreshTeacherStudentList() {
                 bodyHtml += `<td class="px-4 py-3 text-center"><span class="font-medium">${display}</span>${grade ? `<br><span class="text-xs ${getGradeColorClass(grade)} px-2 py-0.5 rounded-full">${grade}</span>` : ''}</td>`;
             }
             
-            bodyHtml += `<td class="px-4 py-3 text-center"><div class="flex items-center justify-center gap-1"><div class="h-2 w-12 rounded-full bg-muted overflow-hidden"><div class="h-full w-[${attendance}%] bg-green-500 rounded-full"></div></div><span class="text-xs">${attendance}%</span></div></td>`;
+            bodyHtml += `<td class="px-4 py-3 text-center"><div class="flex items-center justify-center gap-1"><div class="h-2 w-12 rounded-full bg-muted overflow-hidden"><div class="h-full bg-green-500 rounded-full" style="width:${attendance ?? 0}%"></div></div><span class="text-xs">${attendanceLabel}</span></div></td>`;
             bodyHtml += `<td class="px-4 py-3 text-center font-semibold ${getOverallColor(overall)}">${overall}</td>`;
             bodyHtml += `<td class="px-4 py-3 text-right"><button onclick="viewStudentDetails(${student.id})" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="eye" class="h-4 w-4"></i></button><button onclick="copyElimuid('${escapeHtml(student.elimuid)}')" class="p-2 hover:bg-accent rounded-lg"><i data-lucide="copy" class="h-4 w-4"></i></button></td>`;
             bodyHtml += '</tr>';
@@ -465,6 +472,7 @@ function renderStudentsTable(students) {
                         const user = student.User || {};
                         const status = student.status || 'active';
                         const statusColor = getStatusColor(status);
+                        const attendance = teacherAttendancePercent(student.attendance);
                         
                         return `
                             <tr class="hover:bg-accent/50 transition-colors">
@@ -483,9 +491,9 @@ function renderStudentsTable(students) {
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-2">
                                         <div class="h-2 w-16 rounded-full bg-muted overflow-hidden">
-                                            <div class="h-full w-[${student.attendance || 95}%] bg-green-500 rounded-full"></div>
+                                            <div class="h-full bg-green-500 rounded-full" style="width:${attendance ?? 0}%"></div>
                                         </div>
-                                        <span class="text-xs">${student.attendance || 95}%</span>
+                                        <span class="text-xs">${attendance === null ? '—' : `${attendance}%`}</span>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
@@ -667,12 +675,6 @@ async function addComment(studentId, comment) {
     }
 }
 
-// ============ TASK FUNCTIONS ============
-
-function addTeacherTask() {
-    showToast('Add task feature coming soon', 'info');
-}
-
 // ============ MESSAGE FUNCTIONS ============
 
 async function loadTeacherMessages() {
@@ -767,7 +769,6 @@ window.deleteStudent = deleteStudent;
 window.saveStudentGrade = saveStudentGrade;
 window.updateGradeDisplay = updateGradeDisplay;
 window.saveAttendance = saveAttendance;
-window.addTeacherTask = addTeacherTask;
 window.loadTeacherMessages = loadTeacherMessages;
 window.uploadMarksCSV = uploadMarksCSV;
 window.getStatusColor = getStatusColor;

@@ -536,7 +536,10 @@ function renderStudentsTable(students, isClassTeacher, subjects, classId = "") {
               const photoUrl = resolveMediaUrl(student.photo || (student.User && student.User.profileImage) || '');
               const completion = completionFor(student);
               const avg = avgFor(student);
-              const attendance = Number(student.attendance ?? 100);
+              const attendanceValue = Number(student.attendance);
+              const attendance = student.attendance === null || student.attendance === undefined || student.attendance === '' || !Number.isFinite(attendanceValue)
+                ? null
+                : Math.max(0, Math.min(100, attendanceValue));
               const duplicate = (duplicateMap[String(student.name || '').trim().toLowerCase()] || []).length > 1;
               const ready = completion.total > 0 && completion.filled === completion.total;
               const status = duplicate
@@ -553,7 +556,7 @@ function renderStudentsTable(students, isClassTeacher, subjects, classId = "") {
                 <td class="px-4 py-3"><span class="font-mono text-xs rounded bg-muted px-2 py-1">${escapeHtml(student.elimuid || student.elimuId || student.admissionNumber || '—')}</span></td>
                 <td class="px-4 py-3 text-center font-semibold">${completion.label}</td>
                 <td class="px-4 py-3 text-center font-semibold ${avg === null ? 'text-muted-foreground' : getOverallColor(String(avg))}">${avg === null ? '—' : avg + '%'}</td>
-                <td class="px-4 py-3 text-center">${Number.isFinite(attendance) ? attendance + '%' : '—'}</td>
+                <td class="px-4 py-3 text-center">${attendance === null ? '—' : attendance + '%'}</td>
                 <td class="px-4 py-3 text-center">${status}</td>
                 <td class="px-4 py-3 text-right"><div class="flex justify-end gap-1">
                   <button title="Expand/edit marks" onclick="toggleMyStudentMarks('${student.id}','${classId || student.classId || ''}')" class="px-3 py-1.5 rounded border text-xs hover:bg-accent">Expand / Edit</button>
@@ -936,7 +939,7 @@ function showMarksEntryModal(className) {
   if (!Array.isArray(currentMarksStudents) || currentMarksStudents.length === 0) {
     modalContent.innerHTML = `
       <div class="text-center py-12">
-        <i data-lucide="users-x" class="h-12 w-12 mx-auto mb-3 text-muted-foreground"></i>
+        <i data-lucide="user-x" class="h-12 w-12 mx-auto mb-3 text-muted-foreground"></i>
         <h3 class="text-lg font-semibold">No students loaded</h3>
         <p class="text-muted-foreground">The marks modal opened, but no students were returned for this class.</p>
         <button onclick="closeMarksEntryModal()" class="mt-4 px-4 py-2 rounded-lg border">Close</button>
@@ -1933,7 +1936,10 @@ function showStudentDetailModalFromStudent(student, analytics) {
     let modal = document.getElementById('student-detail-modal');
     if (!modal) { createStudentDetailModal(); modal = document.getElementById('student-detail-modal'); }
     
-    const attendance = student.attendance || 100;
+    const attendanceValue = Number(student.attendance);
+    const attendance = student.attendance === null || student.attendance === undefined || student.attendance === '' || !Number.isFinite(attendanceValue)
+        ? null
+        : Math.max(0, Math.min(100, attendanceValue));
     const overall = student.overallAverage !== null ? student.overallAverage + '%' : '—';
     
     const subjectRows = Object.entries(student.subjectScores || {}).map(([sub, score]) => {
@@ -1954,7 +1960,7 @@ function showStudentDetailModalFromStudent(student, analytics) {
             <div class="grid grid-cols-2 gap-3 text-sm">
                 <div><span class="font-medium">ELIMUID:</span> ${escapeHtml(student.elimuid)}</div>
                 <div><span class="font-medium">Grade:</span> ${escapeHtml(student.grade)}</div>
-                <div><span class="font-medium">Attendance:</span> ${attendance}%</div>
+                <div><span class="font-medium">Attendance:</span> ${attendance === null ? 'Not recorded' : `${attendance}%`}</div>
                 <div><span class="font-medium">Overall:</span> ${overall}</div>
             </div>
             <div class="border-t pt-4">
@@ -2110,7 +2116,7 @@ async function renderTeacherHomework() {
                             <div class="grid grid-cols-2 gap-2 mt-4 text-xs text-muted-foreground">
                                 <span>Due: <b class="text-foreground">${formatDate(a.dueDate)}</b></span>
                                 <span>Class: <b class="text-foreground">${escapeHtml(a.className || a.gradeLevel || '-')}</b></span>
-                                <span>Assigned: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
+                                <span title="Historical audience saved when this homework was assigned">Assigned audience: <b class="text-foreground">${getHomeworkAssignmentCount(a)}</b></span>
                                 <span>Submitted: <b class="text-foreground">${a.submittedCount || 0}</b></span>
                                 <span>Discussion: <b class="text-foreground">${a.studyThreadId ? 'Open' : 'Off'}</b></span>
                             </div>

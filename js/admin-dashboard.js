@@ -656,7 +656,10 @@ function renderAdminDashboard() {
     const totalTeachers = Array.isArray(data.teachers) ? data.teachers.length : Number(data.teachersCount ?? data.stats?.teachers ?? data.teachers ?? 0);
     const totalClasses = Array.isArray(data.classes) ? data.classes.length : Number(data.classesCount ?? data.stats?.classes ?? data.classes ?? 0);
     const pendingTeachersCount = Array.isArray(data.pendingTeachers) ? data.pendingTeachers.length : Number(data.pendingTeachersCount ?? data.stats?.pendingApprovals ?? data.pendingApprovals ?? 0);
+    const attendanceRate = Number(data.stats?.attendanceRate ?? data.attendanceRate ?? 0);
     setTimeout(() => {
+        const activeUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+        if (String(activeUser?.role || '') !== 'admin' || String(window.currentSection || '') !== 'dashboard') return;
         if (calendarAllowed && typeof window.loadAdminCalendarPreviewEvents === 'function') window.loadAdminCalendarPreviewEvents();
         if (typeof window.setupAnnouncementRecipientControls === 'function') window.setupAnnouncementRecipientControls();
         if (typeof window.v130UpdateSmsEstimate === 'function') window.v130UpdateSmsEstimate();
@@ -689,7 +692,7 @@ function renderAdminDashboard() {
                 <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Total Students</p><h3 class="text-2xl font-bold mt-1" id="total-students">${totalStudents}</h3></div><div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center"><i data-lucide="users" class="h-6 w-6 text-blue-600"></i></div></div></div>
                 <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Teachers</p><h3 class="text-2xl font-bold mt-1" id="total-teachers">${totalTeachers}</h3><p class="text-xs text-green-600 mt-1 flex items-center gap-1"><i data-lucide="trending-up" class="h-3 w-3"></i> +${pendingTeachersCount} pending approval</p></div><div class="h-12 w-12 rounded-lg bg-violet-100 flex items-center justify-center"><i data-lucide="user-plus" class="h-6 w-6 text-violet-600"></i></div></div></div>
                 <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Classes</p><h3 class="text-2xl font-bold mt-1" id="total-classes">${totalClasses}</h3></div><div class="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center"><i data-lucide="book-open" class="h-6 w-6 text-emerald-600"></i></div></div></div>
-                <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Attendance Rate</p><h3 class="text-2xl font-bold mt-1">94.2%</h3></div><div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i></div></div></div>
+                <div class="rounded-xl border bg-card p-6 card-hover"><div class="flex items-center justify-between"><div><p class="text-sm font-medium text-muted-foreground">Attendance Rate</p><h3 class="text-2xl font-bold mt-1">${attendanceRate}%</h3><p class="text-xs text-muted-foreground mt-1">Last 30 days</p></div><div class="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center"><i data-lucide="calendar-check" class="h-6 w-6 text-amber-600"></i></div></div></div>
             </div>
 
             <!-- Quick Actions -->

@@ -22,6 +22,7 @@ function timeAgo(timestamp) {
 }
 
 async function renderStudentSection(section) {
+    dashboardData = window.dashboardData || window.studentDashboardData || {};
     switch(section) {
         case 'dashboard':
             return await renderStudentDashboard();
@@ -73,6 +74,7 @@ function renderStudentCareerPathSection() {
 
 async function renderStudentDashboard() {
     try {
+        dashboardData = window.dashboardData || window.studentDashboardData || dashboardData || {};
         if (!dashboardData || Object.keys(dashboardData).length === 0 || !dashboardData.student || !dashboardData.school) {
             try {
                 const res = await api.student.getDashboard();
@@ -92,7 +94,7 @@ async function renderStudentDashboard() {
         const schoolLogo = (window.BrandingManager && window.BrandingManager.getLogoSource ? window.BrandingManager.getLogoSource() : '') || school.logo || branding.logoDataUrl || branding.logoUrl || branding.logo || '';
         const average = data.stats?.averageScore || data.averageScore || 0;
         const attendanceRate = data.stats?.attendanceRate || (data.recentAttendance?.length ? Math.round((data.recentAttendance.filter(a => a.status === 'present').length / data.recentAttendance.length) * 100) : 0);
-        const studentPoints = data.student?.points || user?.points || 0;
+        const studentPoints = data.gamification?.summary?.totalPoints ?? data.student?.points ?? data.points ?? user?.points ?? 0;
 
         return `
             <div class="space-y-6 animate-fade-in">
@@ -131,7 +133,7 @@ async function renderStudentDashboard() {
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-medium text-muted-foreground">My Points</p>
-                                <h3 class="text-2xl font-bold mt-1" id="student-points">${studentPoints}</h3>
+                                <h3 class="text-2xl font-bold mt-1" id="student-points" data-student-points>${studentPoints}</h3>
                                 <p class="text-xs text-muted-foreground mt-1">Earned from tasks</p>
                             </div>
                             <div class="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center">
@@ -191,7 +193,7 @@ async function renderStudentDashboard() {
                         </div>
                         <div>
                             <h4 class="font-semibold">Study Groups</h4>
-                            <p class="text-sm text-muted-foreground">Chat with students from other schools</p>
+                            <p class="text-sm text-muted-foreground">Study safely with classmates in your active class</p>
                         </div>
                     </button>
                     <button onclick="showDashboardSection('ai-tutor')" class="p-6 border rounded-lg hover:bg-accent transition-colors text-left flex items-center gap-4">
@@ -219,7 +221,7 @@ async function renderStudentDashboard() {
                         </div>
                         <div class="p-3 rounded-lg bg-muted/30">
                             <p class="text-muted-foreground">Points</p>
-                            <p class="text-2xl font-bold">${data.student?.points ?? data.points ?? 0}</p>
+                            <p class="text-2xl font-bold" data-student-points>${data.gamification?.summary?.totalPoints ?? data.student?.points ?? data.points ?? 0}</p>
                         </div>
                     </div>
                 </div>
@@ -264,7 +266,8 @@ async function loadDashboardLeaderboard() {
     if (!v66IsAuthenticatedStudentContext()) return;
     try {
         const dashboardRes = await api.student.getDashboard();
-        const classId = dashboardRes.data?.classId;
+        const canonical = window.dashboardData || window.studentDashboardData || dashboardRes.data || {};
+        const classId = canonical.student?.classId || canonical.classId || dashboardRes.data?.student?.classId || dashboardRes.data?.classId;
         if (!classId) {
             const lb0 = document.getElementById('student-leaderboard'); if (lb0) lb0.innerHTML = '<p class="text-sm text-muted-foreground">Class not available</p>'; else return;
             return;
@@ -273,7 +276,7 @@ async function loadDashboardLeaderboard() {
         const list = res.data || [];
         const html = list.length === 0
             ? '<p class="text-sm text-muted-foreground">No leaderboard data yet.</p>'
-            : list.slice(0, 5).map(i => `<div class="flex justify-between py-1"><span>#${i.rank} ${escapeHtml(i.name)}</span><span class="font-bold">${i.points} pts</span></div>`).join('');
+            : list.slice(0, 5).map(i => `<div class="flex justify-between py-1"><span>#${i.rank} ${escapeHtml(i.name)}${i.elimuid ? ` <small class="text-muted-foreground">(${escapeHtml(i.elimuid)})</small>` : ''}</span><span class="font-bold">${i.points} pts</span></div>`).join('');
         const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = html;
     } catch (e) {
         const lb = document.getElementById('student-leaderboard'); if (lb) lb.innerHTML = '<p class="text-sm text-muted-foreground">No leaderboard data yet.</p>';  
@@ -297,14 +300,14 @@ async function loadDashboardBadges() {
     }
 }
 
-// Trigger widget loads after dashboard render
-setTimeout(() => {
-    if (!v66IsAuthenticatedStudentContext()) return;
-    loadStudentHomeTasks();
-    loadDashboardLeaderboard();
-    loadDashboardBadges();
-    if (typeof initStudentCharts === 'function') initStudentCharts(window.dashboardData || window.dashboardData || {});
-}, 200);
+async function loadStudentDashboardWidgets() {
+    if (!v66IsAuthenticatedStudentContext() || window.currentSection !== 'dashboard') return;
+    await Promise.allSettled([
+        loadStudentHomeTasks(),
+        loadDashboardLeaderboard(),
+        loadDashboardBadges()
+    ]);
+}
 
 async function loadStudentHomeTasks() {
     if (!v66IsAuthenticatedStudentContext()) return;
@@ -312,7 +315,10 @@ async function loadStudentHomeTasks() {
     if (!container) return;
     try {
         const user = getCurrentUser();
-        const studentId = user?.id;
+        const canonical = window.dashboardData || window.studentDashboardData || {};
+        const studentId = canonical.student?.id || canonical.student?.studentId ||
+            canonical.studentId || user?.studentId || user?.student?.id;
+        if (!studentId) throw new Error('Student profile is still loading. Reopen the dashboard.');
         const res = await api.homeTasks.getToday(studentId);
         const tasks = res.data || [];
         if (tasks.length === 0) {
@@ -334,7 +340,7 @@ async function loadStudentHomeTasks() {
                     </div>
                 </div>
                 <div class="mt-3 flex justify-end">
-                    <button onclick="markTaskComplete(${task.id})" class="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 transition-colors">
+                    <button onclick="markTaskComplete(${task.assignmentId || task.id})" class="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 transition-colors">
                         Mark Complete
                     </button>
                 </div>
@@ -630,15 +636,22 @@ function getAttendanceStatusClass(status) {
 async function markTaskComplete(taskId) {
     showLoading();
     try {
-        await api.homeTasks.complete(taskId, {});
-        showToast('✅ Task completed! Points awarded.', 'success');
+        const completion = await api.homeTasks.complete(taskId, {});
+        showToast(completion.data?.alreadyCompleted ? 'Task was already completed.' : '✅ Task completed! Points awarded.', 'success');
         await loadStudentHomeTasks();
-        // Refresh points display
-        const user = getCurrentUser();
-        const statsRes = await api.user.getMyStats();
-        if (statsRes.data) {
-            const pointsEl = document.getElementById('student-points');
-            if (pointsEl) pointsEl.textContent = statsRes.data.points || 0;
+        // Refresh every points widget from the same canonical source used by the
+        // dashboard, analytics, leaderboard, and rewards store.
+        const summaryRes = await apiRequest('/api/gamification/my-summary');
+        const summary = summaryRes.data?.summary || {};
+        const points = Number(summary.totalPoints) || 0;
+        document.querySelectorAll('[data-student-points]').forEach(element => {
+            element.textContent = String(points);
+        });
+        if (window.dashboardData?.student) {
+            window.dashboardData.student.points = points;
+            window.dashboardData.points = points;
+            window.dashboardData.gamification = summaryRes.data;
+            window.studentDashboardData = window.dashboardData;
         }
     } catch (e) {
         showToast(e.message || 'Failed to complete task', 'error');
@@ -1596,16 +1609,19 @@ window.sendStudentChatMessage = sendStudentChatMessage;
 window.loadStudentChatMessages = loadStudentChatMessages;
 window.loadDashboardLeaderboard = loadDashboardLeaderboard;
 window.loadDashboardBadges = loadDashboardBadges;
+window.loadStudentDashboardWidgets = loadStudentDashboardWidgets;
 
 
 
 async function v66JoinHomeworkDiscussion(threadId) {
     try {
         if (typeof showDashboardSection === 'function') await showDashboardSection('chat');
-        setTimeout(async () => {
+        if (typeof window.v9OpenStudentThread === 'function') {
+            await window.v9OpenStudentThread(Number(threadId));
+        } else {
             if (typeof v9LoadStudentThreads === 'function') await v9LoadStudentThreads();
             if (typeof v9SelectStudentThread === 'function') v9SelectStudentThread(Number(threadId));
-        }, 250);
+        }
     } catch (e) {
         showToast(e.message || 'Could not open study discussion', 'error');
     }
