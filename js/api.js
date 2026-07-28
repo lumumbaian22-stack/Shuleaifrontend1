@@ -284,7 +284,8 @@ const adminAPI = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    getClasses: () => apiRequest('/api/admin/classes'),
+    getClasses: (params = {}) => { const q = cleanQueryParams(params); return apiRequest('/api/admin/classes' + (q ? `?${q}` : '')); },
+    getActiveClasses: () => apiRequest('/api/admin/classes?status=active'),
     getClassTransferOptions: () => apiRequest('/api/lifecycle/transfer-options'),
     previewClassTransfer: (data) => apiRequest('/api/lifecycle/transfers/preview', { method:'POST', body:JSON.stringify(data) }),
     createClassTransfer: (data) => apiRequest('/api/lifecycle/transfers', { method:'POST', body:JSON.stringify(data) }),

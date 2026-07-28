@@ -175,7 +175,7 @@ async function rejectSchool(schoolId) {
 // Suspend school
 async function suspendSchool(schoolId) {
     if (!api.superAdmin.suspendSchool) {
-        showToast('Suspend school feature coming soon', 'info');
+        showToast('School suspension API is unavailable. Reload the application and try again.', 'error');
         return;
     }
     
@@ -203,7 +203,7 @@ async function suspendSchool(schoolId) {
 // Reactivate school
 async function reactivateSchool(schoolId) {
     if (!api.superAdmin.reactivateSchool) {
-        showToast('Reactivate school feature coming soon', 'info');
+        showToast('School reactivation API is unavailable. Reload the application and try again.', 'error');
         return;
     }
     

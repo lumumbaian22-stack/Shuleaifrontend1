@@ -115,8 +115,10 @@ function toggleNotifications() {
         if (!panel.classList.contains('hidden')) {
             if (typeof loadNotifications === 'function') loadNotifications();
         }
+    } else if (typeof showDashboardSection === 'function') {
+        showDashboardSection('alerts');
     } else {
-        showToast('Notifications coming soon', 'info');
+        showToast('The notification center is unavailable on this page.', 'error');
     }
 }
 

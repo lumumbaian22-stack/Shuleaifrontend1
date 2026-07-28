@@ -1,6 +1,6 @@
 {
-  "build": "2040-consolidated-schema-reconciler-lock",
-  "count": 523,
+  "build": "2043-full-system-completion-lock",
+  "count": 525,
   "apiCalls": [
     {
       "file": "frontend/js/admin-dashboard.js",
@@ -432,6 +432,12 @@
       "file": "frontend/js/api.js",
       "method": "GET",
       "path": "/api/admin/classes",
+      "normalized": "/api/admin/classes"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "GET",
+      "path": "/api/admin/classes?status=active",
       "normalized": "/api/admin/classes"
     },
     {
@@ -1123,6 +1129,12 @@
       "method": "GET",
       "path": "/api/analytics/dashboard?_=:value",
       "normalized": "/api/analytics/dashboard"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "GET",
+      "path": "/api/teacher/gradebook",
+      "normalized": "/api/teacher/gradebook"
     },
     {
       "file": "frontend/js/api.js",

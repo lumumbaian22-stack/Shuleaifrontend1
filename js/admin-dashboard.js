@@ -1627,7 +1627,7 @@ document.addEventListener('change', function(e) {
 
 async function loadClassesForSelect() {
     try {
-        const response = await api.admin.getClasses();
+        const response = await (api.admin.getActiveClasses ? api.admin.getActiveClasses() : api.admin.getClasses({status:'active'}));
         const select = document.getElementById('announcement-class');
         select.innerHTML = '<option value="">Select a class</option>';
         response.data.forEach(cls => {
@@ -2447,7 +2447,7 @@ function adminSubjectStatusBadge(status) {
     return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${cls}">${adminEsc(s.replace(/_/g, ' '))}</span>`;
 }
 async function loadAdminStudentSubjectPayload(selectedStudentId) {
-    const [studentsRes, classesRes] = await Promise.all([api.admin.getStudents(), api.admin.getClasses().catch(() => ({ data: [] }))]);
+    const [studentsRes, classesRes] = await Promise.all([api.admin.getStudents(), (api.admin.getActiveClasses ? api.admin.getActiveClasses() : api.admin.getClasses({status:'active'})).catch(() => ({ data: [] }))]);
     const students = adminArray(studentsRes.data);
     let studentId = selectedStudentId || localStorage.getItem('selectedStudentForSubjects') || students[0]?.id || '';
     if (!students.some(s => String(s.id) === String(studentId))) studentId = students[0]?.id || '';

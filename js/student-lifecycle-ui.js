@@ -6,7 +6,7 @@
   let classOptions=[];
 
   async function loadClasses(){
-    try{const payload=unwrap(await api.admin.getClasses());classOptions=Array.isArray(payload)?payload:(payload.classes||[]);}catch(_){classOptions=[];}
+    try{const payload=unwrap(await (api.admin.getActiveClasses ? api.admin.getActiveClasses() : api.admin.getClasses({status:'active'})));classOptions=Array.isArray(payload)?payload:(payload.classes||[]);}catch(_){classOptions=[];}
     return classOptions;
   }
 
@@ -120,7 +120,7 @@
     if(out.classes.length && out.students.length) return out;
     try{
       if(role==='admin'){
-        if(!out.classes.length && api?.admin?.getClasses){const r=unwrap(await api.admin.getClasses());out.classes=asArray(r).map(normalizeClass).filter(c=>c.id);}
+        if(!out.classes.length && api?.admin?.getClasses){const r=unwrap(await (api.admin.getActiveClasses ? api.admin.getActiveClasses() : api.admin.getClasses({status:'active'})));out.classes=asArray(r).map(normalizeClass).filter(c=>c.id);}
         if(!out.students.length && api?.admin?.getStudents){const r=unwrap(await api.admin.getStudents());out.students=asArray(r).map(normalizeStudent);}
       } else if(role==='teacher'){
         const candidates=[];
