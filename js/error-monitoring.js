@@ -1,5 +1,5 @@
 (function(){
-  const build = window.SHULE_BUILD_VERSION || '2040-consolidated-schema-reconciler-lock';
+  const build = window.SHULE_BUILD_VERSION || '2047-grounded-system-repair';
   function apiBase(){
     try { return window.SHULE_API_BASE || window.API_BASE_URL || localStorage.getItem('shule_api_base') || 'https://api.shuleai.live/api'; }
     catch (_) { return 'https://api.shuleai.live/api'; }

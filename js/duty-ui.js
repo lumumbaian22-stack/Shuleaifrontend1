@@ -5,7 +5,9 @@
   const e = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const val = id => document.getElementById(id)?.value || '';
   const checked = id => !!document.getElementById(id)?.checked;
-  const todayIso = () => new Date().toISOString().slice(0,10);
+  const todayIso = () => typeof w.localDateInputValue === 'function'
+    ? w.localDateInputValue()
+    : new Intl.DateTimeFormat('en-CA', { timeZone:'Africa/Nairobi' }).format(new Date());
   function toast(message,type='info'){ if(typeof w.showToast==='function') w.showToast(message,type); }
   function busy(on){ if(on && typeof w.showLoading==='function') w.showLoading(); if(!on && typeof w.hideLoading==='function') w.hideLoading(); }
   function unwrap(res){ return res?.data ?? res ?? null; }

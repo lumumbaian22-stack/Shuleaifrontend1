@@ -228,11 +228,11 @@ async function v9LoadCurrentMessages() {
     } else if (v9ChatState.mode === 'parent' && v9ChatState.selectedParent && window.api?.teacher?.getParentMessages) {
       v9JoinConversation(null);
       res = await Promise.race([
-        window.api.teacher.getParentMessages(v9ChatState.selectedParent.userId),
+        window.api.teacher.getParentMessages(v9ChatState.selectedParent.userId, {
+          studentId: v9ChatState.selectedParent.studentId || ''
+        }),
         new Promise(resolve => setTimeout(() => resolve({ data: [] }), 8000))
       ]);
-      const selectedKey = v9ChatState.selectedParent.conversationKey;
-      if (selectedKey) res.data = (res.data || []).filter(m => !m.metadata?.conversationKey || m.metadata.conversationKey === selectedKey);
     } else if (v9ChatState.mode === 'group' && v9ChatState.selectedGroup) {
       v9JoinConversation(`group:${Number(v9ChatState.selectedGroup.id)}`);
       res = await Promise.race([
@@ -499,7 +499,7 @@ async function v9SendMessage() {
     const temp={id:`temp-${clientMessageId}`,clientMessageId,senderId:me?.id,content,attachmentUrl,messageType:attachmentUrl?'file':'text',deliveryStatus:'sending',createdAt:new Date().toISOString(),Sender:{id:me?.id,name:me?.name,role:me?.role},metadata:{replyTo:replyTo?{id:replyTo.id,senderName:replyTo.Sender?.name||'User',content:replyTo.content}:null}};
     v9ChatState.messages.push(temp);v9RenderMessageListOnly();let res=null;
     if(v9ChatState.mode==='direct'&&v9ChatState.selectedTeacher)res=await chatV9API.sendDirectMessage(v9ChatState.selectedTeacher.id,content,attachmentUrl,attachment,replyTo?.id||null,clientMessageId);
-    if(v9ChatState.mode==='parent'&&v9ChatState.selectedParent&&window.api?.teacher?.replyToParent)res=await window.api.teacher.replyToParent({parentId:v9ChatState.selectedParent.userId,message:content,originalMessageId:replyTo?.id||v9ChatState.messages.filter(m=>!String(m.id).startsWith('temp-')).at(-1)?.id||null,conversationKey:v9ChatState.selectedParent.conversationKey||null,clientMessageId});
+    if(v9ChatState.mode==='parent'&&v9ChatState.selectedParent&&window.api?.teacher?.replyToParent)res=await window.api.teacher.replyToParent({parentId:v9ChatState.selectedParent.userId,studentId:v9ChatState.selectedParent.studentId||null,message:content,originalMessageId:replyTo?.id||v9ChatState.messages.filter(m=>!String(m.id).startsWith('temp-')).at(-1)?.id||null,conversationKey:v9ChatState.selectedParent.conversationKey||null,clientMessageId});
     if(v9ChatState.mode==='group'&&v9ChatState.selectedGroup)res=await chatV9API.sendGroupMessage(v9ChatState.selectedGroup.id,content,attachmentUrl,attachment,replyTo?.id||null,clientMessageId);
     const i=v9ChatState.messages.findIndex(m=>m.clientMessageId===clientMessageId);if(res?.data&&i>=0)v9ChatState.messages[i]=res.data;else if(!res?.data&&i>=0)v9ChatState.messages[i].deliveryStatus='sent';v9RenderMessageListOnly();
   }catch(err){const temp=v9ChatState.messages.find(m=>String(m.id).startsWith('temp-')&&m.content===content);if(temp)temp.deliveryStatus='failed';if(input)input.value=previousValue;v9ChatState.attachment=attachment;v9ChatState.replyToMessage=replyTo;v9ChatState.editingMessage=editing;v9RenderMessageListOnly();v9Toast(err.message||'Message failed','error');}

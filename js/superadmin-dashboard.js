@@ -33,6 +33,7 @@ async function renderSuperAdminSection(section) {
                 return renderSuperAdminDashboard();
         }
     } catch (error) {
+        if (error?.name === 'AbortError') throw error;
         console.error('Error rendering super admin section:', error);
         return `<div class="text-center py-12 text-red-500">Error loading section: ${error.message}</div>`;
     }

@@ -2,6 +2,7 @@
 // Use global dashboardData from dashboard-controller.js
 if (typeof window.dashboardData === 'undefined') window.dashboardData = {};
 var dashboardData = window.dashboardData;
+var parentChildSwitchGeneration = 0;
 function parentSelectedChildStorageKey() {
     try {
         const user = typeof getCurrentUser === 'function' ? getCurrentUser() : {};
@@ -238,6 +239,7 @@ async function renderParentDashboard() {
             const recentRecords = selectedChildSummary.recentRecords || [];
             const recentAttendance = selectedChildSummary.recentAttendance || [];
             const outstandingFees = selectedChildSummary.outstandingFees || null;
+            const hasPublishedReport = selectedChildSummary.hasPublishedReport === true;
 
             const attendanceRate = recentAttendance.length > 0 
                 ? Math.round((recentAttendance.filter(a => a.status === 'present').length / recentAttendance.length) * 100) 
@@ -344,10 +346,10 @@ async function renderParentDashboard() {
 
                 <div class="rounded-xl border bg-card p-4">
                     <div class="grid gap-2 sm:grid-cols-3">
-                        <button onclick="openReportCard(${selectedChildId})" class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2">
+                        <button ${hasPublishedReport ? `onclick="openReportCard(${selectedChildId})"` : 'disabled title="No published report is available yet"'} class="w-full px-4 py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                             <i data-lucide="file-text" class="h-4 w-4"></i> View Latest
                         </button>
-                        <button onclick="downloadReportCard(${selectedChildId})" class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent">
+                        <button ${hasPublishedReport ? `onclick="downloadReportCard(${selectedChildId})"` : 'disabled title="No published report is available yet"'} class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed">
                             <i data-lucide="download" class="h-4 w-4"></i> Download PDF
                         </button>
                         <button onclick="openReportHistory(${selectedChildId})" class="w-full px-4 py-2 border rounded-lg flex items-center justify-center gap-2 hover:bg-accent">
@@ -642,7 +644,7 @@ async function renderParentPayments() {
         return `<div class="parent-payment-ui animate-fade-in" id="parent-payments-root" data-student-id="${escapeHtml(selectedChildId || '')}">
           <select id="payment-child" style="display:none">${children.map(child => `<option value="${child.id}" ${String(child.id)===String(selectedChildId)?'selected':''}></option>`).join('')}</select>
           <div class="parent-payment-card">
-            <div class="parent-payment-top"><div><p>Total Outstanding Balance</p><h2>KES ${Number(totalBalance || balance || 0).toLocaleString()}</h2><span>${children.length} Children &nbsp; | &nbsp; ${fees.filter(f=>Number(f.balance||0)>0).length || 0} Unpaid Invoices</span></div><button type="button" onclick="setParentPaymentHistoryFilter('all')">View Statement</button></div>
+            <div class="parent-payment-top"><div><p>Total Outstanding Balance</p><h2>KES ${Number(totalBalance || balance || 0).toLocaleString()}</h2><span>${children.length} Children &nbsp; | &nbsp; ${fees.filter(f=>Number(f.balance||0)>0).length || 0} Unpaid Invoices</span></div><button type="button" onclick="openParentStatement()">View Statement</button></div>
             <div class="parent-payment-layout">
               <section>
                 <h3>Select Child</h3>
@@ -748,8 +750,10 @@ async function renderParentChat() {
 // ============ HELPER FUNCTIONS ============
 
 async function selectChild(childId) {
+    const switchGeneration = ++parentChildSwitchGeneration;
     dashboardData = window.dashboardData || window.parentDashboardData || dashboardData || {};
     dashboardData.selectedChildId = childId;
+    dashboardData.selectedChild = null;
     setStoredSelectedChildId(childId);
     window.dashboardData = dashboardData;
     window.parentDashboardData = dashboardData;
@@ -763,21 +767,30 @@ async function selectChild(childId) {
         }
     }
 
+    const switcher = document.getElementById('parent-child-switcher');
+    if (switcher) switcher.disabled = true;
+    const content = document.getElementById('dashboard-content');
+    if (content) content.innerHTML = `<div class="min-h-[240px] rounded-xl border bg-card p-6" role="status" aria-live="polite"><div class="h-5 w-52 animate-pulse rounded bg-muted"></div><div class="mt-5 grid gap-4 md:grid-cols-3"><div class="h-28 animate-pulse rounded-lg bg-muted/70"></div><div class="h-28 animate-pulse rounded-lg bg-muted/70"></div><div class="h-28 animate-pulse rounded-lg bg-muted/70"></div></div><p class="mt-5 text-sm text-muted-foreground">Loading the selected child’s information…</p></div>`;
     showLoading();
     try {
         // Privacy guard: clear child-scoped UI caches before loading the next child so alerts/payments/analytics cannot visually leak.
         if (window.ShuleAlerts?.resetForChild) await window.ShuleAlerts.resetForChild(childId).catch(() => null);
         window.dispatchEvent(new CustomEvent('shule:child-switched', { detail: { studentId: childId } }));
         const summaryResponse = await api.parent.getChildSummary(childId);
+        if (switchGeneration !== parentChildSwitchGeneration || String(dashboardData.selectedChildId) !== String(childId)) return;
         dashboardData.selectedChild = summaryResponse.data;
         window.dashboardData = dashboardData;
         window.parentDashboardData = dashboardData;
         await showDashboardSection(currentSection);
     } catch (error) {
+        if (switchGeneration !== parentChildSwitchGeneration) return;
         console.error('Error selecting child:', error);
         showToast('Failed to load child data', 'error');
     } finally {
-        hideLoading();
+        if (switchGeneration === parentChildSwitchGeneration) {
+            if (switcher) switcher.disabled = false;
+            hideLoading();
+        }
     }
 }
 
@@ -1613,6 +1626,30 @@ async function setParentPaymentHistoryFilter(value) {
     await refreshParentPaymentPanelSoft();
 }
 window.setParentPaymentHistoryFilter = setParentPaymentHistoryFilter;
+
+async function openParentStatement() {
+    const childId = dashboardData?.selectedChildId;
+    if (!childId) return showToast('Select a child first', 'error');
+    showLoading();
+    try {
+        const [accountResponse, historyResponse] = await Promise.all([
+            api.parent.getStudentFeeAccounts(childId),
+            api.parent.getStudentPaymentHistory(childId, { status:'all' })
+        ]);
+        const finance = accountResponse?.data || { accounts:[], totals:{} };
+        const history = (historyResponse?.data || []).filter(payment => payment.parentVisible !== false && payment.integrityValid !== false);
+        const child = (dashboardData?.children || []).find(item => String(item.id) === String(childId)) || {};
+        const rows = history.length ? history.map(payment => `<tr><td class="p-2 border">${escapeHtml(formatDate(payment.createdAt))}</td><td class="p-2 border">${escapeHtml(payment.transactionTypeLabel || payment.transactionType || 'Payment')}</td><td class="p-2 border">${escapeHtml(payment.reference || '—')}</td><td class="p-2 border">${escapeHtml(payment.statusLabel || payment.status || '—')}</td><td class="p-2 border text-right">KES ${Number(payment.amount || 0).toLocaleString()}</td></tr>`).join('') : '<tr><td colspan="5" class="p-4 text-center text-muted-foreground">No payment transactions recorded.</td></tr>';
+        const totals = finance.totals || {};
+        document.getElementById('parent-statement-modal')?.remove();
+        document.body.insertAdjacentHTML('beforeend', `<div id="parent-statement-modal" class="fixed inset-0 z-[100]"><div class="absolute inset-0 bg-black/55" onclick="this.parentElement.remove()"></div><div class="absolute inset-x-3 top-8 bottom-8 md:left-1/2 md:right-auto md:w-full md:max-w-4xl md:-translate-x-1/2"><div class="h-full overflow-y-auto rounded-2xl border bg-card p-6 shadow-2xl"><div class="flex items-start justify-between gap-3"><div><p class="text-xs uppercase tracking-wide text-muted-foreground">School fee statement</p><h2 class="text-2xl font-bold">${escapeHtml(child.User?.name || child.name || 'Selected Child')}</h2><p class="text-sm font-mono text-muted-foreground">${escapeHtml(child.elimuid || child.elimuId || '—')}</p></div><button class="px-3 py-2 rounded border" onclick="document.getElementById('parent-statement-modal').remove()">Close</button></div><div class="mt-5 grid gap-3 sm:grid-cols-4"><div class="rounded-lg border p-3"><small>Expected</small><strong class="block">KES ${Number(totals.totalExpected || 0).toLocaleString()}</strong></div><div class="rounded-lg border p-3"><small>Parent paid</small><strong class="block">KES ${Number(totals.parentPaidAmount || 0).toLocaleString()}</strong></div><div class="rounded-lg border p-3"><small>Credits</small><strong class="block">KES ${Number(totals.creditAmount || 0).toLocaleString()}</strong></div><div class="rounded-lg border p-3"><small>Balance</small><strong class="block">KES ${Number(totals.balance || 0).toLocaleString()}</strong></div></div><div class="mt-5 overflow-x-auto"><table class="w-full text-sm"><thead><tr><th class="p-2 border text-left">Date</th><th class="p-2 border text-left">Transaction</th><th class="p-2 border text-left">Reference</th><th class="p-2 border text-left">Status</th><th class="p-2 border text-right">Amount</th></tr></thead><tbody>${rows}</tbody></table></div><div class="mt-5 flex justify-end"><button class="px-4 py-2 rounded bg-primary text-primary-foreground" onclick="window.print()">Print Statement</button></div></div></div></div>`);
+    } catch (error) {
+        showToast(error.message || 'Statement could not be loaded', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+window.openParentStatement = openParentStatement;
 
 async function refreshParentPaymentPanelSoft() {
     const root = document.getElementById('parent-payments-root');

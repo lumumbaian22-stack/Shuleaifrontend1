@@ -505,9 +505,38 @@ function formatStudentAge(studentOrDob, compact = false) {
     let years = now.getFullYear() - dob.getFullYear(), months = now.getMonth() - dob.getMonth(), days = now.getDate() - dob.getDate();
     if (days < 0) { days += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); months--; }
     if (months < 0) { months += 12; years--; }
-    return compact ? `${years} year${years === 1 ? '' : 's'}, ${days} day${days === 1 ? '' : 's'} old` : `${years} year${years === 1 ? '' : 's'}, ${months} month${months === 1 ? '' : 's'}, ${days} day${days === 1 ? '' : 's'} old`;
+    const lastBirthdayYear = (
+        now.getMonth() > dob.getMonth()
+        || (now.getMonth() === dob.getMonth() && now.getDate() >= dob.getDate())
+    ) ? now.getFullYear() : now.getFullYear() - 1;
+    const remainderDays = Math.max(0, Math.floor((
+        new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        - new Date(lastBirthdayYear, dob.getMonth(), dob.getDate())
+    ) / 86400000));
+    return compact ? `${years} year${years === 1 ? '' : 's'}, ${remainderDays} day${remainderDays === 1 ? '' : 's'} old` : `${years} year${years === 1 ? '' : 's'}, ${months} month${months === 1 ? '' : 's'}, ${days} day${days === 1 ? '' : 's'} old`;
 }
 window.formatStudentAge = formatStudentAge;
+
+function localDateInputValue(value = new Date(), timeZone = 'Africa/Nairobi') {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    try {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).formatToParts(date);
+        const byType = Object.fromEntries(parts.map(part => [part.type, part.value]));
+        return `${byType.year}-${byType.month}-${byType.day}`;
+    } catch (_) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+}
+window.localDateInputValue = localDateInputValue;
 
 function downloadStructuredCsv(data, filename = 'Shule_AI_Export.csv') {
     const rows = [['Section', 'Field', 'Value']];

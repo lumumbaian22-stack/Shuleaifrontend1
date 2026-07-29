@@ -471,7 +471,10 @@ const teacherAPI = {
     getPrivateMessages: (otherUserId) => apiRequest(`/api/teacher/private-messages/${otherUserId}`),
     sendGroupMessage: (data) => apiRequest('/api/teacher/group-message', { method: 'POST', body: JSON.stringify(data) }),
     sendPrivateMessage: (data) => apiRequest('/api/teacher/private-message', { method: 'POST', body: JSON.stringify(data) }),
-    getParentMessages: (parentId) => apiRequest(`/api/teacher/messages/${parentId}`),
+    getParentMessages: (parentId, params = {}) => {
+        const query = cleanQueryParams(params);
+        return apiRequest(`/api/teacher/messages/${parentId}${query ? `?${query}` : ''}`);
+    },
     replyToParent: (data) => apiRequest('/api/teacher/reply', { method: 'POST', body: JSON.stringify(data) }),
     getPerformanceData: () => apiRequest('/api/teacher/performance'),
     getMyAssignments: () => apiRequest('/api/teacher/my-assignments'),

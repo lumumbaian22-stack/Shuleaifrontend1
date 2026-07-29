@@ -289,7 +289,8 @@ async function downloadMyData() {
     showLoading();
     try {
         const response = await api.user.exportMyData();
-        downloadStructuredCsv(response.data, `Shule_AI_My_Data_${new Date().toISOString().split('T')[0]}.csv`);
+        const dateKey = window.localDateInputValue ? window.localDateInputValue() : new Intl.DateTimeFormat('en-CA', { timeZone:'Africa/Nairobi' }).format(new Date());
+        downloadStructuredCsv(response.data, `Shule_AI_My_Data_${dateKey}.csv`);
         showToast('✅ Data exported successfully', 'success');
     } catch (error) {
         showToast('Failed to export data', 'error');

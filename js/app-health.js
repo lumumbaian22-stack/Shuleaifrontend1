@@ -12,7 +12,7 @@ window.addEventListener('load', () => {
 // Shule AI v149.8 final service-worker registration and stale-cache cleanup.
 (function () {
   if (!('serviceWorker' in navigator)) return;
-  const BUILD = '2046-system-integrity-release';
+  const BUILD = '2047-grounded-system-repair';
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return;
@@ -27,7 +27,7 @@ window.addEventListener('load', () => {
   });
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js?v=2046-system-integrity-release', { updateViaCache:'none' });
+      const registration = await navigator.serviceWorker.register('/service-worker.js?v=2047-grounded-system-repair', { updateViaCache:'none' });
       try { registration.active?.postMessage({ type: 'CLEAR_OLD_CACHES' }); } catch (_) {}
       if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       try { await registration.update?.(); } catch (_) {}

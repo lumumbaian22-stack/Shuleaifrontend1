@@ -1,6 +1,6 @@
 {
-  "build": "2045-live-regression-integrity-lock",
-  "count": 523,
+  "build": "2047-grounded-system-repair",
+  "count": 525,
   "apiCalls": [
     {
       "file": "frontend/js/admin-dashboard.js",
@@ -1123,6 +1123,12 @@
       "method": "GET",
       "path": "/api/analytics/dashboard?_=:value",
       "normalized": "/api/analytics/dashboard"
+    },
+    {
+      "file": "frontend/js/api.js",
+      "method": "GET",
+      "path": "/api/teacher/gradebook",
+      "normalized": "/api/teacher/gradebook"
     },
     {
       "file": "frontend/js/api.js",
@@ -2927,8 +2933,8 @@
     {
       "file": "frontend/js/student-dashboard-extended.js",
       "method": "GET",
-      "path": "/api/gamification/badges/:value",
-      "normalized": "/api/gamification/badges/:value"
+      "path": "/api/gamification/my-summary",
+      "normalized": "/api/gamification/my-summary"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",
@@ -2941,6 +2947,12 @@
       "method": "GET",
       "path": "/api/student/recommendations?:value",
       "normalized": "/api/student/recommendations"
+    },
+    {
+      "file": "frontend/js/student-dashboard-extended.js",
+      "method": "GET",
+      "path": "/api/gamification/my-summary",
+      "normalized": "/api/gamification/my-summary"
     },
     {
       "file": "frontend/js/student-dashboard-extended.js",

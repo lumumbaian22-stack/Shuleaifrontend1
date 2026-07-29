@@ -6,7 +6,7 @@
   const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const jsArg = (v) => JSON.stringify(String(v ?? '')).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const FINANCE_PERMS={overview:'Overview',fee_structures:'Fee Structures',invoices:'Student Fee Accounts & Invoices',payments:'Payments & Receipts',verification:'Verification & Reconciliation',balances:'Balances, Defaulters & Bursaries',expenses:'Expenses',alerts:'Alerts',analytics:'Analytics',reports:'Reports',settings:'Settings',audit:'Audit Trail'};
-  const state={tab:'overview',structures:[],classes:[],students:[],financeStaff:[],settings:{},providerSettings:null,accounts:[],paymentRecords:[],quarantinedRecords:[],manualQueue:[],overview:null,expenses:[],financeAlerts:[],invoices:[],financeAnalytics:null,auditTrail:[],paymentLoadError:'',loading:false,filters:{className:'',term:'',year:String(new Date().getFullYear())}};
+  const state={tab:'overview',structures:[],classes:[],students:[],financeStaff:[],settings:{},providerSettings:null,accounts:[],paymentRecords:[],quarantinedRecords:[],manualQueue:[],manualQuarantine:[],overview:null,expenses:[],financeAlerts:[],invoices:[],financeAnalytics:null,auditTrail:[],paymentLoadError:'',loading:false,filters:{className:'',term:'',year:String(new Date().getFullYear())}};
   function currentUser(){ try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch(_) { return {}; } }
   function currentRole(){ return String(currentUser().role || localStorage.getItem('role') || '').toLowerCase().replace('-', '_'); }
   function isAdminFinanceRole(){ const r=currentRole(); return r==='admin' || r==='finance_officer' || r==='super_admin' || r==='superadmin'; }
@@ -95,12 +95,13 @@
       const selected = activeProvider === agent.provider;
       const saved = savedProvider === agent.provider;
       const ps = providerStatus(agent.provider);
-      return `<button type="button" class="payment-lock-provider-line ${selected ? 'selected' : ''} ${saved ? 'active' : ''}" onclick="financeV31SelectProvider('${agent.provider}')">
+      const operational = saved && ps.parentReady;
+      return `<button type="button" class="payment-lock-provider-line ${selected ? 'selected' : ''} ${operational ? 'active' : ''}" onclick="financeV31SelectProvider('${agent.provider}')">
         <span class="payment-lock-radio">${selected ? '●' : '○'}</span>
         <span class="payment-provider-logo ${agent.provider}">${esc(providerLogo(agent.provider))}</span>
         <span class="provider-name"><strong>${esc(agent.label)}</strong><small>${selected ? 'Selected for editing' : 'Click to configure'} • ${esc(ps.status)}</small></span>
-        <em>${saved ? 'Active' : 'Inactive'}</em>
-        ${saved ? '' : '<b>Set Up</b>'}
+        <em>${operational ? 'Active & parent ready' : saved ? 'Setup incomplete' : 'Inactive'}</em>
+        ${operational ? '' : '<b>Set Up</b>'}
       </button>`;
     };
     const queue = (state.manualQueue || []).slice(0,3);
@@ -121,7 +122,7 @@
         <section class="payment-lock-main-card">
           <h3>1. Payment Providers</h3><p>Only one provider can be active at a time.</p>
           <div class="payment-lock-provider-table">${PAYMENT_AGENT_DEFS.map(providerRow).join('')}</div>
-          <div class="payment-lock-active-banner"><strong>Active Provider:</strong> ${esc(providerLabel(savedProvider))}<span>All other providers disabled.</span></div>
+          <div class="payment-lock-active-banner"><strong>${providerStatus(savedProvider).parentReady ? 'Active Provider:' : 'Selected Provider — setup incomplete:'}</strong> ${esc(providerLabel(savedProvider))}<span>${providerStatus(savedProvider).parentReady ? 'Parent payments are available; all other providers are disabled.' : 'Parent payments stay hidden until provider verification succeeds.'}</span></div>
           <div class="payment-lock-green-note">M-Pesa is not a legacy or special-case provider. All providers are treated equally.</div>
         </section>
         ${paymentLinkingCard(ref)}
@@ -163,7 +164,7 @@
   function getClassName(c){ return c?.name || c?.grade || c?.className || c?.level || 'Class'; }
   function getStructureClassName(s){ const assigned=Array.isArray(s?.assignedClasses)?s.assignedClasses:[]; if(assigned.length) return assigned.map(c=>c.name||c.grade||c.id).filter(Boolean).join(', '); return s?.className || s?.classGrade || s?.gradeLevel || s?.Class?.name || 'Class'; }
   function normalizedStatus(s){ return String(s?.status || 'draft').trim().toLowerCase(); }
-  function classKeyFromName(name){ return String(name || '').trim(); }
+  function classKeyFromName(name){ return String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase(); }
   function accountStudentName(a){ return a.Student?.User?.name || a.Student?.name || a.studentName || 'Student'; }
   function accountClassName(a){ return a.Student?.className || a.Student?.grade || a.Student?.Class?.name || a.className || a.metadata?.className || 'Unassigned'; }
   function recordClassName(r){ return r.Student?.className || r.Student?.grade || r.Student?.Class?.name || r.className || r.metadata?.className || 'Unassigned'; }
@@ -171,19 +172,23 @@
   function recordElimuId(r){ return r.metadata?.studentElimuid || r.metadata?.elimuId || r.accountReference || r.Student?.elimuid || r.Student?.elimuId || r.Student?.admissionNumber || '—'; }
   function visibleClasses(){
     const byKey = new Map();
-    (state.classes || []).filter(c => c && c.isActive !== false).forEach(c => {
-      const name = String(getClassName(c) || '').trim();
+    const add = (rawName) => {
+      const name = String(rawName || '').trim().replace(/\s+/g, ' ');
       if (!name) return;
-      const key = name.toLocaleLowerCase();
+      const key = classKeyFromName(name);
       if (!byKey.has(key)) byKey.set(key, name);
-    });
+    };
+    (state.classes || []).filter(c => c && c.isActive !== false).forEach(c => add(getClassName(c)));
+    (state.accounts || []).forEach(account => add(accountClassName(account)));
+    (state.paymentRecords || []).forEach(record => add(recordClassName(record)));
     return [...byKey.values()].sort((a,b)=>String(a).localeCompare(String(b), undefined, {numeric:true,sensitivity:'base'}));
   }
   function getSelectedRecordClass(){ return state.filters.recordClassName || ''; }
-  function setRecordClass(name){ state.filters.recordClassName = name || ''; const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=renderRecords(); }
+  function setRecordClass(name){ state.filters.recordClassName = name || ''; const el=document.getElementById('finance-v31-tab-body'); if(el) el.innerHTML=state.tab==='balances'?renderBalances():renderRecords(); }
   function classFinancialSummary(className){
-    const accounts=(state.accounts||[]).filter(a=>!className || accountClassName(a)===className);
-    const records=(state.paymentRecords||[]).filter(r=>!className || recordClassName(r)===className);
+    const selectedKey=classKeyFromName(className);
+    const accounts=(state.accounts||[]).filter(a=>!selectedKey || classKeyFromName(accountClassName(a))===selectedKey);
+    const records=(state.paymentRecords||[]).filter(r=>!selectedKey || classKeyFromName(recordClassName(r))===selectedKey);
     const expected=accounts.reduce((s,a)=>s+Number(a.totalAmount||a.total||0),0);
     const paid=accounts.reduce((s,a)=>s+Number(a.paidAmount||a.paid||0),0);
     const outstanding=accounts.reduce((s,a)=>s+Number(a.balance ?? Math.max(0,Number(a.totalAmount||0)-Number(a.paidAmount||0))),0);
@@ -198,11 +203,11 @@
     const rows = [];
     const seen = new Set();
     (state.accounts||[]).forEach(a => {
-      if (className && accountClassName(a) !== className) return;
+      if (className && classKeyFromName(accountClassName(a)) !== classKeyFromName(className)) return;
       rows.push(a); seen.add(String(a.studentId));
     });
     (state.students||[]).forEach(st => {
-      if (className && studentClassName(st) !== className) return;
+      if (className && classKeyFromName(studentClassName(st)) !== classKeyFromName(className)) return;
       if (seen.has(String(st.id))) return;
       rows.push({
         studentId: st.id,
@@ -268,7 +273,17 @@
       // Keep the last successful records instead of presenting a false empty ledger.
     }
   }
-  async function loadManualQueue(){ const api = apiSafe(); state.manualQueue = await call(() => api.payments?.getManualQueue ? api.payments.getManualQueue() : apiRequest('/api/payments/admin/manual-queue'), []); }
+  async function loadManualQueue(){
+    const api = apiSafe();
+    try {
+      const response = await (api.payments?.getManualQueue ? api.payments.getManualQueue() : apiRequest('/api/payments/admin/manual-queue'));
+      const payload = response?.data ?? response ?? {};
+      state.manualQueue = Array.isArray(payload) ? payload : (payload.records || payload.items || payload.data || []);
+      state.manualQuarantine = response?.quarantined || payload?.quarantined || [];
+    } catch (error) {
+      console.error('[Finance & Fees] Manual verification queue retained after load failure:', error);
+    }
+  }
   async function loadOverview(){const params={};if(state.filters.year)params.year=state.filters.year;if(state.filters.term)params.term=state.filters.term;state.overview=await call(()=>apiSafe().finance.getOverview(params),null);}
   async function loadExpenses(){state.expenses=isFinanceStaffView()&&financeAllowed('expenses')?await call(()=>apiSafe().finance.getExpenses(),[]):[];}
   async function loadInvoices(){state.invoices=isFinanceStaffView()&&financeAllowed('invoices')?((await call(()=>apiSafe().finance.getInvoices({...state.filters.year?{year:state.filters.year}:{},...state.filters.term?{term:state.filters.term}:{}}),{}))?.invoices||[]):[];}
@@ -335,11 +350,29 @@
     });
     return [...map.values()];
   }
+  function structureStudentCount(structure){
+    const explicit = Number(structure?.studentsAssigned || 0);
+    const structureIds = new Set([
+      structure?.id,
+      ...(Array.isArray(structure?.structureIds) ? structure.structureIds : [])
+    ].filter(Boolean).map(String));
+    const classKeys = new Set(
+      getStructureClassName(structure).split(',').map(classKeyFromName).filter(Boolean)
+    );
+    const matchedStudents = new Set();
+    (state.accounts || []).forEach(account => {
+      const accountStructureId = account.feeStructureId || account.structureId || account.FeeStructure?.id;
+      const idMatch = accountStructureId && structureIds.has(String(accountStructureId));
+      const classMatch = classKeys.size && classKeys.has(classKeyFromName(accountClassName(account)));
+      if ((idMatch || classMatch) && account.studentId) matchedStudents.add(String(account.studentId));
+    });
+    return Math.max(explicit, matchedStudents.size);
+  }
 
   function filteredStructures(){
     return groupedStructures().filter(s=>{
-      const className = getStructureClassName(s);
-      if(state.filters.className && !String(className).split(',').map(x=>x.trim()).includes(state.filters.className)) return false;
+      const classNames = getStructureClassName(s).split(',').map(classKeyFromName);
+      if(state.filters.className && !classNames.includes(classKeyFromName(state.filters.className))) return false;
       if(state.filters.term && s.term !== state.filters.term) return false;
       if(state.filters.year && String(s.year || '') !== String(state.filters.year)) return false;
       return true;
@@ -364,13 +397,13 @@
       const classNames = assigned.length ? assigned.map(c=>c.name||c.grade||c.id).filter(Boolean) : getStructureClassName(s).split(',').map(x=>x.trim()).filter(Boolean);
       const visible = classNames.slice(0,4).map(c=>`<span class="finance-v31-chip">${esc(c)}</span>`).join('');
       const more = classNames.length > 4 ? `<span class="finance-v31-chip muted">+${classNames.length-4} more</span>` : '';
-      return `<div class="finance-v31-card grouped"><div class="finance-v31-card-head"><div><h3>${esc(s.name || `${getStructureClassName(s)} — ${s.term}`)}</h3><p>${esc(s.term || 'Term')} ${esc(String(s.year || ''))} • ${esc(s.curriculum || 'CBC')}</p></div><span class="finance-v31-badge ${normalizedStatus(s)}">${esc(s.status || 'draft')}</span></div><div class="finance-v31-class-list">${visible}${more || ''}</div><div class="finance-v31-items">${structureItems(s)}</div><div class="finance-v31-card-foot"><strong>${money(s.totalAmount || 0)}</strong><small>${Number(s.studentsAssigned||0).toLocaleString()} students assigned • ${classNames.length || 1} class${(classNames.length||1)===1?'':'es'}</small></div><div class="finance-v31-actions-row">${actionButtons(s)}</div></div>`;
+      return `<div class="finance-v31-card grouped"><div class="finance-v31-card-head"><div><h3>${esc(s.name || `${getStructureClassName(s)} — ${s.term}`)}</h3><p>${esc(s.term || 'Term')} ${esc(String(s.year || ''))} • ${esc(s.curriculum || 'CBC')}</p></div><span class="finance-v31-badge ${normalizedStatus(s)}">${esc(s.status || 'draft')}</span></div><div class="finance-v31-class-list">${visible}${more || ''}</div><div class="finance-v31-items">${structureItems(s)}</div><div class="finance-v31-card-foot"><strong>${money(s.totalAmount || 0)}</strong><small>${structureStudentCount(s).toLocaleString()} students assigned • ${classNames.length || 1} class${(classNames.length||1)===1?'':'es'}</small></div><div class="finance-v31-actions-row">${actionButtons(s)}</div></div>`;
     }).join('') : '<div class="finance-v31-empty">No fee structures yet. Create one grouped structure and assign it to one or more classes.</div>';
     const paymentErrorBanner = state.paymentLoadError ? `<div class="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-100"><strong>Payment history is temporarily unavailable.</strong><p class="mt-1">${esc(state.paymentLoadError)} Existing balances remain visible; no records were deleted.</p></div>` : '';
     return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>${paymentErrorBanner}
       <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Fee Structures</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Create one grouped fee structure and attach one or multiple classes. Classes remain grouped inside the same structure card.</p></div><button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button></div>
       <div class="finance-v31-filters">
-        <select id="finance-v31-class-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option value="">All Classes</option>${state.classes.map(c=>`<option value="${esc(getClassName(c))}" ${state.filters.className===getClassName(c)?'selected':''}>${esc(getClassName(c))}</option>`).join('')}</select>
+        <select id="finance-v31-class-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option value="">All Classes</option>${visibleClasses().map(name=>`<option value="${esc(name)}" ${classKeyFromName(state.filters.className)===classKeyFromName(name)?'selected':''}>${esc(name)}</option>`).join('')}</select>
         <select id="finance-v31-term-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option value="">All Terms</option><option ${state.filters.term==='Term 1'?'selected':''}>Term 1</option><option ${state.filters.term==='Term 2'?'selected':''}>Term 2</option><option ${state.filters.term==='Term 3'?'selected':''}>Term 3</option></select>
         <select id="finance-v31-year-filter" class="finance-v31-select" onchange="financeV31ApplyFilter()"><option ${String(state.filters.year)===String(year)?'selected':''}>${year}</option><option ${String(state.filters.year)===String(year+1)?'selected':''}>${year+1}</option><option value="">All Years</option></select>
       </div>
@@ -405,13 +438,13 @@
   }
 
 
-  function renderRecords(){
+  function renderBalances(){
     const classes = visibleClasses();
     const selectedClass = getSelectedRecordClass();
     const summary = classFinancialSummary(selectedClass);
     const rows=(state.paymentRecords||[]).filter(r=>{
       const className = r.className || recordClassName(r);
-      if(selectedClass && className !== selectedClass) return false;
+      if(selectedClass && classKeyFromName(className) !== classKeyFromName(selectedClass)) return false;
       if(state.filters.term && (r.term || r.feeTerm || r.Fee?.term || r.metadata?.term) !== state.filters.term) return false;
       if(state.filters.year && String(r.year || r.feeYear || r.Fee?.year || r.metadata?.year || '') !== String(state.filters.year)) return false;
       return true;
@@ -430,17 +463,49 @@
     </div>`;
   }
 
+  function renderRecords(){
+    const selectedClass = getSelectedRecordClass();
+    const rows = (state.paymentRecords || []).filter(record => {
+      if (selectedClass && classKeyFromName(recordClassName(record)) !== classKeyFromName(selectedClass)) return false;
+      if (state.filters.term && (record.term || record.feeTerm || record.Fee?.term || record.metadata?.term) !== state.filters.term) return false;
+      if (state.filters.year && String(record.year || record.feeYear || record.Fee?.year || record.metadata?.year || '') !== String(state.filters.year)) return false;
+      return true;
+    });
+    const quarantined = state.quarantinedRecords || [];
+    const paymentErrorBanner = state.paymentLoadError ? `<div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>Payment history is temporarily unavailable.</strong><p>${esc(state.paymentLoadError)} The last successful records remain on screen.</p></div>` : '';
+    const validTable = rows.length ? rows.map(record => `<tr>
+      <td>${esc(recordStudentName(record))}<br><small>${esc(recordElimuId(record))}</small></td>
+      <td>${esc(recordClassName(record))}</td>
+      <td>${esc(record.Fee?.term || record.term || record.metadata?.term || '—')} ${esc(record.Fee?.year || record.year || record.metadata?.year || '')}</td>
+      <td><strong>${money(record.amount)}</strong></td>
+      <td>${esc(record.mpesaReceiptNumber || record.reference || '—')}</td>
+      <td><span class="finance-v31-badge ${esc(String(record.status || 'pending').toLowerCase())}">${esc(record.status || 'pending')}</span></td>
+      <td>${esc((record.completedAt || record.verifiedAt || record.createdAt || '').slice(0,10) || '—')}</td>
+      <td><button class="finance-v31-btn" onclick="financeV31ViewRecord(${jsArg(record.id)})">View</button></td>
+    </tr>`).join('') : '<tr><td colspan="8"><div class="finance-v31-empty">No valid payment records match these filters.</div></td></tr>';
+    const quarantineTable = quarantined.length ? `<details class="rounded-xl border border-amber-300 bg-amber-50/70 p-4">
+      <summary class="cursor-pointer font-semibold text-amber-900">Quarantined legacy records (${quarantined.length})</summary>
+      <p class="mt-2 text-sm text-amber-900">These records are read-only, excluded from balances, and cannot be approved until their student, fee, amount, and school links are corrected.</p>
+      <div class="finance-v31-table-wrap mt-3"><table class="finance-v31-table"><thead><tr><th>Record</th><th>Student</th><th>Amount</th><th>Status</th><th>Quarantine reason</th></tr></thead><tbody>${quarantined.map(record=>`<tr><td>#${esc(record.id || '—')}</td><td>${esc(recordStudentName(record))}<br><small>${esc(recordElimuId(record))}</small></td><td>${money(record.amount)}</td><td>${esc(record.status || 'unknown')}</td><td>${esc(record.integrityReason || record.metadata?.integrityReason || 'Invalid legacy payment relationship')}</td></tr>`).join('')}</tbody></table></div>
+    </details>` : '';
+    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div>${paymentErrorBanner}
+      <div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payments & Receipts</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Verified ledger records only. Invalid legacy rows are isolated below and never change balances.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh Records</button><button class="finance-v31-btn blue" onclick="financeV31OpenManualModal()">Record Payment</button><button class="finance-v31-btn" onclick="financeV31ExportRecords()">Export CSV</button></div></div>
+      <div class="finance-v31-class-tabs"><button class="finance-v31-class-tab ${!selectedClass?'active':''}" onclick="financeV31SetRecordClass('')">All Classes</button>${visibleClasses().map(name=>`<button class="finance-v31-class-tab ${classKeyFromName(selectedClass)===classKeyFromName(name)?'active':''}" onclick="financeV31SetRecordClass(${jsArg(name)})">${esc(name)}</button>`).join('')}</div>
+      <div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Term</th><th>Amount</th><th>Reference</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>${validTable}</tbody></table></div>
+      ${quarantineTable}
+    </div>`;
+  }
 
   function renderVerification(){
     const rows = state.manualQueue || [];
-    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Verification Queue</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Approve manual M-Pesa payments after checking the school statement/SMS.</p></div><button class="finance-v31-btn" onclick="financeV31RefreshQueue()">Refresh</button></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Date</th><th>Actions</th></tr></thead><tbody>${rows.length?rows.map(p=>`<tr><td>${esc(p.Student?.User?.name || p.studentId || 'Student')}</td><td>${esc(p.metadata?.studentElimuid || p.accountReference || '—')}</td><td>${money(p.amount)}</td><td><strong>${esc(p.reference || '—')}</strong></td><td>${esc(p.Parent?.User?.name || p.Parent?.User?.phone || 'Parent')}</td><td>${esc((p.createdAt||'').slice(0,10))}</td><td><button class="finance-v31-btn blue" onclick="financeV31ApproveManual(${jsArg(p.id)})">Approve</button><button class="finance-v31-btn danger" onclick="financeV31RejectManual(${jsArg(p.id)})">Reject</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="finance-v31-empty">No pending manual payments.</div></td></tr>'}</tbody></table></div></div>`;
+    const quarantined = state.manualQuarantine || [];
+    return `<div class="finance-v31-body finance-v31-settings-stack"><div id="finance-v31-message" class="finance-v31-message"></div><div class="finance-v31-toolbar"><div><h2 style="margin:0;font-size:22px;font-weight:900">Payment Verification Queue</h2><p style="margin:4px 0 0;color:var(--ff-muted)">Only valid pending payments can be approved or rejected. Invalid legacy rows are isolated read-only.</p></div><button class="finance-v31-btn" onclick="financeV31RefreshQueue()">Refresh</button></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Amount</th><th>M-Pesa Code</th><th>Parent</th><th>Date</th><th>Actions</th></tr></thead><tbody>${rows.length?rows.map(p=>`<tr><td>${esc(p.Student?.User?.name || p.studentId || 'Student')}</td><td>${esc(p.metadata?.studentElimuid || p.accountReference || '—')}</td><td>${money(p.amount)}</td><td><strong>${esc(p.reference || '—')}</strong></td><td>${esc(p.Parent?.User?.name || p.Parent?.User?.phone || 'Parent')}</td><td>${esc((p.createdAt||'').slice(0,10))}</td><td><button class="finance-v31-btn blue" onclick="financeV31ApproveManual(${jsArg(p.id)})">Approve</button><button class="finance-v31-btn danger" onclick="financeV31RejectManual(${jsArg(p.id)})">Reject</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="finance-v31-empty">No valid pending manual payments.</div></td></tr>'}</tbody></table></div>${quarantined.length?`<div class="rounded-xl border border-amber-300 bg-amber-50/70 p-4"><h3 class="font-semibold text-amber-900">Quarantined — action disabled (${quarantined.length})</h3><p class="text-sm text-amber-900">Correct the payment relationship before it can enter the verification queue.</p><div class="finance-v31-table-wrap mt-3"><table class="finance-v31-table"><thead><tr><th>Record</th><th>Student</th><th>Amount</th><th>Reference</th><th>Reason</th></tr></thead><tbody>${quarantined.map(p=>`<tr><td>#${esc(p.id || '—')}</td><td>${esc(p.Student?.User?.name || p.studentId || 'Unknown')}</td><td>${money(p.amount)}</td><td>${esc(p.reference || '—')}</td><td>${esc(p.integrityReason || p.metadata?.integrityReason || 'Invalid payment relationship')}</td></tr>`).join('')}</tbody></table></div></div>`:''}</div>`;
   }
 
   function renderFinanceOverview(){const t=totals(),defs=state.overview?.defaulters||[];if(isSchoolAdminView())return`<div class="space-y-4"><div class="rounded-xl border bg-card p-5"><div class="flex items-center justify-between"><div><h3 class="font-semibold text-lg">School Finance Overview</h3><p class="text-sm text-muted-foreground">Daily operations are handled by the Finance Team.</p></div><button onclick="financeV31SetTab('team')" class="finance-v31-btn">Manage Finance Team</button></div><div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><div class="rounded-lg border p-4"><span>Expected</span><strong class="block text-xl">${money(t.expected)}</strong></div><div class="rounded-lg border p-4"><span>Paid</span><strong class="block text-xl">${money(t.paid)}</strong></div><div class="rounded-lg border p-4"><span>Remaining</span><strong class="block text-xl">${money(t.outstanding)}</strong></div><div class="rounded-lg border p-4"><span>Pending verification</span><strong class="block text-xl">${t.pendingVerification||state.manualQueue.length}</strong></div></div></div><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Defaulters</h3><p class="text-sm text-muted-foreground">${defs.length} learner(s) with an outstanding balance.</p></div><div class="overflow-x-auto"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Elimu ID</th><th>Class</th><th>Outstanding</th></tr></thead><tbody>${defs.length?defs.slice(0,100).map(x=>`<tr><td>${esc(x.studentName)}</td><td>${esc(x.elimuid||'—')}</td><td>${esc(x.className||'Unassigned')}</td><td><strong>${money(x.balance)}</strong></td></tr>`).join(''):'<tr><td colspan="4"><div class="finance-v31-empty">No defaulters found.</div></td></tr>'}</tbody></table></div></div></div>`;return`<div class="space-y-4"><div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><button onclick="financeV31SetTab('verification')" class="rounded-xl border bg-card p-4 text-left"><span>Verification queue</span><strong class="block text-xl">${t.pendingVerification||state.manualQueue.length}</strong></button><button onclick="financeV31SetTab('balances')" class="rounded-xl border bg-card p-4 text-left"><span>Defaulters</span><strong class="block text-xl">${t.defaulterCount||defs.length}</strong></button><button onclick="financeV31SetTab('expenses')" class="rounded-xl border bg-card p-4 text-left"><span>Expenses</span><strong class="block text-xl">${money(t.totalExpenses||0)}</strong></button><button onclick="financeV31SetTab('finance-alerts')" class="rounded-xl border bg-card p-4 text-left"><span>Unread finance alerts</span><strong class="block text-xl">${state.financeAlerts.filter(a=>!a.isRead).length}</strong></button></div></div>`;}
   function renderDefaulters(){ const rows=classStudentBalanceRows('').filter(a=>Number(a.balance ?? Math.max(0,Number(a.totalAmount||0)-Number(a.paidAmount||0)))>0).sort((a,b)=>Number(b.balance||0)-Number(a.balance||0)); return `<div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Outstanding Balances</h3><p class="text-sm text-muted-foreground">Students with active unpaid balances. Select a student to view their history.</p></div><div class="overflow-x-auto"><table class="finance-v31-table"><thead><tr><th>Student</th><th>Class</th><th>Expected</th><th>Paid</th><th>Balance</th><th></th></tr></thead><tbody>${rows.length?rows.map(a=>`<tr><td>${esc(accountStudentName(a)||a.studentName)}</td><td>${esc(accountClassName(a)||a.className)}</td><td>${money(a.totalAmount||0)}</td><td>${money(a.paidAmount||a.parentPaidAmount||0)}</td><td><strong>${money(a.balance||0)}</strong></td><td><button class="finance-v31-btn" onclick="financeV31ViewStudentHistory('${a.studentId}')">History</button></td></tr>`).join(''):'<tr><td colspan="6"><div class="finance-v31-empty">No outstanding balances.</div></td></tr>'}</tbody></table></div></div>`; }
   function renderFinanceTeam(){if(!canManageFinanceStaff())return'<div class="rounded-xl border bg-card p-5">Only the school administrator can manage Finance Team accounts.</div>';const rows=state.financeStaff||[];return`<div class="grid gap-5 xl:grid-cols-[1fr_390px]"><div class="rounded-2xl border bg-card overflow-hidden"><div class="p-5 border-b"><h3 class="font-semibold">Finance Team</h3><p class="text-sm text-muted-foreground">Finance Officers, Bursars and Accountants use the dedicated Finance Workspace.</p></div><div class="divide-y">${rows.length?rows.map(u=>`<div class="p-4 flex items-center justify-between gap-3"><div><strong>${esc(u.name)}</strong><p class="text-sm text-muted-foreground">${esc(u.title||'Finance Officer')} • ${esc(u.email)}</p><p class="text-xs ${u.isActive?'text-green-600':'text-red-600'}">${u.isActive?'Active':'Suspended'}${u.isAdditionalRole?' • Additional role':''}</p></div><div class="flex gap-2"><button onclick="financeV31ToggleStaff(${u.id},${u.isActive?'false':'true'})" class="finance-v31-btn">${u.isActive?'Suspend':'Reactivate'}</button><button onclick="financeV148RemoveStaff(${u.id})" class="finance-v31-btn danger">Remove</button></div></div>`).join(''):'<div class="p-8 text-center text-muted-foreground">No Finance Team member assigned.</div>'}</div></div><form onsubmit="financeV31CreateStaff(event)" class="rounded-2xl border bg-card p-5 space-y-3"><h3 class="font-semibold">Add or Assign Finance Staff</h3><p class="text-sm text-muted-foreground">An existing same-school email can be assigned without creating a duplicate account.</p><div id="finance-staff-inline-message" class="hidden"></div><label class="block text-sm">Role title<select id="finance-staff-title" onchange="financeV148ApplyRolePreset()" class="mt-1 w-full rounded-lg border bg-background p-2"><option>Finance Officer</option><option>Bursar</option><option>Accountant</option></select></label><label class="block text-sm">Full name<input id="finance-staff-name" class="mt-1 w-full rounded-lg border bg-background p-2"></label><label class="block text-sm">Email<input id="finance-staff-email" type="email" required class="mt-1 w-full rounded-lg border bg-background p-2"></label><label class="block text-sm">Phone<input id="finance-staff-phone" class="mt-1 w-full rounded-lg border bg-background p-2"></label><label class="block text-sm">Temporary password<input id="finance-staff-password" type="password" minlength="8" class="mt-1 w-full rounded-lg border bg-background p-2"><span class="text-xs text-muted-foreground">Only required for a new account.</span></label><details class="rounded-lg border p-3"><summary class="cursor-pointer text-sm font-medium">Permissions</summary><div class="mt-3 grid grid-cols-2 gap-2">${Object.entries(FINANCE_PERMS).map(([k,l])=>`<label class="flex items-center gap-2 text-xs"><input type="checkbox" class="finance-new-permission" value="${k}" checked> ${l}</label>`).join('')}</div></details><button class="finance-v31-btn primary w-full">Add to Finance Team</button></form></div>`;}
 
-  function renderBalances(){return renderRecords();}
   function renderExpenses(){const rows=state.expenses||[];return`<div class="space-y-4"><div class="finance-v31-toolbar"><div><h2>School Expenses</h2><p>Record and audit expenses for this school only.</p></div><button onclick="financeV148OpenExpenseModal()" class="finance-v31-btn primary">+ Record Expense</button></div><div class="rounded-xl border bg-card overflow-hidden"><table class="finance-v31-table"><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Payee</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>${rows.length?rows.map(x=>`<tr><td>${esc(x.expenseDate)}</td><td>${esc(x.category)}</td><td>${esc(x.description)}</td><td>${esc(x.payee||'—')}</td><td><strong>${money(x.amount)}</strong></td><td>${esc(x.status)}</td><td><button onclick="financeV148VoidExpense(${x.id})" class="finance-v31-btn danger">Void</button></td></tr>`).join(''):'<tr><td colspan="7"><div class="finance-v31-empty">No expenses recorded.</div></td></tr>'}</tbody></table></div></div>`;}
   function renderFinanceAlerts(){const rows=state.financeAlerts||[];return`<div class="rounded-xl border bg-card overflow-hidden"><div class="p-5 border-b"><h3 class="font-semibold">Finance Alerts and Fee Confirmations</h3></div><div class="divide-y">${rows.length?rows.map(a=>`<div class="p-4 ${a.isRead?'':'bg-primary/5'}"><strong>${esc(a.title||'Finance alert')}</strong><p class="text-sm">${esc(a.message||'')}</p><p class="text-xs text-muted-foreground">${esc(a.sourceLabel||'School Finance')} • ${esc(new Date(a.createdAt).toLocaleString())}</p></div>`).join(''):'<div class="p-8 text-center text-muted-foreground">No finance alerts yet.</div>'}</div></div>`;}
   function renderReports(){const t=totals();return`<div class="space-y-4"><div class="rounded-xl border bg-card p-5"><h3 class="font-semibold">Finance Reports</h3><p class="text-sm text-muted-foreground">Download a clean school-scoped CSV summary or print this page.</p><div class="mt-4 flex gap-2"><button onclick="financeV148DownloadReportCsv()" class="finance-v31-btn primary">Download CSV Summary</button><button onclick="window.print()" class="finance-v31-btn">Print</button></div></div><div class="grid gap-3 md:grid-cols-4"><div class="rounded-xl border p-4">Expected<strong class="block">${money(t.expected)}</strong></div><div class="rounded-xl border p-4">Paid<strong class="block">${money(t.paid)}</strong></div><div class="rounded-xl border p-4">Expenses<strong class="block">${money(t.totalExpenses||0)}</strong></div><div class="rounded-xl border p-4">Net<strong class="block">${money(t.netCollected??(t.paid-(t.totalExpenses||0)))}</strong></div></div></div>`;}
@@ -450,7 +515,7 @@
   function renderFinanceAnalytics(){const a=state.financeAnalytics||{},s=a.summary||totals(),classes=a.classCollection||[],methods=a.paymentMethodSplit||{},expenses=a.expenseBreakdown||{};return`<div class="space-y-4"><div class="finance-v31-toolbar"><div><h2>Finance Analytics</h2><p>Collection rate, outstanding balances, expenses, net position and payment-method split.</p></div><button onclick="financeV31Refresh()" class="finance-v31-btn">Refresh</button></div><div class="grid gap-3 md:grid-cols-4"><div class="rounded-xl border p-4">Collection Rate<strong class="block text-xl">${Number(s.collectionRate||0)}%</strong></div><div class="rounded-xl border p-4">Outstanding<strong class="block text-xl">${money(s.outstanding)}</strong></div><div class="rounded-xl border p-4">Expenses<strong class="block text-xl">${money(s.totalExpenses||0)}</strong></div><div class="rounded-xl border p-4">Net Position<strong class="block text-xl">${money(s.netPosition??s.netCollected??0)}</strong></div></div><div class="finance-v31-table-wrap"><h3 class="font-semibold mb-2">Class Collection</h3><table class="finance-v31-table"><thead><tr><th>Class</th><th>Expected</th><th>Paid</th><th>Credits</th><th>Outstanding</th><th>Accounts</th></tr></thead><tbody>${classes.length?classes.map(c=>`<tr><td>${esc(c.className)}</td><td>${money(c.expected)}</td><td>${money(c.paid)}</td><td>${money(c.credits)}</td><td>${money(c.outstanding)}</td><td>${Number(c.count||0)}</td></tr>`).join(''):'<tr><td colspan="6"><div class="finance-v31-empty">No class collection data yet.</div></td></tr>'}</tbody></table></div><div class="grid gap-4 md:grid-cols-2"><div class="rounded-xl border p-4"><h3 class="font-semibold">Payment Methods</h3>${Object.entries(methods).map(([k,v])=>`<p class="flex justify-between"><span>${esc(k)}</span><strong>${money(v)}</strong></p>`).join('')||'<p class="text-muted-foreground text-sm">No verified payments yet.</p>'}</div><div class="rounded-xl border p-4"><h3 class="font-semibold">Expense Breakdown</h3>${Object.entries(expenses).map(([k,v])=>`<p class="flex justify-between"><span>${esc(k)}</span><strong>${money(v)}</strong></p>`).join('')||'<p class="text-muted-foreground text-sm">No expenses yet.</p>'}</div></div></div>`;}
   function renderAuditTrail(){const rows=state.auditTrail||[];return`<div class="space-y-4"><div class="finance-v31-toolbar"><div><h2>Finance Audit Trail</h2><p>Every finance action is logged with actor, action, entity and timestamp.</p></div></div><div class="finance-v31-table-wrap"><table class="finance-v31-table"><thead><tr><th>Date</th><th>Actor</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td>${esc(String(r.createdAt||'').slice(0,19).replace('T',' '))}</td><td>${esc(r.actorRole||'')} #${esc(r.actorUserId||'')}</td><td>${esc(r.action||'')}</td><td>${esc(r.entityType||'')} ${esc(r.entityId||'')}</td><td>${esc(JSON.stringify(r.metadata||r.after||{}).slice(0,180))}</td></tr>`).join(''):'<tr><td colspan="5"><div class="finance-v31-empty">No finance audit entries yet.</div></td></tr>'}</tbody></table></div></div>`;}
 
-  function body(){if(state.tab==='overview')return renderFinanceOverview();if(state.tab==='team')return renderFinanceTeam();if(state.tab==='settings')return renderSettings();if(state.tab==='invoices')return renderInvoices();if(state.tab==='records'||state.tab==='balances')return renderRecords();if(state.tab==='defaulters')return renderDefaulters();if(state.tab==='verification')return renderVerification();if(state.tab==='expenses')return renderExpenses();if(state.tab==='finance-alerts')return renderFinanceAlerts();if(state.tab==='finance-analytics')return renderFinanceAnalytics();if(state.tab==='audit')return renderAuditTrail();if(state.tab==='reports')return renderReports();return renderStructures();}
+  function body(){if(state.tab==='overview')return renderFinanceOverview();if(state.tab==='team')return renderFinanceTeam();if(state.tab==='settings')return renderSettings();if(state.tab==='invoices')return renderInvoices();if(state.tab==='records')return renderRecords();if(state.tab==='balances')return renderBalances();if(state.tab==='defaulters')return renderDefaulters();if(state.tab==='verification')return renderVerification();if(state.tab==='expenses')return renderExpenses();if(state.tab==='finance-alerts')return renderFinanceAlerts();if(state.tab==='finance-analytics')return renderFinanceAnalytics();if(state.tab==='audit')return renderAuditTrail();if(state.tab==='reports')return renderReports();return renderStructures();}
   async function render(){if(blockNonAdminFinance())return'<div class="rounded-xl border bg-card p-6 text-red-600">Finance access is not assigned to this account.</div>';if(isSchoolAdminView()&&!['overview','team'].includes(state.tab))state.tab='overview';await loadAll();const admin=isSchoolAdminView();return`<section class="finance-v31 space-y-5"><div class="flex flex-col gap-3 rounded-2xl border bg-card p-6 md:flex-row md:items-center md:justify-between"><div><p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">School Finance</p><h1 class="mt-1 text-2xl font-bold">${admin?'Finance Overview':esc(financeStaffTitle()+' Workspace')}</h1><p class="mt-1 text-sm text-muted-foreground">${admin?'School totals, defaulters and Finance Team management.':'Role-specific finance tools for '+esc(financeStaffTitle())+'.'}</p></div><div class="flex gap-2"><button class="finance-v31-btn" onclick="financeV31Refresh()">Refresh</button>${admin||!financeAllowed('fee_structures')?'':`<button class="finance-v31-btn primary" onclick="financeV31OpenStructureModal()">+ Create Fee Structure</button>`}</div></div><div id="finance-v31-summary-wrap">${renderSummary()}</div><div class="finance-v31-shell">${renderTabs()}<div id="finance-v31-tab-body">${body()}</div></div></section>`;}
 
   w.financeV31Refresh = async function(){
@@ -498,7 +563,7 @@
     if(!s) return;
     const assigned = Array.isArray(s.assignedClasses) ? s.assignedClasses : [];
     const classNames = assigned.length ? assigned.map(c=>c.name||c.grade||c.id).filter(Boolean) : getStructureClassName(s).split(',').map(x=>x.trim()).filter(Boolean);
-    document.body.insertAdjacentHTML('beforeend', `<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner wide"><div class="finance-v31-modal-head"><div><strong>${esc(s.name || 'Fee Structure')}</strong><p style="margin:4px 0 0;color:var(--ff-muted)">${esc(s.term || '')} ${esc(String(s.year || ''))} • ${esc(s.curriculum || 'CBC')}</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body spacious"><div class="finance-v31-summary compact"><div class="finance-v31-metric"><strong>Total</strong><h3>${money(s.totalAmount||0)}</h3></div><div class="finance-v31-metric"><strong>Status</strong><h3>${esc(s.status||'draft')}</h3></div><div class="finance-v31-metric"><strong>Classes</strong><h3>${classNames.length||1}</h3></div><div class="finance-v31-metric"><strong>Students</strong><h3>${Number(s.studentsAssigned||0).toLocaleString()}</h3></div></div><div class="finance-v31-card"><h3>Classes in this fee structure</h3><div class="finance-v31-class-list large">${classNames.length?classNames.map(c=>`<span class="finance-v31-chip">${esc(c)}</span>`).join(''):'<div class="finance-v31-empty">No classes attached yet.</div>'}</div></div><div class="finance-v31-card"><h3>Fee items</h3><div class="finance-v31-items">${structureItems(s)}</div></div><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button class="finance-v31-btn" onclick="this.closest('.finance-v31-modal').remove();financeV31OpenStructureModal('${esc(id)}')">Edit / Add / Remove Classes</button><button class="finance-v31-btn danger" onclick="this.closest('.finance-v31-modal').remove();financeV31DeleteStructure('${esc(id)}')">Delete / Archive</button></div></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend', `<div class="finance-v31 finance-v31-modal"><div class="finance-v31-modal-inner wide"><div class="finance-v31-modal-head"><div><strong>${esc(s.name || 'Fee Structure')}</strong><p style="margin:4px 0 0;color:var(--ff-muted)">${esc(s.term || '')} ${esc(String(s.year || ''))} • ${esc(s.curriculum || 'CBC')}</p></div><button class="finance-v31-close" onclick="this.closest('.finance-v31-modal').remove()">×</button></div><div class="finance-v31-modal-body spacious"><div class="finance-v31-summary compact"><div class="finance-v31-metric"><strong>Total</strong><h3>${money(s.totalAmount||0)}</h3></div><div class="finance-v31-metric"><strong>Status</strong><h3>${esc(s.status||'draft')}</h3></div><div class="finance-v31-metric"><strong>Classes</strong><h3>${classNames.length||1}</h3></div><div class="finance-v31-metric"><strong>Students</strong><h3>${structureStudentCount(s).toLocaleString()}</h3></div></div><div class="finance-v31-card"><h3>Classes in this fee structure</h3><div class="finance-v31-class-list large">${classNames.length?classNames.map(c=>`<span class="finance-v31-chip">${esc(c)}</span>`).join(''):'<div class="finance-v31-empty">No classes attached yet.</div>'}</div></div><div class="finance-v31-card"><h3>Fee items</h3><div class="finance-v31-items">${structureItems(s)}</div></div><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button class="finance-v31-btn" onclick="this.closest('.finance-v31-modal').remove();financeV31OpenStructureModal('${esc(id)}')">Edit / Add / Remove Classes</button><button class="finance-v31-btn danger" onclick="this.closest('.finance-v31-modal').remove();financeV31DeleteStructure('${esc(id)}')">Delete / Archive</button></div></div></div></div>`);
   };
 
   w.financeV31DeleteStructure = async function(id){
@@ -622,7 +687,7 @@
     const seen=new Set();
     const fromStudents=(state.students||[]).map(s=>({id:s.id||s.studentId, name:s.name||s.User?.name||s.studentName||s.fullName||'Student', className:s.className||s.Class?.name||s.grade||s.class||'Unassigned'}));
     const fromAccounts=allAccountRows().map(a=>({id:a.studentId, name:a.studentName||accountStudentName(a)||recordStudentName(a), className:a.className||accountClassName(a)||recordClassName(a)}));
-    return [...fromStudents, ...fromAccounts].filter(a=>!className || String(a.className)===String(className)).filter(a=>a.id && !seen.has(String(a.id)) && seen.add(String(a.id))).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    return [...fromStudents, ...fromAccounts].filter(a=>!className || classKeyFromName(a.className)===classKeyFromName(className)).filter(a=>a.id && !seen.has(String(a.id)) && seen.add(String(a.id))).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   }
   function classOptions(selected=''){
     return `<option value="">Select class</option>${visibleClasses().map(c=>`<option value="${esc(c)}" ${String(selected)===String(c)?'selected':''}>${esc(c)}</option>`).join('')}`;

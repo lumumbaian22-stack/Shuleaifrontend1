@@ -42,7 +42,7 @@
     const verified = row.dateOfBirthVerified ? '<span class="rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs">Verified DOB</span>' : '<span class="rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs">DOB not verified</span>';
     const enabled = row.enabled !== false;
     return `<tr data-birthday-student-id="${row.studentId}">
-      <td class="p-3"><div class="flex items-center gap-3">${typeof avatarHTML === 'function' ? avatarHTML(row.studentName,row.profileImage,'h-10 w-10') : ''}<div><p class="font-semibold">${esc(row.studentName)}</p><p class="text-xs text-muted-foreground">${esc(row.className || 'Unassigned')}${row.stream ? ` · ${esc(row.stream)}` : ''}</p></div></div></td>
+      <td class="p-3"><div class="flex items-center gap-3">${typeof avatarHTML === 'function' ? avatarHTML(row.studentName,row.profileImage,'h-10 w-10') : ''}<div><p class="font-semibold">${esc(row.studentName)}</p><p class="text-xs font-mono text-muted-foreground">${esc(row.elimuid || 'No ELIMUID')}</p><p class="text-xs text-muted-foreground">${esc(row.className || 'Unassigned')}${row.stream ? ` · ${esc(row.stream)}` : ''}</p></div></div></td>
       <td class="p-3"><p class="font-medium">${esc(fmtDate(row.birthdayDate))}</p><p class="text-xs text-muted-foreground">Turns ${Number(row.ageTurning || 0)}</p></td>
       <td class="p-3"><span class="rounded-full px-2 py-1 text-xs ${row.daysUntil === 0 ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}">${esc(due)}</span></td>
       <td class="p-3">${verified}</td>

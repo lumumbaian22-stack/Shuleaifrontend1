@@ -7,7 +7,7 @@
   let notificationsLoadPromise = null;
   let notificationsLoadSequence = 0;
   const expandedDateGroups = new Set();
-  const FILTERS = ['all', 'unread', 'financial', 'academic', 'wellness', 'subscription', 'announcement', 'system', 'ai insight'];
+  const FILTERS = ['all', 'unread', 'financial', 'academic', 'wellness', 'subscription', 'messages', 'announcement', 'system', 'ai insight'];
 
   const esc = (value) => String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -66,7 +66,8 @@
     if (/wellness|mood|emotion|emotional/.test(raw)) return 'Emotional / Wellness';
     if (/physical|safety|attendance|absent|late/.test(raw)) return 'Physical / Safety';
     if (/subscription|renew|expiry|expired/.test(raw)) return 'Subscription';
-    if (/announce|message|notice/.test(raw)) return 'Announcement';
+    if (/direct.?message|message|chat|reply/.test(raw)) return 'Messages';
+    if (/announce|notice/.test(raw)) return 'Announcement';
     if (/ai|insight|recommend/.test(raw)) return 'Shule AI Insight';
     if (/system|health|error/.test(raw)) return 'System';
     return alert.categoryLabel || alert.type || 'System';
@@ -115,6 +116,7 @@
     if (source.includes('teacher')) return 'Teacher update';
     if (source.includes('finance')) return 'Finance update';
     if (source.includes('wellness')) return 'Wellness update';
+    if (source.includes('message') || category === 'Messages') return 'Direct message';
     return 'System reminder';
   }
 
@@ -125,6 +127,7 @@
     if (c.includes('academic')) return 'View Progress';
     if (c.includes('wellness')) return 'View Wellness';
     if (c.includes('announcement')) return 'View Announcement';
+    if (c.includes('message')) return 'Open Messages';
     return '';
   }
 

@@ -88,6 +88,7 @@ async function renderTeacherSection(section){
             default: return await renderTeacherDashboard();
     }
   } catch (error) {
+    if (error?.name === 'AbortError') throw error;
     console.error('Error rendering teacher section:', error);
     return `<div class="text-center py-12 text-red-500">Error loading section: ${error.message}</div>`;
   }
@@ -1517,19 +1518,20 @@ async function renderTeacherParentChat() {
     conversations = res.data || [];
   } catch(e) { console.error(e); }
   return `
-    <div class="max-w-4xl mx-auto space-y-6"><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Parent Messages</h3></div><div class="divide-y" id="parent-conversations-list">${conversations.map(conv => `<div class="p-4 hover:bg-accent cursor-pointer" onclick="openParentConversation('${conv.userId}')"><div class="flex justify-between"><div><p class="font-medium">${escapeHtml(conv.userName)}</p><p class="text-xs text-muted-foreground">${conv.studentName ? `about ${conv.studentName}` : ''}</p><p class="text-sm mt-1">${conv.lastMessage?.substring(0,50)}</p></div><div class="text-right"><p class="text-xs">${timeAgo(conv.lastMessageTime)}</p>${conv.unreadCount ? `<span class="bg-red-500 dark:bg-red-900/50 text-white dark:text-red-300 text-xs rounded-full px-2 py-1">${conv.unreadCount}</span>` : ''}</div></div></div>`).join('')}</div></div></div>
+    <div class="max-w-4xl mx-auto space-y-6"><div class="rounded-xl border bg-card overflow-hidden"><div class="p-4 border-b"><h3 class="font-semibold">Parent Messages</h3></div><div class="divide-y" id="parent-conversations-list">${conversations.map(conv => `<div class="p-4 hover:bg-accent cursor-pointer" onclick="openParentConversation('${conv.userId}', '${conv.studentId || ''}')"><div class="flex justify-between"><div><p class="font-medium">${escapeHtml(conv.userName)}</p><p class="text-xs text-muted-foreground">${conv.studentName ? `about ${conv.studentName}` : ''}</p><p class="text-sm mt-1">${conv.lastMessage?.substring(0,50)}</p></div><div class="text-right"><p class="text-xs">${timeAgo(conv.lastMessageTime)}</p>${conv.unreadCount ? `<span class="bg-red-500 dark:bg-red-900/50 text-white dark:text-red-300 text-xs rounded-full px-2 py-1">${conv.unreadCount}</span>` : ''}</div></div></div>`).join('')}</div></div></div>
   `;
 }
-async function openParentConversation(parentId) {
+async function openParentConversation(parentId, studentId = '') {
   let messages = [];
   try {
-    const res = await api.teacher.getParentMessages(parentId);
+    const res = await api.teacher.getParentMessages(parentId, { studentId });
     messages = res.data || [];
   } catch(e) { console.error(e); }
   let modal = document.getElementById('parent-chat-modal');
   if (!modal) { createParentChatModal(); modal = document.getElementById('parent-chat-modal'); }
   const modalContent = modal.querySelector('.modal-content');
-  modalContent.innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeParentChatModal()" class="p-1"><i data-lucide="x"></i></button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="parent-chat-msgs">${messages.map(m => `<div class="flex ${m.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}"><div class="${m.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${escapeHtml(m.content)}</p><p class="text-xs mt-1">${timeAgo(m.createdAt)}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2 bg-background"><button onclick="sendParentReply('${parentId}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
+  const latestMessageId = messages.length ? messages[messages.length - 1].id : '';
+  modalContent.innerHTML = `<div class="space-y-4"><div class="border-b pb-2 flex justify-between"><h4 class="font-semibold">Chat with Parent</h4><button onclick="closeParentChatModal()" class="p-1"><i data-lucide="x"></i></button></div><div class="space-y-4 max-h-96 overflow-y-auto" id="parent-chat-msgs">${messages.map(m => `<div class="flex ${m.senderId === getCurrentUser().id ? 'justify-end' : 'justify-start'}"><div class="${m.senderId === getCurrentUser().id ? 'chat-bubble-sent' : 'chat-bubble-received'} max-w-[70%]"><p class="text-sm">${escapeHtml(m.content)}</p><p class="text-xs mt-1">${timeAgo(m.createdAt)}</p></div></div>`).join('')}</div><div class="flex gap-2 pt-2"><input type="text" id="parent-reply-input" placeholder="Type reply..." class="flex-1 rounded-lg border p-2 bg-background"><button onclick="sendParentReply('${parentId}', '${studentId}', '${latestMessageId}')" class="px-4 py-2 bg-primary text-white rounded-lg">Send</button></div></div>`;
   modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
@@ -1538,13 +1540,13 @@ function createParentChatModal() {
   document.body.insertAdjacentHTML('beforeend', html);
 }
 function closeParentChatModal() { const m = document.getElementById('parent-chat-modal'); if(m) m.classList.add('hidden'); }
-async function sendParentReply(parentId) {
+async function sendParentReply(parentId, studentId = '', originalMessageId = '') {
   const message = document.getElementById('parent-reply-input')?.value;
   if (!message) return;
   try {
-    await api.teacher.replyToParent({ parentId, message });
+    await api.teacher.replyToParent({ parentId, studentId: studentId || null, originalMessageId: originalMessageId || null, message });
     document.getElementById('parent-reply-input').value = '';
-    await openParentConversation(parentId);
+    await openParentConversation(parentId, studentId);
   } catch(e) { showToast(e.message, 'error'); }
 }
 
@@ -1741,7 +1743,8 @@ async function downloadMyData() {
   showLoading();
   try {
     const res = await api.user.exportMyData();
-    downloadStructuredCsv(res.data, `Shule_AI_My_Data_${new Date().toISOString().split('T')[0]}.csv`);
+    const dateKey = window.localDateInputValue ? window.localDateInputValue() : new Intl.DateTimeFormat('en-CA', { timeZone:'Africa/Nairobi' }).format(new Date());
+    downloadStructuredCsv(res.data, `Shule_AI_My_Data_${dateKey}.csv`);
     showToast('Data exported', 'success');
   } catch(e) { showToast(e.message, 'error'); } finally { hideLoading(); }
 }
